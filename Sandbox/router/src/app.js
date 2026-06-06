@@ -22,6 +22,7 @@ app.get("/api/router/ready" , (req , res) =>{
 })
 
 const proxyies = {};
+const agentProxyies = {};
 
     const getProxyies = (sandboxId) => {
         if(!proxyies[sandboxId]){
@@ -33,16 +34,30 @@ const proxyies = {};
         }
         return proxyies[sandboxId];
     };
+    const getAgentProxy = (sandboxId) => {
+        if(!agentProxyies[sandboxId]){
+            agentProxyies[sandboxId] = createProxyMiddleware({
+                target: `http://sandbox-service-${sandboxId}:3000`,
+                changeOrigin: true,
+                ws: true,
+            });
+        }
+        return agentProxyies[sandboxId];
+    };
 
 
 app.use((req, res , next) => {
 
     const host = req.headers.host;
     const sandboxId = host.split('.')[0];
+    const targetHost = host.split('.')[1];
 
-    
-    return getProxyies(sandboxId)(req , res, next);
-
+    if(targetHost == 'agent'){
+        return getAgentProxy(sandboxId)(req, res, next);
+    }
+    else if(targetHost == 'preview'){
+        return getProxyies(sandboxId)(req, res, next);
+    }
 })
 
 
