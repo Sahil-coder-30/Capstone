@@ -15,6 +15,13 @@ app.get("/api/sandbox/health" , (req , res) => {
     })
 })
 
+app.get("/api/sandbox/ready" , (req , res) =>{
+    res.status(200).json({
+        status : "ready",
+        message : "Sandbox API is ready to accept traffic"
+    })
+})
+
 app.post("/api/sandbox/start" , async (req , res) =>{
 
     const sandboxId = uuid();
