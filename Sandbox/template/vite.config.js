@@ -7,6 +7,10 @@ export default defineConfig({
   server: {
     host: '0.0.0.0',
     port: 5173,
-    allowedHosts: true
+    allowedHosts: true,
+    hmr: {
+      clientPort: 80,     // port the proxy/router is listening on
+      protocol: 'ws',     // use 'wss' if your proxy is behind HTTPS
+    },
   }
 })

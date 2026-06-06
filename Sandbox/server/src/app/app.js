@@ -34,7 +34,8 @@ app.post("/api/sandbox/start" , async (req , res) =>{
     res.status(201).json({
         status : "success",
         message : `Sandbox with ID ${sandboxId} created successfully`,
-        previewUrl : `http://${sandboxId}.preview.localhost`
+        previewUrl : `http://${sandboxId}.preview.localhost`,
+        agentUrl : `http://${sandboxId}.agent.localhost/api/agent/list-files`
     })
 
 })
