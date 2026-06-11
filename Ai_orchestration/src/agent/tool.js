@@ -42,13 +42,12 @@ function logError(toolName, err) {
   return formatted;
 }
 
-const sandboxId = "019eb2e1-6086-7330-abb6-bc738792ef83";
 
 export const listFiles = tool(
-  async (_input) => {
+  async ({}, config) => {
     try {
       const response = await axios.get(
-        `http://sandbox-service-${sandboxId}:3000/api/agent/list-files`,
+        `http://sandbox-service-${config.configurable.projectId}:3000/api/agent/list-files`,{ timeout: 120000 }
       );
       console.log("============================");
       console.log("Using the listFiles tool");
@@ -74,11 +73,11 @@ export const listFiles = tool(
 );
 
 export const readFile = tool(
-  async ({ file }) => {
+  async ({ file },config) => {
     try {
       const response = await axios.get(
-        `http://sandbox-service-${sandboxId}:3000/api/agent/read-file?files=` +
-          file.join(","),
+        `http://sandbox-service-${config.configurable.projectId}:3000/api/agent/read-file?files=` +
+          file.join(","),{ timeout: 120000 }
       );
 
       console.log("============================");
@@ -111,13 +110,13 @@ export const readFile = tool(
 );
 
 export const updateFile = tool(
-  async ({ updates }) => {
+  async ({ updates },config) => {
     try {
       const response = await axios.patch(
-        `http://sandbox-service-${sandboxId}:3000/api/agent/update-file`,
+        `http://sandbox-service-${config.configurable.projectId}:3000/api/agent/update-file`,
         {
           updates,
-        },
+        },{ timeout: 120000 }
       );
       console.log("============================");
       console.log("Using the updateFile tool");
@@ -158,13 +157,13 @@ export const updateFile = tool(
 );
 
 export const createFile = tool(
-  async ({ files }) => {
+  async ({ files } , config) => {
     try {
       const response = await axios.post(
-        `http://sandbox-service-${sandboxId}:3000/api/agent/create-file`,
+        `http://sandbox-service-${config.configurable.projectId}:3000/api/agent/create-file`,
         {
           files,
-        },
+        },{ timeout: 120000 }
       );
       console.log("============================");
       console.log("Using the createFile tool");

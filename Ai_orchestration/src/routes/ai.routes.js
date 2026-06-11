@@ -5,7 +5,7 @@ const aiRouter = Router();
 
 aiRouter.post("/invoke", async (req, res) => {
 
-    const { message } = req.body;
+    const { message , projectId } = req.body;
 
     if (!message) {
         return res.status(400).json({ error: "message is required" });
@@ -22,6 +22,7 @@ aiRouter.post("/invoke", async (req, res) => {
                 ],
             },
             {
+                configurable: { projectId },
                 recursionLimit: 200,
             }
         );
