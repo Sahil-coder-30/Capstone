@@ -1,0 +1,62 @@
+#developement process fast hojaye , hume baar baar image ko bana na pade baar baar deploy na karna pade koi change hone pe files me . This is the main fuction of skaffld that's why we are using it in our project.
+
+apiVersion: skaffold/v4beta2
+kind: Config
+
+build:
+  tagPolicy:
+    sha256: {}
+  artifacts:
+    - image: ai-orchestration
+      context: Ai_orchestration
+      docker:
+        dockerfile: dockerfile
+      sync:
+        infer:
+          - "src/**"
+
+    - image: agent
+      context: Sandbox/Agent
+      docker:
+        dockerfile: dockerfile
+      sync:
+        infer:
+          - "src/**"
+    
+    - image: router
+      context: Sandbox/router
+      docker:
+        dockerfile: dockerfile
+      sync:
+        infer:
+          - "src/**"
+    
+    - image: template
+      context: Sandbox/template
+      docker:
+        dockerfile: dockerfile
+      sync:
+        infer:
+          - "src/**"
+
+    - image: sandbox
+      context: Sandbox/server
+      docker:
+        dockerfile: dockerfile
+      sync:
+        infer:
+          - "src/**"
+    
+manifests:
+  rawYaml:
+    - k8s/ai-deployment.yml
+    - k8s/router-deployment.yml
+    - k8s/sandbox-deployment.yml
+    - k8s/ai-service.yml
+    - k8s/router-service.yml
+    - k8s/sandbox-service.yml
+    - k8s/rabc.yml
+    - k8s/ingress.yml
+        
+  
+  

@@ -42,13 +42,13 @@ function logError(toolName, err) {
   return formatted;
 }
 
-const sandboxId = "019e9eb7-4044-7569-9d3f-8ccc38d07823";
+const sandboxId = "019eb2e1-6086-7330-abb6-bc738792ef83";
 
 export const listFiles = tool(
   async (_input) => {
     try {
       const response = await axios.get(
-        `http://${sandboxId}.agent.localhost/api/agent/list-files`,
+        `http://sandbox-service-${sandboxId}:3000/api/agent/list-files`,
       );
       console.log("============================");
       console.log("Using the listFiles tool");
@@ -77,7 +77,7 @@ export const readFile = tool(
   async ({ file }) => {
     try {
       const response = await axios.get(
-        `http://${sandboxId}.agent.localhost/api/agent/read-file?files=` +
+        `http://sandbox-service-${sandboxId}:3000/api/agent/read-file?files=` +
           file.join(","),
       );
 
@@ -114,7 +114,7 @@ export const updateFile = tool(
   async ({ updates }) => {
     try {
       const response = await axios.patch(
-        `http://${sandboxId}.agent.localhost/api/agent/update-file`,
+        `http://sandbox-service-${sandboxId}:3000/api/agent/update-file`,
         {
           updates,
         },
@@ -161,7 +161,7 @@ export const createFile = tool(
   async ({ files }) => {
     try {
       const response = await axios.post(
-        `http://${sandboxId}.agent.localhost/api/agent/create-file`,
+        `http://sandbox-service-${sandboxId}:3000/api/agent/create-file`,
         {
           files,
         },

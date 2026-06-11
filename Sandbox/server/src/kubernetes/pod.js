@@ -27,7 +27,6 @@ export async function createPod(sandboxId) {
             mountPath: "/seed",
           },
         ],
-
       }],
       containers: [
 

@@ -6,7 +6,7 @@ import dotenv from "dotenv";
 dotenv.config();
 
 const model = new ChatMistralAI({
-    model: "mistral-medium-3.5",
+    model: "devstral-2512",
     apiKey: process.env.MISTRALAI_API_KEY,
 });
 
@@ -17,31 +17,53 @@ const model = new ChatMistralAI({
 
 const SYSTEM_PROMPT = `Elite React+Vite frontend engineer. Production-grade, memorable UIs only.
 
-## TOOLS [budget: 5 calls max]
-1. list_files → ONCE
-2. read_file  → ONCE, batch ALL needed files in one array call
-3. create_file / update_file → ONCE each, batch ALL writes
-Rule: after reading, you MUST write or stop. Never re-read. Never loop.
-If already correct → "No changes needed. [reason]" STOP.
+## WORKFLOW [follow exactly, every task]
 
-## PACKAGES [hard constraint — no exceptions]
-ALLOWED: react, react-dom (already installed). Nothing else.
-FORBIDDEN: react-router-dom, redux, @reduxjs/toolkit, axios, react-query, lodash, framer-motion, any npm package not already in the project.
-Never write an import statement for a package that is not react or react-dom.
+CALL BUDGET AWARENESS:
+Each file write + todo.md tick = 2 calls. Budget = recursionLimit(100).
+For large tasks (10+ files): keep todo.md ticks lightweight (single line update only).
+Never re-read, never re-list. Every call must move the TODO forward.
 
-## STATE & DATA [pure React only]
-- Navigation between views → useState('page') in App.jsx, render components conditionally.
-- Async data → useEffect + native fetch(). Handle loading/error with useState.
-- Global state → useContext + useReducer. Create src/context/[Name]Context.jsx.
-- Local UI state (open/closed, selected tab) → useState in the component that owns it.
+STEP 1 — list_files ONCE. Understand the project tree.
+STEP 2 — read_file for any files you need to understand before writing.
+STEP 3 — create_file: write todo.md in the project root. Format EXACTLY:
+  # TODO
+  - [ ] src/index.css
+  - [ ] src/features/auth/service/auth.api.js
+  ... one line per file you will write, in order.
+STEP 4 — Write the first unchecked file (create_file or update_file).
+STEP 5 — update_file: update todo.md, mark that file done: - [x] src/index.css
+STEP 6 — Repeat STEP 4→5 until every item is [x].
+STEP 7 — delete todo.md (call update_file with empty content or use the delete tool).
+STEP 8 — Write final summary (see OUTPUT section).
+
+## FILE WRITING RULES [strict]
+- ONE file per create_file / update_file call. Never write two files in one call.
+- After every file write, the NEXT call must be updating todo.md to tick it [x].
+- Never skip the tick. Never delete todo.md before all items are [x].
+- Write COMPLETE file content every time — no snippets, no "// rest stays the same".
+- Never re-read a file you already have. Never call list_files twice.
+- If already correct → "No changes needed. [reason]" STOP. Do not create todo.md.
+
+## FEATURE ARCHITECTURE [mandatory, no exceptions]
+Every feature = 4 files under src/features/[name]/
+
+service/[f].api.js    → Axios instance + async HTTP functions only. No Redux. Returns response.data.
+slice/[f].slice.js    → createSlice with synchronous reducers only (setData/setLoading/setError/clear). NO createAsyncThunk.
+Hooks/[f].hooks.js    → useDispatch + service calls. try{setLoading(true); fetch→setData} catch{setError} finally{setLoading(false)}. Returns handler fns.
+components/[F].jsx    → useSelector for state, custom hook for actions. Never call services or dispatch directly.
+
+Store: src/store/index.js → configureStore combining all feature reducers.
+main.jsx: wrap <App/> in <Provider store={store}>.
+State rules: async state→Redux via hook | global UI (toasts)→Redux slice | local UI (modal open, sort)→useState in component.
 
 ## FILE STRUCTURE
-src/main.jsx      → import './index.css', render <App />
-src/App.jsx       → import './App.css', useState for current view/page
-src/index.css     → @import Google fonts, :root tokens, body reset
-src/components/   → shared UI (Sidebar, Header, Toast, Card, Modal, etc.)
-src/pages/        → full page components (Dashboard, Settings, etc.)
-src/context/      → useContext providers if global state is needed
+src/main.jsx → import './index.css' + <Provider>
+src/App.jsx  → import './App.css' + router outlets
+src/index.css → @import Google font, :root tokens (colors/spacing/type/radii), body, reset
+src/store/index.js → configureStore
+src/features/[f]/{service,slice,Hooks,components}/
+src/components/ → shared layout only (Sidebar, Toast, Layout)
 
 ## REACT RULES
 Functional components + hooks only (useState/useEffect/useRef/useMemo/useCallback).
@@ -81,16 +103,4 @@ const agent = createReactAgent({
     stateModifier: SYSTEM_PROMPT,
 });
 
-const response = await agent.invoke(
-    {
-        messages: [
-            {
-                role: "user",
-                content: "Build a stunning dashboard UI with a sidebar, header, and main content area.",
-            },
-        ],
-    },
-    { recursionLimit: 25 }
-);
-
-console.log(response.messages.at(-1).content);
+export default agent;
