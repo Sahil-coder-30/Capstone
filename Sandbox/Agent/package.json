@@ -6,12 +6,13 @@
   "type": "module",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "dev" : "nodemon -L server.js"
+    "dev": "nodemon -L server.js"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@kubernetes/client-node": "^1.4.0",
     "express": "^5.2.1",
     "morgan": "^1.11.0"
   },

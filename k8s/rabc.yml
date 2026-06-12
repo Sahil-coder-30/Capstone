@@ -10,7 +10,7 @@ metadata:
   name: resource-manager
 rules:
 - apiGroups: [""]
-  resources: ["pods", "services" , "deployment"]
+  resources: ["pods","pods/log", "services" , "deployment"]
   verbs: ["get", "list", "watch" ,"create" , "delete"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1

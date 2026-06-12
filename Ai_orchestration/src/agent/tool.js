@@ -42,12 +42,12 @@ function logError(toolName, err) {
   return formatted;
 }
 
-
 export const listFiles = tool(
   async ({}, config) => {
     try {
       const response = await axios.get(
-        `http://sandbox-service-${config.configurable.projectId}:3000/api/agent/list-files`,{ timeout: 120000 }
+        `http://sandbox-service-${config.configurable.projectId}:3000/api/agent/list-files`,
+        { timeout: 120000 },
       );
       console.log("============================");
       console.log("Using the listFiles tool");
@@ -73,11 +73,12 @@ export const listFiles = tool(
 );
 
 export const readFile = tool(
-  async ({ file },config) => {
+  async ({ file }, config) => {
     try {
       const response = await axios.get(
         `http://sandbox-service-${config.configurable.projectId}:3000/api/agent/read-file?files=` +
-          file.join(","),{ timeout: 120000 }
+          file.join(","),
+        { timeout: 120000 },
       );
 
       console.log("============================");
@@ -110,13 +111,14 @@ export const readFile = tool(
 );
 
 export const updateFile = tool(
-  async ({ updates },config) => {
+  async ({ updates }, config) => {
     try {
       const response = await axios.patch(
         `http://sandbox-service-${config.configurable.projectId}:3000/api/agent/update-file`,
         {
           updates,
-        },{ timeout: 120000 }
+        },
+        { timeout: 120000 },
       );
       console.log("============================");
       console.log("Using the updateFile tool");
@@ -157,13 +159,14 @@ export const updateFile = tool(
 );
 
 export const createFile = tool(
-  async ({ files } , config) => {
+  async ({ files }, config) => {
     try {
       const response = await axios.post(
         `http://sandbox-service-${config.configurable.projectId}:3000/api/agent/create-file`,
         {
           files,
-        },{ timeout: 120000 }
+        },
+        { timeout: 120000 },
       );
       console.log("============================");
       console.log("Using the createFile tool");
@@ -206,3 +209,80 @@ export const createFile = tool(
     }),
   },
 );
+
+export const executeCommand = tool(
+  async ({ command, subDir }, config) => {
+    try {
+      const response = await axios.post(
+        `http://sandbox-service-${config.configurable.projectId}:3000/api/agent/exec`,
+        {
+          command,
+          ...(subDir && { subDir }),
+        },
+        { timeout: 120000 },
+      );
+      console.log("============================");
+      console.log("Using the executeCommand tool");
+      console.log(response.data);
+      console.log("============================");
+
+      return JSON.stringify(response.data);
+    } catch (err) {
+      const formatted = logError("executeCommand", err);
+      return JSON.stringify({
+        error: true,
+        message: "Failed to execute command",
+        details: formatted,
+      });
+    }
+  },
+  {
+    name: "execute_command",
+    description:
+      "Execute shell commands within the workspace directory with safety restrictions. Commands run in /workspace by default. Optional subDir restricts execution to a subdirectory. Commands timeout after 30 seconds. Output is limited to 1MB per stream. Use for: npm install, build commands, tests, file operations, or any shell command needed for the project.",
+    schema: z.object({
+      command: z
+        .string()
+        .min(1)
+        .describe(
+          'Non-empty shell command to execute. Examples: "npm install", "npm run build", "ls -la", "git status", "node script.js". IMPORTANT: Only pass sanitized/validated commands to prevent shell injection.',
+        ),
+      subDir: z
+        .string()
+        .optional()
+        .describe(
+          'Optional subdirectory to execute the command in, relative to workspace root. Examples: "src", "src/components", "packages/ui". Must not contain path traversal attempts (../).',
+        ),
+    }),
+  },
+);
+
+export const getViteRuntimeErrors = tool(
+  async ({}, config) => {
+    try {
+      const response = await axios.get(
+        `http://sandbox-service-${config.configurable.projectId}:3000/api/agent/vite-runtime-errors`,
+        { timeout: 120000 },
+      );
+      console.log("============================");
+      console.log("Using the getViteRuntimeErrors tool");
+      console.log(response.data);
+      console.log("============================");
+
+      return JSON.stringify(response.data);
+    } catch (err) {
+      const formatted = logError("getViteRuntimeErrors", err);
+      return JSON.stringify({
+        error: true,
+        message: "Failed to fetch Vite runtime errors",
+        details: formatted,
+      });
+    }
+  },
+  {
+    name: "get_vite_runtime_errors",
+    description:
+      "Fetch recent Vite runtime logs from the sandbox pod. Returns the current pod name, namespace, and the last 50 log lines from the sandbox container.",
+    schema: z.object({}),
+  },
+)

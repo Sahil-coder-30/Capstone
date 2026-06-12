@@ -1,118 +1,112 @@
+// agent.js
 import { ChatMistralAI } from "@langchain/mistralai";
-import { listFiles, readFile, createFile, updateFile } from "./tool.js";
+import {
+  listFiles,
+  readFile,
+  createFile,
+  updateFile,
+  executeCommand,
+  getViteRuntimeErrors,
+} from "./tool.js";
 import { createReactAgent } from "@langchain/langgraph/prebuilt";
 import dotenv from "dotenv";
 
 dotenv.config();
 
 const model = new ChatMistralAI({
-  model: "devstral-2512",
+  model: "mistral-medium-latest",
   apiKey: process.env.MISTRALAI_API_KEY,
 });
 
-// ─── SYSTEM PROMPT ────────────────────────────────────────────────────────────
-// Kept deliberately compact — this is prepended to EVERY query (input tokens).
-// Rules are dense shorthand. Templates are omitted — the model infers from rules.
-// ──────────────────────────────────────────────────────────────────────────────
+function applyGuards(tools) {
+  const TOOL_RULES = {
+    listFiles: {
+      description: "List project files. Call ONCE at the start. Never call again.",
+      block: null,
+    },
+    readFile: {
+      description: "Read ANY file content — package.json, source files, todo.md, everything. Never use executeCommand to read files.",
+      block: null,
+    },
+    createFile: {
+      description: "Create a new file with content. Use for ALL new file creation. Never use executeCommand to create or write files.",
+      block: null,
+    },
+    updateFile: {
+      description: "Edit an existing file. Use for source edits AND todo.md tick updates. Never use executeCommand to modify files.",
+      block: null,
+    },
+    executeCommand: {
+      description: "Shell only. Valid: 'npm install [pkg]', 'rm todo.md', 'mkdir [dir]', 'git [cmd]'. Nothing else.",
+      block: {
+        patterns: [/^\s*cat /, /^\s*head /, /^\s*tail /, /^\s*echo .+>/, /^\s*touch /, /^\s*cp /, /^\s*mv /, /^\s*sed /, /^\s*awk /, /^\s*grep /],
+        message: "WRONG TOOL. Use readFile to read, createFile/updateFile to write. executeCommand is for npm/rm/mkdir/git only.",
+      },
+    },
+    getViteRuntimeErrors: {
+      description: "Fetch live Vite runtime errors. Call only after all files are written or when a bug is suspected. Not for file inspection.",
+      block: null,
+    },
+  };
 
-const SYSTEM_PROMPT = `Elite React+Vite frontend engineer. Production-grade, memorable UIs only.
+  return tools.map((tool) => {
+    const rule = TOOL_RULES[tool.name];
+    if (!rule) return tool;
 
-## CALL DISCIPLINE [enforced, not advisory]
-Every call must write a file or batch-tick todo.md. Any call that does neither is WASTED.
-Budget: recursionLimit(100). Large tasks (10+ files): batch-tick todo.md every 3 files in one update.
-Rule: if your next action is not a file write or a batch tick → STOP and justify why.
+    if (rule.description) tool.description = rule.description;
 
-## DEPENDENCY RULES [zero exceptions]
-Use ONLY what is already installed. Never run npm install, yarn add, or pnpm add.
-Never import from a package not listed in package.json devDependencies or dependencies.
-Allowed by default in a React+Vite project:
-  react, react-dom, react-router-dom (if present), vite, @vitejs/plugin-react
-Check package.json in STEP 1. If a desired library is absent → build it yourself or use a native API.
-CSS: plain CSS only (custom properties, flex, grid, keyframes, transitions).
-  No Tailwind, no CSS-in-JS, no styled-components, no emotion, no CSS modules from external libs.
-  Exception: if tailwind/postcss config already exists in the project, use it.
-Never add <script> CDN tags or import from unpkg/esm.sh/jsDelivr inside source files.
+    if (rule.block) {
+      const original = tool.invoke.bind(tool);
+      tool.invoke = async (input) => {
+        const cmd = input?.command ?? input?.cmd ?? Object.values(input ?? {})[0] ?? "";
+        const blocked = rule.block.patterns.some((p) => p.test(cmd));
+        if (blocked) return { error: rule.block.message };
+        return original(input);
+      };
+    }
 
-## WORKFLOW [exact order, no deviations]
-STEP 1 — list_files ONCE. Read package.json + any files you need in the SAME step (batch reads).
-         Record available packages. Never re-read. Never re-list.
-STEP 2 — Write todo.md in project root. Include chosen aesthetic on line 1. One line per file:
-  # TODO — Aesthetic: [chosen tone]
-  - [ ] src/index.css
-  - [ ] src/features/auth/service/auth.api.js
-  ...
-STEP 3 — Write files. After every 3 files, update todo.md in ONE call to batch-tick all three.
-         If only 1-2 files remain, tick them together in the final todo.md update.
-STEP 4 — Delete todo.md. Write final summary as a comment block inside the last file written.
-STEP 5 — Done. No extra call for the summary.
+    return tool;
+  });
+}
 
-## FEATURE ARCHITECTURE
-Simple feature (1-2 endpoints, minimal state) → 2 files:
-  service/[f].api.js   → Axios instance (only if axios in package.json, else fetch) + async HTTP functions. Returns response.data (or res.json()).
-  slice/[f].slice.js   → createSlice (setData/setLoading/setError/clear) + custom hook inline.
+const SYSTEM_PROMPT = `
+Elite React+Vite engineer. Ship production-grade, memorable UIs.
 
-Complex feature (multiple endpoints, derived state, shared async logic) → 4 files:
-  service/[f].api.js   → HTTP layer only. No Redux.
-  slice/[f].slice.js   → createSlice with sync reducers only. NO createAsyncThunk.
-  Hooks/[f].hooks.js   → useDispatch + service calls. try{setLoading; fetch→setData} catch{setError} finally{setLoading(false)}.
-  components/[F].jsx   → useSelector + custom hook. Never call services or dispatch directly.
+TOOLS: each tool description is your only rule for when to use it. Read descriptions before every call.
 
-Default to simple (2 files). Upgrade to complex only when the feature genuinely needs it.
-HTTP client: use axios if present in package.json, otherwise native fetch. No other HTTP libs.
+WORKFLOW:
+1. listFiles + readFile(["package.json"]) — once, together, never again.
+2. createFile("todo.md") — aesthetic on line 1, one file per line.
+3. ONE executeCommand("npm install a b c") if needed. Continue immediately.
+4. createFile / updateFile for all source files. updateFile todo.md every 3 files.
+5. BEFORE replying — mandatory error gate:
+   a. getViteRuntimeErrors → if errors exist: readFile the broken file, fix with updateFile, getViteRuntimeErrors again.
+   b. Repeat until clean or 3 attempts exhausted.
+   c. Only reply when getViteRuntimeErrors returns no errors.
+6. executeCommand("rm todo.md"). Reply to user.
 
-Store: src/store/index.js → configureStore combining all feature reducers.
-main.jsx: wrap <App/> in <Provider store={store}>.
-State rule: async → Redux via hook | global UI (toasts) → Redux slice | local UI → useState.
+NEVER deliver the final reply while getViteRuntimeErrors returns errors. A broken delivery is a failed task.
 
-## FILE STRUCTURE
-src/main.jsx       → import './index.css' + <Provider>
-src/App.jsx        → import './App.css' + router outlets
-src/index.css      → @import Google font, :root tokens, body, reset
-src/store/index.js → configureStore
-src/features/[f]/  → per architecture above
-src/components/    → shared layout only (Sidebar, Toast, Layout)
+ARCHITECTURE:
+Simple (≤2 endpoints): service/[f].api.js + slice/[f].slice.js with inline hook.
+Complex: + hooks/[f].hooks.js + components/[F].jsx. Default to simple.
+State: async→Redux hook | global UI→Redux slice | local→useState.
 
-## REACT RULES
-Functional components + hooks only. JSX: className, htmlFor, self-close voids.
-export default at bottom. Imports: 1)React/libs 2)components/hooks 3)CSS.
-Split components >150 lines. Never hardcode asset paths (import them).
-Only use hooks from react or react-redux. No useQuery, no SWR, no Zustand unless in package.json.
-
-## CSS RULES [plain CSS only — no preprocessors, no utility frameworks unless pre-installed]
-:root tokens: --color-*, --text-*, --radius-*, --shadow-*, --spacing-*.
-Layout: flex or grid only. Mobile-first min-width breakpoints (768/1024).
-Animations: CSS keyframes + transitions only. No GSAP, no Framer Motion unless in package.json.
-Transitions on all interactive elements. :hover :focus-visible :active on all controls.
-CSS loaded via JS imports only (no <link> except @import for Google Fonts inside index.css).
-Scrollbars: style with ::-webkit-scrollbar if needed — no library required.
-
-## DESIGN [non-negotiable]
-Pick ONE bold aesthetic before writing any code. State it in todo.md header.
-FORBIDDEN: purple-on-white gradients, Inter/Roboto/Arial, safe symmetrical layouts, generic card grids.
-REQUIRED: distinctive font pairing (display+body from Google Fonts via @import in index.css),
-          intentional palette via CSS vars, spatial personality (asymmetry/overlap/grid-breaking),
-          transitions on every interaction, atmosphere (shadows/texture/geometry) matching aesthetic.
-Font pairings by tone:
-  Luxury   → 'Playfair Display'+'Cormorant Garamond' | Techy    → 'Space Grotesk'+'JetBrains Mono'
-  Bold     → 'Bebas Neue'+'DM Sans'                  | Brutalist → 'Anton'+'Space Mono'
-  Minimal  → 'Outfit'+'Lora'                          | Retro    → 'Orbitron'+'Exo 2'
-  Warm     → 'Fraunces'+'Nunito'                      | Playful  → 'Quicksand'+'Poppins'
-Load fonts via @import in index.css only. Never repeat a pairing across projects.
-
-## SUMMARY FORMAT [inside last file as comment block — no extra call]
-/*
-  ✅ Done.
-  Aesthetic: [tone + why]
-  Packages used: [list only what was actually imported from package.json]
-  Feature(s): [name] → service:[endpoints] | slice:[keys] | hook:[handlers] | components:[names]
-  Design: font:[pairing] | colors:[palette] | layout:[structure] | interactions:[what moves]
-*/`;
-
-// ──────────────────────────────────────────────────────────────────────────────
+DESIGN: ONE bold aesthetic. Distinctive Google Font pair via @import. :root token palette. Asymmetric layout.
+Forbidden: Inter/Roboto/Arial, purple gradients, symmetric card grids.
+Pairs — Luxury:Playfair+Cormorant | Techy:Space Grotesk+JetBrains Mono | Bold:Bebas+DM Sans | Brutalist:Anton+Space Mono | Minimal:Outfit+Lora | Retro:Orbitron+Exo 2 | Warm:Fraunces+Nunito | Playful:Quicksand+Poppins
+`;
 
 const agent = createReactAgent({
   llm: model,
-  tools: [listFiles, readFile, createFile, updateFile],
+  tools: applyGuards([
+    listFiles,
+    readFile,
+    createFile,
+    updateFile,
+    executeCommand,
+    getViteRuntimeErrors,
+  ]),
   stateModifier: SYSTEM_PROMPT,
 });
 

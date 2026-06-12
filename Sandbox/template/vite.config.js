@@ -11,7 +11,8 @@ export default defineConfig({
     watch:{
       usePolling: true,
       interval: 300,
-      atomic:true
+      atomic:true,
+      ignored: ['!**/node_modules/**'], 
     }
   }
 })
