@@ -8,7 +8,7 @@ import { KubeConfig, CoreV1Api } from "@kubernetes/client-node";
 const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use(morgan("dev"));
+app.use(morgan("combined"));
 
 const WORKING_DIR = "/workspace";
 
@@ -550,6 +550,127 @@ app.post("/api/agent/create-file", async (req, res) => {
   res.status(201).json({ status: "ok", results });
 });
 
+// ─── Patch File ───────────────────────────────────────────────────────────────
+
+/**
+ * TOOL: patch-file
+ *
+ * @description
+ *   Make a small, targeted edit to an existing file by replacing one exact
+ *   string occurrence with a new string. Unlike update-file, this never
+ *   touches any content outside the matched region.
+ *
+ *   Rules:
+ *   - oldStr must match exactly once. Zero matches → error. Multiple matches → error.
+ *   - The file must already exist.
+ *   - Paths must be relative to /workspace.
+ *
+ * @method  POST
+ * @route   /api/agent/patch-file
+ *
+ * @body {Object} JSON body
+ *   - filePath {string} Required. Relative path (e.g. "src/App.jsx").
+ *   - oldStr   {string} Required. Exact string to find and replace (must appear exactly once).
+ *   - newStr   {string} Required. Replacement string.
+ *
+ * @example
+ *   Request:
+ *     POST /api/agent/patch-file
+ *     Content-Type: application/json
+ *
+ *     {
+ *       "filePath": "src/App.jsx",
+ *       "oldStr": "  return <div>Hello</div>;\n}",
+ *       "newStr": "  return <div>Hello World</div>;\n}"
+ *     }
+ *
+ *   Response (200 — success):
+ *     { "success": true, "patched": "src/App.jsx" }
+ *
+ *   Response (200 — not found):
+ *     { "success": false, "error": "oldStr not found", "hint": "..." }
+ *
+ *   Response (200 — ambiguous):
+ *     { "success": false, "error": "oldStr matches 3 times", "hint": "..." }
+ */
+app.post("/api/agent/patch-file", async (req, res) => {
+  const { filePath, oldStr, newStr } = req.body;
+
+  if (!filePath || typeof filePath !== "string") {
+    return res.status(400).json({
+      success: false,
+      error: "'filePath' is required and must be a string",
+    });
+  }
+  if (typeof oldStr !== "string" || oldStr.length === 0) {
+    return res.status(400).json({
+      success: false,
+      error: "'oldStr' is required and must be a non-empty string",
+    });
+  }
+  if (typeof newStr !== "string") {
+    return res.status(400).json({
+      success: false,
+      error: "'newStr' is required and must be a string",
+    });
+  }
+
+  try {
+    const resolvedPath = safeResolve(filePath);
+
+    let content;
+    try {
+      content = await fs.promises.readFile(resolvedPath, "utf-8");
+    } catch (readErr) {
+      return res.status(200).json({
+        success: false,
+        error: `File not found or unreadable: ${readErr.message}`,
+        hint: "Verify the filePath is correct and relative to /workspace.",
+      });
+    }
+
+    // Count occurrences so we can give a precise error on ambiguous matches
+    let count = 0;
+    let searchIdx = 0;
+    while (true) {
+      const idx = content.indexOf(oldStr, searchIdx);
+      if (idx === -1) break;
+      count++;
+      searchIdx = idx + 1;
+      if (count > 1) break; // no need to keep counting past 2
+    }
+
+    if (count === 0) {
+      return res.status(200).json({
+        success: false,
+        error: "oldStr not found in file",
+        hint: "The string you supplied does not appear verbatim in the file. Include 2–3 lines of surrounding context to make the match unique, or use read-file to fetch the current content first.",
+      });
+    }
+
+    if (count > 1) {
+      return res.status(200).json({
+        success: false,
+        error: `oldStr is ambiguous — it matches more than once in "${filePath}"`,
+        hint: "Add more surrounding context to oldStr so it matches exactly one location in the file.",
+      });
+    }
+
+    // Exactly one match — perform the replacement
+    const patched = content.replace(oldStr, newStr);
+    await fs.promises.writeFile(resolvedPath, patched, "utf-8");
+
+    return res.status(200).json({ success: true, patched: filePath });
+  } catch (err) {
+    return res.status(200).json({
+      success: false,
+      error: err.message.startsWith("Access denied")
+        ? err.message
+        : `Patch error: ${err.message}`,
+    });
+  }
+});
+
 /**
  * TOOL: execute-command
  *
@@ -634,13 +755,13 @@ app.post("/api/agent/exec", (req, res) => {
     const truncatedStdout =
       stdout.length > MAX_OUTPUT_SIZE
         ? stdout.substring(0, MAX_OUTPUT_SIZE) +
-          "\n[OUTPUT TRUNCATED - exceeded 1MB limit]"
+        "\n[OUTPUT TRUNCATED - exceeded 1MB limit]"
         : stdout;
 
     const truncatedStderr =
       stderr.length > MAX_OUTPUT_SIZE
         ? stderr.substring(0, MAX_OUTPUT_SIZE) +
-          "\n[OUTPUT TRUNCATED - exceeded 1MB limit]"
+        "\n[OUTPUT TRUNCATED - exceeded 1MB limit]"
         : stderr;
 
     res.status(200).json({

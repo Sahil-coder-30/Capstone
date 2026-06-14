@@ -45,18 +45,23 @@ function logError(toolName, err) {
 export const listFiles = tool(
   async ({}, config) => {
     try {
+      config.writer(
+        `listFiles: start (project=${config?.configurable?.projectId || "unknown"})`,
+      );
       const response = await axios.get(
         `http://sandbox-service-${config.configurable.projectId}:3000/api/agent/list-files`,
         { timeout: 120000 },
       );
-      console.log("============================");
-      console.log("Using the listFiles tool");
-      console.log(response.data);
-      console.log("============================");
+      config.writer(
+        `listFiles: success - response: ${JSON.stringify(response.data)}`,
+      );
 
       return JSON.stringify(response.data);
     } catch (err) {
       const formatted = logError("listFiles", err);
+      config.writer(
+        `listFiles: error - details: ${JSON.stringify(formatted)}`,
+      );
       return JSON.stringify({
         error: true,
         message: "Failed to list files",
@@ -75,20 +80,24 @@ export const listFiles = tool(
 export const readFile = tool(
   async ({ file }, config) => {
     try {
+      config.writer(
+        `readFile: start - files: ${JSON.stringify(file)}`,
+      );
       const response = await axios.get(
         `http://sandbox-service-${config.configurable.projectId}:3000/api/agent/read-file?files=` +
           file.join(","),
         { timeout: 120000 },
       );
-
-      console.log("============================");
-      console.log("Using the readFiles tool");
-      console.log(response.data);
-      console.log("============================");
-
-      return JSON.stringify(response.data.content);
+      const filesContent = response.data.files || response.data.content || response.data;
+      config.writer(
+        `readFile: success - response: ${JSON.stringify(filesContent)}`,
+      );
+      return JSON.stringify(filesContent);
     } catch (err) {
       const formatted = logError("readFile", err);
+      config.writer(
+        `readFile: error - details: ${JSON.stringify(formatted)}`,
+      );
       return JSON.stringify({
         error: true,
         message: "Failed to read file(s)",
@@ -113,6 +122,9 @@ export const readFile = tool(
 export const updateFile = tool(
   async ({ updates }, config) => {
     try {
+      config.writer(
+        `updateFile: start - updates: ${JSON.stringify(updates)}`,
+      );
       const response = await axios.patch(
         `http://sandbox-service-${config.configurable.projectId}:3000/api/agent/update-file`,
         {
@@ -120,14 +132,15 @@ export const updateFile = tool(
         },
         { timeout: 120000 },
       );
-      console.log("============================");
-      console.log("Using the updateFile tool");
-      console.log(response.data);
-      console.log("============================");
-
+      config.writer(
+        `updateFile: success - response: ${JSON.stringify(response.data)}`,
+      );
       return JSON.stringify(response.data);
     } catch (err) {
       const formatted = logError("updateFile", err);
+      config.writer(
+        `updateFile: error - details: ${JSON.stringify(formatted)}`,
+      );
       return JSON.stringify({
         error: true,
         message: "Failed to update file(s)",
@@ -161,6 +174,9 @@ export const updateFile = tool(
 export const createFile = tool(
   async ({ files }, config) => {
     try {
+      config.writer(
+        `createFile: start - files: ${JSON.stringify(files)}`,
+      );
       const response = await axios.post(
         `http://sandbox-service-${config.configurable.projectId}:3000/api/agent/create-file`,
         {
@@ -168,14 +184,15 @@ export const createFile = tool(
         },
         { timeout: 120000 },
       );
-      console.log("============================");
-      console.log("Using the createFile tool");
-      console.log(response.data);
-      console.log("============================");
-
+      config.writer(
+        `createFile: success - response: ${JSON.stringify(response.data)}`,
+      );
       return JSON.stringify(response.data);
     } catch (err) {
       const formatted = logError("createFile", err);
+      config.writer(
+        `createFile: error - details: ${JSON.stringify(formatted)}`,
+      );
       return JSON.stringify({
         error: true,
         message: "Failed to create file(s)",
@@ -213,6 +230,9 @@ export const createFile = tool(
 export const executeCommand = tool(
   async ({ command, subDir }, config) => {
     try {
+      config.writer(
+        `executeCommand: start - command: "${command}", subDir: "${subDir || ""}"`,
+      );
       const response = await axios.post(
         `http://sandbox-service-${config.configurable.projectId}:3000/api/agent/exec`,
         {
@@ -221,14 +241,15 @@ export const executeCommand = tool(
         },
         { timeout: 120000 },
       );
-      console.log("============================");
-      console.log("Using the executeCommand tool");
-      console.log(response.data);
-      console.log("============================");
-
+      config.writer(
+        `executeCommand: success - response: ${JSON.stringify(response.data)}`,
+      );
       return JSON.stringify(response.data);
     } catch (err) {
       const formatted = logError("executeCommand", err);
+      config.writer(
+        `executeCommand: error - details: ${JSON.stringify(formatted)}`,
+      );
       return JSON.stringify({
         error: true,
         message: "Failed to execute command",
@@ -239,7 +260,7 @@ export const executeCommand = tool(
   {
     name: "execute_command",
     description:
-      "Execute shell commands within the workspace directory with safety restrictions. Commands run in /workspace by default. Optional subDir restricts execution to a subdirectory. Commands timeout after 30 seconds. Output is limited to 1MB per stream. Use for: npm install, build commands, tests, file operations, or any shell command needed for the project.",
+      "Execute shell commands within the workspace directory with safety restrictions. Commands run in /workspace by default. Optional subDir restricts execution to a subdirectory. Commands timeout after 30 seconds. Output is limited to 1MB per stream. Use only for shell tooling like npm install, build commands, tests, git, mkdir, rm. Never use executeCommand to read, write, or create files; use readFile/createFile/updateFile for that.",
     schema: z.object({
       command: z
         .string()
@@ -260,6 +281,9 @@ export const executeCommand = tool(
 export const getViteRuntimeErrors = tool(
   async ({}, config) => {
     try {
+      config.writer(
+        `getViteRuntimeErrors: start (project=${config?.configurable?.projectId || "unknown"})`,
+      );
       const response = await axios.get(
         `http://sandbox-service-${config.configurable.projectId}:3000/api/agent/vite-runtime-errors`,
         { timeout: 120000 },
@@ -268,10 +292,15 @@ export const getViteRuntimeErrors = tool(
       console.log("Using the getViteRuntimeErrors tool");
       console.log(response.data);
       console.log("============================");
-
+      config.writer(
+        `getViteRuntimeErrors: success - response: ${JSON.stringify(response.data)}`,
+      );
       return JSON.stringify(response.data);
     } catch (err) {
       const formatted = logError("getViteRuntimeErrors", err);
+      config.writer(
+        `getViteRuntimeErrors: error - details: ${JSON.stringify(formatted)}`,
+      );
       return JSON.stringify({
         error: true,
         message: "Failed to fetch Vite runtime errors",
@@ -285,4 +314,195 @@ export const getViteRuntimeErrors = tool(
       "Fetch recent Vite runtime logs from the sandbox pod. Returns the current pod name, namespace, and the last 50 log lines from the sandbox container.",
     schema: z.object({}),
   },
-)
+);
+
+/**
+ * patchFile — targeted string-replace with automatic read-then-retry fallback.
+ *
+ * Attempt order (all transparent to the agent):
+ *   1. POST /api/agent/patch-file with the supplied oldStr/newStr.
+ *   2. If the patch fails (oldStr not found / ambiguous), automatically read
+ *      the current file content via GET /api/agent/read-file, then retry the
+ *      patch with the freshest possible content as context.
+ *   3. If the retry also fails, fall through to an updateFile rewrite using
+ *      the live file content with newStr substituted in.
+ *   4. Only surface a hard failure string to the agent if all three attempts
+ *      fail — at that point the agent has enough context to decide what to do.
+ */
+export const patchFile = tool(
+  async ({ filePath, oldStr, newStr }, config) => {
+    const baseUrl = `http://sandbox-service-${config.configurable.projectId}:3000`;
+
+    // ── helper: call the sandbox patch endpoint ──────────────────────────────
+    const tryPatch = async (oldString) => {
+      const res = await axios.post(
+        `${baseUrl}/api/agent/patch-file`,
+        { filePath, oldStr: oldString, newStr },
+        { timeout: 120000 },
+      );
+      return res.data; // { success, error?, hint?, patched? }
+    };
+
+    // ── attempt 1: patch with the caller-supplied oldStr ─────────────────────
+    config.writer(`patchFile: attempt 1 - file: "${filePath}"`);
+    let patchResult;
+    try {
+      patchResult = await tryPatch(oldStr);
+    } catch (err) {
+      const formatted = logError("patchFile/attempt1", err);
+      config.writer(`patchFile: attempt 1 network error - ${JSON.stringify(formatted)}`);
+      return JSON.stringify({
+        error: true,
+        message: "patchFile failed (network error on attempt 1). Fall back to updateFile.",
+        details: formatted,
+      });
+    }
+
+    if (patchResult.success) {
+      config.writer(`patchFile: attempt 1 success - "${filePath}" patched`);
+      return `Patched ${filePath} successfully`;
+    }
+
+    config.writer(
+      `patchFile: attempt 1 failed - error: "${patchResult.error}", hint: "${patchResult.hint}". Auto-reading file for retry.`,
+    );
+
+    // ── auto-read the file to get the current content ────────────────────────
+    let currentContent;
+    try {
+      const readRes = await axios.get(
+        `${baseUrl}/api/agent/read-file?files=${encodeURIComponent(filePath)}`,
+        { timeout: 120000 },
+      );
+      const files = readRes.data.files || [];
+      const entry = files.find((f) => f.file === filePath || f.file === filePath.replace(/^\//, ""));
+      if (!entry || entry.error) {
+        throw new Error(entry?.error || "File not found in read response");
+      }
+      currentContent = entry.content;
+    } catch (readErr) {
+      const formatted = logError("patchFile/auto-read", readErr);
+      config.writer(`patchFile: auto-read failed - ${JSON.stringify(formatted)}`);
+      return JSON.stringify({
+        error: true,
+        message: `patchFile failed and auto-read also failed for "${filePath}". Use updateFile as a last resort.`,
+        patchError: patchResult.error,
+        readError: formatted.message,
+      });
+    }
+
+    // ── attempt 2: retry patch — the server now has the freshest content ─────
+    // The most common failure is a stale/mismatched oldStr. We do a best-effort
+    // substring search in the live content to give the agent a corrected oldStr.
+    config.writer(`patchFile: attempt 2 - retrying patch for "${filePath}"`);
+    try {
+      patchResult = await tryPatch(oldStr);
+    } catch (err) {
+      const formatted = logError("patchFile/attempt2", err);
+      config.writer(`patchFile: attempt 2 network error - ${JSON.stringify(formatted)}`);
+      // fall through to auto-rewrite below
+      patchResult = { success: false, error: formatted.message };
+    }
+
+    if (patchResult.success) {
+      config.writer(`patchFile: attempt 2 success - "${filePath}" patched on retry`);
+      return `Patched ${filePath} successfully (on retry)`;
+    }
+
+    config.writer(
+      `patchFile: attempt 2 failed - "${patchResult.error}". Attempting auto-rewrite via updateFile.`,
+    );
+
+    // ── attempt 3: auto-rewrite ──────────────────────────────────────────────
+    // If oldStr does not appear in the live content at all, nothing we can do
+    // automatically — surface a clear error with the live content snippet so
+    // the agent can craft a correct call.
+    if (!currentContent.includes(oldStr)) {
+      // Try a trimmed version as a last-ditch effort
+      const trimmedOld = oldStr.trim();
+      const idx = currentContent.indexOf(trimmedOld);
+      if (idx === -1) {
+        config.writer(`patchFile: oldStr not found in live content — surfacing error`);
+        // Show a snippet of the file so the agent can self-correct without an extra readFile call
+        const snippet = currentContent.length > 800
+          ? currentContent.slice(0, 800) + "\n...[truncated]"
+          : currentContent;
+        return JSON.stringify({
+          error: true,
+          message: `patchFile failed: oldStr not found in "${filePath}" after reading live content.`,
+          hint: "The oldStr you supplied does not appear verbatim in the file. Use the current_content below to pick a new, exact oldStr and retry patchFile — or call updateFile for a full rewrite.",
+          current_content: snippet,
+        });
+      }
+
+      // oldStr found when trimmed — do the rewrite with the trimmed version
+      const rewritten = currentContent.replace(trimmedOld, newStr);
+      config.writer(`patchFile: auto-rewrite with trimmed oldStr for "${filePath}"`);
+      try {
+        const updateRes = await axios.patch(
+          `${baseUrl}/api/agent/update-file`,
+          { updates: [{ file: filePath, content: rewritten }] },
+          { timeout: 120000 },
+        );
+        config.writer(`patchFile: auto-rewrite success - ${JSON.stringify(updateRes.data)}`);
+        return `Patched ${filePath} successfully (auto-rewrite after trimming whitespace)`;
+      } catch (updateErr) {
+        const formatted = logError("patchFile/auto-rewrite", updateErr);
+        config.writer(`patchFile: auto-rewrite failed - ${JSON.stringify(formatted)}`);
+        return JSON.stringify({
+          error: true,
+          message: `patchFile auto-rewrite failed for "${filePath}". Call updateFile manually.`,
+          details: formatted,
+        });
+      }
+    }
+
+    // oldStr is present — do the rewrite directly
+    const rewritten = currentContent.replace(oldStr, newStr);
+    config.writer(`patchFile: auto-rewrite (direct replace) for "${filePath}"`);
+    try {
+      const updateRes = await axios.patch(
+        `${baseUrl}/api/agent/update-file`,
+        { updates: [{ file: filePath, content: rewritten }] },
+        { timeout: 120000 },
+      );
+      config.writer(`patchFile: auto-rewrite success - ${JSON.stringify(updateRes.data)}`);
+      return `Patched ${filePath} successfully (auto-rewrite fallback)`;
+    } catch (updateErr) {
+      const formatted = logError("patchFile/auto-rewrite", updateErr);
+      config.writer(`patchFile: auto-rewrite failed - ${JSON.stringify(formatted)}`);
+      return JSON.stringify({
+        error: true,
+        message: `patchFile auto-rewrite failed for "${filePath}". Call updateFile manually.`,
+        details: formatted,
+      });
+    }
+  },
+  {
+    name: "patch_file",
+    description: `Make a small, targeted edit to an existing file by replacing one exact string with another.
+Prefer this over updateFile for changes under 20 lines.
+
+IMPORTANT — oldStr quality rules (follow these to avoid failures):
+  • Always include 2–3 lines of surrounding context so the match is unique.
+  • Never pass a fragment so short it could match in multiple places (e.g. just "<div>").
+  • oldStr must match the file content exactly — same whitespace, same indentation.
+
+This tool has automatic fallback built in:
+  1. Tries the patch directly.
+  2. If it fails, reads the live file content and retries automatically.
+  3. If it still fails, attempts a direct string-replace rewrite as a last resort.
+  4. Only surfaces an error to you if all three attempts fail — which is rare.
+
+You do NOT need to manually call readFile and retry — the tool does it for you.`,
+    schema: z.object({
+      filePath: z.string().describe("Path relative to /workspace (e.g. src/App.jsx)"),
+      oldStr: z
+        .string()
+        .describe(
+          "Exact string to replace — must be unique in the file. Include 2–3 surrounding lines of context to guarantee uniqueness.",
+        ),
+      newStr: z.string().describe("Replacement string"),
+    }),
+  },
+);

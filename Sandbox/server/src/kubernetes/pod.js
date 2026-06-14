@@ -10,6 +10,7 @@ export async function createPod(sandboxId) {
       },
     },
     spec: {
+      serviceAccountName: "sandbox-agent-sa",
       volumes: [
         {
           name: "workspace-volume",

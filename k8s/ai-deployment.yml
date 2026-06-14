@@ -36,13 +36,15 @@ spec:
             path: /api/ai/healthz
             port: 3000
           initialDelaySeconds: 90
-          timeoutSeconds: 10
+          periodSeconds: 15
+          timeoutSeconds: 5
         readinessProbe:
           httpGet:
             path: /api/ai/readyz
             port: 3000
           initialDelaySeconds: 30
-          timeoutSeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 5
         ports:
         - containerPort:  3000
           name:  ai-server-port

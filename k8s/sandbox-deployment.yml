@@ -31,13 +31,15 @@ spec:
             path: /api/sandbox/health
             port: 3000
           initialDelaySeconds: 90
-          timeoutSeconds: 10
+          periodSeconds: 15
+          timeoutSeconds: 5
         readinessProbe:
           httpGet:
             path: /api/sandbox/ready
             port: 3000
           initialDelaySeconds: 30
-          timeoutSeconds: 10  
+          periodSeconds: 10
+          timeoutSeconds: 5  
         ports:
         - containerPort:  3000
           name:  sandbox-port
