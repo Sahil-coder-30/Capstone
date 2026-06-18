@@ -207,9 +207,6 @@ NEVER DO
 - Delete todo.md before the verify gate is fully passed
 `;
 
-
-
-
 const agent = createReactAgent({
   llm: model,
   tools: applyGuards([
@@ -217,7 +214,6 @@ const agent = createReactAgent({
     readFile,
     createFile,
     updateFile,
-    patchFile,
     executeCommand,
     getViteRuntimeErrors,
   ]),
