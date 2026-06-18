@@ -50,7 +50,7 @@ export const listFiles = tool(
       );
       const response = await axios.get(
         `http://sandbox-service-${config.configurable.projectId}:3000/api/agent/list-files`,
-        { timeout: 120000 },
+        { timeout: 30_000 },
       );
       config.writer(
         `listFiles: success - response: ${JSON.stringify(response.data)}`,
@@ -86,7 +86,7 @@ export const readFile = tool(
       const response = await axios.get(
         `http://sandbox-service-${config.configurable.projectId}:3000/api/agent/read-file?files=` +
           file.join(","),
-        { timeout: 120000 },
+        { timeout: 30_000 },
       );
       const filesContent = response.data.files || response.data.content || response.data;
       config.writer(
@@ -130,7 +130,7 @@ export const updateFile = tool(
         {
           updates,
         },
-        { timeout: 120000 },
+        { timeout: 30_000 },
       );
       config.writer(
         `updateFile: success - response: ${JSON.stringify(response.data)}`,
@@ -182,7 +182,7 @@ export const createFile = tool(
         {
           files,
         },
-        { timeout: 120000 },
+        { timeout: 30_000 },
       );
       config.writer(
         `createFile: success - response: ${JSON.stringify(response.data)}`,
@@ -239,7 +239,7 @@ export const executeCommand = tool(
           command,
           ...(subDir && { subDir }),
         },
-        { timeout: 120000 },
+        { timeout: 120_000 }, // npm install can be slow — keep high
       );
       config.writer(
         `executeCommand: success - response: ${JSON.stringify(response.data)}`,
@@ -286,7 +286,7 @@ export const getViteRuntimeErrors = tool(
       );
       const response = await axios.get(
         `http://sandbox-service-${config.configurable.projectId}:3000/api/agent/vite-runtime-errors`,
-        { timeout: 120000 },
+        { timeout: 45_000 }, // k8s log fetch — give it time but not infinite
       );
       console.log("============================");
       console.log("Using the getViteRuntimeErrors tool");
@@ -338,7 +338,7 @@ export const patchFile = tool(
       const res = await axios.post(
         `${baseUrl}/api/agent/patch-file`,
         { filePath, oldStr: oldString, newStr },
-        { timeout: 120000 },
+        { timeout: 30_000 },
       );
       return res.data; // { success, error?, hint?, patched? }
     };
@@ -372,7 +372,7 @@ export const patchFile = tool(
     try {
       const readRes = await axios.get(
         `${baseUrl}/api/agent/read-file?files=${encodeURIComponent(filePath)}`,
-        { timeout: 120000 },
+        { timeout: 30_000 },
       );
       const files = readRes.data.files || [];
       const entry = files.find((f) => f.file === filePath || f.file === filePath.replace(/^\//, ""));

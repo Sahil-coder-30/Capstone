@@ -13,7 +13,9 @@ aiRouter.post("/invoke", async (req, res) => {
   });
 
   if (!message) {
-    return res.status(400).json({ error: "message is required" });
+    // Can't send JSON after writeHead — send an SSE error event instead
+    res.write(`event: error\ndata: ${JSON.stringify({ message: "message is required" })}\n\n`);
+    return res.end();
   }
 
   // Tool prefixes — messages starting with these are internal progress logs,
@@ -31,28 +33,56 @@ aiRouter.post("/invoke", async (req, res) => {
   const isToolLog = (msg) =>
     typeof msg === "string" && TOOL_PREFIXES.some((p) => msg.startsWith(p));
 
+  // ── SSE heartbeat ─────────────────────────────────────────────────────────
+  // Proxies (nginx, http-proxy-middleware) and browsers close "silent" SSE
+  // connections even within the configured timeout window.
+  // A comment line (": heartbeat") is invisible to EventSource listeners but
+  // keeps the TCP connection alive through every proxy in the chain.
+  const HEARTBEAT_INTERVAL_MS = 15_000; // 15 seconds
+  const heartbeat = setInterval(() => {
+    try {
+      res.write(": heartbeat\n\n");
+    } catch (_) {
+      // Connection already closed — heartbeat will be cleared below
+    }
+  }, HEARTBEAT_INTERVAL_MS);
+
+  const cleanup = () => clearInterval(heartbeat);
+
   try {
     // Accumulates the agent's final reply text (non-tool writer messages).
     const finalChunks = [];
 
-    await agent.stream(
+    // ── Hard wall-clock deadline ───────────────────────────────────────────
+    // recursionLimit caps tool-call count, but a single hung axios call
+    // (e.g. npm install stalling, getViteRuntimeErrors on a dead pod)
+    // can block the entire stream indefinitely.
+    // Promise.race() enforces a real time limit regardless.
+    const AGENT_TIMEOUT_MS = 4.5 * 60 * 1000; // 4.5 min — under nginx's 5 min
+    let timeoutId;
+    const timeoutPromise = new Promise((_, reject) => {
+      timeoutId = setTimeout(
+        () => reject(new Error("AGENT_TIMEOUT")),
+        AGENT_TIMEOUT_MS,
+      );
+    });
+
+    // agent.stream() returns a Promise — assign without awaiting so we can race it
+    const agentStream = agent.stream(
       {
         messages: [{ role: "user", content: message }],
       },
       {
         configurable: { projectId },
-        recursionLimit: 200,
+        recursionLimit: 50,
         streamMode: "custom",
         writer: (msg) => {
           try {
             const data = typeof msg === "string" ? msg : JSON.stringify(msg);
-
             if (isToolLog(msg)) {
-              // Internal tool progress — stream as a plain `data:` event
               res.write(`data: ${data}\n\n`);
               console.log("tool log:", data);
             } else {
-              // This is the agent's final reply to the user
               finalChunks.push(data);
               console.log("agent reply chunk:", data);
             }
@@ -61,6 +91,10 @@ aiRouter.post("/invoke", async (req, res) => {
           }
         },
       },
+    );
+
+    await Promise.race([agentStream, timeoutPromise]).finally(() =>
+      clearTimeout(timeoutId),
     );
 
     // With streamMode:"custom" the for-await loop yields nothing useful,
@@ -78,10 +112,20 @@ aiRouter.post("/invoke", async (req, res) => {
 
     // Clean SSE termination signal
     res.write(`event: done\ndata: [DONE]\n\n`);
+    cleanup();
     res.end();
   } catch (error) {
-    console.error("agent invocation error:", error);
-    res.write(`event: error\ndata: ${JSON.stringify({ message: error.message || "Internal server error", code: error.lc_error_code || null })}\n\n`);
+    console.error("agent invocation error:", error.message);
+    const isTimeout = error.message === "AGENT_TIMEOUT";
+    res.write(
+      `event: error\ndata: ${JSON.stringify({
+        message: isTimeout
+          ? "Agent timed out after 4.5 minutes. The task may be too large — try breaking it into smaller steps."
+          : error.message || "Internal server error",
+        code: isTimeout ? "AGENT_TIMEOUT" : (error.lc_error_code || null),
+      })}\n\n`,
+    );
+    cleanup();
     res.end();
   }
 });
