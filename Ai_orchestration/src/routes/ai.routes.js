@@ -3,6 +3,41 @@ import agent from "../agent/code.agent.js";
 
 const aiRouter = Router();
 
+const getErrorPayload = (error) => {
+  return error?.response?.data || error?.cause?.response?.data || null;
+};
+
+const getErrorStatus = (error) => {
+  return (
+    error?.status || error?.response?.status || error?.cause?.status || null
+  );
+};
+
+const getErrorCode = (error) => {
+  const payload = getErrorPayload(error);
+  return payload?.code || error?.lc_error_code || error?.code || null;
+};
+
+const getErrorMessage = (error, fallback = "Internal server error") => {
+  const payload = getErrorPayload(error);
+  if (payload?.message) return payload.message;
+  if (error?.message) return error.message;
+  return fallback;
+};
+
+const isRateLimitError = (error) => {
+  const status = getErrorStatus(error);
+  const payload = getErrorPayload(error);
+  const message = getErrorMessage(error, "");
+
+  return (
+    status === 429 ||
+    payload?.code === "1300" ||
+    payload?.type === "rate_limited" ||
+    /rate limit|rate_limited/i.test(message)
+  );
+};
+
 aiRouter.post("/invoke", async (req, res) => {
   const { message, projectId } = req.body;
 
@@ -14,7 +49,9 @@ aiRouter.post("/invoke", async (req, res) => {
 
   if (!message) {
     // Can't send JSON after writeHead — send an SSE error event instead
-    res.write(`event: error\ndata: ${JSON.stringify({ message: "message is required" })}\n\n`);
+    res.write(
+      `event: error\ndata: ${JSON.stringify({ message: "message is required" })}\n\n`,
+    );
     return res.end();
   }
 
@@ -107,7 +144,9 @@ aiRouter.post("/invoke", async (req, res) => {
       res.write(`event: final\ndata: ${finalResponse}\n\n`);
       console.log("final agent response sent:", finalResponse);
     } else {
-      console.warn("No final response captured from agent — writer received no non-tool messages.");
+      console.warn(
+        "No final response captured from agent — writer received no non-tool messages.",
+      );
     }
 
     // Clean SSE termination signal
@@ -115,14 +154,31 @@ aiRouter.post("/invoke", async (req, res) => {
     cleanup();
     res.end();
   } catch (error) {
-    console.error("agent invocation error:", error.message);
     const isTimeout = error.message === "AGENT_TIMEOUT";
+    const isRateLimited = isRateLimitError(error);
+    const status = getErrorStatus(error);
+    const code = isTimeout
+      ? "AGENT_TIMEOUT"
+      : isRateLimited
+        ? getErrorCode(error) || "RATE_LIMIT"
+        : getErrorCode(error);
+    const message = isTimeout
+      ? "Agent timed out after 4.5 minutes. The task may be too large — try breaking it into smaller steps."
+      : isRateLimited
+        ? "The AI provider is temporarily rate-limiting requests. Please wait a moment and try again."
+        : getErrorMessage(error);
+
+    console.error("agent invocation error:", {
+      message: error.message,
+      status,
+      code,
+      isRateLimited,
+    });
+
     res.write(
       `event: error\ndata: ${JSON.stringify({
-        message: isTimeout
-          ? "Agent timed out after 4.5 minutes. The task may be too large — try breaking it into smaller steps."
-          : error.message || "Internal server error",
-        code: isTimeout ? "AGENT_TIMEOUT" : (error.lc_error_code || null),
+        message,
+        code,
       })}\n\n`,
     );
     cleanup();

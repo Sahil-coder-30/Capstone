@@ -17,8 +17,6 @@ dotenv.config();
 const model = new ChatMistralAI({
   model: "mistral-large-latest",
   apiKey: process.env.MISTRALAI_API_KEY,
-  timeout: 300_000, // 5 min — matches nginx proxy-read-timeout; prevents SDK aborting long completions
-  maxRetries: 1,    // default is 2; a retry on a timed-out call doubles the wait silently
 });
 
 function applyGuards(tools) {
