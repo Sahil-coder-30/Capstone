@@ -4,11 +4,19 @@ import fs from "fs";
 import path from "path";
 import { exec } from "child_process";
 import { KubeConfig, CoreV1Api } from "@kubernetes/client-node";
+import { Server} from "socket.io";
+import http from 'http';
+import pty from 'node-pty';
+import os from 'os';
+
 
 const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(morgan("combined"));
+
+const httpServer = http.createServer(app);
+
 
 const WORKING_DIR = "/workspace";
 
@@ -36,6 +44,13 @@ function safeResolve(file) {
   }
   return resolved;
 }
+
+
+
+
+
+
+
 
 // ─── Health ───────────────────────────────────────────────────────────────────
 
@@ -136,6 +151,51 @@ app.get("/api/agent/ready", (req, res) => {
  *       "message": "Cannot read directory \"/\": permission denied"
  *     }
  */
+
+const io = new Server(httpServer,{
+  cors : {
+    origin : "*",
+    methods: ["GET", "POST" , "PATCH"]
+  }
+})
+
+
+
+
+const shell = process.env.SHELL || 'bash';
+const ptyProcess = pty.spawn(shell, [], {
+  name: 'xterm-color',
+  cols: 80,
+  rows: 30,
+  cwd: "/workspace",
+  env: process.env
+});
+
+ptyProcess.onData((data) => {
+  io.emit("terminal-output" , data);
+});
+
+ptyProcess.onExit(({ exitCode, signal }) => {
+    console.log(`Terminal process exited with code ${exitCode}, signal ${signal}`);
+});
+
+io.on("connection",(socket) => {
+  console.log(`A user has connected ${socket.id}`);
+
+  socket.on("disconnect", () => {
+    console.log(`User disconnected : ${socket.id}`);
+  });
+
+  socket.on("terminal-input" , (data) => {
+    ptyProcess.write(data);
+  })
+
+  socket.on("connect_error",(err) => {
+    console.log(`Connection error : ${err.message}`);
+  })
+})
+
+
 app.get("/api/agent/list-files", async (req, res) => {
   const listFiles = async (dir, basePath = "") => {
     let entries;
@@ -853,4 +913,4 @@ app.get("/api/agent/vite-runtime-errors", async (req, res) => {
   }
 });
 
-export default app;
+export default httpServer;

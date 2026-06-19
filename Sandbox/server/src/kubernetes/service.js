@@ -5,13 +5,13 @@ export const createService = async (sandboxId) => {
         metadata: {
             name: `sandbox-service-${sandboxId}`,
             labels: {
-                app: 'sandbox',
+                app: "custom-sandbox",
                 sandboxId: sandboxId
             }
         },
         spec: {
             selector: {
-                app: 'sandbox',
+                app: "custom-sandbox",
                 sandboxId: sandboxId
             },
             ports: [
@@ -19,7 +19,8 @@ export const createService = async (sandboxId) => {
                 protocol: 'TCP',
                 port: 80,
                 targetPort: 5173,
-                name: 'http'
+                name: 'http',
+                
             },
             {
                 protocol: 'TCP',
