@@ -96,6 +96,7 @@ The brain of the system. A Node.js Express server that hosts the LangGraph ReAct
 | `read_file` | `GET /api/agent/read-file` | Read one or more file contents |
 | `create_file` | `POST /api/agent/create-file` | Create new files (auto-creates parent dirs) |
 | `update_file` | `PATCH /api/agent/update-file` | Overwrite existing file contents |
+| `delete_file` | `DELETE /api/agent/delete-file` | Delete one or more files or directories |
 
 **System Prompt Strategy:**  
 The agent follows a strict TODO-driven workflow (list → plan → write → tick → repeat) to stay within its LangGraph recursion limit budget of 100 tool calls. CSS/design rules are baked into the system prompt so the agent always generates production-grade React+Vite code.
@@ -173,6 +174,8 @@ A lightweight Express server that runs as a **sidecar** inside every sandbox pod
 | `GET` | `/api/agent/read-file?files=a,b,c` | Read one or many files by relative path |
 | `PATCH` | `/api/agent/update-file` | Overwrite one or many files |
 | `POST` | `/api/agent/create-file` | Create one or many files (auto-creates parent directories) |
+| `POST` | `/api/agent/patch-file` | Replace one exact substring in an existing file |
+| `DELETE` | `/api/agent/delete-file` | Delete one or more files or directories |
 
 **Security:** All file paths are validated with `path.resolve()` + prefix check to prevent path traversal attacks (e.g., `../../etc/passwd` is rejected).
 
@@ -248,7 +251,9 @@ tool.js
  ├── listFiles     → GET  /api/agent/list-files
  ├── readFile      → GET  /api/agent/read-file?files=...
  ├── createFile    → POST /api/agent/create-file
- └── updateFile    → PATCH /api/agent/update-file
+ ├── updateFile    → PATCH /api/agent/update-file
+ ├── patchFile     → POST /api/agent/patch-file
+ └── deleteFile    → DELETE /api/agent/delete-file
 ```
 
 Tools are registered in `code.agent.js` using `createReactAgent` from `@langchain/langgraph`:
@@ -256,7 +261,7 @@ Tools are registered in `code.agent.js` using `createReactAgent` from `@langchai
 ```javascript
 const agent = createReactAgent({
     llm: model,                   // Mistral Devstral
-    tools: [listFiles, readFile, createFile, updateFile],
+    tools: [listFiles, readFile, createFile, updateFile, patchFile, deleteFile, executeCommand, getViteRuntimeErrors],
     stateModifier: SYSTEM_PROMPT, // Elite frontend engineer persona
 });
 ```

@@ -2,6 +2,7 @@ import express from 'express';
 import morgan from 'morgan';
 import http from 'http';
 import { createProxyMiddleware } from 'http-proxy-middleware';
+import { refreshTTL } from './config/redis.js';
 
 const app = express();
 app.use(morgan('combined'));
@@ -27,8 +28,8 @@ const getProxyies = (sandboxId) => {
     if (!proxyies[sandboxId]) {
         proxyies[sandboxId] = createProxyMiddleware({
             target: `http://sandbox-service-${sandboxId}`,
-            changeOrigin: true,
-            ws: true,
+            changeOrigin: false,
+            ws: false,
         });
     }
     return proxyies[sandboxId];
@@ -39,13 +40,13 @@ const getAgentProxy = (sandboxId) => {
         agentProxyies[sandboxId] = createProxyMiddleware({
             target: `http://sandbox-service-${sandboxId}:3000`,
             changeOrigin: true,
-            ws: true,
+            ws: false,
         });
     }
     return agentProxyies[sandboxId];
 };
 
-app.use((req, res, next) => {
+app.use(async (req, res, next) => {
     const host = req.headers.host;
 
     if (!host) {
@@ -54,6 +55,8 @@ app.use((req, res, next) => {
 
     const sandboxId = host.split('.')[0];
     const targetHost = host.split('.')[1];
+
+    await refreshTTL(sandboxId);
 
     if (targetHost === 'agent') {
         return getAgentProxy(sandboxId)(req, res, next);
@@ -70,16 +73,20 @@ app.use((req, res, next) => {
 // upgrade events never pass through Express's middleware chain.
 const server = http.createServer(app);
 
-server.on('upgrade', (req, socket, head) => {
+server.on('upgrade', async (req, socket, head) => {
     const host = req.headers.host;
+    console.log(`[Router Upgrade] Host: ${host}, URL: ${req.url}`);
 
     if (!host) {
+        console.log('[Router Upgrade] Missing host header');
         socket.destroy();
         return;
     }
 
     const sandboxId = host.split('.')[0];
     const targetHost = host.split('.')[1];
+    await refreshTTL(sandboxId);
+    console.log(`[Router Upgrade] sandboxId: ${sandboxId}, targetHost: ${targetHost}`);
 
     let proxy;
     if (targetHost === 'agent') {
@@ -88,17 +95,18 @@ server.on('upgrade', (req, socket, head) => {
         proxy = getProxyies(sandboxId);
     }
 
-    if (proxy && typeof proxy.upgrade === 'function') {
-        proxy.upgrade(req, socket, head);
+    if (proxy) {
+        console.log(`[Router Upgrade] Forwarding upgrade to proxy. targetHost: ${targetHost}, proxy.upgrade exists: ${typeof proxy.upgrade === 'function'}`);
+        if (typeof proxy.upgrade === 'function') {
+            proxy.upgrade(req, socket, head);
+        } else {
+            console.log('[Router Upgrade] proxy.upgrade is not a function');
+            socket.destroy();
+        }
     } else {
+        console.log('[Router Upgrade] No proxy found for targetHost:', targetHost);
         socket.destroy();
     }
 });
 
-const PORT = process.env.PORT || 3000;
-
-server.listen(PORT, () => {
-    console.log(`Router listening on port ${PORT}`);
-});
-
-export default app;
+export default server;

@@ -26,6 +26,12 @@ spec:
           limits:
             cpu: "500m"
             memory: "400Mi"
+        env:
+          - name: REDIS_URI
+            valueFrom:
+              secretKeyRef:
+                name: database
+                key: REDIS_URI
         livenessProbe:
           httpGet:
             path: /api/sandbox/health

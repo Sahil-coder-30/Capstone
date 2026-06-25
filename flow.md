@@ -290,7 +290,34 @@ Response example:
 }
 ```
 
-### F. Patch a small string within a file
+### F. Delete files or directories
+
+| Method | Route                     | Purpose                         | Input                                                                                       | Sample output                          |
+| ------ | ------------------------- | ------------------------------- | ------------------------------------------------------------------------------------------- | -------------------------------------- |
+| DELETE | `/api/agent/delete-file`  | Delete files or directories     | Query param `file` (relative path) or JSON body `{ "files": [string] }`                     | `{ "status": "ok", "results": [...] }` |
+
+Request example:
+
+```json
+{
+  "files": [
+    "src/components/OldComponent.jsx"
+  ]
+}
+```
+
+Response example:
+
+```json
+{
+  "status": "ok",
+  "results": [
+    { "file": "src/components/OldComponent.jsx", "status": "File deleted successfully" }
+  ]
+}
+```
+
+### G. Patch a small string within a file
 
 | Method | Route                   | Purpose                                         | Input                                                                  | Sample output                                   |
 | ------ | ----------------------- | ----------------------------------------------- | ---------------------------------------------------------------------- | ----------------------------------------------- |
@@ -315,7 +342,7 @@ Response example:
 }
 ```
 
-### G. Execute shell commands
+### H. Execute shell commands
 
 | Method | Route             | Purpose                             | Input                                               | Sample output                                                                                          |
 | ------ | ----------------- | ----------------------------------- | --------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
@@ -343,7 +370,7 @@ Response example:
 }
 ```
 
-### H. Get Vite runtime logs/errors
+### I. Get Vite runtime logs/errors
 
 | Method | Route                            | Purpose                                              | Input | Sample output                                                              |
 | ------ | -------------------------------- | ---------------------------------------------------- | ----- | -------------------------------------------------------------------------- |
@@ -360,7 +387,7 @@ Response example:
 }
 ```
 
-### I. Real-time terminal connection (Socket.io)
+### J. Real-time terminal connection (Socket.io)
 
 The agent container hosts a Socket.io server to allow real-time interactive terminal execution using `node-pty`.
 

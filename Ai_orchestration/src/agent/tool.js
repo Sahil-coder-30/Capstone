@@ -42,8 +42,23 @@ function logError(toolName, err) {
   return formatted;
 }
 
+function ensureWriter(config) {
+  if (!config) {
+    return { writer: () => {}, configurable: { projectId: "unknown" } };
+  }
+  const safeConfig = { ...config };
+  if (typeof safeConfig.writer !== "function") {
+    safeConfig.writer = () => {};
+  }
+  if (!safeConfig.configurable) {
+    safeConfig.configurable = { projectId: "unknown" };
+  }
+  return safeConfig;
+}
+
 export const listFiles = tool(
   async ({}, config) => {
+    config = ensureWriter(config);
     try {
       config.writer(
         `listFiles: start (project=${config?.configurable?.projectId || "unknown"})`,
@@ -79,6 +94,7 @@ export const listFiles = tool(
 
 export const readFile = tool(
   async ({ file }, config) => {
+    config = ensureWriter(config);
     try {
       config.writer(
         `readFile: start - files: ${JSON.stringify(file)}`,
@@ -121,6 +137,7 @@ export const readFile = tool(
 
 export const updateFile = tool(
   async ({ updates }, config) => {
+    config = ensureWriter(config);
     try {
       config.writer(
         `updateFile: start - updates: ${JSON.stringify(updates)}`,
@@ -173,6 +190,7 @@ export const updateFile = tool(
 
 export const createFile = tool(
   async ({ files }, config) => {
+    config = ensureWriter(config);
     try {
       config.writer(
         `createFile: start - files: ${JSON.stringify(files)}`,
@@ -229,6 +247,7 @@ export const createFile = tool(
 
 export const executeCommand = tool(
   async ({ command, subDir }, config) => {
+    config = ensureWriter(config);
     try {
       config.writer(
         `executeCommand: start - command: "${command}", subDir: "${subDir || ""}"`,
@@ -280,6 +299,7 @@ export const executeCommand = tool(
 
 export const getViteRuntimeErrors = tool(
   async ({}, config) => {
+    config = ensureWriter(config);
     try {
       config.writer(
         `getViteRuntimeErrors: start (project=${config?.configurable?.projectId || "unknown"})`,
@@ -331,6 +351,7 @@ export const getViteRuntimeErrors = tool(
  */
 export const patchFile = tool(
   async ({ filePath, oldStr, newStr }, config) => {
+    config = ensureWriter(config);
     const baseUrl = `http://sandbox-service-${config.configurable.projectId}:3000`;
 
     // ── helper: call the sandbox patch endpoint ──────────────────────────────
@@ -506,3 +527,50 @@ You do NOT need to manually call readFile and retry — the tool does it for you
     }),
   },
 );
+
+export const deleteFile = tool(
+  async ({ files }, config) => {
+    config = ensureWriter(config);
+    try {
+      config.writer(
+        `deleteFile: start - files: ${JSON.stringify(files)}`,
+      );
+      const response = await axios.delete(
+        `http://sandbox-service-${config.configurable.projectId}:3000/api/agent/delete-file`,
+        {
+          data: { files },
+          timeout: 30_000,
+        },
+      );
+      config.writer(
+        `deleteFile: success - response: ${JSON.stringify(response.data)}`,
+      );
+      return JSON.stringify(response.data);
+    } catch (err) {
+      const formatted = logError("deleteFile", err);
+      config.writer(
+        `deleteFile: error - details: ${JSON.stringify(formatted)}`,
+      );
+      return JSON.stringify({
+        error: true,
+        message: "Failed to delete file(s)/directory(ies)",
+        details: formatted,
+      });
+    }
+  },
+  {
+    name: "delete_file",
+    description:
+      "Delete one or more files or directories in the workspace. Send a list of relative file/directory paths to delete. Parent directories or nested files are deleted recursively if a directory path is passed. Always prefer batching multiple file deletions into a single call.",
+    schema: z.object({
+      files: z
+        .array(z.string())
+        .describe(
+          "List of relative paths to delete (e.g. ['src/components/Header.jsx', 'temp_dir/']). Supports folders and files. Do NOT include a leading slash.",
+        ),
+    }),
+  },
+);
+
+
+

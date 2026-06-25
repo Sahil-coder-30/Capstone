@@ -63,6 +63,7 @@ aiRouter.post("/invoke", async (req, res) => {
     "updateFile:",
     "createFile:",
     "patchFile:",
+    "deleteFile:",
     "executeCommand:",
     "getViteRuntimeErrors:",
   ];

@@ -113,6 +113,41 @@ app.get("/api/agent/ready", (req, res) => {
   });
 });
 
+app.post("/api/agent/report-error", (req, res) => {
+  const { type, message, source, line, col, stack } = req.body;
+  console.error(`[Browser Error] Type: ${type}`);
+  console.error(`Message: ${message}`);
+  if (source) console.error(`Source: ${source}:${line}:${col}`);
+  if (stack) console.error(`Stack: ${stack}`);
+
+  // Broadcast the formatted error to the connected terminal UI(s)
+  if (typeof io !== 'undefined' && io) {
+    let titleColor = '\x1b[1;31m'; // Bold red for general runtime errors
+    if (type === 'promise') titleColor = '\x1b[1;33m'; // Bold yellow for unhandled rejections
+    if (type === 'console') titleColor = '\x1b[1;35m'; // Bold magenta for console.error
+
+    let formattedOutput = `\r\n${titleColor}✖ [Browser Error - ${type.toUpperCase()}]\x1b[0m ${message}\r\n`;
+    if (source) {
+      formattedOutput += `  \x1b[90mSource:\x1b[0m ${source}:${line}:${col}\r\n`;
+    }
+    if (stack) {
+      // Split stack trace into individual lines and format them
+      const cleanStack = stack
+        .split('\n')
+        .map(line => `    \x1b[90m${line.trim()}\x1b[0m`)
+        .join('\r\n');
+      formattedOutput += `  \x1b[90mStack Trace:\x1b[0m\r\n${cleanStack}\r\n`;
+    }
+    formattedOutput += '\r\n';
+
+    io.emit("terminal-output", formattedOutput);
+  }
+
+  res.status(200).json({ status: "ok" });
+});
+
+
+
 // ─── List Files ───────────────────────────────────────────────────────────────
 
 /**
@@ -189,6 +224,16 @@ io.on("connection",(socket) => {
   socket.on("terminal-input" , (data) => {
     ptyProcess.write(data);
   })
+
+  socket.on("terminal-resize", ({ cols, rows }) => {
+    if (cols && rows) {
+      try {
+        ptyProcess.resize(cols, rows);
+      } catch (err) {
+        console.error("Failed to resize ptyProcess:", err);
+      }
+    }
+  });
 
   socket.on("connect_error",(err) => {
     console.log(`Connection error : ${err.message}`);
@@ -609,6 +654,85 @@ app.post("/api/agent/create-file", async (req, res) => {
 
   res.status(201).json({ status: "ok", results });
 });
+
+// ─── Delete File ──────────────────────────────────────────────────────────────
+
+/**
+ * TOOL: delete-file
+ *
+ * @description
+ *   Delete one or more files/directories in the workspace.
+ *   Paths must be relative to the workspace root (e.g. "src/App.jsx", NOT "/workspace/src/App.jsx").
+ *
+ * @method  DELETE
+ * @route   /api/agent/delete-file
+ *
+ * @queryparam {string} file
+ *   Optional. Single relative path of the file/directory to delete.
+ *   Example: file=src/App.jsx
+ *
+ * @body {Object} JSON body
+ * @body {Array}  files — Optional. Array of strings representing the relative paths of the files to delete.
+ *
+ * @example — delete a single file via query param
+ *   Request:
+ *     DELETE /api/agent/delete-file?file=src/App.jsx
+ *
+ *   Response (200):
+ *     {
+ *       "status": "ok",
+ *       "results": [
+ *         { "file": "src/App.jsx", "status": "File deleted successfully" }
+ *       ]
+ *     }
+ */
+app.delete("/api/agent/delete-file", async (req, res) => {
+  let fileList = [];
+  const { file } = req.query;
+  const { files } = req.body;
+
+  if (file && typeof file === "string") {
+    fileList.push(file.trim());
+  } else if (files && Array.isArray(files)) {
+    fileList = files.map((f) => typeof f === "string" ? f.trim() : "").filter(Boolean);
+  }
+
+  if (fileList.length === 0) {
+    return res.status(400).json({
+      status: "error",
+      message: "Parameter 'file' or request body 'files' (array of strings) is required",
+    });
+  }
+
+  const results = await Promise.all(
+    fileList.map(async (filename) => {
+      try {
+        const filePath = safeResolve(filename);
+        const stat = await fs.promises.stat(filePath);
+        if (stat.isDirectory()) {
+          await fs.promises.rm(filePath, { recursive: true, force: true });
+          return { file: filename, status: "Directory deleted successfully" };
+        } else {
+          await fs.promises.unlink(filePath);
+          return { file: filename, status: "File deleted successfully" };
+        }
+      } catch (err) {
+        if (err.code === "ENOENT") {
+          return { file: filename, error: "File or directory does not exist" };
+        }
+        return {
+          file: filename,
+          error: err.message.startsWith("Access denied")
+            ? err.message
+            : `Error deleting file: ${err.message}`,
+        };
+      }
+    })
+  );
+
+  res.status(200).json({ status: "ok", results });
+});
+
 
 // ─── Patch File ───────────────────────────────────────────────────────────────
 

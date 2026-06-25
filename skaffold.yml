@@ -46,6 +46,22 @@ build:
       sync:
         infer:
           - "src/**"
+
+    - image: auth
+      context: Auth
+      docker:
+        dockerfile: dockerfile
+      sync:
+        infer:
+          - "src/**"
+
+    - image: notification
+      context: Notification
+      docker:
+        dockerfile: dockerfile
+      sync:
+        infer:
+          - "src/**"
     
 manifests:
   rawYaml:
@@ -57,6 +73,11 @@ manifests:
     - k8s/sandbox-service.yml
     - k8s/rabc.yml
     - k8s/ingress.yml
+    - k8s/auth.deployment.yml
+    - k8s/auth.service.yml
+    - k8s/secrets.yml
+    - k8s/notification-deployment.yml
+    - k8s/notification-service.yml
         
   
   

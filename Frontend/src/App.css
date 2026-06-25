@@ -1,184 +1,556 @@
-.counter {
-  font-size: 16px;
-  padding: 5px 10px;
-  border-radius: 5px;
-  color: var(--accent);
-  background: var(--accent-bg);
-  border: 2px solid transparent;
-  transition: border-color 0.3s;
-  margin-bottom: 24px;
-
-  &:hover {
-    border-color: var(--accent-border);
-  }
-  &:focus-visible {
-    outline: 2px solid var(--accent);
-    outline-offset: 2px;
-  }
-}
-
-.hero {
-  position: relative;
-
-  .base,
-  .framework,
-  .vite {
-    inset-inline: 0;
-    margin: 0 auto;
-  }
-
-  .base {
-    width: 170px;
-    position: relative;
-    z-index: 0;
-  }
-
-  .framework,
-  .vite {
-    position: absolute;
-  }
-
-  .framework {
-    z-index: 1;
-    top: 34px;
-    height: 28px;
-    transform: perspective(2000px) rotateZ(300deg) rotateX(44deg) rotateY(39deg)
-      scale(1.4);
-  }
-
-  .vite {
-    z-index: 0;
-    top: 107px;
-    height: 26px;
-    width: auto;
-    transform: perspective(2000px) rotateZ(300deg) rotateX(40deg) rotateY(39deg)
-      scale(0.8);
-  }
-}
-
-#center {
+/* Scoped layout classes for App.jsx - AI Editor Layout */
+.app-container {
   display: flex;
   flex-direction: column;
-  gap: 25px;
-  place-content: center;
-  place-items: center;
-  flex-grow: 1;
-
-  @media (max-width: 1024px) {
-    padding: 32px 20px 24px;
-    gap: 18px;
-  }
+  height: 100vh;
+  width: 100vw;
+  background-color: var(--bg-main);
+  overflow: hidden;
 }
 
-#next-steps {
+/* Horizontal stack containing Activity Bar, Main Workspace, and Chat panel */
+.main-content {
   display: flex;
-  border-top: 1px solid var(--border);
-  text-align: left;
-
-  & > div {
-    flex: 1 1 0;
-    padding: 32px;
-    @media (max-width: 1024px) {
-      padding: 24px 20px;
-    }
-  }
-
-  .icon {
-    margin-bottom: 16px;
-    width: 22px;
-    height: 22px;
-  }
-
-  @media (max-width: 1024px) {
-    flex-direction: column;
-    text-align: center;
-  }
-}
-
-#docs {
-  border-right: 1px solid var(--border);
-
-  @media (max-width: 1024px) {
-    border-right: none;
-    border-bottom: 1px solid var(--border);
-  }
-}
-
-#next-steps ul {
-  list-style: none;
-  padding: 0;
-  display: flex;
-  gap: 8px;
-  margin: 32px 0 0;
-
-  .logo {
-    height: 18px;
-  }
-
-  a {
-    color: var(--text-h);
-    font-size: 16px;
-    border-radius: 6px;
-    background: var(--social-bg);
-    display: flex;
-    padding: 6px 12px;
-    align-items: center;
-    gap: 8px;
-    text-decoration: none;
-    transition: box-shadow 0.3s;
-
-    &:hover {
-      box-shadow: var(--shadow);
-    }
-    .button-icon {
-      height: 18px;
-      width: 18px;
-    }
-  }
-
-  @media (max-width: 1024px) {
-    margin-top: 20px;
-    flex-wrap: wrap;
-    justify-content: center;
-
-    li {
-      flex: 1 1 calc(50% - 8px);
-    }
-
-    a {
-      width: 100%;
-      justify-content: center;
-      box-sizing: border-box;
-    }
-  }
-}
-
-#spacer {
-  height: 88px;
-  border-top: 1px solid var(--border);
-  @media (max-width: 1024px) {
-    height: 48px;
-  }
-}
-
-.ticks {
+  flex: 1;
+  overflow: hidden;
   position: relative;
-  width: 100%;
-
-  &::before,
-  &::after {
-    content: '';
-    position: absolute;
-    top: -4.5px;
-    border: 5px solid transparent;
-  }
-
-  &::before {
-    left: 0;
-    border-left-color: var(--border);
-  }
-  &::after {
-    right: 0;
-    border-right-color: var(--border);
-  }
 }
+
+/* Vertical Activity Bar on far left */
+.activity-bar {
+  width: 48px;
+  background-color: var(--bg-sidebar);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 0;
+  flex-shrink: 0;
+  z-index: 60;
+}
+
+.activity-bar-top, .activity-bar-bottom {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+}
+
+.activity-bar-item {
+  width: 100%;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  cursor: pointer;
+  color: var(--text-dark);
+  transition: color 0.2s, background-color 0.2s;
+}
+
+.activity-bar-item:hover {
+  color: var(--text-main);
+}
+
+.activity-bar-item.active {
+  color: var(--primary);
+}
+
+.activity-bar-item-indicator {
+  position: absolute;
+  left: 0;
+  width: 3px;
+  height: 24px;
+  background-color: var(--primary);
+  border-radius: 0 4px 4px 0;
+  box-shadow: 0 0 8px var(--primary-glow);
+  transition: transform 0.2s;
+}
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background-color: var(--bg-sidebar);
+  min-width: 0;
+}
+
+/* Left panel (File Explorer) */
+.left-panel {
+  width: 280px;
+  background-color: var(--bg-sidebar);
+}
+
+/* Right panel (AI Assistant) */
+.right-panel {
+  width: 380px;
+  min-width: 260px;
+  max-width: 520px;
+  background-color: var(--bg-sidebar);
+}
+
+/* Center Panel (Main Code & Shell area) */
+.center-panel {
+  flex: 1;
+  background-color: var(--bg-main);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Main work area inside Center Panel (Editor / Preview toggler) */
+.center-workspace {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Bottom Terminal & Logs area inside Center Panel */
+.center-terminal-area {
+  height: 35%;
+  min-height: 180px;
+  max-height: 60%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background-color: var(--bg-panel);
+}
+
+/* Header bar styling */
+.panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 14px;
+  border-bottom: 1px solid var(--border);
+  height: 38px;
+  background-color: var(--bg-panel);
+  flex-shrink: 0;
+}
+
+.panel-title {
+  font-family: var(--font-heading);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.panel-body {
+  flex: 1;
+  overflow-y: auto;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Tab styling for toggles */
+.tab-bar {
+  display: flex;
+  align-items: center;
+  background-color: var(--bg-sidebar);
+  border-bottom: 1px solid var(--border);
+  height: 38px;
+  padding: 0 6px;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.tab-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 100%;
+  padding: 0 14px;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--text-dark);
+  font-family: var(--font-heading);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.tab-btn:hover {
+  color: var(--text-main);
+  background-color: rgba(255, 255, 255, 0.01);
+}
+
+.tab-btn.active {
+  color: var(--text-main);
+  border-bottom-color: var(--primary);
+  background-color: var(--bg-panel);
+  font-weight: 600;
+}
+
+.workspace-content {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+  background-color: var(--bg-panel);
+}
+
+/* Resizer Bars */
+.resizer {
+  background-color: transparent;
+  flex-shrink: 0;
+  z-index: 50;
+  position: relative;
+  transition: background-color 0.15s ease;
+}
+
+.vertical-resizer {
+  width: 3px;
+  cursor: col-resize;
+  height: 100%;
+}
+
+.vertical-resizer::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 1px;
+  width: 1px;
+  background-color: var(--border);
+  transition: background-color 0.15s ease, width 0.15s ease, box-shadow 0.15s ease;
+}
+
+.vertical-resizer:hover::before,
+.vertical-resizer.active::before {
+  background-color: var(--primary);
+  width: 2px;
+  box-shadow: 0 0 8px var(--primary-glow);
+}
+
+.vertical-resizer::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -5px;
+  right: -5px;
+  z-index: 51;
+}
+
+.horizontal-resizer {
+  height: 3px;
+  cursor: row-resize;
+  width: 100%;
+}
+
+.horizontal-resizer::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 1px;
+  height: 1px;
+  background-color: var(--border);
+  transition: background-color 0.15s ease, height 0.15s ease, box-shadow 0.15s ease;
+}
+
+.horizontal-resizer:hover::before,
+.horizontal-resizer.active::before {
+  background-color: var(--primary);
+  height: 2px;
+  box-shadow: 0 0 8px var(--primary-glow);
+}
+
+.horizontal-resizer::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: -5px;
+  bottom: -5px;
+  z-index: 51;
+}
+
+/* Global Resizing Body overrides */
+body.is-resizing iframe {
+  pointer-events: none !important;
+}
+
+body.is-resizing {
+  user-select: none !important;
+}
+
+body.is-resizing-col,
+body.is-resizing-col * {
+  cursor: col-resize !important;
+}
+
+body.is-resizing-row,
+body.is-resizing-row * {
+  cursor: row-resize !important;
+}
+
+/* Global Status Bar at the bottom */
+.status-bar {
+  height: 24px;
+  background-color: var(--bg-sidebar);
+  border-top: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 12px;
+  font-size: 11px;
+  color: var(--text-dark);
+  font-family: var(--font-sans);
+  flex-shrink: 0;
+  z-index: 70;
+  user-select: none;
+}
+
+.status-bar-section {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.status-bar-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  transition: color 0.15s;
+}
+
+.status-bar-item:hover {
+  color: var(--text-muted);
+}
+
+/* Editor Tabs Container */
+.editor-tabs-container {
+  display: flex;
+  background-color: var(--bg-sidebar);
+  border-bottom: 1px solid var(--border);
+  height: 38px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none; /* Firefox */
+  flex-shrink: 0;
+}
+
+.editor-tabs-container::-webkit-scrollbar {
+  display: none; /* Safari and Chrome */
+}
+
+/* Single Editor Tab styling */
+.editor-tab {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 16px;
+  height: 100%;
+  background-color: var(--bg-sidebar);
+  border-right: 1px solid var(--border);
+  border-top: 2px solid transparent;
+  color: var(--text-dark);
+  font-size: 12.5px;
+  font-family: var(--font-sans);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+  min-width: 100px;
+  max-width: 200px;
+}
+
+.editor-tab:hover {
+  color: var(--text-muted);
+  background-color: rgba(255, 255, 255, 0.01);
+}
+
+.editor-tab.active {
+  color: var(--text-main);
+  background-color: var(--bg-panel);
+  border-top-color: var(--primary);
+  font-weight: 500;
+}
+
+/* Close button inside tab */
+.tab-close-btn {
+  background: none;
+  border: none;
+  color: var(--text-dark);
+  padding: 2px;
+  border-radius: 4px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+  margin-left: auto;
+}
+
+.tab-close-btn:hover {
+  background-color: var(--bg-active);
+  color: var(--text-main);
+}
+
+/* Toolbar button styling */
+.editor-toolbar-btn {
+  background: none;
+  border: 1px solid transparent;
+  color: var(--text-dark);
+  padding: 5px;
+  border-radius: 4px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+}
+
+.editor-toolbar-btn:hover {
+  background-color: var(--bg-element);
+  color: var(--text-main);
+}
+
+.editor-toolbar-btn.active {
+  background-color: var(--bg-active);
+  color: var(--primary);
+  border-color: var(--border);
+}
+
+/* Settings Toggle Switch styling */
+.editor-switch {
+  position: relative;
+  display: inline-block;
+  width: 28px;
+  height: 16px;
+}
+
+.editor-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.editor-slider {
+  position: absolute;
+  cursor: pointer;
+  inset: 0;
+  background-color: var(--bg-active);
+  border: 1px solid var(--border);
+  transition: .2s;
+  border-radius: 16px;
+}
+
+.editor-slider:before {
+  position: absolute;
+  content: "";
+  height: 10px;
+  width: 10px;
+  left: 2px;
+  bottom: 2px;
+  background-color: var(--text-dark);
+  transition: .2s;
+  border-radius: 50%;
+}
+
+.editor-switch input:checked + .editor-slider {
+  background-color: var(--primary);
+}
+
+.editor-switch input:checked + .editor-slider:before {
+  transform: translateX(12px);
+  background-color: var(--bg-main);
+}
+
+/* Premium custom scrollbar for Chat Panel and its components */
+.chat-scroll-container {
+  scroll-behavior: smooth;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(129, 140, 248, 0.4) transparent;
+}
+
+.chat-scroll-container::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.chat-scroll-container::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.chat-scroll-container::-webkit-scrollbar-thumb {
+  background: rgba(129, 140, 248, 0.35); /* primary-glow */
+  border-radius: 10px;
+  border: 1px solid transparent;
+}
+
+.chat-scroll-container::-webkit-scrollbar-thumb:hover {
+  background: var(--primary); /* brighter glow on hover */
+}
+
+/* Premium styling for task run cards in the Coding Agent chat panel */
+.task-run-card {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.task-run-card:hover {
+  border-color: rgba(129, 140, 248, 0.3);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3), 0 0 12px rgba(129, 140, 248, 0.05);
+  transform: translateY(-1px);
+}
+
+.task-run-card.expanded {
+  border-color: rgba(129, 140, 248, 0.45);
+  background: rgba(14, 16, 23, 0.98);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.45), 0 0 15px rgba(129, 140, 248, 0.08);
+}
+
+.task-run-card-header {
+  transition: background-color 0.2s;
+}
+
+.task-run-card-header:hover {
+  background-color: rgba(255, 255, 255, 0.015) !important;
+}
+
+/* Premium chat input textarea */
+.chat-textarea {
+  flex: 1;
+  min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
+  background: var(--bg-element);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 42px 10px 12px;
+  color: var(--text-main);
+  font-size: 12px;
+  outline: none;
+  resize: none;
+  line-height: 1.4;
+  font-family: var(--font-sans);
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.chat-textarea:focus {
+  border-color: var(--primary) !important;
+  box-shadow: 0 0 10px var(--primary-glow);
+}
+
+.chat-textarea:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+
+

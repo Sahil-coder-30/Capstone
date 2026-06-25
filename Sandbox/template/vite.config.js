@@ -42,6 +42,15 @@ export default defineConfig({
             var originalConsoleError = console.error
             console.error = function() {
               var args = Array.prototype.slice.call(arguments)
+              var stack = null;
+              try { throw new Error(); } catch(e) { stack = e.stack; }
+              // Remove the first few lines of the stack trace belonging to this handler
+              if (stack) {
+                var lines = stack.split('\\n');
+                if (lines.length > 2) {
+                  stack = lines.slice(2).join('\\n');
+                }
+              }
               fetch('/api/agent/report-error', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -49,7 +58,8 @@ export default defineConfig({
                   type: 'console',
                   message: args.map(function(a) {
                     return typeof a === 'object' ? JSON.stringify(a) : String(a)
-                  }).join(' ')
+                  }).join(' '),
+                  stack: stack
                 })
               }).catch(function() {})
               originalConsoleError.apply(console, args)
@@ -57,18 +67,44 @@ export default defineConfig({
           </script>
         </head>`)
       }
+    },
+    {
+      name: 'watch-package-json',
+      configureServer(server) {
+        server.watcher.add(`${server.config.root}/package.json`);
+        server.watcher.add(`${server.config.root}/package-lock.json`);
+        server.watcher.on('change', (file) => {
+          if (file.endsWith('package.json') || file.endsWith('package-lock.json')) {
+            console.log('package.json or package-lock.json changed. Restarting dev server to reflect new dependencies...');
+            server.restart();
+          }
+        });
+      }
     }
   ],
   server: {
     host: '0.0.0.0',
     port: 5173,
+    strictPort: false,
     allowedHosts: true,
-    hmr: false,
+    hmr: {
+      clientPort: 80,
+    },
     watch: {
       usePolling: true,
       interval: 300,
-      atomic: true,
-      ignored: ['!**/node_modules/**'],
+      ignored: ['node_modules'],
+    },
+    proxy: {
+      '/api/agent': {
+        target: 'http://localhost:3000',
+        changeOrigin: true,
+      },
+      '/api/terminal-proxy': {
+        target: 'http://localhost:3000',
+        changeOrigin: true,
+        ws: true,
+      }
     }
   }
 });
