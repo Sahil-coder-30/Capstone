@@ -5,8 +5,18 @@ import axios from 'axios';
  * (and the Ingress in production) handles routing to the backend.
  */
 
-export const startSandboxAPI = async () => {
-  const response = await axios.post('/api/sandbox/start');
+export const startSandboxAPI = async (projectId) => {
+  const response = await axios.post(`/api/sandbox/start/${projectId}`);
+  return response.data;
+};
+
+export const createProjectAPI = async (title) => {
+  const response = await axios.post('/api/sandbox/create-project', { title });
+  return response.data;
+};
+
+export const listProjectsAPI = async () => {
+  const response = await axios.get('/api/sandbox/projects');
   return response.data;
 };
 
@@ -15,8 +25,21 @@ export const checkSandboxHealthAPI = async (sandboxId) => {
   return response.data;
 };
 
-export const stopSandboxAPI = async (sandboxId) => {
-  const response = await axios.delete(`/api/sandbox/${sandboxId}`);
+/**
+ * Stop a running sandbox — keeps the project record alive so it can be restarted.
+ * Tears down: K8s Pod + Service + Redis key.  Status → "down".
+ */
+export const stopSandboxAPI = async (projectId) => {
+  const response = await axios.post(`/api/sandbox/stop/${projectId}`);
+  return response.data;
+};
+
+/**
+ * Permanently delete a project and all its resources.
+ * If the sandbox was live, K8s resources are removed first.
+ */
+export const deleteProjectAPI = async (projectId) => {
+  const response = await axios.delete(`/api/sandbox/project/${projectId}`);
   return response.data;
 };
 

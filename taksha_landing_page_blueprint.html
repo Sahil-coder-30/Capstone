@@ -1,0 +1,289 @@
+
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+.bp { font-family: var(--font-sans); padding: 1rem 0 2rem; }
+.section-block { border: 0.5px solid var(--border); border-radius: 12px; margin-bottom: 10px; overflow: hidden; }
+.section-header { display: flex; align-items: center; gap: 10px; padding: 10px 14px; background: var(--surface-1); cursor: pointer; user-select: none; }
+.section-header:hover { background: var(--surface-2); }
+.sec-num { font-size: 10px; font-weight: 500; color: var(--text-muted); min-width: 22px; font-family: var(--font-mono); }
+.sec-tag { font-size: 10px; padding: 2px 7px; border-radius: 4px; font-weight: 500; }
+.sec-name { font-size: 14px; font-weight: 500; color: var(--text-primary); flex: 1; }
+.sec-sub { font-size: 12px; color: var(--text-muted); }
+.chevron { font-size: 14px; color: var(--text-muted); transition: transform 0.2s; display: inline-block; }
+.chevron.open { transform: rotate(180deg); }
+.section-body { padding: 0 14px; max-height: 0; overflow: hidden; transition: max-height 0.25s ease, padding 0.2s; }
+.section-body.open { max-height: 600px; padding: 10px 14px 14px; }
+.elements { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.el { font-size: 11px; padding: 3px 9px; border-radius: 4px; background: var(--surface-1); border: 0.5px solid var(--border); color: var(--text-secondary); }
+.el.key { border-color: #0D8A6A55; color: #0D8A6A; background: #0D8A6A0D; }
+.el.code { border-color: #1B6EF355; color: #1B6EF3; background: #1B6EF30D; }
+.copy-line { font-size: 12px; color: var(--text-secondary); margin-bottom: 6px; padding: 6px 10px; background: var(--surface-1); border-radius: 6px; border-left: 2px solid #0D8A6A; border-radius: 0; font-style: italic; }
+.divider { height: 0.5px; background: var(--border); margin: 8px 0; }
+.hint { font-size: 11px; color: var(--text-muted); margin-top: 6px; }
+.page-chrome { border: 0.5px solid var(--border); border-radius: 8px; overflow: hidden; margin-bottom: 20px; }
+.chrome-bar { background: var(--surface-1); padding: 7px 12px; display: flex; align-items: center; gap: 8px; border-bottom: 0.5px solid var(--border); }
+.dot { width: 10px; height: 10px; border-radius: 50%; }
+.chrome-url { flex: 1; background: var(--surface-0); border-radius: 4px; padding: 3px 10px; font-size: 11px; color: var(--text-muted); font-family: var(--font-mono); }
+.page-strip { display: flex; }
+.page-vis { width: 160px; min-width: 160px; border-right: 0.5px solid var(--border); }
+.vis-seg { border-bottom: 0.5px dashed var(--border); display: flex; align-items: center; justify-content: center; font-size: 10px; color: var(--text-muted); font-weight: 500; padding: 0 6px; text-align: center; }
+.page-list { flex: 1; }
+.plist-row { display: flex; align-items: center; gap: 10px; padding: 7px 12px; border-bottom: 0.5px solid var(--border); cursor: pointer; }
+.plist-row:hover { background: var(--surface-1); }
+.plist-row:last-child { border-bottom: none; }
+.plist-num { font-size: 10px; color: var(--text-muted); font-family: var(--font-mono); min-width: 20px; }
+.plist-name { font-size: 13px; font-weight: 500; color: var(--text-primary); flex: 1; }
+.plist-purpose { font-size: 11px; color: var(--text-muted); }
+.plist-dot { width: 8px; height: 8px; border-radius: 50%; }
+</style>
+
+<div class="bp">
+<h2 class="sr-only">Taksha landing page section blueprint — 9 sections mapped with purpose and elements</h2>
+
+<div style="margin-bottom: 16px;">
+  <p style="font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 500; color: var(--text-muted); margin-bottom: 4px;">Taksha Codespace · Landing page</p>
+  <p style="font-size: 13px; color: var(--text-secondary);">9 sections · inspired by Google AI Studio's utility-first, dark-chrome aesthetic</p>
+</div>
+
+<div class="page-chrome">
+  <div class="chrome-bar">
+    <div class="dot" style="background:#D63B3B;"></div>
+    <div class="dot" style="background:#D97B0C;"></div>
+    <div class="dot" style="background:#0D8A6A;"></div>
+    <div class="chrome-url">taksha.dev</div>
+  </div>
+  <div class="page-strip">
+    <div class="page-vis">
+      <div class="vis-seg" style="height:40px; background:#0D8A6A12; color:#0D8A6A;">Nav</div>
+      <div class="vis-seg" style="height:72px; background:#141520;">Hero</div>
+      <div class="vis-seg" style="height:36px; background:#0A0B0F;">Prompt bar</div>
+      <div class="vis-seg" style="height:50px; background:#141520;">How it works</div>
+      <div class="vis-seg" style="height:46px; background:#0A0B0F;">Agent pipeline</div>
+      <div class="vis-seg" style="height:44px; background:#141520;">Features</div>
+      <div class="vis-seg" style="height:34px; background:#0A0B0F;">Live demo</div>
+      <div class="vis-seg" style="height:38px; background:#141520;">Tech stack</div>
+      <div class="vis-seg" style="height:32px; background:#0A0B0F;">Pricing / access</div>
+      <div class="vis-seg" style="height:28px; background:#141520;">Footer</div>
+    </div>
+    <div class="page-list">
+      <div class="plist-row"><div class="plist-num">01</div><div class="plist-dot" style="background:#0D8A6A;"></div><div class="plist-name">Navbar</div><div class="plist-purpose">Entry + trust</div></div>
+      <div class="plist-row"><div class="plist-num">02</div><div class="plist-dot" style="background:#0D8A6A;"></div><div class="plist-name">Hero</div><div class="plist-purpose">Hook + CTA</div></div>
+      <div class="plist-row"><div class="plist-num">03</div><div class="plist-dot" style="background:#1B6EF3;"></div><div class="plist-name">Live prompt demo</div><div class="plist-purpose">Immediate value</div></div>
+      <div class="plist-row"><div class="plist-num">04</div><div class="plist-dot" style="background:#1B6EF3;"></div><div class="plist-name">How it works</div><div class="plist-purpose">Reduce confusion</div></div>
+      <div class="plist-row"><div class="plist-num">05</div><div class="plist-dot" style="background:#1B6EF3;"></div><div class="plist-name">Agent pipeline</div><div class="plist-purpose">Show the engine</div></div>
+      <div class="plist-row"><div class="plist-num">06</div><div class="plist-dot" style="background:#D97B0C;"></div><div class="plist-name">Features</div><div class="plist-purpose">Sell the details</div></div>
+      <div class="plist-row"><div class="plist-num">07</div><div class="plist-dot" style="background:#D97B0C;"></div><div class="plist-name">Tech stack</div><div class="plist-purpose">Developer trust</div></div>
+      <div class="plist-row"><div class="plist-num">08</div><div class="plist-dot" style="background:#7A7D96;"></div><div class="plist-name">Access / pricing</div><div class="plist-purpose">Convert</div></div>
+      <div class="plist-row"><div class="plist-num">09</div><div class="plist-dot" style="background:#7A7D96;"></div><div class="plist-name">Footer</div><div class="plist-purpose">Links + legal</div></div>
+    </div>
+  </div>
+</div>
+
+<div style="font-size: 11px; color: var(--text-muted); margin-bottom: 14px;">Click each section to see elements, copy direction, and implementation notes ↓</div>
+
+<div class="section-block">
+  <div class="section-header" onclick="toggle(this)">
+    <div class="sec-num">01</div>
+    <span class="sec-tag" style="background:#0D8A6A15;color:#0D8A6A;border:0.5px solid #0D8A6A33;">nav</span>
+    <div class="sec-name">Navbar</div>
+    <div class="sec-sub">Fixed top · dark glass</div>
+    <span class="chevron">▾</span>
+  </div>
+  <div class="section-body">
+    <div class="copy-line">"Taksha" logo left · nav links center · "Get early access" CTA right</div>
+    <div class="elements">
+      <div class="el key">Logo + wordmark</div>
+      <div class="el">Docs link</div>
+      <div class="el">GitHub link (star count)</div>
+      <div class="el">Changelog</div>
+      <div class="el key">Get early access →</div>
+      <div class="el code">backdrop-filter: blur</div>
+    </div>
+    <div class="hint">AI Studio vibe: thin 1px border-bottom only, near-transparent bg. No heavy navbar.</div>
+  </div>
+</div>
+
+<div class="section-block">
+  <div class="section-header" onclick="toggle(this)">
+    <div class="sec-num">02</div>
+    <span class="sec-tag" style="background:#0D8A6A15;color:#0D8A6A;border:0.5px solid #0D8A6A33;">hero</span>
+    <div class="sec-name">Hero — the thesis</div>
+    <div class="sec-sub">Full-viewport · dark canvas</div>
+    <span class="chevron">▾</span>
+  </div>
+  <div class="section-body">
+    <div class="copy-line">Headline: "Describe your app. Taksha builds, tests, and fixes it — automatically."</div>
+    <div class="copy-line">Sub: "A 5-agent AI pipeline on Kubernetes. One prompt → production-ready React app."</div>
+    <div class="elements">
+      <div class="el key">Badge pill: "Built on Mistral Devstral"</div>
+      <div class="el key">Primary CTA: "Start building"</div>
+      <div class="el">Ghost CTA: "Watch demo"</div>
+      <div class="el">Stat strip: "5 agents · Kubernetes sandboxes · Self-healing"</div>
+      <div class="el code">Node lattice animation (SVG)</div>
+    </div>
+    <div class="hint">AI Studio ref: big centered headline, subtle animated background, two-button CTA, no hero image. Let the copy do the work.</div>
+  </div>
+</div>
+
+<div class="section-block">
+  <div class="section-header" onclick="toggle(this)">
+    <div class="sec-num">03</div>
+    <span class="sec-tag" style="background:#1B6EF315;color:#1B6EF3;border:0.5px solid #1B6EF333;">demo</span>
+    <div class="sec-name">Live prompt bar</div>
+    <div class="sec-sub">The Google AI Studio signature move</div>
+    <span class="chevron">▾</span>
+  </div>
+  <div class="section-body">
+    <div class="copy-line">"Try it — describe what you want to build" → show live agent output stream in a terminal-style pane</div>
+    <div class="elements">
+      <div class="el key">Large prompt textarea</div>
+      <div class="el key">Real-time agent output stream</div>
+      <div class="el">Example prompts: chips ("Todo app in React", "REST API with auth")</div>
+      <div class="el code">Typewriter animation on output</div>
+      <div class="el">Agent step indicators (Planner → Builder → Reviewer...)</div>
+      <div class="el code">Split pane: prompt left · output right</div>
+    </div>
+    <div class="hint">This IS the Google AI Studio move — show the actual interface before signup. Interactive demo = highest conversion element on dev tools landing pages.</div>
+  </div>
+</div>
+
+<div class="section-block">
+  <div class="section-header" onclick="toggle(this)">
+    <div class="sec-num">04</div>
+    <span class="sec-tag" style="background:#1B6EF315;color:#1B6EF3;border:0.5px solid #1B6EF333;">flow</span>
+    <div class="sec-name">How it works</div>
+    <div class="sec-sub">3-step clarity section</div>
+    <span class="chevron">▾</span>
+  </div>
+  <div class="section-body">
+    <div class="copy-line">Step 1: "Describe" → Step 2: "Build" → Step 3: "Deploy"</div>
+    <div class="elements">
+      <div class="el key">3 horizontal step cards</div>
+      <div class="el">Icon per step (ti-message, ti-cpu, ti-rocket)</div>
+      <div class="el">Connector arrows between steps</div>
+      <div class="el">Each card: 1-line title + 2-line description</div>
+      <div class="el code">Scroll-triggered reveal animation</div>
+    </div>
+    <div class="hint">Keep it brutally short. 3 steps max. Developers hate fluff. This section exists to kill the "but how does it actually work?" objection.</div>
+  </div>
+</div>
+
+<div class="section-block">
+  <div class="section-header" onclick="toggle(this)">
+    <div class="sec-num">05</div>
+    <span class="sec-tag" style="background:#1B6EF315;color:#1B6EF3;border:0.5px solid #1B6EF333;">arch</span>
+    <div class="sec-name">Agent pipeline diagram</div>
+    <div class="sec-sub">The technical depth moment</div>
+    <span class="chevron">▾</span>
+  </div>
+  <div class="section-body">
+    <div class="copy-line">Show the 5-agent LangGraph flow: Planner → Builder → Reviewer → Tester → Debugger (master orchestrator)</div>
+    <div class="elements">
+      <div class="el key">Animated agent flow diagram</div>
+      <div class="el key">Each agent: name + one-line role</div>
+      <div class="el">Kubernetes pod visual below the flow</div>
+      <div class="el">RAG / MongoDB Vector Search callout</div>
+      <div class="el">File API sidecar mention</div>
+      <div class="el code">SVG with pulse animation on active node</div>
+    </div>
+    <div class="hint">This is your technical credibility section. Devs evaluating tools want to see the architecture before they commit. Don't hide it.</div>
+  </div>
+</div>
+
+<div class="section-block">
+  <div class="section-header" onclick="toggle(this)">
+    <div class="sec-num">06</div>
+    <span class="sec-tag" style="background:#D97B0C15;color:#D97B0C;border:0.5px solid #D97B0C33;">features</span>
+    <div class="sec-name">Features grid</div>
+    <div class="sec-sub">6-card bento layout</div>
+    <span class="chevron">▾</span>
+  </div>
+  <div class="section-body">
+    <div class="copy-line">6 features in a 3×2 bento grid — 1 large hero card + 5 smaller ones</div>
+    <div class="elements">
+      <div class="el key">Self-healing code (hero card)</div>
+      <div class="el">Kubernetes sandbox per user</div>
+      <div class="el">Real-time browser error capture</div>
+      <div class="el">Surgical patchFile edits</div>
+      <div class="el">Export validation (JSX guard)</div>
+      <div class="el">RAG-powered context memory</div>
+      <div class="el code">Bento CSS grid: 2 cols × 3 rows, 1 card spans 2</div>
+    </div>
+    <div class="hint">AI Studio ref: dense bento cards on dark bg. Each card = icon + feature name + 1-sentence description. No bullet lists inside cards.</div>
+  </div>
+</div>
+
+<div class="section-block">
+  <div class="section-header" onclick="toggle(this)">
+    <div class="sec-num">07</div>
+    <span class="sec-tag" style="background:#D97B0C15;color:#D97B0C;border:0.5px solid #D97B0C33;">stack</span>
+    <div class="sec-name">Tech stack strip</div>
+    <div class="sec-sub">Developer trust · logo parade</div>
+    <span class="chevron">▾</span>
+  </div>
+  <div class="section-body">
+    <div class="copy-line">"Built on tools you already trust"</div>
+    <div class="elements">
+      <div class="el key">Logo strip: LangGraph, Mistral, MongoDB, Kubernetes, React, Vite</div>
+      <div class="el">Muted on-dark treatment (opacity 50%, hover 100%)</div>
+      <div class="el">Auto-scroll marquee on mobile</div>
+      <div class="el code">Infinite marquee CSS animation</div>
+    </div>
+    <div class="hint">Don't put this too early — it's a trust amplifier, not a hook. Works best after the agent pipeline section when devs already understand what you built.</div>
+  </div>
+</div>
+
+<div class="section-block">
+  <div class="section-header" onclick="toggle(this)">
+    <div class="sec-num">08</div>
+    <span class="sec-tag" style="background:#7A7D9615;color:#7A7D96;border:0.5px solid #7A7D9633;">access</span>
+    <div class="sec-name">Early access / pricing</div>
+    <div class="sec-sub">Convert + collect emails</div>
+    <span class="chevron">▾</span>
+  </div>
+  <div class="section-body">
+    <div class="copy-line">"Request early access — Phase 1 open to 50 developers" → email input → waitlist CTA</div>
+    <div class="elements">
+      <div class="el key">Waitlist email form</div>
+      <div class="el key">Counter: "X / 50 spots remaining"</div>
+      <div class="el">2-tier cards: Free tier + Pro tier (Phase 2)</div>
+      <div class="el">Feature comparison per tier</div>
+      <div class="el">GitHub stars CTA alongside</div>
+    </div>
+    <div class="hint">For a capstone/early-stage product: don't put real pricing yet. Scarcity + waitlist is the right move. Collect emails, show you're serious about limiting beta.</div>
+  </div>
+</div>
+
+<div class="section-block">
+  <div class="section-header" onclick="toggle(this)">
+    <div class="sec-num">09</div>
+    <span class="sec-tag" style="background:#7A7D9615;color:#7A7D96;border:0.5px solid #7A7D9633;">footer</span>
+    <div class="sec-name">Footer</div>
+    <div class="sec-sub">Links · social · legal</div>
+    <span class="chevron">▾</span>
+  </div>
+  <div class="section-body">
+    <div class="copy-line">Logo left · links center · social right · copyright bottom</div>
+    <div class="elements">
+      <div class="el">Docs / GitHub / Changelog</div>
+      <div class="el">Twitter / LinkedIn</div>
+      <div class="el">Privacy policy</div>
+      <div class="el">Built by Sahil · JSS Noida</div>
+      <div class="el code">Dark bg · minimal · 1 row</div>
+    </div>
+    <div class="hint">Keep it tight. One row, thin top border, nothing fancy. AI Studio's footer is famously minimal.</div>
+  </div>
+</div>
+
+</div>
+
+<script>
+function toggle(header) {
+  const body = header.nextElementSibling;
+  const chevron = header.querySelector('.chevron');
+  const isOpen = body.classList.contains('open');
+  document.querySelectorAll('.section-body.open').forEach(b => { b.classList.remove('open'); });
+  document.querySelectorAll('.chevron.open').forEach(c => { c.classList.remove('open'); });
+  if (!isOpen) { body.classList.add('open'); chevron.classList.add('open'); }
+}
+</script>

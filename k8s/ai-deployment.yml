@@ -31,6 +31,24 @@ spec:
               secretKeyRef:
                 name: ai-secret
                 key: MISTRALAI_API_KEY
+          - name: GOOGLE_API_KEY
+            valueFrom:
+              secretKeyRef:
+                name: ai-secret
+                key: GOOGLE_API_KEY
+
+          - name: MONGO_URI
+            valueFrom:
+              secretKeyRef:
+                name: database
+                key: AI
+
+          - name: JWT_SECRET
+            valueFrom:
+              secretKeyRef:
+                name: jwt
+                key: JWT_SECRET
+                
         livenessProbe:
           httpGet:
             path: /api/ai/healthz

@@ -1,0 +1,782 @@
+import React, { useEffect, useState, useRef } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
+import { logoutThunk } from '../features/auth/slice/auth.slice';
+import { listProjectsAPI, createProjectAPI } from '../features/sandbox/service/sandbox.api';
+import { stopSandboxAPI, deleteProjectAPI } from '../features/sandbox/service/sandbox.api';
+import {
+  Cpu, Plus, Loader2, Folder, AlertTriangle, LogOut,
+  Code, Play, RefreshCw, X, Square, Trash2, MoreVertical,
+  Zap, Clock, CheckCircle, XCircle, Activity, Settings, Search,
+  Sparkles, BookOpen, Layers, Terminal, History, Keyboard, HelpCircle
+} from 'lucide-react';
+import './Dashboard.scss';
+import BrandLogo from './BrandLogo';
+
+// ─── Status config map ────────────────────────────────────────────────────────
+const STATUS = {
+  live:        { label: 'Live',        className: 'status-badge--live' },
+  building:    { label: 'Building',    className: 'status-badge--building' },
+  down:        { label: 'Offline',     className: 'status-badge--down' },
+  not_started: { label: 'Not Started', className: 'status-badge--not_started' },
+};
+
+function StatusBadge({ status }) {
+  const cfg = STATUS[status] || STATUS.not_started;
+  return (
+    <span className={`status-badge ${cfg.className}`}>
+      <span className="status-badge__dot" />
+      {cfg.label}
+    </span>
+  );
+}
+
+// ─── Confirm modal ────────────────────────────────────────────────────────────
+function ConfirmModal({ title, description, confirmLabel, danger, onConfirm, onCancel, loading }) {
+  useEffect(() => {
+    const onKey = (e) => e.key === 'Escape' && onCancel();
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onCancel]);
+
+  return (
+    <div className="modal-backdrop" onClick={onCancel}>
+      <div className="modal-card" onClick={(e) => e.stopPropagation()}>
+        <h3 style={{ margin: '0 0 8px', fontSize: '16px', fontWeight: '700', color: '#f8fafc' }}>{title}</h3>
+        <p style={{ margin: '0 0 24px', fontSize: '13px', color: '#94a3b8', lineHeight: 1.5 }}>{description}</p>
+        <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+          <button className="btn-secondary" onClick={onCancel} disabled={loading}>Cancel</button>
+          <button
+            className={danger ? 'btn-danger' : 'btn-primary'}
+            onClick={onConfirm}
+            disabled={loading}
+            style={{ minWidth: '80px' }}
+          >
+            {loading ? <Loader2 size={13} style={{ animation: 'spin 0.8s linear infinite' }} /> : confirmLabel}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Project card ─────────────────────────────────────────────────────────────
+function ProjectCard({ project, index, onOpen, onStop, onDelete }) {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [stopping, setStopping] = useState(false);
+  const menuRef = useRef(null);
+  const isLive = project.status === 'live';
+  const canStop = project.status === 'live' || project.status === 'building';
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const handler = (e) => {
+      if (menuRef.current && !menuRef.current.contains(e.target)) setMenuOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [menuOpen]);
+
+  const handleStop = async () => {
+    setMenuOpen(false);
+    setStopping(true);
+    await onStop(project._id);
+    setStopping(false);
+  };
+
+  return (
+    <div
+      className="project-card"
+      style={{ animationDelay: `${index * 60}ms` }}
+    >
+      {isLive && <div className="card-live-shimmer" />}
+
+      <div className="project-card__header">
+        <div className="project-card__details">
+          <div className={`project-card__icon-box ${isLive ? 'project-card__icon-box--live' : ''}`}>
+            <Code size={16} color={isLive ? '#10b981' : 'var(--primary)'} />
+          </div>
+          <h3 className="project-card__title">
+            {project.title}
+          </h3>
+        </div>
+        <div className="project-card__meta-actions">
+          <StatusBadge status={project.status} />
+          <div style={{ position: 'relative' }} ref={menuRef}>
+            <button
+              className="icon-btn"
+              onClick={() => setMenuOpen((v) => !v)}
+              title="More options"
+            >
+              <MoreVertical size={14} />
+            </button>
+            {menuOpen && (
+              <div className="dropdown-menu">
+                {canStop && (
+                  <button className="dropdown-item" onClick={handleStop} disabled={stopping}>
+                    {stopping
+                      ? <Loader2 size={12} style={{ animation: 'spin 0.8s linear infinite' }} />
+                      : <Square size={12} />}
+                    Stop Sandbox
+                  </button>
+                )}
+                <button
+                  className="dropdown-item danger"
+                  onClick={() => { setMenuOpen(false); onDelete(project._id, project.title); }}
+                >
+                  <Trash2 size={12} />
+                  Delete Project
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div className="project-card__meta">
+        <div className="project-card__meta-row">
+          <span className="project-card__meta-label">SANDBOX ID</span>
+          <span className="project-card__meta-value">{project.sandboxId?.substring(0, 8)}…</span>
+        </div>
+        <div className="project-card__meta-row">
+          <span className="project-card__meta-label">CREATED</span>
+          <span className="project-card__meta-value">
+            {project.createdAt ? new Date(project.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'N/A'}
+          </span>
+        </div>
+      </div>
+
+      <button
+        className="project-card__btn-open"
+        onClick={() => onOpen(project._id, project.title)}
+      >
+        <Play size={12} fill="currentColor" />
+        Open Codespace
+      </button>
+    </div>
+  );
+}
+
+// ─── Main Dashboard ───────────────────────────────────────────────────────────
+export default function Dashboard({ onSelectProject }) {
+  const dispatch = useDispatch();
+  const { user } = useSelector((state) => state.auth);
+
+  const userPhoto = user?.photo;
+  const userName = user?.name || 'Developer';
+  const userInitials = userName.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase() || 'U';
+
+  const [projects, setProjects] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  // Active dashboard view: 'playground' | 'my-apps'
+  const [activeTab, setActiveTab] = useState('playground');
+
+  // AI Prompt Inputs
+  const [promptInput, setPromptInput] = useState('');
+
+  // Create modal
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [newTitle, setNewTitle] = useState('');
+  const [createLoading, setCreateLoading] = useState(false);
+  const [validationError, setValidationError] = useState('');
+  const inputRef = useRef(null);
+
+  // Outstanding animated creation states
+  const [allocationStep, setAllocationStep] = useState(0); // 0 = idle prompt, 1 = title synthesis, 2 = workspace init, 3 = sandbox allocation
+  const [allocationLogs, setAllocationLogs] = useState([]);
+  const [allocationError, setAllocationError] = useState('');
+
+  // Delete confirm modal
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+
+  const fetchProjects = async (silent = false) => {
+    if (!silent) setLoading(true);
+    setError(null);
+    try {
+      const data = await listProjectsAPI();
+      if (data.status === 'success') setProjects(data.projects || []);
+      else setError('Failed to fetch projects');
+    } catch (err) {
+      setError(err.response?.data?.message || err.message || 'Error listing projects');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { fetchProjects(); }, []);
+
+  useEffect(() => {
+    if (isCreateOpen) setTimeout(() => inputRef.current?.focus(), 80);
+  }, [isCreateOpen]);
+
+  const handleCreateProject = async (e) => {
+    e.preventDefault();
+    setValidationError('');
+    const titleToCreate = newTitle.trim();
+    if (!titleToCreate) { setValidationError('Project title is required'); return; }
+    if (projects.length >= 5) { setValidationError('You can only create up to 5 projects'); return; }
+    setCreateLoading(true);
+    try {
+      const response = await createProjectAPI(titleToCreate);
+      setNewTitle('');
+      setIsCreateOpen(false);
+      
+      // Save prompt input to session storage so workspace chat receives it
+      if (promptInput.trim()) {
+        sessionStorage.setItem(`initialPrompt_${response.project._id}`, promptInput.trim());
+        setPromptInput('');
+      }
+
+      onSelectProject(response.project._id, response.project.title);
+    } catch (err) {
+      setValidationError(err.response?.data?.message || err.message || 'Failed to create project');
+    } finally {
+      setCreateLoading(false);
+    }
+  };
+
+  const handlePlaygroundSubmit = async (e) => {
+    e.preventDefault();
+    if (!promptInput.trim()) return;
+    if (projects.length >= 5) {
+      alert("You have reached the maximum of 5 projects. Please delete one to create a new app.");
+      return;
+    }
+
+    const originalPrompt = promptInput.trim();
+    setAllocationStep(1);
+    setAllocationError('');
+    setAllocationLogs([
+      "Initializing AI pipeline session...",
+      "Decomposing prompt parameters..."
+    ]);
+
+    let title = `App - ${originalPrompt.substring(0, 16)}`;
+    try {
+      // Step 1: Synthesize Title via app-agent/title endpoint
+      const responseTitle = await fetch('/api/ai/app-agent/title', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: originalPrompt })
+      });
+
+      if (responseTitle.ok) {
+        const titleData = await responseTitle.json();
+        if (titleData?.title) {
+          title = titleData.title;
+        }
+      }
+    } catch (err) {
+      console.warn("Failed to generate title, using fallback:", err);
+    }
+
+    setAllocationLogs(prev => [
+      ...prev,
+      `Synthesized project title: "${title}"`,
+      "Creating workspace directory..."
+    ]);
+    setAllocationStep(2);
+
+    // Give a small delay so user sees transition
+    await new Promise(r => setTimeout(r, 600));
+
+    try {
+      // Step 2: Create Project API
+      const responseProj = await createProjectAPI(title);
+      
+      setAllocationLogs(prev => [
+        ...prev,
+        `Workspace directory created successfully!`,
+        `Sandbox ID: ${responseProj.project.sandboxId}`,
+        "Starting Kubernetes container allocation..."
+      ]);
+      setAllocationStep(3);
+
+      // Save prompt input to session storage so workspace chat receives it
+      sessionStorage.setItem(`initialPrompt_${responseProj.project._id}`, originalPrompt);
+      setPromptInput('');
+
+      // Delay to let user enjoy the cool animation sequence
+      await new Promise(r => setTimeout(r, 1200));
+
+      // Step 3: Redirect to Coding Workspace (which auto-starts the sandbox)
+      onSelectProject(responseProj.project._id, responseProj.project.title);
+      setAllocationStep(0);
+      setAllocationLogs([]);
+    } catch (err) {
+      console.error("Failed to create project:", err);
+      const errMsg = err.response?.data?.message || err.message || 'Failed to create workspace';
+      setAllocationError(errMsg);
+      setAllocationStep(0);
+    }
+  };
+
+  // Submit from center prompt
+  const handlePromptSubmit = (e) => {
+    e.preventDefault();
+    if (!promptInput.trim()) return;
+    
+    // Auto-generate project name
+    const generatedName = `App - ${promptInput.trim().substring(0, 20)}`;
+    setNewTitle(generatedName);
+    setIsCreateOpen(true);
+  };
+
+  const handleFeelingLucky = () => {
+    const luckyPrompts = [
+      "A premium 3D metallic swarm scene with orbit controls and customizable metallic parameters using React Three Fiber and GSAP",
+      "An interactive developer portfolio with glassmorphic cards, sliding layouts, and terminal-style telemetry displays",
+      "A sleek dark-theme SaaS dashboard for monitoring container resources, real-time memory logs, and API health checks",
+      "An editor layout mock demonstrating collaborative pair programming with active cursor pointers and websocket updates"
+    ];
+    const randomPrompt = luckyPrompts[Math.floor(Math.random() * luckyPrompts.length)];
+    setPromptInput(randomPrompt);
+  };
+
+  const handleStop = async (projectId) => {
+    try {
+      await stopSandboxAPI(projectId);
+      await fetchProjects(true);
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to stop sandbox');
+    }
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!deleteTarget) return;
+    setDeleteLoading(true);
+    try {
+      await deleteProjectAPI(deleteTarget.id);
+      setDeleteTarget(null);
+      await fetchProjects(true);
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to delete project');
+      setDeleteTarget(null);
+    } finally {
+      setDeleteLoading(false);
+    }
+  };
+
+  return (
+    <div className="dashboard">
+      
+      {/* Decorative ambient background */}
+      <div className="dashboard__ambient-glow">
+        <div className="dashboard__ambient-glow--top-right" />
+        <div className="dashboard__ambient-glow--bottom-left" />
+        <div className="dashboard__ambient-glow--grid" />
+      </div>
+
+      {/* 1. Left Navigation Sidebar */}
+      <aside className="dashboard__sidebar">
+        <div>
+          {/* Header Workspace Selector */}
+          <div className="dashboard__sidebar-header">
+            <div className="dashboard__sidebar-brand" style={{ padding: '4px 0' }}>
+              <BrandLogo height={24} />
+            </div>
+          </div>
+
+          {/* Navigation Links */}
+          <div className="dashboard__sidebar-nav">
+            <span className="dashboard__sidebar-nav-title">Explore</span>
+            <div 
+              onClick={() => setActiveTab('playground')}
+              className={`dashboard__sidebar-item ${activeTab === 'playground' ? 'dashboard__sidebar-item--active' : ''}`}
+            >
+              <Terminal size={14} />
+              <span>Playground</span>
+            </div>
+            <div className="dashboard__sidebar-item dashboard__sidebar-item--disabled">
+              <History size={14} />
+              <span>History</span>
+            </div>
+
+            <span className="dashboard__sidebar-nav-title">Build</span>
+            <div 
+              onClick={() => { setPromptInput(''); setActiveTab('playground'); }}
+              className="dashboard__sidebar-item"
+            >
+              <Plus size={14} />
+              <span>New App</span>
+            </div>
+            <div 
+              onClick={() => setActiveTab('my-apps')}
+              className={`dashboard__sidebar-item ${activeTab === 'my-apps' ? 'dashboard__sidebar-item--active' : ''}`}
+            >
+              <Layers size={14} />
+              <span>My Apps</span>
+            </div>
+            <div className="dashboard__sidebar-item dashboard__sidebar-item--disabled" style={{ opacity: 0.5 }}>
+              <BookOpen size={14} />
+              <span>Gallery</span>
+            </div>
+          </div>
+        </div>
+
+        {/* User profile / Settings footer */}
+        <div className="dashboard__sidebar-footer">
+          <div className="dashboard__sidebar-actions">
+            <button className="icon-btn" style={{ padding: '6px' }} title="Settings"><Settings size={14} /></button>
+            <button className="icon-btn" style={{ padding: '6px' }} title="Search"><Search size={14} /></button>
+            <button className="icon-btn" style={{ padding: '6px' }} title="Shortcuts"><Keyboard size={14} /></button>
+            <button className="icon-btn" style={{ padding: '6px' }} title="Help"><HelpCircle size={14} /></button>
+          </div>
+
+          <div className="dashboard__sidebar-profile-bar">
+            <div className="dashboard__sidebar-profile-details">
+              {userPhoto
+                ? <img src={userPhoto} alt={userName} className="dashboard__sidebar-avatar" />
+                : <div className="dashboard__sidebar-initials">{userInitials}</div>
+              }
+              <div className="dashboard__sidebar-user-meta">
+                <span className="dashboard__sidebar-username">{userName}</span>
+                <span className="dashboard__sidebar-tier">Free Tier</span>
+              </div>
+            </div>
+            <span className="dashboard__sidebar-pro-badge">PRO</span>
+          </div>
+
+          <button onClick={() => dispatch(logoutThunk())} className="dashboard__sidebar-logout">
+            <LogOut size={12} />
+            <span style={{ margin: 'auto' }}>Logout Session</span>
+          </button>
+        </div>
+      </aside>
+
+      {/* 2. Main content viewport */}
+      <main className="dashboard__main">
+        {/* Top Header info */}
+        <div className="dashboard__header">
+          <div style={{ flex: 1 }} />
+          <button
+            className="icon-btn"
+            onClick={() => fetchProjects()}
+            title="Refresh active lists"
+            style={{ padding: '7px' }}
+          >
+            <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+          </button>
+        </div>
+
+        {activeTab === 'playground' ? (
+          /* Playground View: Centered Prompting with real-time container provisioning animations */
+          <section className="dashboard__playground">
+            {/* Ambient background particles */}
+            <div className="dashboard__playground-particles">
+              <div className="dashboard__playground-orb dashboard__playground-orb--green" />
+              <div className="dashboard__playground-orb dashboard__playground-orb--blue" />
+              <div className="dashboard__playground-orb dashboard__playground-orb--purple" />
+            </div>
+
+            {allocationStep > 0 ? (
+              <div className="provisioning-panel">
+                <div className="provisioning-panel__shimmer" />
+                
+                {/* Dual-spinning orbit rings */}
+                <div className="provisioning-panel__spinner-container">
+                  <div className="provisioning-panel__core-glow" />
+                  <div className="provisioning-panel__spinner-outer" />
+                  <div className="provisioning-panel__spinner-inner" />
+                </div>
+
+                <h2 className="provisioning-panel__title">Assembling Sandbox</h2>
+                <p className="provisioning-panel__subtitle">
+                  Configuring a virtual sandbox environment on the Capstone orchestrator. Just a few seconds...
+                </p>
+
+                {/* Steps */}
+                <div className="provisioning-panel__steps">
+                  <div className={`provisioning-panel__step ${allocationStep === 1 ? 'provisioning-panel__step--active' : allocationStep > 1 ? 'provisioning-panel__step--completed' : ''}`}>
+                    <Sparkles className="step-icon" size={14} />
+                    <span className="step-text">Synthesizing project title & features</span>
+                  </div>
+                  <div className={`provisioning-panel__step ${allocationStep === 2 ? 'provisioning-panel__step--active' : allocationStep > 2 ? 'provisioning-panel__step--completed' : ''}`}>
+                    <Layers className="step-icon" size={14} />
+                    <span className="step-text">Creating workspace directories</span>
+                  </div>
+                  <div className={`provisioning-panel__step ${allocationStep === 3 ? 'provisioning-panel__step--active' : allocationStep > 3 ? 'provisioning-panel__step--completed' : ''}`}>
+                    <Cpu className="step-icon" size={14} />
+                    <span className="step-text">Spinning up sandbox pod</span>
+                  </div>
+                </div>
+
+                {/* Console Log outputs */}
+                <div className="provisioning-panel__console">
+                  {allocationLogs.map((log, idx) => (
+                    <div key={idx} className="provisioning-panel__console-line">
+                      <span>&gt;</span>
+                      <span>{log}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <>
+                <div className="dashboard__playground-title-row">
+                  <Sparkles size={20} color="var(--primary)" />
+                  <h1 className="dashboard__playground-title">
+                    Build your ideas with CodeSpace
+                  </h1>
+                </div>
+
+                <p className="dashboard__playground-subtitle">
+                  Spin up a containerized React + Vite workspace dynamically and let the agent implement your details instantly.
+                </p>
+
+                {allocationError && (
+                  <div style={{
+                    color: '#f43f5e',
+                    fontSize: '12.5px',
+                    background: 'rgba(244,63,94,0.06)',
+                    border: '1px solid rgba(244,63,94,0.15)',
+                    padding: '10px 14px',
+                    borderRadius: '8px',
+                    marginBottom: '16px',
+                    maxWidth: '640px',
+                    width: '100%',
+                    textAlign: 'left'
+                  }}>
+                    {allocationError}
+                  </div>
+                )}
+
+                <div className="prompt-card-container">
+                  <div className="prompt-card-glow-bg" />
+                  <div className="prompt-card-wrapper">
+                    <div className="prompt-card-laser" />
+                    <form onSubmit={handlePlaygroundSubmit} className="dashboard__playground-prompt-card">
+                      <textarea
+                        placeholder="Describe an app and let CodeSpace do the rest..."
+                        value={promptInput}
+                        onChange={(e) => setPromptInput(e.target.value)}
+                        rows={3}
+                        className="dashboard__playground-textarea"
+                      />
+                      
+                      <div className="dashboard__playground-prompt-footer">
+                        <div className="dashboard__playground-actions-left">
+                          <button type="button" className="icon-btn" style={{ padding: '6px' }} title="Voice Input">
+                            <span style={{ fontSize: '13px' }}>🎤</span>
+                          </button>
+                          <button type="button" className="icon-btn" style={{ padding: '6px' }} title="Attach Design Spec">
+                            <span style={{ fontSize: '13px' }}>📎</span>
+                          </button>
+                        </div>
+
+                        <div className="dashboard__playground-actions-right">
+                          <button
+                            type="button"
+                            onClick={handleFeelingLucky}
+                            className="dashboard__playground-lucky-btn"
+                          >
+                            <Sparkles size={11} />
+                            I'm feeling lucky
+                          </button>
+
+                          <button
+                            type="submit"
+                            disabled={!promptInput.trim()}
+                            className={`dashboard__playground-create-btn ${promptInput.trim() ? 'dashboard__playground-create-btn--active' : 'dashboard__playground-create-btn--disabled'}`}
+                          >
+                            Create App
+                          </button>
+                        </div>
+                      </div>
+                    </form>
+                  </div>
+                </div>
+
+                <div className="dashboard__playground-chips">
+                  {[
+                    { label: 'React Dashboard', prompt: 'A highly functional admin dashboard with responsive sidebar charts, tables, and settings tabs using Lucide icons.' },
+                    { label: 'Metallic Three.js Scene', prompt: 'A beautiful interactive Three.js element with OrbitControls, custom lighting, and responsive GSAP hover effects.' },
+                    { label: 'Pricing Calculator', prompt: 'A sleek pricing grid with monthly/yearly toggles, feature sliders, and dynamic cost calculator fields.' },
+                    { label: 'Developer Portfolio', prompt: 'An editorial design portfolio with custom typography, tabbed projects filter, and a telemetry terminal display.' }
+                  ].map((chip, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => setPromptInput(chip.prompt)}
+                      className="dashboard__playground-chip"
+                    >
+                      {chip.label}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+          </section>
+        ) : (
+          /* Dedicated My Apps View */
+          <section className="dashboard__projects-panel">
+            
+            {/* Header section with actions */}
+            <div className="dashboard__projects-panel-header">
+              <div>
+                <h2 className="dashboard__projects-panel-title">My Projects</h2>
+                <p className="dashboard__projects-panel-subtitle">
+                  Create and manage up to 5 sandbox development environments.
+                </p>
+              </div>
+              
+              <button
+                onClick={() => { setPromptInput(''); setIsCreateOpen(true); }}
+                disabled={projects.length >= 5}
+                className={`dashboard__projects-panel-create-btn ${projects.length >= 5 ? 'dashboard__projects-panel-create-btn--disabled' : 'dashboard__projects-panel-create-btn--active'}`}
+              >
+                <Plus size={14} />
+                New Project
+              </button>
+            </div>
+
+            {/* Project counter status strip */}
+            <div className="dashboard__projects-panel-capacity-bar">
+              <span>ENVIRONMENTS: <span className="dashboard__projects-panel-capacity-value">{projects.length}</span> / 5</span>
+              <div className="dashboard__projects-panel-capacity-indicators">
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <div 
+                    key={i} 
+                    className={`dashboard__projects-panel-capacity-indicator ${i < projects.length ? 'dashboard__projects-panel-capacity-indicator--filled' : ''}`}
+                  />
+                ))}
+              </div>
+              {projects.length >= 5 && (
+                <span className="dashboard__projects-panel-capacity-warning">
+                  <AlertTriangle size={11} /> Capacity reached
+                </span>
+              )}
+            </div>
+
+            {/* List and Grid display */}
+            {loading ? (
+              <div className="dashboard__projects-panel-loader-box">
+                <Loader2 size={32} className="animate-spin text-slate-400" />
+                <p className="dashboard__projects-panel-loader-text">Loading environments…</p>
+              </div>
+            ) : projects.length === 0 ? (
+              <div className="dashboard__projects-panel-empty-box">
+                <Folder size={24} color="var(--primary)" style={{ marginBottom: '16px' }} />
+                <h3 className="dashboard__projects-panel-empty-title">No Projects Yet</h3>
+                <p className="dashboard__projects-panel-empty-desc">
+                  Use the Playground tab to describe what you want to build and spin up a workspace.
+                </p>
+              </div>
+            ) : (
+              <div className="dashboard__projects-panel-grid">
+                {projects.map((project, i) => (
+                  <ProjectCard
+                    key={project._id}
+                    project={project}
+                    index={i}
+                    onOpen={onSelectProject}
+                    onStop={handleStop}
+                    onDelete={(id, title) => setDeleteTarget({ id, title })}
+                  />
+                ))}
+              </div>
+            )}
+          </section>
+        )}
+
+        {/* Error notification banner */}
+        {error && (
+          <div className="dashboard__error-banner">
+            <AlertTriangle size={14} />
+            {error}
+            <button onClick={() => setError(null)} className="dashboard__error-close">
+              <X size={13} />
+            </button>
+          </div>
+        )}
+      </main>
+
+      {/* ─── Create Name Overlay Modal ───────────────────────────────────── */}
+      {isCreateOpen && (
+        <div className="modal-backdrop" onClick={() => { setIsCreateOpen(false); setNewTitle(''); setValidationError(''); }}>
+          <div className="modal-card" onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
+              <div>
+                <h3 style={{ margin: '0 0 4px', fontSize: '16px', fontWeight: '800', color: '#f8fafc', fontFamily: 'var(--font-heading)' }}>
+                  Name Your CodeSpace
+                </h3>
+                <p style={{ margin: 0, fontSize: '12px', color: '#64748b' }}>
+                  Give a title to initialize your sandbox.
+                </p>
+              </div>
+              <button className="icon-btn" onClick={() => { setIsCreateOpen(false); setNewTitle(''); setValidationError(''); }}>
+                <X size={14} />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateProject} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <label style={{ fontSize: '11px', fontWeight: '700', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                  Workspace Name
+                </label>
+                <input
+                  ref={inputRef}
+                  type="text"
+                  placeholder="e.g. My Creative App, Vite Sandbox..."
+                  value={newTitle}
+                  onChange={e => { setNewTitle(e.target.value); setValidationError(''); }}
+                  disabled={createLoading}
+                  maxLength={50}
+                  style={{
+                    padding: '10px 12px', borderRadius: '8px',
+                    background: '#0b0c10', border: `1px solid ${validationError ? '#f43f5e' : '#1b1e2a'}`,
+                    color: '#f8fafc', fontSize: '13px', outline: 'none',
+                    transition: 'border-color 0.2s',
+                    fontFamily: 'var(--font-sans)',
+                  }}
+                  onFocus={e => { if (!validationError) e.currentTarget.style.borderColor = 'var(--primary)'; }}
+                  onBlur={e => { if (!validationError) e.currentTarget.style.borderColor = '#1b1e2a'; }}
+                />
+                {validationError && (
+                  <span style={{ fontSize: '11px', color: '#f43f5e', fontWeight: '600' }}>
+                    {validationError}
+                  </span>
+                )}
+              </div>
+
+              <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', marginTop: '4px' }}>
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={() => { setIsCreateOpen(false); setNewTitle(''); setValidationError(''); }}
+                  disabled={createLoading}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="btn-primary"
+                  disabled={createLoading}
+                  style={{ minWidth: '90px' }}
+                >
+                  {createLoading
+                    ? <Loader2 size={13} style={{ animation: 'spin 0.8s linear infinite' }} />
+                    : <><Play size={13} fill="currentColor" /> Initialize</>}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ─── Delete Confirm Modal ────────────────────────────────────────── */}
+      {deleteTarget && (
+        <ConfirmModal
+          title="Delete Project"
+          description={`Are you sure you want to permanently delete "${deleteTarget.title}"? This will also tear down any running sandbox and cannot be undone.`}
+          confirmLabel="Delete"
+          danger
+          loading={deleteLoading}
+          onConfirm={handleDeleteConfirm}
+          onCancel={() => setDeleteTarget(null)}
+        />
+      )}
+    </div>
+  );
+}

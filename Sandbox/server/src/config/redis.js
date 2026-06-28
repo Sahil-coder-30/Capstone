@@ -13,6 +13,15 @@ export const createSandboxKey = async (sandboxId) =>{
     }) , "EX" , 120);
 }
 
+export const deleteSandboxKey = async (sandboxId) => {
+    try{
+        await redis.del(`sandbox:${sandboxId}`);
+        console.log(`redis key deleted : ${sandboxId}`);
+    }catch(err){
+        console.error(err);
+    }
+}
+
 subscriber.config("SET" , 'notify-keyspace-events' , 'Ex');
 
 subscriber.subscribe('__keyevent@0__:expired' , (err) => {

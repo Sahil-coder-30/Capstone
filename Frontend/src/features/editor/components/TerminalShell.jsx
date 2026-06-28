@@ -134,23 +134,23 @@ export default function TerminalShell() {
       fontSize: 12.5,
       fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
       theme: {
-        background: '#0e1017', // Match var(--bg-panel)
-        foreground: '#f8fafc', // Match var(--text-main)
-        cursor: '#818cf8',     // Match var(--primary)
-        cursorAccent: '#0e1017',
-        selectionBackground: 'rgba(129, 140, 248, 0.15)',
-        black:        '#06070a',
-        red:          '#f43f5e',
-        green:        '#10b981',
-        yellow:       '#fbbf24',
-        blue:         '#60a5fa',
+        background: '#1C1E2E', // Match var(--bg-panel)
+        foreground: '#F0F0F5', // Match var(--text-main)
+        cursor: '#0D8A6A',     // Match var(--brand-primary)
+        cursorAccent: '#1C1E2E',
+        selectionBackground: 'rgba(27, 110, 243, 0.15)', // Match var(--accent-subtle)
+        black:        '#0A0B0F',
+        red:          '#D63B3B',
+        green:        '#0D8A6A',
+        yellow:       '#D97B0C',
+        blue:         '#1B6EF3',
         magenta:      '#c084fc',
-        cyan:         '#22d3ee',
-        white:        '#f8fafc',
-        brightBlack:  '#222533',
-        brightGreen:  '#34d399',
-        brightYellow: '#fde68a',
-        brightBlue:   '#93c5fd',
+        cyan:         '#3DC5A1',
+        white:        '#F0F0F5',
+        brightBlack:  '#242738',
+        brightGreen:  '#3DC5A1',
+        brightYellow: '#FDD598',
+        brightBlue:   '#5591F7',
       },
     });
 
@@ -169,7 +169,7 @@ export default function TerminalShell() {
     xtermInstance.current = term;
     fitAddonRef.current   = fitAddon;
 
-    term.writeln('\x1b[1;35m⚡ Antigravity Interactive Shell\x1b[0m');
+    term.writeln('\x1b[1;35m⚡ CodeSpace Interactive Shell\x1b[0m');
     term.writeln('Connecting to sandbox container...\r\n');
 
     connectSocket(term);

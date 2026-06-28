@@ -7,7 +7,7 @@ const chatSlice = createSlice({
       {
         id: 'welcome',
         role: 'assistant',
-        text: 'Welcome to Antigravity Codespace! I am your AI coding assistant. Launch a sandbox environment and ask me to build, edit, or debug React application features. I can view files, edit code, run terminal commands, and inspect runtime errors inside the sandbox in real-time.',
+        text: 'Welcome to CodeSpace! I am your AI coding assistant. Launch a sandbox environment and ask me to build, edit, or debug React application features. I can view files, edit code, run terminal commands, and inspect runtime errors inside the sandbox in real-time.',
         toolLogs: [],
         status: 'completed',
         timestamp: new Date().toISOString(),
@@ -51,7 +51,7 @@ const chatSlice = createSlice({
         {
           id: 'welcome',
           role: 'assistant',
-          text: 'Welcome to Antigravity Codespace! I am your AI coding assistant. Launch a sandbox environment and ask me to build, edit, or debug React application features. I can view files, edit code, run terminal commands, and inspect runtime errors inside the sandbox in real-time.',
+          text: 'Welcome to CodeSpace! I am your AI coding assistant. Launch a sandbox environment and ask me to build, edit, or debug React application features. I can view files, edit code, run terminal commands, and inspect runtime errors inside the sandbox in real-time.',
           toolLogs: [],
           status: 'completed',
           timestamp: new Date().toISOString(),

@@ -67,6 +67,12 @@ spec:
             secretKeyRef:
               name: google
               key: GOOGLE_CLIENT_SECRET
+
+        - name: REDIS_URI
+          valueFrom:
+            secretKeyRef:
+              name: database
+              key: REDIS_URI
         ports:
         - containerPort:  3000
           name:  auth-http

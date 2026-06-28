@@ -1,0 +1,365 @@
+
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: var(--font-sans); }
+  .section { margin-bottom: 2.5rem; }
+  .section-label { font-size: 11px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 0.75rem; }
+  .swatches { display: flex; gap: 6px; flex-wrap: wrap; }
+  .swatch-col { display: flex; flex-direction: column; gap: 0; flex: 1; min-width: 56px; border-radius: 8px; overflow: hidden; }
+  .swatch { height: 48px; display: flex; align-items: flex-end; padding: 5px 7px; }
+  .swatch.tall { height: 72px; }
+  .swatch-label { font-size: 10px; font-weight: 500; opacity: 0.75; }
+  .swatch-hex { font-size: 9px; opacity: 0.55; font-family: var(--font-mono); }
+
+  /* ROW: Primary palette grid */
+  .pal-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; }
+  .pal-card { border-radius: 10px; overflow: hidden; border: 0.5px solid var(--border); }
+  .pal-main { height: 72px; display: flex; flex-direction: column; justify-content: flex-end; padding: 8px 10px; }
+  .pal-name { font-size: 12px; font-weight: 500; }
+  .pal-hex { font-size: 10px; font-family: var(--font-mono); opacity: 0.8; }
+  .pal-tints { display: flex; }
+  .pal-tint { flex: 1; height: 24px; }
+
+  /* Usage tags */
+  .tag { display: inline-block; font-size: 10px; padding: 2px 7px; border-radius: 4px; font-weight: 500; margin: 3px 2px; }
+
+  /* Semantic row */
+  .sem-row { display: flex; gap: 8px; flex-wrap: wrap; }
+  .sem-card { flex: 1; min-width: 100px; border-radius: 8px; overflow: hidden; border: 0.5px solid var(--border); }
+  .sem-top { height: 40px; display: flex; align-items: center; padding: 0 10px; gap: 6px; }
+  .sem-icon { width: 18px; height: 18px; border-radius: 50%; }
+  .sem-lbl { font-size: 11px; font-weight: 500; }
+  .sem-bot { padding: 6px 10px 8px; background: var(--surface-1); }
+  .sem-role { font-size: 10px; color: var(--text-muted); }
+  .sem-val { font-size: 10px; font-family: var(--font-mono); color: var(--text-secondary); }
+
+  /* Typography demo */
+  .type-demo { background: var(--surface-1); border-radius: 10px; border: 0.5px solid var(--border); padding: 1rem 1.25rem; }
+  .type-row { display: flex; align-items: baseline; gap: 10px; padding: 6px 0; border-bottom: 0.5px solid var(--border); }
+  .type-row:last-child { border-bottom: none; }
+  .type-role { font-size: 10px; color: var(--text-muted); min-width: 90px; }
+  .type-sample { color: var(--text-primary); }
+
+  /* Spacing demo */
+  .sp-row { display: flex; align-items: center; gap: 10px; padding: 4px 0; }
+  .sp-bar { height: 6px; background: #0D8A6A; border-radius: 3px; }
+  .sp-lbl { font-size: 10px; color: var(--text-muted); font-family: var(--font-mono); }
+
+  /* Gradient chips */
+  .grad-row { display: flex; gap: 8px; flex-wrap: wrap; }
+  .grad-chip { flex: 1; min-width: 140px; height: 52px; border-radius: 8px; display: flex; align-items: flex-end; padding: 8px 10px; }
+  .grad-name { font-size: 10px; font-weight: 500; color: rgba(255,255,255,0.9); }
+</style>
+
+<div style="padding: 1.5rem 0 2rem;">
+
+  <!-- Header -->
+  <div style="margin-bottom: 2rem;">
+    <p style="font-size: 10px; font-weight: 500; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 4px;">TAKSHA · AI Codespace Platform</p>
+    <h2 style="font-size: 22px; font-weight: 500; color: var(--text-primary); margin-bottom: 2px;">Industry Design System</h2>
+    <p style="font-size: 13px; color: var(--text-secondary);">Color palette · Semantic tokens · Typography · Spacing</p>
+  </div>
+
+  <!-- PRIMARY PALETTE -->
+  <div class="section">
+    <div class="section-label">Primary palette</div>
+    <div class="pal-grid">
+
+      <!-- Void Black -->
+      <div class="pal-card">
+        <div class="pal-main" style="background: #0A0B0F;">
+          <div class="pal-name" style="color:#F0F0F5;">Void</div>
+          <div class="pal-hex" style="color:#F0F0F5;">#0A0B0F</div>
+        </div>
+        <div class="pal-tints">
+          <div class="pal-tint" style="background:#0A0B0F;"></div>
+          <div class="pal-tint" style="background:#141520;"></div>
+          <div class="pal-tint" style="background:#1C1E2E;"></div>
+          <div class="pal-tint" style="background:#242738;"></div>
+        </div>
+      </div>
+
+      <!-- Taksha Green (signature) -->
+      <div class="pal-card">
+        <div class="pal-main" style="background: #0D8A6A;">
+          <div class="pal-name" style="color:#E8FFF8;">Taksha</div>
+          <div class="pal-hex" style="color:#E8FFF8;">#0D8A6A</div>
+        </div>
+        <div class="pal-tints">
+          <div class="pal-tint" style="background:#E8FFF8;"></div>
+          <div class="pal-tint" style="background:#9FDED0;"></div>
+          <div class="pal-tint" style="background:#3DC5A1;"></div>
+          <div class="pal-tint" style="background:#0D8A6A;"></div>
+        </div>
+      </div>
+
+      <!-- Plasma Blue -->
+      <div class="pal-card">
+        <div class="pal-main" style="background: #1B6EF3;">
+          <div class="pal-name" style="color:#EAF0FF;">Plasma</div>
+          <div class="pal-hex" style="color:#EAF0FF;">#1B6EF3</div>
+        </div>
+        <div class="pal-tints">
+          <div class="pal-tint" style="background:#EAF0FF;"></div>
+          <div class="pal-tint" style="background:#A3C2FA;"></div>
+          <div class="pal-tint" style="background:#5591F7;"></div>
+          <div class="pal-tint" style="background:#1B6EF3;"></div>
+        </div>
+      </div>
+
+      <!-- Signal Amber -->
+      <div class="pal-card">
+        <div class="pal-main" style="background: #D97B0C;">
+          <div class="pal-name" style="color:#FFF8E8;">Signal</div>
+          <div class="pal-hex" style="color:#FFF8E8;">#D97B0C</div>
+        </div>
+        <div class="pal-tints">
+          <div class="pal-tint" style="background:#FFF8E8;"></div>
+          <div class="pal-tint" style="background:#FDD598;"></div>
+          <div class="pal-tint" style="background:#F5A83C;"></div>
+          <div class="pal-tint" style="background:#D97B0C;"></div>
+        </div>
+      </div>
+
+      <!-- Ember Red -->
+      <div class="pal-card">
+        <div class="pal-main" style="background: #D63B3B;">
+          <div class="pal-name" style="color:#FFF0F0;">Ember</div>
+          <div class="pal-hex" style="color:#FFF0F0;">#D63B3B</div>
+        </div>
+        <div class="pal-tints">
+          <div class="pal-tint" style="background:#FFF0F0;"></div>
+          <div class="pal-tint" style="background:#F9B5B5;"></div>
+          <div class="pal-tint" style="background:#EA7474;"></div>
+          <div class="pal-tint" style="background:#D63B3B;"></div>
+        </div>
+      </div>
+
+      <!-- Mist Gray -->
+      <div class="pal-card">
+        <div class="pal-main" style="background: #3D3F52;">
+          <div class="pal-name" style="color:#E8E9F0;">Mist</div>
+          <div class="pal-hex" style="color:#E8E9F0;">#3D3F52</div>
+        </div>
+        <div class="pal-tints">
+          <div class="pal-tint" style="background:#F3F4F8;"></div>
+          <div class="pal-tint" style="background:#C5C7D4;"></div>
+          <div class="pal-tint" style="background:#7A7D96;"></div>
+          <div class="pal-tint" style="background:#3D3F52;"></div>
+        </div>
+      </div>
+    </div>
+    <p style="font-size: 11px; color: var(--text-muted); margin-top: 10px;">Each column shows base → tints (light to dark, left to right within bottom strip)</p>
+  </div>
+
+  <!-- SEMANTIC TOKENS -->
+  <div class="section">
+    <div class="section-label">Semantic tokens</div>
+    <div class="sem-row">
+      <div class="sem-card">
+        <div class="sem-top" style="background:#0A0B0F;">
+          <div class="sem-icon" style="background:#0D8A6A;"></div>
+          <div class="sem-lbl" style="color:#F0F0F5;">Background</div>
+        </div>
+        <div class="sem-bot">
+          <div class="sem-role">--bg-canvas</div>
+          <div class="sem-val">#0A0B0F</div>
+          <div class="sem-role" style="margin-top:4px;">--bg-surface</div>
+          <div class="sem-val">#141520</div>
+          <div class="sem-role" style="margin-top:4px;">--bg-overlay</div>
+          <div class="sem-val">#1C1E2E</div>
+        </div>
+      </div>
+      <div class="sem-card">
+        <div class="sem-top" style="background:#0D8A6A;">
+          <div class="sem-icon" style="background:#E8FFF8;"></div>
+          <div class="sem-lbl" style="color:#E8FFF8;">Brand / CTA</div>
+        </div>
+        <div class="sem-bot">
+          <div class="sem-role">--brand-primary</div>
+          <div class="sem-val">#0D8A6A</div>
+          <div class="sem-role" style="margin-top:4px;">--brand-hover</div>
+          <div class="sem-val">#3DC5A1</div>
+          <div class="sem-role" style="margin-top:4px;">--brand-subtle</div>
+          <div class="sem-val">#0D8A6A1A</div>
+        </div>
+      </div>
+      <div class="sem-card">
+        <div class="sem-top" style="background:#1B6EF3;">
+          <div class="sem-icon" style="background:#EAF0FF;"></div>
+          <div class="sem-lbl" style="color:#EAF0FF;">Accent / Link</div>
+        </div>
+        <div class="sem-bot">
+          <div class="sem-role">--accent-primary</div>
+          <div class="sem-val">#1B6EF3</div>
+          <div class="sem-role" style="margin-top:4px;">--accent-hover</div>
+          <div class="sem-val">#5591F7</div>
+          <div class="sem-role" style="margin-top:4px;">--accent-subtle</div>
+          <div class="sem-val">#1B6EF31A</div>
+        </div>
+      </div>
+      <div class="sem-card">
+        <div class="sem-top" style="background:#1C1E2E; border-bottom: 0.5px solid #242738;">
+          <div class="sem-icon" style="background:#F0F0F5;"></div>
+          <div class="sem-lbl" style="color:#C5C7D4;">Text</div>
+        </div>
+        <div class="sem-bot">
+          <div class="sem-role">--text-primary</div>
+          <div class="sem-val">#F0F0F5</div>
+          <div class="sem-role" style="margin-top:4px;">--text-secondary</div>
+          <div class="sem-val">#A8AAB8</div>
+          <div class="sem-role" style="margin-top:4px;">--text-muted</div>
+          <div class="sem-val">#6B6E82</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Status row -->
+    <div class="sem-row" style="margin-top: 8px;">
+      <div class="sem-card">
+        <div class="sem-top" style="background:#0A2E21;">
+          <div class="sem-icon" style="background:#0D8A6A;"></div>
+          <div class="sem-lbl" style="color:#9FDED0;">Success</div>
+        </div>
+        <div class="sem-bot">
+          <div class="sem-role">--status-success</div>
+          <div class="sem-val">#0D8A6A</div>
+          <div class="sem-role" style="margin-top:4px;">--status-success-bg</div>
+          <div class="sem-val">#0A2E21</div>
+        </div>
+      </div>
+      <div class="sem-card">
+        <div class="sem-top" style="background:#2E2408;">
+          <div class="sem-icon" style="background:#D97B0C;"></div>
+          <div class="sem-lbl" style="color:#FDD598;">Warning</div>
+        </div>
+        <div class="sem-bot">
+          <div class="sem-role">--status-warning</div>
+          <div class="sem-val">#D97B0C</div>
+          <div class="sem-role" style="margin-top:4px;">--status-warning-bg</div>
+          <div class="sem-val">#2E2408</div>
+        </div>
+      </div>
+      <div class="sem-card">
+        <div class="sem-top" style="background:#2E0A0A;">
+          <div class="sem-icon" style="background:#D63B3B;"></div>
+          <div class="sem-lbl" style="color:#F9B5B5;">Error</div>
+        </div>
+        <div class="sem-bot">
+          <div class="sem-role">--status-error</div>
+          <div class="sem-val">#D63B3B</div>
+          <div class="sem-role" style="margin-top:4px;">--status-error-bg</div>
+          <div class="sem-val">#2E0A0A</div>
+        </div>
+      </div>
+      <div class="sem-card">
+        <div class="sem-top" style="background:#080C1E;">
+          <div class="sem-icon" style="background:#1B6EF3;"></div>
+          <div class="sem-lbl" style="color:#A3C2FA;">Info</div>
+        </div>
+        <div class="sem-bot">
+          <div class="sem-role">--status-info</div>
+          <div class="sem-val">#1B6EF3</div>
+          <div class="sem-role" style="margin-top:4px;">--status-info-bg</div>
+          <div class="sem-val">#080C1E</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- GRADIENTS -->
+  <div class="section">
+    <div class="section-label">Signature gradients</div>
+    <div class="grad-row">
+      <div class="grad-chip" style="background: linear-gradient(135deg, #0A0B0F 0%, #0D3D2F 50%, #0D8A6A 100%);">
+        <div class="grad-name">Taksha Aura</div>
+      </div>
+      <div class="grad-chip" style="background: linear-gradient(135deg, #0D8A6A 0%, #1B6EF3 100%);">
+        <div class="grad-name">Neural Flow</div>
+      </div>
+      <div class="grad-chip" style="background: linear-gradient(135deg, #1C1E2E 0%, #0D8A6A22 50%, #1C1E2E 100%);">
+        <div class="grad-name">Mesh Glow</div>
+      </div>
+      <div class="grad-chip" style="background: linear-gradient(180deg, #141520 0%, #0A0B0F 100%);">
+        <div class="grad-name">Void Depth</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TYPOGRAPHY SCALE -->
+  <div class="section">
+    <div class="section-label">Typography scale — Inter / JetBrains Mono</div>
+    <div class="type-demo">
+      <div class="type-row">
+        <div class="type-role">Display / 36px 500</div>
+        <div class="type-sample" style="font-size:28px; font-weight:500; line-height:1.1;">Build. Ship. Self-heal.</div>
+      </div>
+      <div class="type-row">
+        <div class="type-role">Heading 1 / 22px 500</div>
+        <div class="type-sample" style="font-size:20px; font-weight:500;">AI-powered code generation</div>
+      </div>
+      <div class="type-row">
+        <div class="type-role">Heading 2 / 18px 500</div>
+        <div class="type-sample" style="font-size:17px; font-weight:500;">Active agents · 3 running</div>
+      </div>
+      <div class="type-row">
+        <div class="type-role">Body / 14px 400</div>
+        <div class="type-sample" style="font-size:14px; color:var(--text-secondary);">The Planner agent decomposed your task into 6 subtasks. Builder is generating scaffolding.</div>
+      </div>
+      <div class="type-row">
+        <div class="type-role">Caption / 12px 400</div>
+        <div class="type-sample" style="font-size:12px; color:var(--text-muted);">Last deploy · 3 min ago · pod/worker-6f2b</div>
+      </div>
+      <div class="type-row">
+        <div class="type-role">Code / 13px mono</div>
+        <div class="type-sample" style="font-size:13px; font-family:var(--font-mono); color:#3DC5A1;">const agent = new LangGraph({ model: 'devstral' })</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SPACING -->
+  <div class="section">
+    <div class="section-label">Spacing scale</div>
+    <div style="background: var(--surface-1); border-radius: 10px; border: 0.5px solid var(--border); padding: 1rem 1.25rem;">
+      <div class="sp-row"><div class="sp-bar" style="width:4px;"></div><div class="sp-lbl">4px — xs · icon gap, tight inline</div></div>
+      <div class="sp-row"><div class="sp-bar" style="width:8px;"></div><div class="sp-lbl">8px — sm · badge padding, chip gap</div></div>
+      <div class="sp-row"><div class="sp-bar" style="width:12px;"></div><div class="sp-lbl">12px — md · card grid gap</div></div>
+      <div class="sp-row"><div class="sp-bar" style="width:16px;"></div><div class="sp-lbl">16px — lg · section internal padding</div></div>
+      <div class="sp-row"><div class="sp-bar" style="width:24px;"></div><div class="sp-lbl">24px — xl · card padding</div></div>
+      <div class="sp-row"><div class="sp-bar" style="width:40px;"></div><div class="sp-lbl">40px — 2xl · section vertical gap</div></div>
+      <div class="sp-row"><div class="sp-bar" style="width:64px;"></div><div class="sp-lbl">64px — 3xl · page top margin</div></div>
+    </div>
+  </div>
+
+  <!-- BORDER RADIUS -->
+  <div class="section" style="margin-bottom: 0;">
+    <div class="section-label">Border radius</div>
+    <div style="display:flex; gap:10px; flex-wrap:wrap;">
+      <div style="text-align:center;">
+        <div style="width:40px;height:40px;background:#0D8A6A22;border:1px solid #0D8A6A55;border-radius:4px;margin:0 auto 5px;"></div>
+        <div style="font-size:10px;color:var(--text-muted);">4px<br>badge</div>
+      </div>
+      <div style="text-align:center;">
+        <div style="width:40px;height:40px;background:#0D8A6A22;border:1px solid #0D8A6A55;border-radius:6px;margin:0 auto 5px;"></div>
+        <div style="font-size:10px;color:var(--text-muted);">6px<br>input</div>
+      </div>
+      <div style="text-align:center;">
+        <div style="width:40px;height:40px;background:#0D8A6A22;border:1px solid #0D8A6A55;border-radius:8px;margin:0 auto 5px;"></div>
+        <div style="font-size:10px;color:var(--text-muted);">8px<br>button</div>
+      </div>
+      <div style="text-align:center;">
+        <div style="width:40px;height:40px;background:#0D8A6A22;border:1px solid #0D8A6A55;border-radius:12px;margin:0 auto 5px;"></div>
+        <div style="font-size:10px;color:var(--text-muted);">12px<br>card</div>
+      </div>
+      <div style="text-align:center;">
+        <div style="width:40px;height:40px;background:#0D8A6A22;border:1px solid #0D8A6A55;border-radius:16px;margin:0 auto 5px;"></div>
+        <div style="font-size:10px;color:var(--text-muted);">16px<br>panel</div>
+      </div>
+      <div style="text-align:center;">
+        <div style="width:40px;height:40px;background:#0D8A6A22;border:1px solid #0D8A6A55;border-radius:9999px;margin:0 auto 5px;"></div>
+        <div style="font-size:10px;color:var(--text-muted);">full<br>chip/pill</div>
+      </div>
+    </div>
+  </div>
+
+</div>

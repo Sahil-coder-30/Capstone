@@ -1,5 +1,5 @@
 import { useDispatch, useSelector } from 'react-redux';
-import { startSandboxAPI, stopSandboxAPI, pingPreviewURL } from '../service/sandbox.api';
+import { startSandboxAPI, stopSandboxAPI, deleteProjectAPI, pingPreviewURL } from '../service/sandbox.api';
 import {
   setSandboxDetails,
   setStatus,
@@ -59,7 +59,6 @@ export const useSandbox = () => {
       const isUp = await pingPreviewURL(url);
 
       if (isUp) {
-        // Container is up — transition to fully running
         dispatch(setStatus('running'));
         return true;
       }
@@ -68,7 +67,6 @@ export const useSandbox = () => {
       await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
     }
 
-    // Timeout
     dispatch(setError(
       'Sandbox preview took too long to become available. ' +
       'The container may still be starting — try refreshing.'
@@ -76,46 +74,32 @@ export const useSandbox = () => {
     return false;
   };
 
-  const startSandbox = async () => {
+  /**
+   * Start the sandbox for a given project.
+   * Uses the sandboxId already allocated when the project was created.
+   */
+  const startSandbox = async (projectId) => {
     try {
       dispatch(setStatus('starting'));
 
-      const data = await startSandboxAPI();
+      const data = await startSandboxAPI(projectId);
 
-      /**
-       * Backend response shape (from /api/sandbox/start):
-       * {
-       *   status: "success",
-       *   message: "Sandbox with ID <uuid> created successfully",
-       *   previewUrl: "http://<uuid>.preview.localhost",
-       *   agentUrl:   "http://<uuid>.agent.localhost/api/agent/list-files"
-       * }
-       *
-       * Note: the backend does NOT return sandboxId as its own field.
-       * We extract it from previewUrl, which is the most reliable source.
-       */
+      // Extract the sandboxId from previewUrl (backend does not return it directly)
       const extractedId =
-        // 1. Direct field (future-proof if backend adds it)
         data.sandboxId ||
-        // 2. Parse from previewUrl: "http://<uuid>.preview.localhost"
         data.previewUrl?.match(/^https?:\/\/([^.]+)\./)?.[1] ||
-        // 3. Fallback: parse from the message string
         data.message?.match(/ID\s+([a-f0-9-]{36})/i)?.[1];
 
       if (!extractedId) {
-        throw new Error(
-          data.message || 'Sandbox started but could not determine sandbox ID'
-        );
+        throw new Error(data.message || 'Sandbox started but could not determine sandbox ID');
       }
 
-      // Save sandbox details immediately so terminal / file explorer can use them
       dispatch(setSandboxDetails({
         sandboxId: extractedId,
         previewUrl: data.previewUrl || '',
         agentUrl: data.agentUrl || '',
       }));
 
-      // Enter warming phase — poll until preview container responds
       if (data.previewUrl) {
         dispatch(setWarmingProgress({ attempt: 0, message: WARMING_STEPS[0].message }));
         await waitForPreview(data.previewUrl);
@@ -131,13 +115,30 @@ export const useSandbox = () => {
     }
   };
 
-  const terminateSandbox = async () => {
-    if (sandboxId) {
-      try {
-        await stopSandboxAPI(sandboxId);
-      } catch {
-        // Swallow teardown errors — always clear local state
-      }
+  /**
+   * Stop the sandbox (soft-stop).
+   * Tears down K8s Pod + Service + Redis key.
+   * The project record is KEPT — sandbox can be restarted later.
+   * projectId is required; sandboxId is cleared from Redux state.
+   */
+  const terminateSandbox = async (projectId) => {
+    try {
+      await stopSandboxAPI(projectId);
+    } catch {
+      // Swallow teardown errors — always clear local Redux state
+    }
+    dispatch(clearSandbox());
+  };
+
+  /**
+   * Permanently delete a project and all its resources.
+   * Also clears Redux sandbox state.
+   */
+  const deleteProject = async (projectId) => {
+    try {
+      await deleteProjectAPI(projectId);
+    } catch {
+      // Swallow errors — always clear local Redux state
     }
     dispatch(clearSandbox());
   };
@@ -152,5 +153,6 @@ export const useSandbox = () => {
     error,
     startSandbox,
     terminateSandbox,
+    deleteProject,
   };
 };

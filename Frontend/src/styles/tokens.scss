@@ -1,0 +1,121 @@
+// ─────────────────────────────────────────────
+// Design Tokens & Core Variable Definitions
+// ─────────────────────────────────────────────
+
+// Spacing Scale (8px Grid)
+$space-1:   4px;
+$space-2:   8px;
+$space-3:   12px;
+$space-4:   16px;
+$space-5:   20px;
+$space-6:   24px;   // standard component padding
+$space-8:   32px;
+$space-10:  40px;
+$space-12:  48px;
+$space-16:  64px;
+
+// Local mapping variables targeting system root CSS custom properties
+$color-bg:            var(--bg-canvas);
+$color-bg-sidebar:    var(--bg-surface);
+$color-bg-panel:      var(--bg-overlay);
+$color-bg-element:    var(--bg-element);
+$color-bg-active:     var(--bg-active);
+$color-border:        var(--border);
+$color-border-strong: var(--border-strong);
+$color-border-glow:   var(--border-glow);
+
+$color-primary:       var(--brand-primary);
+$color-primary-hover: var(--brand-hover);
+$color-primary-glow:  var(--brand-subtle);
+$color-accent:        var(--accent-primary);
+$color-accent-hover:  var(--accent-hover);
+$color-accent-glow:   var(--accent-subtle);
+
+$color-success:       var(--success);
+$color-success-glow:  var(--success-glow);
+$color-warning:       var(--warning);
+$color-error:         var(--error);
+$color-error-glow:    var(--error-glow);
+
+$color-text:          var(--text-primary);
+$color-text-muted:    var(--text-secondary);
+$color-text-dark:     var(--text-muted);
+
+$font-sans:           var(--font-sans);
+$font-heading:        var(--font-heading);
+$font-mono:           var(--font-mono);
+
+// RGB value and background helper variables
+$color-rgb-text:      var(--color-rgb-text);
+$color-bg-card:       rgba(var(--color-rgb-text), 0.03);
+$color-bg-card-hover: rgba(var(--color-rgb-text), 0.06);
+
+// Breakpoints
+$bp-mobile: 768px;
+$bp-tablet: 1024px;
+
+// ─────────────────────────────────────────────
+// Layout & Style Mixins
+// ─────────────────────────────────────────────
+
+@mixin flex-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+@mixin flex-between {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+@mixin flex-column {
+  display: flex;
+  flex-direction: column;
+}
+
+@mixin respond-to($bp) {
+  @if $bp == 'mobile' {
+    @media (max-width: $bp-mobile) { @content; }
+  } @else if $bp == 'tablet' {
+    @media (max-width: $bp-tablet) { @content; }
+  }
+}
+
+// Monochromatic high-fidelity card container style
+@mixin card {
+  background: $color-bg-card;
+  border: 1px solid $color-border;
+  border-radius: 12px;
+  padding: $space-6;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  backdrop-filter: blur(10px);
+  position: relative;
+  overflow: hidden;
+
+  &:hover {
+    background: $color-bg-card-hover;
+    border-color: $color-border-strong;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+  }
+}
+
+// Shimmer skeleton loader animation
+@mixin skeleton {
+  background: linear-gradient(
+    90deg,
+    $color-bg-card 25%,
+    var(--bg-element) 50%,
+    $color-bg-card 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite linear;
+  border-radius: 6px;
+}
+
+@keyframes shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}

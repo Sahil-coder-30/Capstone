@@ -3,6 +3,7 @@ import sandboxReducer from './features/sandbox/slice/sandbox.slice';
 import editorReducer from './features/editor/slice/editor.slice';
 import chatReducer from './features/chat/slice/chat.slice';
 import logsReducer from './features/logs/slice/logs.slice';
+import authReducer from './features/auth/slice/auth.slice';
 
 export const store = configureStore({
   reducer: {
@@ -10,5 +11,6 @@ export const store = configureStore({
     editor: editorReducer,
     chat: chatReducer,
     logs: logsReducer,
+    auth: authReducer,
   },
 });

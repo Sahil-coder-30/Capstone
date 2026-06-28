@@ -1,13 +1,17 @@
-import React from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useSandbox } from '../Hooks/sandbox.hooks';
-import { Play, RotateCw, Copy, Check, LogOut, Cpu, FolderTree, Terminal, Sparkles, Eye, Code2 } from 'lucide-react';
-import { useState } from 'react';
+import {
+  Play, RotateCw, Copy, Check, LogOut, Cpu,
+  FolderTree, Terminal, Sparkles, Eye, Code2,
+  Square, Trash2, ChevronDown, Loader2, Share2, Settings, ExternalLink
+} from 'lucide-react';
 
 export default function SandboxHeader({
   isExplorerOpen, setIsExplorerOpen,
   isChatOpen, setIsChatOpen,
   isTerminalOpen, setIsTerminalOpen,
-  workspaceTab, setWorkspaceTab
+  workspaceTab, setWorkspaceTab,
+  projectId, projectTitle, onBackToDashboard
 }) {
   const {
     sandboxId,
@@ -19,6 +23,19 @@ export default function SandboxHeader({
   } = useSandbox();
 
   const [copiedText, setCopiedText] = useState('');
+  const [stopLoading, setStopLoading] = useState(false);
+  const [statusMenuOpen, setStatusMenuOpen] = useState(false);
+  const statusMenuRef = useRef(null);
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    if (!statusMenuOpen) return;
+    const handler = (e) => {
+      if (statusMenuRef.current && !statusMenuRef.current.contains(e.target)) setStatusMenuOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [statusMenuOpen]);
 
   const handleCopy = (text, type) => {
     navigator.clipboard.writeText(text);
@@ -26,307 +43,327 @@ export default function SandboxHeader({
     setTimeout(() => setCopiedText(''), 2000);
   };
 
+  const handleStop = async () => {
+    setStatusMenuOpen(false);
+    setStopLoading(true);
+    await terminateSandbox(projectId);
+    setStopLoading(false);
+  };
+
+  const handleStart = async () => {
+    setStatusMenuOpen(false);
+    await startSandbox(projectId);
+  };
+
+  const isRunning = status === 'running';
+  const isStarting = status === 'starting' || status === 'warming' || status === 'building';
+
   return (
-    <header className="glass" style={{
+    <header style={{
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'space-between',
       padding: '0 16px',
       height: '48px',
       borderBottom: '1px solid var(--border)',
+      background: '#05070a',
       position: 'relative',
       zIndex: 50,
       flexShrink: 0,
-      background: 'rgba(6, 7, 10, 0.8)',
-      backdropFilter: 'blur(20px)',
+      fontFamily: 'var(--font-sans)'
     }}>
-      {/* Brand & Toggles */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-        <div style={{
-          background: 'var(--primary)',
-          width: '24px',
-          height: '24px',
-          borderRadius: '6px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          boxShadow: '0 0 10px var(--primary-glow)',
-          flexShrink: 0,
-        }}>
-          <Cpu size={14} color="var(--bg-main)" />
-        </div>
-        <h1 style={{
-          fontSize: '14px',
-          fontWeight: '700',
-          fontFamily: 'var(--font-heading)',
-          margin: 0,
-          color: 'var(--text-main)',
-          letterSpacing: '-0.02em',
-          whiteSpace: 'nowrap',
-        }}>
-          Capstone{' '}
-          <span style={{
-            color: 'var(--text-muted)',
-            fontWeight: '400',
-          }}>
-            Codespace
-          </span>
-        </h1>
-
-        {/* Header Toggles Toolbar (IDE layout controls) */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '2px', borderLeft: '1px solid var(--border)', paddingLeft: '8px', marginLeft: '8px' }}>
+      {/* Left: Back to start + Toggles */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        {onBackToDashboard && (
           <button
-            onClick={() => setIsExplorerOpen(!isExplorerOpen)}
-            title="Toggle Explorer (Cmd+B)"
+            onClick={onBackToDashboard}
             style={{
               background: 'none',
-              border: 'none',
-              borderRadius: '4px',
-              color: isExplorerOpen ? 'var(--text-main)' : 'var(--text-dark)',
-              padding: '4px',
+              border: '1px solid rgba(255,255,255,0.08)',
+              borderRadius: '6px',
+              color: '#cbd5e1',
+              padding: '6px 12px',
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
-              justifyContent: 'center',
-              transition: 'all 0.15s',
+              gap: '6px',
+              fontSize: '11.5px',
+              fontWeight: '600',
+              transition: 'all 0.2s',
             }}
-            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-element)'}
-            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+            onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'var(--bg-element)'; e.currentTarget.style.borderColor = 'var(--primary)'; }}
+            onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)'; }}
           >
-            <FolderTree size={14} />
+            ← Back to start
           </button>
+        )}
 
-          <button
-            onClick={() => setIsTerminalOpen(!isTerminalOpen)}
-            title="Toggle Terminal (Cmd+J)"
-            style={{
-              background: 'none',
-              border: 'none',
-              borderRadius: '4px',
-              color: isTerminalOpen ? 'var(--text-main)' : 'var(--text-dark)',
-              padding: '4px',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              transition: 'all 0.15s',
-            }}
-            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-element)'}
-            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-          >
-            <Terminal size={14} />
-          </button>
-
-          <button
-            onClick={() => setIsChatOpen(!isChatOpen)}
-            title="Toggle AI Assistant (Cmd+Shift+B)"
-            style={{
-              background: 'none',
-              border: 'none',
-              borderRadius: '4px',
-              color: isChatOpen ? 'var(--text-main)' : 'var(--text-dark)',
-              padding: '4px',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              transition: 'all 0.15s',
-            }}
-            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-element)'}
-            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-          >
-            <Sparkles size={14} />
-          </button>
-
-          <button
-            onClick={() => setWorkspaceTab(workspaceTab === 'editor' ? 'preview' : 'editor')}
-            title="Toggle Editor / Preview (Cmd+Shift+T)"
-            style={{
-              background: 'none',
-              border: 'none',
-              borderRadius: '4px',
-              color: 'var(--text-dark)',
-              padding: '4px',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              transition: 'all 0.15s',
-            }}
-            onMouseEnter={(e) => e.currentTarget.style.color = 'var(--text-main)'}
-            onMouseLeave={(e) => e.currentTarget.style.color = 'var(--text-dark)'}
-          >
-            {workspaceTab === 'editor' ? <Eye size={14} /> : <Code2 size={14} />}
-          </button>
+        {/* Panel Toggles */}
+        <div style={{ display: 'flex', gap: '4px', borderLeft: '1px solid rgba(255,255,255,0.06)', paddingLeft: '12px' }}>
+          {[
+            { icon: Sparkles, active: isChatOpen, toggle: () => setIsChatOpen(v => !v), title: 'Toggle AI Chat (Cmd+Shift+B)' },
+            { icon: FolderTree, active: isExplorerOpen, toggle: () => setIsExplorerOpen(v => !v), title: 'Toggle Explorer (Cmd+B)' },
+            { icon: Terminal, active: isTerminalOpen, toggle: () => setIsTerminalOpen(v => !v), title: 'Toggle Terminal (Cmd+J)' }
+          ].map(({ icon: Icon, active, toggle, title }) => (
+            <button
+              key={title}
+              onClick={toggle}
+              title={title}
+              style={{
+                background: active ? 'var(--primary-glow)' : 'none',
+                border: 'none',
+                borderRadius: '4px',
+                color: active ? 'var(--primary)' : 'var(--text-dark)',
+                width: '26px',
+                height: '26px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                transition: 'all 0.15s',
+              }}
+              onMouseEnter={e => { if(!active) e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.02)'; }}
+              onMouseLeave={e => { if(!active) e.currentTarget.style.backgroundColor = 'transparent'; }}
+            >
+              <Icon size={13} />
+            </button>
+          ))}
         </div>
       </div>
 
-      {/* Center: Active sandbox info */}
-      {status === 'running' && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', fontSize: '12px' }}>
-          {/* Sandbox ID badge */}
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px',
-            background: 'rgba(16, 185, 129, 0.05)',
-            border: '1px solid rgba(16, 185, 129, 0.15)',
-            padding: '3px 8px',
-            borderRadius: '4px',
-            color: 'var(--success)',
-          }}>
-            <span className="pulse-green" style={{
-              width: '6px',
-              height: '6px',
-              backgroundColor: 'var(--success)',
-              borderRadius: '50%',
-              display: 'inline-block',
-            }} />
-            <span style={{ fontWeight: '500', fontFamily: 'var(--font-mono)' }}>
-              {sandboxId.substring(0, 8)}
-            </span>
-            <button
-              onClick={() => handleCopy(sandboxId, 'id')}
-              title="Copy sandbox ID"
-              style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', display: 'flex', color: 'var(--text-dark)', marginLeft: '2px' }}
-              onMouseEnter={(e) => e.currentTarget.style.color = 'var(--text-main)'}
-              onMouseLeave={(e) => e.currentTarget.style.color = 'var(--text-dark)'}
-            >
-              {copiedText === 'id' ? <Check size={12} color="var(--success)" /> : <Copy size={12} />}
-            </button>
-          </div>
+      {/* Center: Project Title / Workspace Name */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <h1 style={{
+          fontSize: '13px',
+          fontWeight: '700',
+          color: '#fff',
+          letterSpacing: '-0.01em',
+          margin: 0
+        }}>
+          {projectTitle || 'Untitled Workspace'}
+        </h1>
+      </div>
 
-          {/* Preview URL */}
-          {previewUrl && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <div style={{
-                background: 'var(--bg-element)',
-                border: '1px solid var(--border)',
-                padding: '3px 8px',
-                borderRadius: '4px',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-              }}>
+      {/* Right: Remix, Share, Publish, settings gear, and container status */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        
+        {/* Direct Start/Stop action aligned with status */}
+        {!isRunning && !isStarting ? (
+          <button
+            onClick={handleStart}
+            style={{
+              background: 'linear-gradient(135deg, #0D8A6A 0%, #0B7359 100%)',
+              border: 'none',
+              borderRadius: '6px',
+              padding: '5px 12px',
+              fontSize: '11.5px',
+              fontWeight: '600',
+              color: '#fff',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              boxShadow: '0 2px 8px rgba(13,138,106,0.25)',
+              transition: 'all 0.2s',
+            }}
+            onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-0.5px)'}
+            onMouseLeave={e => e.currentTarget.style.transform = 'none'}
+          >
+            <Play size={11} fill="currentColor" />
+            <span>Start Sandbox</span>
+          </button>
+        ) : isRunning ? (
+          <button
+            onClick={handleStop}
+            disabled={stopLoading}
+            style={{
+              background: 'rgba(239, 68, 68, 0.08)',
+              border: '1px solid rgba(239, 68, 68, 0.25)',
+              borderRadius: '6px',
+              padding: '4px 12px',
+              fontSize: '11.5px',
+              fontWeight: '600',
+              color: 'var(--error)',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              transition: 'all 0.2s',
+            }}
+            onMouseEnter={e => e.currentTarget.style.backgroundColor = 'rgba(239, 68, 68, 0.15)'}
+            onMouseLeave={e => e.currentTarget.style.backgroundColor = 'rgba(239, 68, 68, 0.08)'}
+          >
+            {stopLoading ? (
+              <Loader2 size={11} style={{ animation: 'spin 0.8s linear infinite' }} />
+            ) : (
+              <Square size={11} />
+            )}
+            <span>Stop Sandbox</span>
+          </button>
+        ) : (
+          <button
+            disabled
+            style={{
+              background: 'rgba(255,255,255,0.02)',
+              border: '1px solid var(--border)',
+              borderRadius: '6px',
+              padding: '4px 12px',
+              fontSize: '11.5px',
+              fontWeight: '600',
+              color: '#6B6E82',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              cursor: 'not-allowed',
+            }}
+          >
+             <Loader2 size={11} style={{ animation: 'spin 0.8s linear infinite' }} />
+             <span>Starting...</span>
+          </button>
+        )}
+
+        {/* Sandbox container status dropdown */}
+        <div style={{ position: 'relative' }} ref={statusMenuRef}>
+          <button
+            onClick={() => setStatusMenuOpen(!statusMenuOpen)}
+            style={{
+              background: 'rgba(255,255,255,0.02)',
+              border: '1px solid var(--border)',
+              borderRadius: '6px',
+              padding: '4px 10px',
+              fontSize: '11px',
+              color: isRunning ? 'var(--success)' : isStarting ? '#eab308' : 'var(--text-dark)',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              fontWeight: '600'
+            }}
+          >
+            <span style={{
+              width: '5px', height: '5px', borderRadius: '50%',
+              backgroundColor: isRunning ? 'var(--success)' : isStarting ? '#eab308' : 'var(--text-dark)',
+              boxShadow: isRunning ? '0 0 6px var(--success)' : 'none',
+              animation: isStarting ? 'pulse-g 1.5s infinite' : 'none'
+            }} />
+            <span>{isRunning ? 'Sandbox Live' : isStarting ? 'Provisioning...' : 'Sandbox Offline'}</span>
+            <ChevronDown size={10} color="var(--text-dark)" />
+          </button>
+
+          {statusMenuOpen && (
+            <div style={{
+              position: 'absolute',
+              top: '28px',
+              right: 0,
+              backgroundColor: 'var(--bg-element)',
+              border: '1px solid var(--border)',
+              borderRadius: '6px',
+              boxShadow: '0 4px 12px rgba(0,0,0,0.4)',
+              zIndex: 100,
+              width: '180px',
+              display: 'flex',
+              flexDirection: 'column',
+              padding: '4px'
+            }}>
+              {!isRunning && (
+                <button
+                  onClick={handleStart}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px',
+                    fontSize: '11px', color: '#cbd5e1', background: 'none', border: 'none',
+                    textAlign: 'left', cursor: 'pointer', borderRadius: '4px'
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.02)'}
+                  onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
+                >
+                  <Play size={12} fill="currentColor" />
+                  <span>Start Sandbox</span>
+                </button>
+              )}
+              {isRunning && (
+                <button
+                  onClick={handleStop}
+                  disabled={stopLoading}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px',
+                    fontSize: '11px', color: 'var(--error)', background: 'none', border: 'none',
+                    textAlign: 'left', cursor: 'pointer', borderRadius: '4px'
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.backgroundColor = 'rgba(239, 68, 68, 0.05)'}
+                  onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
+                >
+                  <Square size={12} />
+                  <span>Stop Sandbox</span>
+                </button>
+              )}
+              {previewUrl && (
                 <a
                   href={previewUrl}
                   target="_blank"
                   rel="noreferrer"
                   style={{
-                    color: 'var(--primary)',
-                    textDecoration: 'none',
-                    maxWidth: '150px',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap',
-                    fontFamily: 'var(--font-mono)',
-                    fontSize: '11px',
-                    fontWeight: '500',
+                    display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px',
+                    fontSize: '11px', color: '#cbd5e1', textDecoration: 'none', borderRadius: '4px'
                   }}
+                  onMouseEnter={e => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.02)'}
+                  onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
                 >
-                  {previewUrl.replace('http://', '')}
+                  <ExternalLink size={12} />
+                  <span>Preview Tab</span>
                 </a>
-                <button
-                  onClick={() => handleCopy(previewUrl, 'preview')}
-                  style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', display: 'flex', color: 'var(--text-dark)' }}
-                  onMouseEnter={(e) => e.currentTarget.style.color = 'var(--text-main)'}
-                  onMouseLeave={(e) => e.currentTarget.style.color = 'var(--text-dark)'}
-                >
-                  {copiedText === 'preview' ? <Check size={12} color="var(--success)" /> : <Copy size={12} />}
-                </button>
-              </div>
+              )}
             </div>
           )}
         </div>
-      )}
 
-      {/* Error banner (idle/error state) */}
-      {error && status === 'error' && (
-        <div style={{
-          fontSize: '11px',
-          color: 'var(--error)',
-          background: 'rgba(244, 63, 94, 0.05)',
-          border: '1px solid rgba(244, 63, 94, 0.15)',
-          padding: '3px 10px',
-          borderRadius: '4px',
-          maxWidth: '260px',
-          overflow: 'hidden',
-          textOverflow: 'ellipsis',
-          whiteSpace: 'nowrap',
-        }}>
-          {error}
-        </div>
-      )}
+        {/* Action Controls */}
+        <button
+          onClick={() => alert("Project Cloned!")}
+          style={{
+            background: 'none', border: 'none', color: '#cbd5e1', fontSize: '11px', fontWeight: '600', cursor: 'pointer',
+            padding: '5px 10px', borderRadius: '4px'
+          }}
+          onMouseEnter={e => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.02)'}
+          onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
+        >
+          Remix
+        </button>
 
-      {/* Right: Actions */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-        {status === 'running' ? (
-          <button
-            onClick={terminateSandbox}
-            className="glow-hover"
-            style={{
-              background: 'rgba(244, 63, 94, 0.05)',
-              border: '1px solid rgba(244, 63, 94, 0.3)',
-              color: 'var(--error)',
-              padding: '6px 12px',
-              borderRadius: '6px',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              fontSize: '12px',
-              fontWeight: '500',
-              transition: 'all 0.2s',
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background = 'rgba(244, 63, 94, 0.12)';
-              e.currentTarget.style.borderColor = 'rgba(244, 63, 94, 0.5)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = 'rgba(244, 63, 94, 0.05)';
-              e.currentTarget.style.borderColor = 'rgba(244, 63, 94, 0.3)';
-            }}
-          >
-            <LogOut size={13} />
-            Stop Sandbox
-          </button>
-        ) : (
-          <button
-            onClick={startSandbox}
-            disabled={status === 'starting'}
-            className="glow-hover pulse-primary"
-            style={{
-              background: status === 'starting'
-                ? 'var(--bg-element)'
-                : 'linear-gradient(135deg, var(--accent) 0%, var(--primary) 100%)',
-              border: '1px solid var(--border)',
-              color: status === 'starting' ? 'var(--text-muted)' : '#ffffff',
-              padding: '6px 14px',
-              borderRadius: '6px',
-              cursor: status === 'starting' ? 'not-allowed' : 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              fontSize: '12px',
-              fontWeight: '600',
-              boxShadow: status !== 'starting' ? '0 2px 10px var(--primary-glow)' : 'none',
-              transition: 'all 0.2s',
-            }}
-          >
-            {status === 'starting' ? (
-              <>
-                <RotateCw size={13} style={{ animation: 'spin 1s linear infinite' }} />
-                Launching…
-              </>
-            ) : (
-              <>
-                <Play size={13} fill="currentColor" />
-                Launch Sandbox
-              </>
-            )}
-          </button>
-        )}
+        <button
+          onClick={() => {
+            if (previewUrl) {
+              handleCopy(previewUrl, 'share');
+              alert("Preview link copied to clipboard!");
+            } else {
+              alert("Sandbox is offline. Start it to share.");
+            }
+          }}
+          style={{
+            background: 'none', border: 'none', color: '#cbd5e1', fontSize: '11px', fontWeight: '600', cursor: 'pointer',
+            padding: '5px 10px', borderRadius: '4px', display: 'flex', alignItems: 'center', gap: '4px'
+          }}
+          onMouseEnter={e => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.02)'}
+          onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
+        >
+          <Share2 size={11} />
+          <span>{copiedText === 'share' ? 'Copied' : 'Share'}</span>
+        </button>
+
+        <button
+          onClick={() => alert("Application Published!")}
+          style={{
+            background: 'var(--primary)', border: 'none', color: '#fff', fontSize: '11px', fontWeight: '700', cursor: 'pointer',
+            padding: '5px 12px', borderRadius: '6px', boxShadow: '0 2px 8px var(--primary-glow)'
+          }}
+        >
+          Publish
+        </button>
+
+        <button className="icon-btn" style={{ padding: '6px' }} title="Settings">
+          <Settings size={13} />
+        </button>
       </div>
+
     </header>
   );
 }

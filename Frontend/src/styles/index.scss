@@ -1,0 +1,369 @@
+// ─────────────────────────────────────────────
+// Global Variables & Custom CSS Properties
+// ─────────────────────────────────────────────
+
+:root {
+  /* Void Black canvas & backgrounds */
+  --bg-canvas: #0A0B0F;
+  --bg-surface: #141520;
+  --bg-overlay: #1C1E2E;
+  --bg-element: #242738;
+  --bg-active: rgba(240, 240, 245, 0.08);
+
+  /* Legacy mappings to keep the rest of the application stable */
+  --bg-main: var(--bg-canvas);
+  --bg-sidebar: var(--bg-surface);
+  --bg-panel: var(--bg-overlay);
+
+  /* Borders */
+  --border: rgba(240, 240, 245, 0.08);
+  --border-strong: rgba(240, 240, 245, 0.16);
+  --border-glow: rgba(240, 240, 245, 0.03);
+
+  /* Brand/Primary (Taksha Green) */
+  --brand-primary: #0D8A6A;
+  --brand-hover: #3DC5A1;
+  --brand-subtle: rgba(13, 138, 106, 0.1);
+
+  /* Legacy mappings */
+  --primary: var(--brand-primary);
+  --primary-hover: var(--brand-hover);
+  --primary-glow: var(--brand-subtle);
+
+  /* Accent/Link (Plasma Blue) */
+  --accent-primary: #1B6EF3;
+  --accent-hover: #5591F7;
+  --accent-subtle: rgba(27, 110, 243, 0.1);
+
+  /* Legacy mappings */
+  --accent: var(--accent-primary);
+  --accent-glow: var(--accent-subtle);
+
+  /* Status Colors */
+  --success: #0D8A6A;
+  --success-glow: rgba(13, 138, 106, 0.15);
+
+  --warning: #D97B0C;
+  --warning-bg: #2E2408;
+
+  --error: #D63B3B;
+  --error-glow: rgba(214, 59, 59, 0.15);
+  --error-bg: #2E0A0A;
+
+  --info: #1B6EF3;
+  --info-bg: #080C1E;
+
+  /* Typography Colors */
+  --text-primary: #F0F0F5;
+  --text-secondary: #A8AAB8;
+  --text-muted: #6B6E82;
+
+  /* Legacy mappings */
+  --text-main: var(--text-primary);
+  --text-muted-legacy: var(--text-secondary);
+  --text-dark: var(--text-muted);
+
+  /* Typography Scales */
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-heading: 'Inter', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+
+  /* RGB version of primary text for custom opacities */
+  --color-rgb-text: 240, 240, 245;
+}
+
+// Imports
+@import './tokens.scss';
+
+// ─────────────────────────────────────────────
+// CSS Global Resets
+// ─────────────────────────────────────────────
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body, #root {
+  height: 100%;
+  width: 100%;
+  background-color: $color-bg;
+  color: $color-text;
+  font-family: $font-sans;
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+// ─────────────────────────────────────────────
+// Global Animations
+// ─────────────────────────────────────────────
+
+@keyframes dashPulse {
+  0%, 100% { opacity: 0.6; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.15); }
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes starTwinkle {
+  0%, 100% { opacity: 0; }
+  50% { opacity: 0.85; }
+}
+
+@keyframes starDrift {
+  0% { transform: translateY(0) translateX(0); }
+  100% { transform: translateY(-80px) translateX(-30px); }
+}
+
+// ─────────────────────────────────────────────
+// Form Inputs and Global Scrollbars
+// ─────────────────────────────────────────────
+
+input, select, textarea {
+  font-family: inherit;
+  color: inherit;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 4px;
+  
+  &:hover {
+    background: rgba(255, 255, 255, 0.16);
+  }
+}
+
+// ─────────────────────────────────────────────
+// Helper Classes
+// ─────────────────────────────────────────────
+
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+
+.animate-pulse {
+  animation: dashPulse 2s ease-in-out infinite;
+}
+
+.pulse-green {
+  animation: dashPulse 1.8s infinite ease-in-out;
+}
+
+.icon-btn {
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  color: $color-text-dark;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+  
+  &:hover {
+    color: $color-text;
+    background-color: $color-bg-element;
+    border-color: $color-border;
+  }
+}
+
+// ─── Shared action buttons ─────────────────────────────────────────────────────
+.btn-primary {
+  background: linear-gradient(135deg, var(--brand-primary), var(--accent-primary));
+  border: none;
+  color: #fff;
+  padding: 7px 14px;
+  border-radius: 7px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: all 0.2s;
+  box-shadow: 0 2px 10px rgba(13, 138, 106, 0.25);
+
+  &:hover:not(:disabled) {
+    transform: translateY(-0.5px);
+    box-shadow: 0 4px 16px rgba(13, 138, 106, 0.4);
+    background: linear-gradient(135deg, var(--brand-hover), var(--accent-hover));
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
+
+.btn-secondary {
+  background: $color-bg-element;
+  border: 1px solid $color-border;
+  color: $color-text-muted;
+  padding: 7px 14px;
+  border-radius: 7px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+
+  &:hover:not(:disabled) {
+    border-color: rgba(255, 255, 255, 0.12);
+    color: $color-text;
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
+
+.btn-danger {
+  background: rgba(244, 63, 94, 0.1);
+  border: 1px solid rgba(244, 63, 94, 0.3);
+  color: #f43f5e;
+  padding: 7px 14px;
+  border-radius: 7px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: all 0.2s;
+
+  &:hover:not(:disabled) {
+    background: rgba(244, 63, 94, 0.15);
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
+
+// ─── Modal backdrop and card ───────────────────────────────────────────────────
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  backdrop-filter: blur(4px);
+  animation: fadeIn 0.15s ease-out;
+}
+
+.modal-card {
+  background: $color-bg-panel;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  padding: 24px;
+  width: 400px;
+  max-width: 90vw;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(13, 138, 106, 0.1);
+  position: relative;
+  animation: slideInCard 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    border-radius: 14px 14px 0 0;
+    background: linear-gradient(90deg, transparent, rgba(13, 138, 106, 0.5), transparent);
+  }
+}
+
+@keyframes slideInCard {
+  from { opacity: 0; transform: scale(0.96) translateY(8px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+// ─── Dropdown menus ────────────────────────────────────────────────────────────
+.dropdown-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  background: $color-bg-element;
+  border: 1px solid $color-border;
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  z-index: 100;
+  padding: 4px;
+  min-width: 160px;
+  animation: slideInCard 0.15s ease-out;
+}
+
+.dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 7px 10px;
+  background: none;
+  border: none;
+  border-radius: 5px;
+  font-size: 11.5px;
+  color: $color-text-muted;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.15s;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.04);
+    color: $color-text;
+  }
+
+  &:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  &.danger {
+    color: #f43f5e;
+    &:hover { background: rgba(244, 63, 94, 0.06); }
+  }
+}
+
+// ─── Live card shimmer sweep ───────────────────────────────────────────────────
+.card-live-shimmer {
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 40%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(16, 185, 129, 0.04), transparent);
+  animation: liveShimmer 3s ease-in-out infinite;
+  pointer-events: none;
+  z-index: 1;
+}
+
+@keyframes liveShimmer {
+  0%   { left: -40%; }
+  100% { left: 140%; }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+

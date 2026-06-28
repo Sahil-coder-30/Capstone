@@ -1,5 +1,5 @@
 import { Router } from "express";
-import agent from "../agent/code.agent.js";
+import agent, { appAgent, appModel } from "../agent/code.agent.js";
 
 const aiRouter = Router();
 
@@ -184,6 +184,145 @@ aiRouter.post("/invoke", async (req, res) => {
     );
     cleanup();
     res.end();
+  }
+});
+
+// ─── App Agent (Tara) routes ───────────────────────────────────────────────
+aiRouter.post("/app-agent/invoke", async (req, res) => {
+  const { userPrompt, message, sessionId, projectId, workspacePath, agentStatus, activeFile } = req.body;
+  const prompt = userPrompt || message;
+  const projId = sessionId || projectId;
+
+  res.writeHead(200, {
+    "Content-Type": "text/event-stream",
+    "Cache-Control": "no-cache",
+    Connection: "keep-alive",
+  });
+
+  if (!prompt) {
+    res.write(`event: error\ndata: ${JSON.stringify({ message: "message or userPrompt is required" })}\n\n`);
+    return res.end();
+  }
+
+  // SSE heartbeat
+  const HEARTBEAT_INTERVAL_MS = 15_000;
+  const heartbeat = setInterval(() => {
+    try {
+      res.write(": heartbeat\n\n");
+    } catch (_) {}
+  }, HEARTBEAT_INTERVAL_MS);
+
+  const cleanup = () => clearInterval(heartbeat);
+
+  try {
+    const finalChunks = [];
+    const context = `[CONTEXT]
+- sessionId: ${projId || "unknown"}
+- workspacePath: ${workspacePath || "/workspace"}
+- agentStatus: ${agentStatus || "idle"}
+- activeFile: ${activeFile || "none"}`;
+
+    const formattedMessage = `${context}
+
+[USER PROMPT]
+${prompt}`;
+
+    const TOOL_PREFIXES = ["readFile:", "updateFile:", "read_file:", "update_file:"];
+    const isToolLog = (msg) => typeof msg === "string" && TOOL_PREFIXES.some((p) => msg.startsWith(p));
+
+    const agentStream = appAgent.stream(
+      {
+        messages: [{ role: "user", content: formattedMessage }],
+      },
+      {
+        configurable: { projectId: projId },
+        recursionLimit: 50,
+        streamMode: "custom",
+        writer: (msg) => {
+          try {
+            const data = typeof msg === "string" ? msg : JSON.stringify(msg);
+            if (isToolLog(msg)) {
+              res.write(`data: ${data}\n\n`);
+              console.log("appAgent tool log:", data);
+            } else {
+              finalChunks.push(data);
+              console.log("appAgent reply chunk:", data);
+            }
+          } catch (e) {
+            console.error("appAgent writer error:", e);
+          }
+        },
+      }
+    );
+
+    // Races agentStream with a timeout
+    const AGENT_TIMEOUT_MS = 3 * 60 * 1000; // 3 mins
+    let timeoutId;
+    const timeoutPromise = new Promise((_, reject) => {
+      timeoutId = setTimeout(() => reject(new Error("AGENT_TIMEOUT")), AGENT_TIMEOUT_MS);
+    });
+
+    await Promise.race([agentStream, timeoutPromise]).finally(() => clearTimeout(timeoutId));
+
+    const finalResponse = finalChunks.join("");
+    if (finalResponse) {
+      res.write(`event: final\ndata: ${finalResponse}\n\n`);
+    }
+
+    res.write(`event: done\ndata: [DONE]\n\n`);
+    cleanup();
+    res.end();
+  } catch (error) {
+    console.error("appAgent invocation error:", error);
+    res.write(`event: error\ndata: ${JSON.stringify({ message: error.message || "Error running app agent" })}\n\n`);
+    cleanup();
+    res.end();
+  }
+});
+
+aiRouter.post("/app-agent/title", async (req, res) => {
+  const { userPrompt, message } = req.body;
+  const prompt = userPrompt || message;
+
+  if (!prompt) {
+    return res.status(400).json({ status: "error", message: "message or userPrompt is required" });
+  }
+
+  try {
+    const response = await appModel.invoke([
+      {
+        role: "system",
+        content: `When the user submits a prompt to start a new session, generate a concise project title from it. Output ONLY a JSON object — no prose, no markdown fences:
+
+  {"title": "<title>"}
+
+Rules for the title:
+- 3–6 words maximum
+- Title case
+- Noun phrase, not a sentence ("Todo App with Auth", not "Build a todo app")
+- Describe the output, not the action ("REST API — User Management", not "Create a REST API for user management")
+- Never use words like "generate", "build", "create", "make"
+
+If the prompt is vague (e.g. "something cool"), return:
+  {"title": "Untitled Project"}`
+      },
+      { role: "user", content: prompt }
+    ]);
+
+    let titleData;
+    try {
+      const content = response.content?.trim();
+      const cleanContent = content.replace(/^```json\s*/i, "").replace(/```$/, "").trim();
+      titleData = JSON.parse(cleanContent);
+    } catch (e) {
+      console.error("Failed to parse title JSON response:", response.content);
+      titleData = { title: "Untitled Project" };
+    }
+
+    res.status(200).json(titleData);
+  } catch (error) {
+    console.error("appAgent title generation error:", error);
+    res.status(500).json({ status: "error", message: error.message || "Failed to generate title" });
   }
 });
 

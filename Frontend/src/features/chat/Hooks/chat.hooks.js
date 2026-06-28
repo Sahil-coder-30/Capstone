@@ -140,6 +140,118 @@ export const useChat = () => {
     });
   };
 
+  const sendAppAgentMessage = async (text, activeFile, onComplete) => {
+    if (!text.trim()) return;
+
+    // 1. Add user message
+    dispatch(addMessage({ role: 'user', text }));
+
+    // 2. Add placeholder assistant message
+    dispatch(addMessage({
+      role: 'assistant',
+      text: '',
+      toolLogs: [],
+      status: 'running',
+    }));
+
+    dispatch(setStreaming(true));
+    dispatch(setError(null));
+
+    let assistantText = '';
+    let toolLogs = [];
+
+    try {
+      const response = await fetch('/api/ai/app-agent/invoke', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userPrompt: text,
+          sessionId: sandboxId,
+          workspacePath: `/workspace/${sandboxId || "default"}`,
+          agentStatus: status || 'idle',
+          activeFile: activeFile || '',
+        }),
+      });
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder('utf-8');
+      let buffer = '';
+
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n\n');
+        buffer = lines.pop(); // Keep unfinished line in buffer
+
+        for (const line of lines) {
+          if (!line.trim()) continue;
+
+          // SSE format: event: <event>\ndata: <data>
+          const dataMatch = line.match(/^data:\s*(.+)$/m);
+          const eventMatch = line.match(/^event:\s*(.+)$/m);
+
+          const event = eventMatch ? eventMatch[1].trim() : 'message';
+          const dataStr = dataMatch ? dataMatch[1].trim() : '';
+
+          if (event === 'error') {
+            const errObj = JSON.parse(dataStr);
+            throw new Error(errObj.message || 'Error running Tara assistant');
+          } else if (event === 'done') {
+            // End of stream signal
+          } else if (event === 'final') {
+            assistantText = dataStr;
+            dispatch(updateLastMessage({
+              text: assistantText,
+              toolLogs,
+              status: 'completed',
+            }));
+          } else {
+            // Default event: check if it is tool log
+            if (dataStr) {
+              if (dataStr.startsWith('readFile:') || dataStr.startsWith('updateFile:') || dataStr.startsWith('read_file:') || dataStr.startsWith('update_file:')) {
+                toolLogs = [...toolLogs, dataStr].filter(Boolean);
+                dispatch(updateLastMessage({
+                  text: assistantText,
+                  toolLogs,
+                  status: 'running',
+                }));
+              } else {
+                // Regular token stream
+                assistantText += dataStr;
+                dispatch(updateLastMessage({
+                  text: assistantText,
+                  toolLogs,
+                  status: 'running',
+                }));
+              }
+            }
+          }
+        }
+      }
+
+      dispatch(updateLastMessage({
+        text: assistantText,
+        toolLogs,
+        status: 'completed',
+      }));
+      dispatch(setStreaming(false));
+      onComplete?.();
+    } catch (err) {
+      console.error('Tara invoke failed:', err);
+      const errMsg = err.message || 'Failed to get response from Tara';
+      dispatch(updateLastMessage({
+        text: assistantText,
+        toolLogs,
+        status: 'error',
+        error: errMsg,
+      }));
+      dispatch(setError(errMsg));
+      dispatch(setStreaming(false));
+    }
+  };
+
   const clearChatHistory = () => {
     dispatch(clearHistory());
   };
@@ -149,6 +261,7 @@ export const useChat = () => {
     isStreaming,
     error,
     sendMessage,
+    sendAppAgentMessage,
     clearChatHistory,
   };
 };
