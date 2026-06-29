@@ -2,15 +2,16 @@
 
 Use this skill for any React+Vite build/edit task in the sandbox.
 
-## Available Tools (7)
-You have access to exactly 7 tools. Always invoke them using their exact snake_case names:
+## Available Tools (8)
+You have access to exactly 8 tools. Always invoke them using their exact snake_case names:
 1. `list_files`: List all files in the project directory.
 2. `read_file`: Read contents of one or more files.
 3. `create_file`: Create a new file with content.
 4. `update_file`: Rewrite an existing file completely.
-5. `delete_file`: Delete files or directories.
-6. `execute_command`: Run shell commands (limited to package installs, folder creation, git commands, and file deletions).
-7. `get_vite_runtime_errors`: Fetch active Vite runtime and compiler console/network errors.
+5. `patch_file`: Make a targeted, surgical line-level replacement in a file.
+6. `delete_file`: Delete files or directories.
+7. `execute_command`: Run shell commands (limited to package installs, folder creation, git commands, and file deletions).
+8. `get_vite_runtime_errors`: Fetch active Vite runtime and compiler console/network errors.
 
 ---
 
@@ -46,8 +47,9 @@ You have access to exactly 7 tools. Always invoke them using their exact snake_c
 
 ## Editing Rules
 - **New Files**: Always use `create_file` to initialize a new file.
-- **Modifying Files**: Always use `update_file` to completely rewrite/apply edits to the file.
-- **Inspections**: Never use `execute_command` with commands like `cat`, `grep`, `head`, `tail`, `touch`, `cp`, or `mv` to read, write, or move files. Use `read_file`, `create_file`, and `update_file` instead.
+- **Modifying Files (Surgical)**: Always prefer `patch_file` to replace a target chunk in an existing file. This is highly efficient and avoids rewriting unchanged code.
+- **Modifying Files (Rewrite)**: Use `update_file` only if you need to rewrite a file completely or make very extensive edits (e.g., >20 lines or rewriting structure).
+- **Inspections**: Never use `execute_command` with commands like `cat`, `grep`, `head`, `tail`, `touch`, `cp`, or `mv` to read, write, or move files. Use `read_file`, `create_file`, `patch_file`, and `update_file` instead.
 
 ---
 

@@ -3,65 +3,65 @@
 // ─────────────────────────────────────────────
 
 :root {
-  /* Void Black canvas & backgrounds */
-  --bg-canvas: #0A0B0F;
-  --bg-surface: #141520;
-  --bg-overlay: #1C1E2E;
-  --bg-element: #242738;
-  --bg-active: rgba(240, 240, 245, 0.08);
+  /* Onyx/Obsidian Canvas & Backgrounds (Google AI Studio style) */
+  --bg-canvas: #07080B;
+  --bg-surface: #0E1017;
+  --bg-overlay: #131622;
+  --bg-element: #1C1F30;
+  --bg-active: rgba(255, 255, 255, 0.08);
 
   /* Legacy mappings to keep the rest of the application stable */
   --bg-main: var(--bg-canvas);
   --bg-sidebar: var(--bg-surface);
   --bg-panel: var(--bg-overlay);
 
-  /* Borders */
-  --border: rgba(240, 240, 245, 0.08);
-  --border-strong: rgba(240, 240, 245, 0.16);
-  --border-glow: rgba(240, 240, 245, 0.03);
+  /* Solid & Crisp Borders */
+  --border: #1B1E2E;
+  --border-strong: #2B2F48;
+  --border-glow: rgba(59, 130, 246, 0.15);
 
-  /* Brand/Primary (Taksha Green) */
-  --brand-primary: #0D8A6A;
-  --brand-hover: #3DC5A1;
-  --brand-subtle: rgba(13, 138, 106, 0.1);
+  /* Brand/Primary (Emerald/Mint Accent) */
+  --brand-primary: #10B981;
+  --brand-hover: #34D399;
+  --brand-subtle: rgba(16, 185, 129, 0.1);
 
   /* Legacy mappings */
   --primary: var(--brand-primary);
   --primary-hover: var(--brand-hover);
   --primary-glow: var(--brand-subtle);
 
-  /* Accent/Link (Plasma Blue) */
-  --accent-primary: #1B6EF3;
-  --accent-hover: #5591F7;
-  --accent-subtle: rgba(27, 110, 243, 0.1);
+  /* Accent/Link (Neon Blue Accent) */
+  --accent-primary: #3B82F6;
+  --accent-hover: #60A5FA;
+  --accent-subtle: rgba(59, 130, 246, 0.1);
 
   /* Legacy mappings */
   --accent: var(--accent-primary);
   --accent-glow: var(--accent-subtle);
 
   /* Status Colors */
-  --success: #0D8A6A;
-  --success-glow: rgba(13, 138, 106, 0.15);
+  --success: #10B981;
+  --success-glow: rgba(16, 185, 129, 0.15);
 
-  --warning: #D97B0C;
-  --warning-bg: #2E2408;
+  --warning: #F59E0B;
+  --warning-bg: #2E1A05;
 
-  --error: #D63B3B;
-  --error-glow: rgba(214, 59, 59, 0.15);
-  --error-bg: #2E0A0A;
+  --error: #EF4444;
+  --error-glow: rgba(239, 68, 68, 0.15);
+  --error-bg: #2A0808;
 
-  --info: #1B6EF3;
-  --info-bg: #080C1E;
+  --info: #3B82F6;
+  --info-bg: #0A132C;
 
-  /* Typography Colors */
-  --text-primary: #F0F0F5;
-  --text-secondary: #A8AAB8;
-  --text-muted: #6B6E82;
+  /* Typography Colors (High legibility & Contrast Redesign) */
+  --text-primary: #FFFFFF;
+  --text-secondary: #E2E8F0; /* clean readable text (slate-200) */
+  --text-muted: #CBD5E1;     /* secondary text / titles (slate-300) */
+  --text-dark: #8E9BAE;      /* subtle details / hints (slate-350) */
 
   /* Legacy mappings */
   --text-main: var(--text-primary);
   --text-muted-legacy: var(--text-secondary);
-  --text-dark: var(--text-muted);
 
   /* Typography Scales */
   --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
@@ -69,7 +69,7 @@
   --font-mono: 'JetBrains Mono', monospace;
 
   /* RGB version of primary text for custom opacities */
-  --color-rgb-text: 240, 240, 245;
+  --color-rgb-text: 255, 255, 255;
 }
 
 // Imports

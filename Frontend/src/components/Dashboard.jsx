@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import './Dashboard.scss';
 import BrandLogo from './BrandLogo';
+import { useSandbox } from '../features/sandbox/Hooks/sandbox.hooks';
 
 // ─── Status config map ────────────────────────────────────────────────────────
 const STATUS = {
@@ -160,6 +161,7 @@ function ProjectCard({ project, index, onOpen, onStop, onDelete }) {
 export default function Dashboard({ onSelectProject }) {
   const dispatch = useDispatch();
   const { user } = useSelector((state) => state.auth);
+  const { startSandbox, terminateSandbox, deleteProject, warmingMessage } = useSandbox();
 
   const userPhoto = user?.photo;
   const userName = user?.name || 'Developer';
@@ -210,6 +212,15 @@ export default function Dashboard({ onSelectProject }) {
   useEffect(() => {
     if (isCreateOpen) setTimeout(() => inputRef.current?.focus(), 80);
   }, [isCreateOpen]);
+
+  useEffect(() => {
+    if (warmingMessage && allocationStep === 3) {
+      setAllocationLogs(prev => {
+        if (prev[prev.length - 1] === warmingMessage) return prev;
+        return [...prev, warmingMessage];
+      });
+    }
+  }, [warmingMessage, allocationStep]);
 
   const handleCreateProject = async (e) => {
     e.preventDefault();
@@ -285,28 +296,38 @@ export default function Dashboard({ onSelectProject }) {
     try {
       // Step 2: Create Project API
       const responseProj = await createProjectAPI(title);
+      const newProjectId = responseProj.project._id;
+      const newProjectTitle = responseProj.project.title;
       
       setAllocationLogs(prev => [
         ...prev,
         `Workspace directory created successfully!`,
         `Sandbox ID: ${responseProj.project.sandboxId}`,
-        "Starting Kubernetes container allocation..."
+        "Requesting sandbox pod boot..."
       ]);
       setAllocationStep(3);
 
       // Save prompt input to session storage so workspace chat receives it
-      sessionStorage.setItem(`initialPrompt_${responseProj.project._id}`, originalPrompt);
+      sessionStorage.setItem(`initialPrompt_${newProjectId}`, originalPrompt);
       setPromptInput('');
 
-      // Delay to let user enjoy the cool animation sequence
-      await new Promise(r => setTimeout(r, 1200));
+      // Step 3: Spin up sandbox container and wait for network/preview response
+      await startSandbox(newProjectId);
 
-      // Step 3: Redirect to Coding Workspace (which auto-starts the sandbox)
-      onSelectProject(responseProj.project._id, responseProj.project.title);
+      setAllocationLogs(prev => [
+        ...prev,
+        "Sandbox container ready! Redirecting to workspace..."
+      ]);
+
+      // Delay to let user see "ready" log
+      await new Promise(r => setTimeout(r, 600));
+
+      // Step 4: Redirect to Coding Workspace
+      onSelectProject(newProjectId, newProjectTitle);
       setAllocationStep(0);
       setAllocationLogs([]);
     } catch (err) {
-      console.error("Failed to create project:", err);
+      console.error("Failed to create project or sandbox:", err);
       const errMsg = err.response?.data?.message || err.message || 'Failed to create workspace';
       setAllocationError(errMsg);
       setAllocationStep(0);
@@ -337,7 +358,7 @@ export default function Dashboard({ onSelectProject }) {
 
   const handleStop = async (projectId) => {
     try {
-      await stopSandboxAPI(projectId);
+      await terminateSandbox(projectId);
       await fetchProjects(true);
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to stop sandbox');
@@ -348,7 +369,7 @@ export default function Dashboard({ onSelectProject }) {
     if (!deleteTarget) return;
     setDeleteLoading(true);
     try {
-      await deleteProjectAPI(deleteTarget.id);
+      await deleteProject(deleteTarget.id);
       setDeleteTarget(null);
       await fetchProjects(true);
     } catch (err) {
@@ -701,7 +722,7 @@ export default function Dashboard({ onSelectProject }) {
                 <h3 style={{ margin: '0 0 4px', fontSize: '16px', fontWeight: '800', color: '#f8fafc', fontFamily: 'var(--font-heading)' }}>
                   Name Your CodeSpace
                 </h3>
-                <p style={{ margin: 0, fontSize: '12px', color: '#64748b' }}>
+                <p style={{ margin: 0, fontSize: '12px', color: 'var(--text-dark)' }}>
                   Give a title to initialize your sandbox.
                 </p>
               </div>
@@ -712,7 +733,7 @@ export default function Dashboard({ onSelectProject }) {
 
             <form onSubmit={handleCreateProject} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                <label style={{ fontSize: '11px', fontWeight: '700', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                <label style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
                   Workspace Name
                 </label>
                 <input
@@ -725,13 +746,13 @@ export default function Dashboard({ onSelectProject }) {
                   maxLength={50}
                   style={{
                     padding: '10px 12px', borderRadius: '8px',
-                    background: '#0b0c10', border: `1px solid ${validationError ? '#f43f5e' : '#1b1e2a'}`,
+                    background: 'var(--bg-canvas)', border: `1px solid ${validationError ? '#f43f5e' : 'var(--border)'}`,
                     color: '#f8fafc', fontSize: '13px', outline: 'none',
                     transition: 'border-color 0.2s',
                     fontFamily: 'var(--font-sans)',
                   }}
                   onFocus={e => { if (!validationError) e.currentTarget.style.borderColor = 'var(--primary)'; }}
-                  onBlur={e => { if (!validationError) e.currentTarget.style.borderColor = '#1b1e2a'; }}
+                  onBlur={e => { if (!validationError) e.currentTarget.style.borderColor = 'var(--border)'; }}
                 />
                 {validationError && (
                   <span style={{ fontSize: '11px', color: '#f43f5e', fontWeight: '600' }}>

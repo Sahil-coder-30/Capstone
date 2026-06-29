@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useCallback, useState } from 'react';
 import Editor from '@monaco-editor/react';
 import { useEditor } from '../Hooks/editor.hooks';
 import { useSandbox } from '../../sandbox/Hooks/sandbox.hooks';
+import { useCopilot } from '../../copilot/Hooks/copilot.hooks';
 import { 
   Save, 
   RefreshCw, 
@@ -59,6 +60,8 @@ export default function CodeEditor() {
     toggleAutosave,
     updateSettings,
   } = useEditor();
+
+  const { isOpen: isAppAgentOpen, toggleCopilot: toggleAppAgent } = useCopilot();
 
   const [justSaved, setJustSaved] = useState(false);
   const [showSettingsMenu, setShowSettingsMenu] = useState(false);
@@ -335,6 +338,15 @@ export default function CodeEditor() {
             onClick={handleFormat}
             title="Format Code"
             className="editor-toolbar-btn"
+          >
+            <AlignLeft size={14} />
+          </button>
+
+          <button
+            onClick={toggleAppAgent}
+            title="Ask App Agent (Clio)"
+            className={`editor-toolbar-btn ${isAppAgentOpen ? 'active' : ''}`}
+            style={{ color: isAppAgentOpen ? 'var(--primary)' : 'inherit' }}
           >
             <Sparkles size={14} />
           </button>

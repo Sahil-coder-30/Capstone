@@ -6,22 +6,27 @@ import axios from 'axios';
  */
 
 export const startSandboxAPI = async (projectId) => {
-  const response = await axios.post(`/api/sandbox/start/${projectId}`);
+  const response = await axios.post(`/api/sandbox/start/${projectId}`, {}, { timeout: 120_000 });
   return response.data;
 };
 
 export const createProjectAPI = async (title) => {
-  const response = await axios.post('/api/sandbox/create-project', { title });
+  const response = await axios.post('/api/sandbox/create-project', { title }, { timeout: 30_000 });
   return response.data;
 };
 
 export const listProjectsAPI = async () => {
-  const response = await axios.get('/api/sandbox/projects');
+  const response = await axios.get('/api/sandbox/projects', { timeout: 30_000 });
+  return response.data;
+};
+
+export const getProjectStatusAPI = async (projectId) => {
+  const response = await axios.get(`/api/sandbox/project/${projectId}`, { timeout: 30_000 });
   return response.data;
 };
 
 export const checkSandboxHealthAPI = async (sandboxId) => {
-  const response = await axios.get(`/api/sandbox/health/${sandboxId}`);
+  const response = await axios.get(`/api/sandbox/health/${sandboxId}`, { timeout: 30_000 });
   return response.data;
 };
 
@@ -30,7 +35,7 @@ export const checkSandboxHealthAPI = async (sandboxId) => {
  * Tears down: K8s Pod + Service + Redis key.  Status → "down".
  */
 export const stopSandboxAPI = async (projectId) => {
-  const response = await axios.post(`/api/sandbox/stop/${projectId}`);
+  const response = await axios.post(`/api/sandbox/stop/${projectId}`, {}, { timeout: 120_000 });
   return response.data;
 };
 
@@ -39,7 +44,7 @@ export const stopSandboxAPI = async (projectId) => {
  * If the sandbox was live, K8s resources are removed first.
  */
 export const deleteProjectAPI = async (projectId) => {
-  const response = await axios.delete(`/api/sandbox/project/${projectId}`);
+  const response = await axios.delete(`/api/sandbox/project/${projectId}`, { timeout: 120_000 });
   return response.data;
 };
 

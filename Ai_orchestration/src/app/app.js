@@ -1,10 +1,12 @@
 import express from "express";
 import morgan from "morgan";
+import cookieParser from "cookie-parser";
 import aiRouter from "../routes/ai.routes.js";
 
 const app = express();
 
 app.use(morgan("combined"));
+app.use(cookieParser());
 app.use(express.json());
 
 // ✅ Health routes MUST be registered before the main router

@@ -1,11 +1,24 @@
 import { useDispatch, useSelector } from 'react-redux';
 import { io } from 'socket.io-client';
-import { addMessage, updateLastMessage, setStreaming, setError, clearHistory } from '../slice/chat.slice';
+import { 
+  addMessage, 
+  updateLastMessage, 
+  setStreaming, 
+  setError, 
+  clearHistory,
+  setAppAgentOpen,
+  toggleAppAgentOpen,
+  addAppAgentMessage,
+  updateLastAppAgentMessage,
+  setAppAgentStreaming,
+  clearAppAgentHistory
+} from '../slice/chat.slice';
 
 export const useChat = () => {
   const dispatch = useDispatch();
-  const { messages, isStreaming, error } = useSelector((state) => state.chat);
-  const { sandboxId } = useSelector((state) => state.sandbox);
+  const { messages, isStreaming, error, isAppAgentOpen, appAgentMessages, isAppAgentStreaming } = useSelector((state) => state.chat);
+  const { sandboxId, status: sandboxStatus } = useSelector((state) => state.sandbox);
+  const { tabContents } = useSelector((state) => state.editor);
 
   const sendMessage = (text, onComplete) => {
     if (!text.trim() || !sandboxId) return;
@@ -144,17 +157,17 @@ export const useChat = () => {
     if (!text.trim()) return;
 
     // 1. Add user message
-    dispatch(addMessage({ role: 'user', text }));
+    dispatch(addAppAgentMessage({ role: 'user', text }));
 
     // 2. Add placeholder assistant message
-    dispatch(addMessage({
+    dispatch(addAppAgentMessage({
       role: 'assistant',
       text: '',
       toolLogs: [],
       status: 'running',
     }));
 
-    dispatch(setStreaming(true));
+    dispatch(setAppAgentStreaming(true));
     dispatch(setError(null));
 
     let assistantText = '';
@@ -168,8 +181,9 @@ export const useChat = () => {
           userPrompt: text,
           sessionId: sandboxId,
           workspacePath: `/workspace/${sandboxId || "default"}`,
-          agentStatus: status || 'idle',
+          agentStatus: sandboxStatus || 'idle',
           activeFile: activeFile || '',
+          activeFileContent: activeFile ? (tabContents[activeFile] ?? '') : '',
         }),
       });
 
@@ -197,12 +211,12 @@ export const useChat = () => {
 
           if (event === 'error') {
             const errObj = JSON.parse(dataStr);
-            throw new Error(errObj.message || 'Error running Tara assistant');
+            throw new Error(errObj.message || 'Error running Clio assistant');
           } else if (event === 'done') {
             // End of stream signal
           } else if (event === 'final') {
             assistantText = dataStr;
-            dispatch(updateLastMessage({
+            dispatch(updateLastAppAgentMessage({
               text: assistantText,
               toolLogs,
               status: 'completed',
@@ -212,7 +226,7 @@ export const useChat = () => {
             if (dataStr) {
               if (dataStr.startsWith('readFile:') || dataStr.startsWith('updateFile:') || dataStr.startsWith('read_file:') || dataStr.startsWith('update_file:')) {
                 toolLogs = [...toolLogs, dataStr].filter(Boolean);
-                dispatch(updateLastMessage({
+                dispatch(updateLastAppAgentMessage({
                   text: assistantText,
                   toolLogs,
                   status: 'running',
@@ -220,7 +234,7 @@ export const useChat = () => {
               } else {
                 // Regular token stream
                 assistantText += dataStr;
-                dispatch(updateLastMessage({
+                dispatch(updateLastAppAgentMessage({
                   text: assistantText,
                   toolLogs,
                   status: 'running',
@@ -231,24 +245,24 @@ export const useChat = () => {
         }
       }
 
-      dispatch(updateLastMessage({
+      dispatch(updateLastAppAgentMessage({
         text: assistantText,
         toolLogs,
         status: 'completed',
       }));
-      dispatch(setStreaming(false));
+      dispatch(setAppAgentStreaming(false));
       onComplete?.();
     } catch (err) {
-      console.error('Tara invoke failed:', err);
-      const errMsg = err.message || 'Failed to get response from Tara';
-      dispatch(updateLastMessage({
+      console.error('Clio invoke failed:', err);
+      const errMsg = err.message || 'Failed to get response from Clio';
+      dispatch(updateLastAppAgentMessage({
         text: assistantText,
         toolLogs,
         status: 'error',
         error: errMsg,
       }));
       dispatch(setError(errMsg));
-      dispatch(setStreaming(false));
+      dispatch(setAppAgentStreaming(false));
     }
   };
 
@@ -263,6 +277,13 @@ export const useChat = () => {
     sendMessage,
     sendAppAgentMessage,
     clearChatHistory,
+    // App Agent Specific Exports
+    isAppAgentOpen,
+    appAgentMessages,
+    isAppAgentStreaming,
+    clearAppAgentHistory: () => dispatch(clearAppAgentHistory()),
+    toggleAppAgent: () => dispatch(toggleAppAgentOpen()),
+    setAppAgentOpen: (isOpen) => dispatch(setAppAgentOpen(isOpen)),
   };
 };
 // Trigger reload comment to reconnect socket direct connection

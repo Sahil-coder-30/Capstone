@@ -1,6 +1,9 @@
 import axios from "axios";
 import { tool } from "@langchain/core/tools";
 import * as z from "zod";
+import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
+import { ChatMistralAI } from "@langchain/mistralai";
+import CommandSummary from "../models/CommandSummary.model.js";
 
 function formatError(err) {
   try {
@@ -245,30 +248,117 @@ export const createFile = tool(
   },
 );
 
+const summaryModel = new ChatMistralAI({
+  model: "mistral-medium-latest",
+  apiKey: process.env.MISTRALAI_API_KEY,
+  maxRetries: 6,
+  timeout: 180_000, // 3 minutes
+});
+
 export const executeCommand = tool(
   async ({ command, subDir }, config) => {
     config = ensureWriter(config);
+    const projectId = config?.configurable?.projectId || "unknown";
     try {
       config.writer(
         `executeCommand: start - command: "${command}", subDir: "${subDir || ""}"`,
       );
       const response = await axios.post(
-        `http://sandbox-service-${config.configurable.projectId}:3000/api/agent/exec`,
+        `http://sandbox-service-${projectId}:3000/api/agent/exec`,
         {
           command,
           ...(subDir && { subDir }),
         },
         { timeout: 120_000 }, // npm install can be slow — keep high
       );
+      
+      const rawData = response.data;
+      const outputText = typeof rawData === "string" ? rawData : JSON.stringify(rawData);
+      
+      // Summarize the command execution using Gemini
+      let summary = "";
+      try {
+        const prompt = `Command executed: "${command}"
+Subdirectory: "${subDir || "root"}"
+Output from terminal:
+${outputText.substring(0, 5000)}
+
+Please provide a concise one-sentence summary of the work that was accomplished by this command (e.g. "Installed package lodash", "Built project successfully", "Tests passed"). Be extremely direct.`;
+        
+        let promptTokens = 0;
+        let completionTokens = 0;
+        let totalTokens = 0;
+
+        const summaryResponse = await summaryModel.invoke([
+          { role: "user", content: prompt }
+        ]);
+        summary = summaryResponse.content?.trim() || "Executed command successfully";
+
+        // Capture token usage from summarization model run
+        if (summaryResponse.usage_metadata) {
+          promptTokens = summaryResponse.usage_metadata.input_tokens || 0;
+          completionTokens = summaryResponse.usage_metadata.output_tokens || 0;
+          totalTokens = summaryResponse.usage_metadata.total_tokens || 0;
+        } else if (summaryResponse.response_metadata?.tokenUsage || summaryResponse.response_metadata?.usage) {
+          const usage = summaryResponse.response_metadata.tokenUsage || summaryResponse.response_metadata.usage;
+          promptTokens = usage.prompt_tokens || usage.promptTokens || 0;
+          completionTokens = usage.completion_tokens || usage.completionTokens || 0;
+          totalTokens = usage.total_tokens || usage.totalTokens || 0;
+        }
+
+        // Save command log and summary to MongoDB
+        try {
+          await CommandSummary.create({
+            projectId,
+            command,
+            subDir: subDir || "",
+            output: outputText.substring(0, 10000), // Cap output size in DB
+            summary,
+            tokenUsage: {
+              promptTokens,
+              completionTokens,
+              totalTokens: totalTokens || (promptTokens + completionTokens),
+            },
+          });
+          console.log(`Saved command summary for project ${projectId} with token usage: input=${promptTokens}, output=${completionTokens}`);
+        } catch (dbErr) {
+          console.error("Failed to save command summary to MongoDB:", dbErr.message);
+        }
+      } catch (err) {
+        console.error("Error generating command summary:", err.message);
+        summary = `Executed command: ${command}`;
+      }
+
       config.writer(
         `executeCommand: success - response: ${JSON.stringify(response.data)}`,
       );
-      return JSON.stringify(response.data);
+      
+      // Return a structured JSON containing the original output and the summary so the agent can read it too
+      return JSON.stringify({
+        ...rawData,
+        summary,
+      });
     } catch (err) {
       const formatted = logError("executeCommand", err);
       config.writer(
         `executeCommand: error - details: ${JSON.stringify(formatted)}`,
       );
+      
+      // Save failed command to MongoDB
+      try {
+        const errorText = formatted.message || JSON.stringify(formatted);
+        const summary = `Failed to execute: ${command} (${errorText})`;
+        await CommandSummary.create({
+          projectId,
+          command,
+          subDir: subDir || "",
+          output: errorText,
+          summary,
+        });
+      } catch (dbErr) {
+        console.error("Failed to save failed command summary to MongoDB:", dbErr.message);
+      }
+
       return JSON.stringify({
         error: true,
         message: "Failed to execute command",

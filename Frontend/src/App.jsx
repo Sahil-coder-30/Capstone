@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import './App.scss';
 import SandboxHeader from './features/sandbox/components/SandboxHeader';
-import AIChat from './features/chat/components/AIChat';
+import AIChat from './features/coding-agent/components/AIChat';
+import AppAgentFloat from './features/copilot/components/AppAgentFloat';
 import FileExplorer from './features/editor/components/FileExplorer';
 import CodeEditor from './features/editor/components/CodeEditor';
 import TerminalShell from './features/editor/components/TerminalShell';
@@ -113,7 +114,7 @@ function PreviewWarmingScreen({ message, attempt }) {
       {/* Status Log */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
         <Loader2 size={13} className="animate-spin text-slate-400" />
-        <span style={{ fontSize: '11px', color: '#475569', fontFamily: 'var(--font-mono)' }}>
+        <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
           {message || 'Provisioning sandbox container…'}
         </span>
       </div>
@@ -125,7 +126,7 @@ function PreviewWarmingScreen({ message, attempt }) {
 // Main App
 // ─────────────────────────────────────────────
 export default function App() {
-  const { sandboxId, previewUrl, status, warmingMessage, warmingAttempt, startSandbox } = useSandbox();
+  const { sandboxId, previewUrl, status, warmingMessage, warmingAttempt, loadSandboxStatus, startSandbox } = useSandbox();
   const { syncAllFilesToCache } = useEditor();
 
   const dispatch = useDispatch();
@@ -153,13 +154,18 @@ export default function App() {
   const [currentProjectId, setCurrentProjectId] = useState(null);
   const [currentProjectTitle, setCurrentProjectTitle] = useState('');
 
+  // Initialize project-specific sandbox details when entering a project
+  useEffect(() => {
+    loadSandboxStatus(currentProjectId);
+  }, [currentProjectId, loadSandboxStatus]);
+
   // Auto-start sandbox whenever the user enters a workspace and it isn't running yet
   useEffect(() => {
     if (currentProjectId && (status === 'idle' || status === 'error')) {
       startSandbox(currentProjectId);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentProjectId]);
+  }, [currentProjectId, status]);
 
   // Default tab is 'preview' to show progress loader, toggle between 'preview' | 'editor'
   const [workspaceTab, setWorkspaceTab] = useState('preview');
@@ -175,14 +181,14 @@ export default function App() {
   const isRunning  = status === 'running';
   const isStarting = status === 'starting';
 
-  // 5-minute polling loop for file cache sync
+  // 5-second polling loop for real-time file cache sync
   useEffect(() => {
     if (status === 'running' && sandboxId) {
       syncAllFilesToCache(sandboxId);
 
       const interval = setInterval(() => {
         syncAllFilesToCache(sandboxId);
-      }, 5 * 60 * 1000);
+      }, 5000); // Poll every 5s for real-time filesystem sync
 
       return () => clearInterval(interval);
     }
@@ -317,11 +323,11 @@ export default function App() {
                 <div className="panel-header">
                   <div className="panel-title">
                     <Cpu size={12} color="var(--primary)" />
-                    <span>Coding Agent</span>
+                    <span>Orion Coding Agent</span>
                   </div>
                   <button 
                     onClick={() => setIsChatOpen(false)}
-                    title="Collapse Coding Agent"
+                    title="Collapse Orion Coding Agent"
                     style={{ background: 'none', border: 'none', color: 'var(--text-dark)', cursor: 'pointer', padding: '4px', borderRadius: '4px', display: 'flex' }}
                   >
                     <X size={13} />
@@ -656,6 +662,7 @@ export default function App() {
           }}
         />
       )}
+      <AppAgentFloat projectId={currentProjectId} />
     </>
   );
 }

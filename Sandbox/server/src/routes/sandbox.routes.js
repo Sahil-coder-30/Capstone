@@ -3,6 +3,7 @@ import { identifyUser } from "../middleware/auth.middleware.js";
 import {
     createProjectController,
     listAllProjectsController,
+    getProjectStatusController,
     startSandboxController,
     stopSandboxController,
     deleteProjectController,
@@ -13,6 +14,7 @@ const sandboxRouter = Router();
 // Project management
 sandboxRouter.post('/create-project', identifyUser, createProjectController);
 sandboxRouter.get('/projects', identifyUser, listAllProjectsController);
+sandboxRouter.get('/project/:projectId', identifyUser, getProjectStatusController);
 sandboxRouter.delete('/project/:projectId', identifyUser, deleteProjectController);
 
 // Sandbox lifecycle (start / stop — project persists)

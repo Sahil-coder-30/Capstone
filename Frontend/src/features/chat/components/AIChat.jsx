@@ -29,7 +29,7 @@ export default function AIChat({ projectId }) {
   const [inputFocused, setInputFocused] = useState(false);
 
   // Agent selector state
-  const [activeAgent, setActiveAgent] = useState('tara'); // Default to Tara Assistant
+  const [activeAgent, setActiveAgent] = useState('clio'); // Default to Clio Assistant
   const [isAgentDropdownOpen, setIsAgentDropdownOpen] = useState(false);
 
   // Load initial prompt from session storage if populated by the dashboard
@@ -133,7 +133,7 @@ export default function AIChat({ projectId }) {
     setInput('');
     lastScrollHeightRef.current = 0;
 
-    if (activeAgent === 'tara') {
+    if (activeAgent === 'clio') {
       sendAppAgentMessage(query, activeFile, () => {
         if (sandboxId) {
           fetchFilesList(sandboxId);
@@ -404,7 +404,7 @@ export default function AIChat({ projectId }) {
               <div style={{ display: 'flex', alignItems: 'center' }}>
                 <TakshaIcon size={16} />
               </div>
-              <span>{activeAgent === 'tara' ? 'Tara (Assistant)' : 'Coding Agent'}</span>
+              <span>{activeAgent === 'clio' ? 'Clio (Assistant)' : 'Orion (Coding Agent)'}</span>
               <ChevronDown size={10} color="var(--text-dark)" />
             </button>
 
@@ -423,13 +423,13 @@ export default function AIChat({ projectId }) {
                 }}
               >
                 <div
-                  className={`ai-chat__model-dropdown-item ${activeAgent === 'tara' ? 'ai-chat__model-dropdown-item--active' : ''}`}
-                  onClick={() => { setActiveAgent('tara'); setIsAgentDropdownOpen(false); }}
-                  style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 8px', borderRadius: '4px', cursor: 'pointer' }}
-                >
-                  <Sparkles size={11} color="#60a5fa" />
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', flex: 1, textAlign: 'left' }}>
-                    <span style={{ fontWeight: 600, fontSize: '11px', color: '#fff' }}>Tara (Assistant)</span>
+                className={`ai-chat__model-dropdown-item ${activeAgent === 'clio' ? 'ai-chat__model-dropdown-item--active' : ''}`}
+                onClick={() => { setActiveAgent('clio'); setIsAgentDropdownOpen(false); }}
+                style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 8px', borderRadius: '4px', cursor: 'pointer' }}
+              >
+                <Sparkles size={11} color="#60a5fa" />
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', flex: 1, textAlign: 'left' }}>
+                  <span style={{ fontWeight: 600, fontSize: '11px', color: '#fff' }}>Clio (Assistant)</span>
                     <span style={{ fontSize: '9px', color: 'var(--text-dark)' }}>Copilot helper for files & info</span>
                   </div>
                 </div>
@@ -440,7 +440,7 @@ export default function AIChat({ projectId }) {
                 >
                   <Cpu size={11} color="#34d399" />
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', flex: 1, textAlign: 'left' }}>
-                    <span style={{ fontWeight: 600, fontSize: '11px', color: '#fff' }}>Coding Agent</span>
+                    <span style={{ fontWeight: 600, fontSize: '11px', color: '#fff' }}>Orion (Coding Agent)</span>
                     <span style={{ fontSize: '9px', color: 'var(--text-dark)' }}>5-agent code-gen pipeline</span>
                   </div>
                 </div>
@@ -743,7 +743,7 @@ export default function AIChat({ projectId }) {
       <div className="ai-chat__footer">
         {status !== 'running' ? (
           <div className="ai-chat__offline-notice">
-            <strong>Sandbox offline.</strong> Launch the environment to interact with the coding agent.
+            <strong>Sandbox offline.</strong> Launch the environment to interact with Orion.
           </div>
         ) : (
           <div className="ai-chat__form">
@@ -756,7 +756,7 @@ export default function AIChat({ projectId }) {
                   onKeyDown={handleKeyDown}
                   onFocus={() => setInputFocused(true)}
                   onBlur={() => setInputFocused(false)}
-                  placeholder={isStreaming ? 'Agent is working…' : 'Enter instructions for the Coding Agent…'}
+                  placeholder={isStreaming ? 'Orion is working…' : 'Enter instructions for Orion…'}
                   disabled={isStreaming}
                   rows={2}
                   className="ai-chat__textarea"

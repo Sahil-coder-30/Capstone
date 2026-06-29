@@ -1,6 +1,8 @@
+import { useCallback } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { startSandboxAPI, stopSandboxAPI, deleteProjectAPI, pingPreviewURL } from '../service/sandbox.api';
+import { startSandboxAPI, stopSandboxAPI, deleteProjectAPI, pingPreviewURL, getProjectStatusAPI } from '../service/sandbox.api';
 import {
+  initializeSandboxForProject,
   setSandboxDetails,
   setStatus,
   setWarmingProgress,
@@ -46,7 +48,7 @@ export const useSandbox = () => {
    * Poll previewUrl every POLL_INTERVAL_MS until the container responds
    * with a non-error HTTP status, or until WARM_TIMEOUT_MS is exceeded.
    */
-  const waitForPreview = async (url) => {
+  const waitForPreview = useCallback(async (url) => {
     const deadline = Date.now() + WARM_TIMEOUT_MS;
     let attempt = 0;
 
@@ -72,13 +74,13 @@ export const useSandbox = () => {
       'The container may still be starting — try refreshing.'
     ));
     return false;
-  };
+  }, [dispatch]);
 
   /**
    * Start the sandbox for a given project.
    * Uses the sandboxId already allocated when the project was created.
    */
-  const startSandbox = async (projectId) => {
+  const startSandbox = useCallback(async (projectId) => {
     try {
       dispatch(setStatus('starting'));
 
@@ -95,6 +97,7 @@ export const useSandbox = () => {
       }
 
       dispatch(setSandboxDetails({
+        projectId,
         sandboxId: extractedId,
         previewUrl: data.previewUrl || '',
         agentUrl: data.agentUrl || '',
@@ -113,7 +116,7 @@ export const useSandbox = () => {
       dispatch(setError(errMsg));
       throw err;
     }
-  };
+  }, [dispatch, waitForPreview]);
 
   /**
    * Stop the sandbox (soft-stop).
@@ -121,27 +124,68 @@ export const useSandbox = () => {
    * The project record is KEPT — sandbox can be restarted later.
    * projectId is required; sandboxId is cleared from Redux state.
    */
-  const terminateSandbox = async (projectId) => {
+  const terminateSandbox = useCallback(async (projectId) => {
     try {
       await stopSandboxAPI(projectId);
-    } catch {
-      // Swallow teardown errors — always clear local Redux state
+      dispatch(clearSandbox(projectId));
+    } catch (err) {
+      const errMsg = err.response?.data?.message || err.message || 'Failed to stop sandbox';
+      dispatch(setError(errMsg));
+      throw err;
     }
-    dispatch(clearSandbox());
-  };
+  }, [dispatch]);
 
   /**
    * Permanently delete a project and all its resources.
    * Also clears Redux sandbox state.
    */
-  const deleteProject = async (projectId) => {
+  const deleteProject = useCallback(async (projectId) => {
     try {
       await deleteProjectAPI(projectId);
-    } catch {
-      // Swallow errors — always clear local Redux state
+      dispatch(clearSandbox(projectId));
+    } catch (err) {
+      const errMsg = err.response?.data?.message || err.message || 'Failed to delete project';
+      dispatch(setError(errMsg));
+      throw err;
     }
-    dispatch(clearSandbox());
-  };
+  }, [dispatch]);
+
+  const loadSandboxStatus = useCallback(async (projectId) => {
+    if (!projectId) {
+      dispatch(initializeSandboxForProject(null));
+      return;
+    }
+    try {
+      dispatch(setStatus('starting'));
+      const data = await getProjectStatusAPI(projectId);
+      if (data.status === 'success' && data.project) {
+        const { status: projStatus, sandboxId: sId } = data.project;
+        if (projStatus === 'live') {
+          dispatch(setSandboxDetails({
+            projectId,
+            sandboxId: sId,
+            previewUrl: `http://${sId}.preview.localhost`,
+            agentUrl: '',
+          }));
+          return;
+        } else if (projStatus === 'building') {
+          const previewUrl = `http://${sId}.preview.localhost`;
+          dispatch(setSandboxDetails({
+            projectId,
+            sandboxId: sId,
+            previewUrl,
+            agentUrl: '',
+          }));
+          dispatch(setWarmingProgress({ attempt: 0, message: 'Attaching to active sandbox boot…' }));
+          await waitForPreview(previewUrl);
+          return;
+        }
+      }
+      dispatch(initializeSandboxForProject(projectId));
+    } catch (err) {
+      dispatch(initializeSandboxForProject(projectId));
+    }
+  }, [dispatch, waitForPreview]);
 
   return {
     sandboxId,
@@ -151,6 +195,7 @@ export const useSandbox = () => {
     warmingMessage,
     warmingAttempt,
     error,
+    loadSandboxStatus,
     startSandbox,
     terminateSandbox,
     deleteProject,

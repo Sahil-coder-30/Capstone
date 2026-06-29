@@ -69,7 +69,7 @@ export const createProjectController = async (req, res, next) => {
         res.status(201).json({
             status: "success",
             message: "Project created successfully",
-            project: project._id,
+            project: project,
             sandboxId: project.sandboxId
         });
     } catch (err) {
@@ -89,6 +89,31 @@ export const listAllProjectsController = async (req, res, next) => {
 
         const projects = await Project.find({ user: req.user.id }).sort({ createdAt: -1 });
         res.status(200).json({ status: "success", projects });
+    } catch (err) {
+        next(err);
+    }
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 2B. GET PROJECT STATUS
+//     Returns status and preview information for a single project.
+// ─────────────────────────────────────────────────────────────────────────────
+export const getProjectStatusController = async (req, res, next) => {
+    try {
+        const project = await getAuthorizedProject(req, res, req.params.projectId);
+        if (!project) return;
+
+        res.status(200).json({
+            status: "success",
+            project: {
+                _id: project._id,
+                title: project.title,
+                status: project.status,
+                sandboxId: project.sandboxId,
+                previewUrl: project.status === "live" ? `http://${project.sandboxId}.preview.localhost` : "",
+                createdAt: project.createdAt
+            }
+        });
     } catch (err) {
         next(err);
     }
