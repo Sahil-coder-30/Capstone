@@ -1,16 +1,16 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { logoutThunk } from '../features/auth/slice/auth.slice';
 import { listProjectsAPI, createProjectAPI } from '../features/sandbox/service/sandbox.api';
 import { stopSandboxAPI, deleteProjectAPI } from '../features/sandbox/service/sandbox.api';
 import {
   Cpu, Plus, Loader2, Folder, AlertTriangle, LogOut,
   Code, Play, RefreshCw, X, Square, Trash2, MoreVertical,
   Zap, Clock, CheckCircle, XCircle, Activity, Settings, Search,
-  Sparkles, BookOpen, Layers, Terminal, History, Keyboard, HelpCircle
+  Sparkles, BookOpen, Layers, Terminal, History, Keyboard, HelpCircle,
+  ChevronLeft, ChevronRight
 } from 'lucide-react';
 import './Dashboard.scss';
-import BrandLogo from './BrandLogo';
+import BrandLogo, { TakshaIcon } from './BrandLogo';
 import { useSandbox } from '../features/sandbox/Hooks/sandbox.hooks';
 
 // ─── Status config map ────────────────────────────────────────────────────────
@@ -42,8 +42,8 @@ function ConfirmModal({ title, description, confirmLabel, danger, onConfirm, onC
   return (
     <div className="modal-backdrop" onClick={onCancel}>
       <div className="modal-card" onClick={(e) => e.stopPropagation()}>
-        <h3 style={{ margin: '0 0 8px', fontSize: '16px', fontWeight: '700', color: '#f8fafc' }}>{title}</h3>
-        <p style={{ margin: '0 0 24px', fontSize: '13px', color: '#94a3b8', lineHeight: 1.5 }}>{description}</p>
+        <h3 style={{ margin: '0 0 8px', fontSize: '18px', fontWeight: '700', color: 'var(--text-primary)' }}>{title}</h3>
+        <p style={{ margin: '0 0 24px', fontSize: '14px', color: 'var(--text-secondary)', lineHeight: 1.5 }}>{description}</p>
         <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
           <button className="btn-secondary" onClick={onCancel} disabled={loading}>Cancel</button>
           <button
@@ -158,7 +158,12 @@ function ProjectCard({ project, index, onOpen, onStop, onDelete }) {
 }
 
 // ─── Main Dashboard ───────────────────────────────────────────────────────────
-export default function Dashboard({ onSelectProject }) {
+export default function Dashboard({ 
+  activeTab = 'playground', 
+  setActiveTab = () => {},
+  onSelectProject, 
+  onNavigateSettings 
+}) {
   const dispatch = useDispatch();
   const { user } = useSelector((state) => state.auth);
   const { startSandbox, terminateSandbox, deleteProject, warmingMessage } = useSandbox();
@@ -171,9 +176,6 @@ export default function Dashboard({ onSelectProject }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Active dashboard view: 'playground' | 'my-apps'
-  const [activeTab, setActiveTab] = useState('playground');
-
   // AI Prompt Inputs
   const [promptInput, setPromptInput] = useState('');
 
@@ -183,6 +185,15 @@ export default function Dashboard({ onSelectProject }) {
   const [createLoading, setCreateLoading] = useState(false);
   const [validationError, setValidationError] = useState('');
   const inputRef = useRef(null);
+  const textareaRef = useRef(null);
+
+  // Auto-resize textarea whenever prompt changes
+  useEffect(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${Math.min(el.scrollHeight, 280)}px`;
+  }, [promptInput]);
 
   // Outstanding animated creation states
   const [allocationStep, setAllocationStep] = useState(0); // 0 = idle prompt, 1 = title synthesis, 2 = workspace init, 3 = sandbox allocation
@@ -192,6 +203,74 @@ export default function Dashboard({ onSelectProject }) {
   // Delete confirm modal
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
+
+  // Sidebar resizing and collapsible states
+  const [sidebarWidth, setSidebarWidth] = useState(() => {
+    const saved = localStorage.getItem('dashboardSidebarWidth');
+    return saved ? Number(saved) : 240;
+  });
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => {
+    const saved = localStorage.getItem('dashboardSidebarCollapsed');
+    return saved ? JSON.parse(saved) : false;
+  });
+  const [isResizingSidebar, setIsResizingSidebar] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [settingsTab, setSettingsTab] = useState('profile');
+
+  useEffect(() => {
+    const isLight = localStorage.getItem('theme') === 'light';
+    if (isLight) {
+      document.documentElement.classList.add('light-theme');
+    } else {
+      document.documentElement.classList.remove('light-theme');
+    }
+  }, []);
+
+  const startSidebarResize = (e) => {
+    e.preventDefault();
+    setIsResizingSidebar(true);
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+    document.body.classList.add('is-resizing', 'is-resizing-col');
+  };
+
+  useEffect(() => {
+    if (!isResizingSidebar) return;
+
+    const handleMouseMove = (e) => {
+      if (e.clientX < 130) {
+        setIsSidebarCollapsed(true);
+        localStorage.setItem('dashboardSidebarCollapsed', 'true');
+      } else {
+        setIsSidebarCollapsed(false);
+        localStorage.setItem('dashboardSidebarCollapsed', 'false');
+        const newWidth = Math.max(180, Math.min(360, e.clientX));
+        setSidebarWidth(newWidth);
+        localStorage.setItem('dashboardSidebarWidth', String(newWidth));
+      }
+    };
+
+    const handleMouseUp = () => {
+      setIsResizingSidebar(false);
+      document.body.style.cursor = 'default';
+      document.body.style.userSelect = 'auto';
+      document.body.classList.remove('is-resizing', 'is-resizing-col');
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isResizingSidebar]);
+
+  const toggleSidebarCollapse = () => {
+    const nextVal = !isSidebarCollapsed;
+    setIsSidebarCollapsed(nextVal);
+    localStorage.setItem('dashboardSidebarCollapsed', JSON.stringify(nextVal));
+  };
 
   const fetchProjects = async (silent = false) => {
     if (!silent) setLoading(true);
@@ -385,86 +464,190 @@ export default function Dashboard({ onSelectProject }) {
       
       {/* Decorative ambient background */}
       <div className="dashboard__ambient-glow">
-        <div className="dashboard__ambient-glow--top-right" />
-        <div className="dashboard__ambient-glow--bottom-left" />
+        <div className="dashboard__ambient-glow--orb dashboard__ambient-glow--orb-1" />
+        <div className="dashboard__ambient-glow--orb dashboard__ambient-glow--orb-2" />
+        <div className="dashboard__ambient-glow--orb dashboard__ambient-glow--orb-3" />
         <div className="dashboard__ambient-glow--grid" />
+        <div className="dashboard__ambient-glow--noise" />
+
+        {/* Cosmic star field — barely visible, spread across the whole dashboard */}
+        <div className="dashboard-stars" aria-hidden="true">
+          {[
+            { top:'3%',  left:'12%', sz:1,   d:0,    t:5.2, f:7.1 },
+            { top:'7%',  left:'38%', sz:1.5, d:1.4,  t:6.8, f:9.0 },
+            { top:'4%',  left:'65%', sz:1,   d:0.7,  t:4.5, f:8.3 },
+            { top:'9%',  left:'85%', sz:1.5, d:2.1,  t:7.2, f:6.5 },
+            { top:'14%', left:'22%', sz:1,   d:0.3,  t:5.8, f:10.0 },
+            { top:'18%', left:'50%', sz:1,   d:1.9,  t:6.1, f:7.8 },
+            { top:'11%', left:'75%', sz:1.5, d:0.5,  t:4.9, f:9.5 },
+            { top:'22%', left:'5%',  sz:1,   d:1.1,  t:7.5, f:8.0 },
+            { top:'28%', left:'42%', sz:1.5, d:2.6,  t:5.3, f:6.8 },
+            { top:'33%', left:'90%', sz:1,   d:0.9,  t:6.4, f:10.5 },
+            { top:'38%', left:'18%', sz:1,   d:1.7,  t:4.7, f:7.4 },
+            { top:'42%', left:'60%', sz:1.5, d:0.2,  t:8.0, f:9.2 },
+            { top:'47%', left:'30%', sz:1,   d:2.8,  t:5.6, f:6.1 },
+            { top:'50%', left:'78%', sz:1,   d:1.3,  t:7.0, f:8.7 },
+            { top:'55%', left:'8%',  sz:1.5, d:0.6,  t:5.1, f:11.0 },
+            { top:'58%', left:'47%', sz:1,   d:1.8,  t:6.6, f:7.3 },
+            { top:'63%', left:'70%', sz:1.5, d:0.4,  t:4.8, f:9.8 },
+            { top:'67%', left:'25%', sz:1,   d:2.3,  t:7.3, f:8.4 },
+            { top:'72%', left:'55%', sz:1.5, d:1.0,  t:5.9, f:6.6 },
+            { top:'76%', left:'88%', sz:1,   d:0.8,  t:6.2, f:10.2 },
+            { top:'80%', left:'15%', sz:1,   d:2.0,  t:4.6, f:7.9 },
+            { top:'84%', left:'40%', sz:1.5, d:1.5,  t:8.1, f:9.4 },
+            { top:'88%', left:'68%', sz:1,   d:0.1,  t:5.5, f:8.1 },
+            { top:'92%', left:'22%', sz:1.5, d:2.5,  t:6.9, f:7.0 },
+            { top:'96%', left:'80%', sz:1,   d:1.2,  t:5.0, f:11.5 },
+            { top:'2%',  left:'95%', sz:1.5, d:0.4,  t:7.6, f:6.3 },
+            { top:'20%', left:'97%', sz:1,   d:1.6,  t:5.4, f:9.1 },
+            { top:'40%', left:'98%', sz:1.5, d:2.4,  t:6.7, f:8.6 },
+            { top:'60%', left:'96%', sz:1,   d:0.9,  t:4.3, f:10.8 },
+            { top:'75%', left:'1%',  sz:1.5, d:1.8,  t:7.8, f:7.5 },
+            { top:'15%', left:'1%',  sz:1,   d:0.3,  t:5.7, f:9.7 },
+            { top:'45%', left:'52%', sz:1,   d:2.2,  t:6.3, f:8.9 },
+            { top:'30%', left:'33%', sz:1.5, d:1.1,  t:7.4, f:6.4 },
+            { top:'68%', left:'82%', sz:1,   d:0.6,  t:5.2, f:10.4 },
+            { top:'85%', left:'57%', sz:1.5, d:2.7,  t:6.0, f:7.6 },
+          ].map((s, i) => (
+            <span
+              key={i}
+              className="dashboard-star"
+              style={{
+                top: s.top,
+                left: s.left,
+                width: `${s.sz}px`,
+                height: `${s.sz}px`,
+                animationDelay: `${s.d}s, ${s.d + 1}s`,
+                animationDuration: `${s.t}s, ${s.f}s`,
+              }}
+            />
+          ))}
+        </div>
       </div>
 
       {/* 1. Left Navigation Sidebar */}
-      <aside className="dashboard__sidebar">
+      <aside 
+        className={`dashboard__sidebar ${isSidebarCollapsed ? 'dashboard__sidebar--collapsed' : ''} ${isResizingSidebar ? 'is-resizing' : ''}`}
+        style={{ width: isSidebarCollapsed ? '64px' : `${sidebarWidth}px` }}
+      >
         <div>
           {/* Header Workspace Selector */}
           <div className="dashboard__sidebar-header">
-            <div className="dashboard__sidebar-brand" style={{ padding: '4px 0' }}>
-              <BrandLogo height={24} />
+            <div 
+              className="dashboard__sidebar-brand" 
+              style={{ 
+                padding: '4px 0', 
+                justifyContent: isSidebarCollapsed ? 'center' : 'space-between',
+                width: '100%',
+                display: 'flex',
+                alignItems: 'center'
+              }}
+            >
+              {isSidebarCollapsed ? (
+                <button 
+                  onClick={toggleSidebarCollapse}
+                  className="icon-btn sidebar-expand-btn"
+                  title="Expand Sidebar"
+                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', cursor: 'pointer' }}
+                >
+                  <TakshaIcon size={24} />
+                </button>
+              ) : (
+                <>
+                  <BrandLogo height={24} variant={localStorage.getItem('theme') === 'light' ? 'light' : 'dark'} />
+                  <button 
+                    onClick={toggleSidebarCollapse} 
+                    className="icon-btn sidebar-collapse-btn"
+                    title="Collapse Sidebar"
+                    style={{ padding: '4px' }}
+                  >
+                    <ChevronLeft size={14} />
+                  </button>
+                </>
+              )}
             </div>
           </div>
 
           {/* Navigation Links */}
           <div className="dashboard__sidebar-nav">
-            <span className="dashboard__sidebar-nav-title">Explore</span>
             <div 
               onClick={() => setActiveTab('playground')}
               className={`dashboard__sidebar-item ${activeTab === 'playground' ? 'dashboard__sidebar-item--active' : ''}`}
+              title={isSidebarCollapsed ? "Playground" : undefined}
             >
               <Terminal size={14} />
-              <span>Playground</span>
-            </div>
-            <div className="dashboard__sidebar-item dashboard__sidebar-item--disabled">
-              <History size={14} />
-              <span>History</span>
+              {!isSidebarCollapsed && <span>Playground</span>}
             </div>
 
-            <span className="dashboard__sidebar-nav-title">Build</span>
             <div 
               onClick={() => { setPromptInput(''); setActiveTab('playground'); }}
               className="dashboard__sidebar-item"
+              title={isSidebarCollapsed ? "New App" : undefined}
             >
               <Plus size={14} />
-              <span>New App</span>
+              {!isSidebarCollapsed && <span>New App</span>}
             </div>
+
             <div 
               onClick={() => setActiveTab('my-apps')}
               className={`dashboard__sidebar-item ${activeTab === 'my-apps' ? 'dashboard__sidebar-item--active' : ''}`}
+              title={isSidebarCollapsed ? "My Apps" : undefined}
             >
               <Layers size={14} />
-              <span>My Apps</span>
-            </div>
-            <div className="dashboard__sidebar-item dashboard__sidebar-item--disabled" style={{ opacity: 0.5 }}>
-              <BookOpen size={14} />
-              <span>Gallery</span>
+              {!isSidebarCollapsed && <span>My Apps</span>}
             </div>
           </div>
         </div>
 
         {/* User profile / Settings footer */}
         <div className="dashboard__sidebar-footer">
-          <div className="dashboard__sidebar-actions">
-            <button className="icon-btn" style={{ padding: '6px' }} title="Settings"><Settings size={14} /></button>
-            <button className="icon-btn" style={{ padding: '6px' }} title="Search"><Search size={14} /></button>
-            <button className="icon-btn" style={{ padding: '6px' }} title="Shortcuts"><Keyboard size={14} /></button>
-            <button className="icon-btn" style={{ padding: '6px' }} title="Help"><HelpCircle size={14} /></button>
-          </div>
-
-          <div className="dashboard__sidebar-profile-bar">
+          <div className="dashboard__sidebar-profile-bar" style={{ justifyContent: isSidebarCollapsed ? 'center' : 'space-between' }}>
             <div className="dashboard__sidebar-profile-details">
               {userPhoto
                 ? <img src={userPhoto} alt={userName} className="dashboard__sidebar-avatar" />
                 : <div className="dashboard__sidebar-initials">{userInitials}</div>
               }
-              <div className="dashboard__sidebar-user-meta">
-                <span className="dashboard__sidebar-username">{userName}</span>
-                <span className="dashboard__sidebar-tier">Free Tier</span>
-              </div>
+              {!isSidebarCollapsed && (
+                <div className="dashboard__sidebar-user-meta">
+                  <span className="dashboard__sidebar-username">{userName}</span>
+                  <span className="dashboard__sidebar-tier">Free Tier</span>
+                </div>
+              )}
             </div>
-            <span className="dashboard__sidebar-pro-badge">PRO</span>
+            {!isSidebarCollapsed && <span className="dashboard__sidebar-pro-badge">PRO</span>}
           </div>
 
-          <button onClick={() => dispatch(logoutThunk())} className="dashboard__sidebar-logout">
-            <LogOut size={12} />
-            <span style={{ margin: 'auto' }}>Logout Session</span>
+          <button 
+            onClick={onNavigateSettings} 
+            className={`dashboard__sidebar-settings-btn ${activeTab === 'settings' ? 'dashboard__sidebar-settings-btn--active' : ''}`}
+            title={isSidebarCollapsed ? "Settings" : undefined}
+            style={{ 
+              width: '100%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: isSidebarCollapsed ? 'center' : 'flex-start',
+              gap: '8px',
+              padding: isSidebarCollapsed ? '10px' : '10px 14px',
+              borderRadius: '8px',
+              cursor: 'pointer',
+              background: activeTab === 'settings' ? 'var(--bg-element)' : 'var(--bg-active)',
+              border: '1px solid var(--border)',
+              color: activeTab === 'settings' ? 'var(--text-primary)' : 'var(--text-muted)',
+              fontSize: '13px',
+              fontWeight: '600',
+              transition: 'all 0.2s',
+            }}
+          >
+            <Settings size={14} style={{ color: activeTab === 'settings' ? 'var(--primary)' : 'inherit' }} />
+            {!isSidebarCollapsed && <span>Settings</span>}
           </button>
         </div>
+
+        {/* Sidebar Resizer Drag Handle */}
+        <div 
+          className={`dashboard__sidebar-resizer ${isResizingSidebar ? 'active' : ''}`}
+          onMouseDown={startSidebarResize}
+        />
       </aside>
 
       {/* 2. Main content viewport */}
@@ -485,12 +668,6 @@ export default function Dashboard({ onSelectProject }) {
         {activeTab === 'playground' ? (
           /* Playground View: Centered Prompting with real-time container provisioning animations */
           <section className="dashboard__playground">
-            {/* Ambient background particles */}
-            <div className="dashboard__playground-particles">
-              <div className="dashboard__playground-orb dashboard__playground-orb--green" />
-              <div className="dashboard__playground-orb dashboard__playground-orb--blue" />
-              <div className="dashboard__playground-orb dashboard__playground-orb--purple" />
-            </div>
 
             {allocationStep > 0 ? (
               <div className="provisioning-panel">
@@ -536,6 +713,53 @@ export default function Dashboard({ onSelectProject }) {
               </div>
             ) : (
               <>
+                {/* Floating orb layer scoped to playground / input area */}
+                <div className="playground-orbs" aria-hidden="true">
+                  <div className="playground-orbs__orb playground-orbs__orb--1" />
+                  <div className="playground-orbs__orb playground-orbs__orb--2" />
+                  <div className="playground-orbs__orb playground-orbs__orb--3" />
+                  <div className="playground-orbs__orb playground-orbs__orb--4" />
+                </div>
+
+                {/* Star field — twinkling & drifting across the playground */}
+                <div className="playground-stars" aria-hidden="true">
+                  {[
+                    { top: '8%',  left: '6%',  size: 2,   delay: 0,    dur: 2.8, float: 3.2 },
+                    { top: '12%', left: '82%', size: 1.5, delay: 0.4,  dur: 2.1, float: 4.1 },
+                    { top: '5%',  left: '45%', size: 2.5, delay: 0.9,  dur: 3.5, float: 2.8 },
+                    { top: '18%', left: '92%', size: 1,   delay: 1.2,  dur: 1.9, float: 5.0 },
+                    { top: '25%', left: '15%', size: 2,   delay: 0.6,  dur: 2.4, float: 3.6 },
+                    { top: '30%', left: '88%', size: 1.5, delay: 1.8,  dur: 3.1, float: 4.4 },
+                    { top: '72%', left: '4%',  size: 2,   delay: 0.3,  dur: 2.6, float: 3.9 },
+                    { top: '80%', left: '78%', size: 1,   delay: 2.1,  dur: 1.8, float: 5.2 },
+                    { top: '88%', left: '35%', size: 2.5, delay: 0.7,  dur: 3.3, float: 2.5 },
+                    { top: '92%', left: '90%', size: 1.5, delay: 1.5,  dur: 2.0, float: 4.7 },
+                    { top: '65%', left: '93%', size: 2,   delay: 0.2,  dur: 2.9, float: 3.3 },
+                    { top: '55%', left: '2%',  size: 1,   delay: 1.1,  dur: 2.2, float: 4.8 },
+                    { top: '42%', left: '96%', size: 2,   delay: 0.8,  dur: 3.0, float: 3.7 },
+                    { top: '35%', left: '3%',  size: 1.5, delay: 1.9,  dur: 1.7, float: 5.5 },
+                    { top: '78%', left: '55%', size: 1,   delay: 0.5,  dur: 2.5, float: 4.2 },
+                    { top: '3%',  left: '68%', size: 2,   delay: 1.3,  dur: 2.7, float: 3.0 },
+                    { top: '95%', left: '12%', size: 1.5, delay: 2.2,  dur: 3.2, float: 4.5 },
+                    { top: '15%', left: '58%', size: 1,   delay: 0.1,  dur: 1.6, float: 6.0 },
+                    { top: '48%', left: '9%',  size: 2,   delay: 1.6,  dur: 2.3, float: 3.4 },
+                    { top: '60%', left: '72%', size: 1.5, delay: 0.95, dur: 2.8, float: 4.0 },
+                  ].map((s, i) => (
+                    <span
+                      key={i}
+                      className="playground-star"
+                      style={{
+                        top: s.top,
+                        left: s.left,
+                        width: `${s.size}px`,
+                        height: `${s.size}px`,
+                        animationDelay: `${s.delay}s, ${s.delay + 0.5}s`,
+                        animationDuration: `${s.dur}s, ${s.float}s`,
+                      }}
+                    />
+                  ))}
+                </div>
+
                 <div className="dashboard__playground-title-row">
                   <Sparkles size={20} color="var(--primary)" />
                   <h1 className="dashboard__playground-title">
@@ -566,14 +790,19 @@ export default function Dashboard({ onSelectProject }) {
 
                 <div className="prompt-card-container">
                   <div className="prompt-card-glow-bg" />
-                  <div className="prompt-card-wrapper">
-                    <div className="prompt-card-laser" />
+                  <div className={`prompt-card-wrapper${promptInput.length > 0 ? ' is-typing' : ''}`}>
                     <form onSubmit={handlePlaygroundSubmit} className="dashboard__playground-prompt-card">
                       <textarea
+                        ref={textareaRef}
                         placeholder="Describe an app and let CodeSpace do the rest..."
                         value={promptInput}
                         onChange={(e) => setPromptInput(e.target.value)}
-                        rows={3}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && !e.shiftKey) {
+                            e.preventDefault();
+                            if (promptInput.trim()) handlePlaygroundSubmit(e);
+                          }
+                        }}
                         className="dashboard__playground-textarea"
                       />
                       
@@ -719,10 +948,10 @@ export default function Dashboard({ onSelectProject }) {
           <div className="modal-card" onClick={e => e.stopPropagation()}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
               <div>
-                <h3 style={{ margin: '0 0 4px', fontSize: '16px', fontWeight: '800', color: '#f8fafc', fontFamily: 'var(--font-heading)' }}>
+                <h3 style={{ margin: '0 0 4px', fontSize: '18px', fontWeight: '800', color: 'var(--text-primary)', fontFamily: 'var(--font-heading)' }}>
                   Name Your CodeSpace
                 </h3>
-                <p style={{ margin: 0, fontSize: '12px', color: 'var(--text-dark)' }}>
+                <p style={{ margin: 0, fontSize: '13.5px', color: 'var(--text-dark)' }}>
                   Give a title to initialize your sandbox.
                 </p>
               </div>
@@ -733,7 +962,7 @@ export default function Dashboard({ onSelectProject }) {
 
             <form onSubmit={handleCreateProject} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                <label style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                <label style={{ fontSize: '12.5px', fontWeight: '700', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
                   Workspace Name
                 </label>
                 <input
@@ -747,7 +976,7 @@ export default function Dashboard({ onSelectProject }) {
                   style={{
                     padding: '10px 12px', borderRadius: '8px',
                     background: 'var(--bg-canvas)', border: `1px solid ${validationError ? '#f43f5e' : 'var(--border)'}`,
-                    color: '#f8fafc', fontSize: '13px', outline: 'none',
+                    color: 'var(--text-primary)', fontSize: '14.5px', outline: 'none',
                     transition: 'border-color 0.2s',
                     fontFamily: 'var(--font-sans)',
                   }}
@@ -755,7 +984,7 @@ export default function Dashboard({ onSelectProject }) {
                   onBlur={e => { if (!validationError) e.currentTarget.style.borderColor = 'var(--border)'; }}
                 />
                 {validationError && (
-                  <span style={{ fontSize: '11px', color: '#f43f5e', fontWeight: '600' }}>
+                  <span style={{ fontSize: '12px', color: '#f43f5e', fontWeight: '600' }}>
                     {validationError}
                   </span>
                 )}

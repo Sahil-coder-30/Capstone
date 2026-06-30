@@ -1,25 +1,49 @@
+// ─── Copilot Float Panel ──────────────────────────────────────────────────────
+// font-size uses clamp() so all text scales proportionally as the panel resizes.
+// transitions are restricted to box-shadow/border-color ONLY — never width/height/left/top
+// so that direct-DOM drag & resize never fight CSS transitions.
+
 .app-agent-float {
-  background: var(--bg-surface);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid var(--border-strong);
+  background: rgba(14, 16, 23, 0.88);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 12px;
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.6), inset 0 0 0 1px rgba(255, 255, 255, 0.02);
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  transition: box-shadow 0.3s ease;
+
+  // CSS container queries — enables cqw units for proportional font scaling
+  container-type: inline-size;
+
+  // GPU compositing — prevents paint storms during drag/resize
+  will-change: transform;
+  contain: layout style;
+
+  // ONLY transition visual properties, never geometry
+  transition:
+    box-shadow 0.25s ease,
+    border-color 0.25s ease,
+    background 0.2s ease;
 
   &:hover {
-    box-shadow: 0 16px 48px rgba(59, 130, 246, 0.15);
+    box-shadow: 0 24px 64px rgba(99, 102, 241, 0.18), inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+    border-color: rgba(99, 102, 241, 0.28);
   }
+
+  // Cursor shows immediately during interaction
+  &.is-dragging  { cursor: grabbing !important; user-select: none; }
+  &.is-resizing  { user-select: none; }
 
   &.minimized {
     border-radius: 8px;
-    background: var(--bg-surface);
+    background: rgba(14, 16, 23, 0.97);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
   }
 }
 
+// ─── Header ──────────────────────────────────────────────────────────────────
 .app-agent-header {
   display: flex;
   align-items: center;
@@ -27,15 +51,19 @@
   padding: 10px 14px;
   background: rgba(255, 255, 255, 0.02);
   border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-  cursor: move;
+  cursor: grab;
   user-select: none;
+  flex-shrink: 0;
+
+  &:active { cursor: grabbing; }
 
   .header-title {
     display: flex;
     align-items: center;
     gap: 8px;
     font-family: var(--font-heading), sans-serif;
-    font-size: 13.5px;
+    // Proportional: 12px at 300px wide → 15px at 900px wide
+    font-size: clamp(12px, 3.6cqw, 15px);
     font-weight: 600;
     color: #fff;
 
@@ -55,28 +83,30 @@
       border: none;
       color: rgba(255, 255, 255, 0.5);
       cursor: pointer;
-      padding: 4px;
+      padding: 5px;
       border-radius: 4px;
       display: flex;
-      transition: all 0.2s;
+      transition: background 0.15s, color 0.15s;
 
       &:hover {
-        background: rgba(255, 255, 255, 0.08);
+        background: rgba(255, 255, 255, 0.09);
         color: #fff;
       }
     }
   }
 }
 
+// ─── Context bar ─────────────────────────────────────────────────────────────
 .context-bar {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 6px 12px;
+  padding: 5px 12px;
   background: rgba(99, 102, 241, 0.06);
   border-bottom: 1px solid rgba(99, 102, 241, 0.12);
-  font-size: 11px;
+  font-size: clamp(10px, 2.8cqw, 12px);
   color: rgba(255, 255, 255, 0.7);
+  flex-shrink: 0;
 
   .context-label {
     white-space: nowrap;
@@ -84,9 +114,7 @@
     text-overflow: ellipsis;
     flex: 1;
 
-    strong {
-      color: var(--primary);
-    }
+    strong { color: var(--primary); }
   }
 
   .context-warning {
@@ -97,50 +125,134 @@
   }
 }
 
+// ─── Messages ─────────────────────────────────────────────────────────────────
 .messages-container {
   flex: 1;
   overflow-y: auto;
+  overflow-x: hidden;
   padding: 12px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
 
-  /* Scrollbar */
-  &::-webkit-scrollbar {
-    width: 6px;
-  }
-  &::-webkit-scrollbar-track {
-    background: transparent;
-  }
+  &::-webkit-scrollbar       { width: 5px; }
+  &::-webkit-scrollbar-track { background: transparent; }
   &::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.15);
+    background: rgba(255, 255, 255, 0.14);
     border-radius: 3px;
+    &:hover { background: rgba(255, 255, 255, 0.25); }
   }
 }
 
 .message-bubble {
-  max-width: 85%;
-  padding: 10px 12px;
+  max-width: 88%;
+  padding: 9px 12px;
   border-radius: 10px;
-  font-size: 12.5px;
-  line-height: 1.5;
-  color: rgba(255, 255, 255, 0.9);
+  // Font scales proportionally with container width
+  font-size: clamp(11.5px, 3.2cqw, 14px);
+  line-height: 1.55;
+  color: rgba(255, 255, 255, 0.95);
 
   &.assistant {
     align-self: flex-start;
-    background: var(--bg-element);
+    background: rgba(28, 31, 48, 0.55);
     border-bottom-left-radius: 2px;
-    border: 1px solid var(--border);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+
+    .ai-chat__markdown-p {
+      font-size: inherit;
+      color: rgba(255, 255, 255, 0.95);
+      margin: 0 0 6px;
+      line-height: 1.55;
+      &:last-child { margin-bottom: 0; }
+    }
+
+    .ai-chat__markdown-ul,
+    .ai-chat__markdown-ol {
+      margin: 0 0 8px 16px;
+      padding: 0;
+    }
+
+    .ai-chat__markdown-ul { list-style-type: disc; }
+    .ai-chat__markdown-ol { list-style-type: decimal; }
+
+    .ai-chat__markdown-li {
+      font-size: inherit;
+      color: rgba(255, 255, 255, 0.95);
+      margin-bottom: 3px;
+      line-height: 1.55;
+    }
+
+    .ai-chat__markdown-bold {
+      color: #fff;
+      font-weight: 700;
+    }
+
+    .ai-chat__markdown-link {
+      color: #818cf8;
+      text-decoration: none;
+      border-bottom: 1px dashed rgba(129, 140, 248, 0.4);
+      &:hover { color: #a5b4fc; }
+    }
+
+    .ai-chat__code-block {
+      margin: 8px 0;
+      border-radius: 6px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      overflow: hidden;
+
+      &-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 4px 8px;
+        background: rgba(0, 0, 0, 0.18);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+      }
+
+      &-lang {
+        font-size: clamp(9px, 2.5cqw, 11px);
+        color: rgba(255, 255, 255, 0.4);
+        font-family: monospace;
+      }
+
+      &-copy {
+        background: none;
+        border: none;
+        color: rgba(255, 255, 255, 0.35);
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        font-size: clamp(9px, 2.5cqw, 11px);
+        transition: color 0.15s;
+        padding: 0;
+        &:hover { color: #fff; }
+      }
+
+      pre {
+        margin: 0;
+        padding: 8px 10px;
+        background: rgba(0, 0, 0, 0.22);
+        overflow-x: auto;
+        font-size: clamp(10px, 2.8cqw, 12.5px);
+        font-family: monospace;
+        color: rgba(255, 255, 255, 0.9);
+      }
+    }
   }
 
   &.user {
     align-self: flex-end;
-    background: var(--primary);
+    background: linear-gradient(135deg, var(--primary), var(--accent));
     color: #fff;
     border-bottom-right-radius: 2px;
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.2);
   }
 }
 
+// ─── Tool logs ────────────────────────────────────────────────────────────────
 .tool-logs {
   margin-top: 8px;
   background: rgba(0, 0, 0, 0.2);
@@ -156,7 +268,7 @@
     align-items: center;
     gap: 6px;
     font-family: monospace;
-    font-size: 10px;
+    font-size: clamp(9px, 2.4cqw, 10.5px);
     color: rgba(255, 255, 255, 0.5);
 
     span {
@@ -167,6 +279,7 @@
   }
 }
 
+// ─── Typing indicator ─────────────────────────────────────────────────────────
 .typing-indicator {
   display: flex;
   align-items: center;
@@ -188,16 +301,18 @@
 
 @keyframes bounce-typing {
   0%, 80%, 100% { transform: scale(0); }
-  40% { transform: scale(1.0); }
+  40%           { transform: scale(1.0); }
 }
 
+// ─── Footer ──────────────────────────────────────────────────────────────────
 .footer-form {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 10px 12px;
+  padding: 9px 12px;
   background: var(--bg-surface);
   border-top: 1px solid var(--border);
+  flex-shrink: 0;
 
   .chat-input {
     flex: 1;
@@ -205,24 +320,25 @@
     border: 1px solid var(--border);
     border-radius: 6px;
     color: #fff;
-    padding: 8px 10px;
-    font-size: 12.5px;
+    padding: 7px 10px;
+    font-size: clamp(11px, 3cqw, 13px);
     font-family: inherit;
     resize: none;
     outline: none;
     max-height: 80px;
+    transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
 
-    &::placeholder {
-      color: rgba(255, 255, 255, 0.3);
-    }
+    &::placeholder { color: var(--text-dark); }
 
     &:focus {
       border-color: var(--primary);
       background: var(--bg-element);
+      box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.15);
     }
   }
 
-  .clear-btn, .send-btn {
+  .clear-btn,
+  .send-btn {
     background: none;
     border: none;
     color: rgba(255, 255, 255, 0.4);
@@ -232,10 +348,11 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: all 0.2s;
+    transition: background 0.15s, color 0.15s;
+    flex-shrink: 0;
 
     &:hover:not(:disabled) {
-      background: rgba(255, 255, 255, 0.08);
+      background: rgba(255, 255, 255, 0.09);
       color: #fff;
     }
 
@@ -248,40 +365,97 @@
   .send-btn {
     background: var(--primary);
     color: #fff;
-
-    &:hover:not(:disabled) {
-      background: var(--primary-hover);
-    }
+    &:hover:not(:disabled) { background: var(--primary-hover); }
   }
 }
 
-/* Resize Handles */
+// ─── Resize handles (8 directions) ───────────────────────────────────────────
+// Invisible hit-areas. The corner ones are on top to avoid ambiguity.
 .resize-handle {
   position: absolute;
+  z-index: 10;
   background: transparent;
 
-  &.r-e {
-    top: 0;
-    right: 0;
-    width: 6px;
-    height: 100%;
-    cursor: e-resize;
+  // Edges
+  &.r-n  { top: 0;    left: 6px;    right: 6px;   height: 5px;  cursor: n-resize;  }
+  &.r-s  { bottom: 0; left: 6px;    right: 6px;   height: 5px;  cursor: s-resize;  }
+  &.r-e  { top: 6px;  right: 0;     bottom: 6px;  width: 5px;   cursor: e-resize;  }
+  &.r-w  { top: 6px;  left: 0;      bottom: 6px;  width: 5px;   cursor: w-resize;  }
+
+  // Corners (larger hit area, higher z-index)
+  &.r-ne { top: 0;    right: 0;     width: 10px;  height: 10px; cursor: ne-resize; z-index: 11; }
+  &.r-nw { top: 0;    left: 0;      width: 10px;  height: 10px; cursor: nw-resize; z-index: 11; }
+  &.r-se { bottom: 0; right: 0;     width: 10px;  height: 10px; cursor: se-resize; z-index: 11; }
+  &.r-sw { bottom: 0; left: 0;      width: 10px;  height: 10px; cursor: sw-resize; z-index: 11; }
+}
+
+// ─── Thinking accordion ───────────────────────────────────────────────────────
+.copilot-thinking {
+  margin: 4px 0 10px;
+  border-left: 2px solid rgba(99, 102, 241, 0.35);
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 4px;
+  overflow: hidden;
+  font-family: var(--font-sans), sans-serif;
+  // Only transition cosmetic props
+  transition: background 0.2s, border-left-color 0.2s;
+
+  &.streaming {
+    background: rgba(99, 102, 241, 0.04);
+    border-left-color: var(--primary);
   }
 
-  &.r-s {
-    bottom: 0;
-    left: 0;
+  &-toggle {
     width: 100%;
-    height: 6px;
-    cursor: s-resize;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 10px;
+    background: none;
+    border: none;
+    color: rgba(255, 255, 255, 0.55);
+    font-size: clamp(10px, 2.8cqw, 11.5px);
+    font-weight: 500;
+    cursor: pointer;
+    text-align: left;
+    transition: background 0.15s, color 0.15s;
+
+    &:hover {
+      background: rgba(255, 255, 255, 0.04);
+      color: rgba(255, 255, 255, 0.9);
+    }
   }
 
-  &.r-se {
-    bottom: 0;
-    right: 0;
-    width: 10px;
-    height: 10px;
-    cursor: se-resize;
-    z-index: 10;
+  &-status {
+    display: flex;
+    align-items: center;
+    gap: 6px;
   }
+
+  &-brain {
+    color: var(--primary);
+    &.pulse { animation: brain-pulse 1.6s infinite ease-in-out; }
+  }
+
+  &-chevron {
+    transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+    opacity: 0.5;
+    &.open { transform: rotate(180deg); }
+  }
+
+  &-details {
+    padding: 8px 10px;
+    font-size: clamp(10px, 2.8cqw, 11.5px);
+    color: rgba(255, 255, 255, 0.5);
+    line-height: 1.45;
+    white-space: pre-wrap;
+    border-top: 1px solid rgba(255, 255, 255, 0.03);
+    font-style: italic;
+  }
+}
+
+@keyframes brain-pulse {
+  0%   { transform: scale(1);    opacity: 0.65; filter: drop-shadow(0 0 0px  rgba(99, 102, 241, 0));   }
+  50%  { transform: scale(1.12); opacity: 1;    filter: drop-shadow(0 0 5px  rgba(99, 102, 241, 0.7)); }
+  100% { transform: scale(1);    opacity: 0.65; filter: drop-shadow(0 0 0px  rgba(99, 102, 241, 0));   }
 }

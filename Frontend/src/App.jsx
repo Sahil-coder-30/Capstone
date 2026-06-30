@@ -12,8 +12,9 @@ import Layout from './components/Layout';
 import Dashboard from './components/Dashboard';
 import LandingPage from './components/LandingPage';
 import Login from './components/Login';
-import { loginSuccess, loginFailure } from './features/auth/slice/auth.slice';
+import { loginSuccess, loginFailure, logoutThunk } from './features/auth/slice/auth.slice';
 import { fetchMeAPI } from './features/auth/service/auth.api';
+import SettingsPage from './features/settings/pages/SettingsPage';
 import { useSandbox } from './features/sandbox/Hooks/sandbox.hooks';
 import { useEditor } from './features/editor/Hooks/editor.hooks';
 import {
@@ -130,8 +131,79 @@ export default function App() {
   const { syncAllFilesToCache } = useEditor();
 
   const dispatch = useDispatch();
-  const { isAuthenticated, loading } = useSelector((state) => state.auth);
+  const { isAuthenticated, loading, user } = useSelector((state) => state.auth);
   const [currentRoute, setCurrentRoute] = useState('landing'); // 'landing' | 'login'
+
+  // Parse initial route from URL search params
+  const initialParams = new URLSearchParams(window.location.search);
+  const [activeRoute, setActiveRoute] = useState(initialParams.get('route') || 'dashboard'); // 'dashboard' | 'settings'
+  const [dashboardTab, setDashboardTab] = useState(initialParams.get('tab') || 'playground');
+  const [currentProjectId, setCurrentProjectId] = useState(initialParams.get('project') || null);
+  const [currentProjectTitle, setCurrentProjectTitle] = useState(initialParams.get('title') || '');
+
+  // Initialize theme on boot
+  useEffect(() => {
+    const isLight = localStorage.getItem('theme') === 'light';
+    if (isLight) {
+      document.documentElement.classList.add('light-theme');
+    } else {
+      document.documentElement.classList.remove('light-theme');
+    }
+  }, []);
+
+  // Sync state to URL search params
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    const currentParams = new URLSearchParams(window.location.search);
+    const urlProject = currentParams.get('project');
+    const urlTitle = currentParams.get('title') || '';
+    const urlRoute = currentParams.get('route') || 'dashboard';
+    const urlTab = currentParams.get('tab') || 'playground';
+
+    const isMatched =
+      urlProject === currentProjectId &&
+      urlTitle === currentProjectTitle &&
+      urlRoute === activeRoute &&
+      urlTab === dashboardTab;
+
+    if (!isMatched) {
+      const newParams = new URLSearchParams();
+      if (currentProjectId) {
+        newParams.set('project', currentProjectId);
+        if (currentProjectTitle) {
+          newParams.set('title', currentProjectTitle);
+        }
+      } else if (activeRoute === 'settings') {
+        newParams.set('route', 'settings');
+      } else {
+        newParams.set('tab', dashboardTab);
+      }
+
+      const search = newParams.toString();
+      const newUrl = `${window.location.pathname}${search ? '?' + search : ''}`;
+      window.history.pushState(null, '', newUrl);
+    }
+  }, [currentProjectId, currentProjectTitle, activeRoute, dashboardTab, isAuthenticated]);
+
+  // Listen to popstate event (browser back/forward) to update state
+  useEffect(() => {
+    const handlePopState = () => {
+      const currentParams = new URLSearchParams(window.location.search);
+      const project = currentParams.get('project');
+      const title = currentParams.get('title') || '';
+      const route = currentParams.get('route') || 'dashboard';
+      const tab = currentParams.get('tab') || 'playground';
+
+      setCurrentProjectId(project);
+      setCurrentProjectTitle(title);
+      setActiveRoute(route);
+      setDashboardTab(tab);
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
 
   // Session verification on mount
   useEffect(() => {
@@ -151,21 +223,50 @@ export default function App() {
     verifySession();
   }, [dispatch]);
 
-  const [currentProjectId, setCurrentProjectId] = useState(null);
-  const [currentProjectTitle, setCurrentProjectTitle] = useState('');
+  // ─── Sandbox lifecycle: load real status then auto-start if needed ───────────
+  // This is the ONLY effect that drives sandbox state. It:
+  //   1. If sandbox is already running for THIS project (e.g. just started by
+  //      the Dashboard playground flow), skip the status check entirely to
+  //      avoid disrupting the active initialPrompt auto-send.
+  //   2. Otherwise, calls loadSandboxStatus → backend reconciles with K8s
+  //   3. If real status is 'idle', auto-starts the sandbox
+  const sandboxProjectId = useSelector((state) => state.sandbox.projectId);
+  const sandboxStatus    = useSelector((state) => state.sandbox.status);
 
-  // Initialize project-specific sandbox details when entering a project
   useEffect(() => {
-    loadSandboxStatus(currentProjectId);
-  }, [currentProjectId, loadSandboxStatus]);
+    if (!currentProjectId) return;
 
-  // Auto-start sandbox whenever the user enters a workspace and it isn't running yet
-  useEffect(() => {
-    if (currentProjectId && (status === 'idle' || status === 'error')) {
-      startSandbox(currentProjectId);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentProjectId, status]);
+    // Sandbox is already live (or booting) for this specific project —
+    // trust the existing Redux state. loadSandboxStatus would flash 'starting'
+    // and break the initialPrompt auto-send from AIChat.
+    const alreadyActive = (
+      sandboxProjectId === currentProjectId &&
+      (sandboxStatus === 'running' || sandboxStatus === 'starting' || sandboxStatus === 'warming')
+    );
+    if (alreadyActive) return;
+
+    let cancelled = false;
+
+    const run = async () => {
+      const realStatus = await loadSandboxStatus(currentProjectId);
+
+      // realStatus is what K8s actually says right now.
+      // Only start if the pod is genuinely not running.
+      if (!cancelled && (realStatus === 'idle' || realStatus === 'down')) {
+        startSandbox(currentProjectId).catch(() => {
+          // Error already dispatched to Redux by startSandbox — no need to rethrow
+        });
+      }
+    };
+
+    run();
+
+    return () => { cancelled = true; };
+  // sandboxProjectId and sandboxStatus are read at effect invocation time.
+  // We intentionally only re-run on projectId change, not on every status change.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentProjectId]);
+
 
   // Default tab is 'preview' to show progress loader, toggle between 'preview' | 'editor'
   const [workspaceTab, setWorkspaceTab] = useState('preview');
@@ -310,6 +411,12 @@ export default function App() {
             onBackToDashboard={() => {
               setCurrentProjectId(null);
               setCurrentProjectTitle('');
+              setDashboardTab('my-apps');
+            }}
+            onNavigateSettings={() => {
+              setCurrentProjectId(null);
+              setCurrentProjectTitle('');
+              setActiveRoute('settings');
             }}
           />
 
@@ -320,21 +427,8 @@ export default function App() {
             isBottomOpen={isTerminalOpen}
             leftPanel={
               <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
-                <div className="panel-header">
-                  <div className="panel-title">
-                    <Cpu size={12} color="var(--primary)" />
-                    <span>Orion Coding Agent</span>
-                  </div>
-                  <button 
-                    onClick={() => setIsChatOpen(false)}
-                    title="Collapse Orion Coding Agent"
-                    style={{ background: 'none', border: 'none', color: 'var(--text-dark)', cursor: 'pointer', padding: '4px', borderRadius: '4px', display: 'flex' }}
-                  >
-                    <X size={13} />
-                  </button>
-                </div>
                 <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
-                  <AIChat projectId={currentProjectId} />
+                  <AIChat projectId={currentProjectId} onCloseChat={() => setIsChatOpen(false)} />
                 </div>
               </div>
             }
@@ -654,15 +748,35 @@ export default function App() {
           />
           {statusBar}
         </div>
+      ) : activeRoute === 'settings' ? (
+        <SettingsPage 
+          user={user}
+          userName={user?.name || 'Developer'}
+          userInitials={(user?.name || 'Developer').split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase() || 'U'}
+          userPhoto={user?.photo}
+          projectsCount={2}
+          onSyncLimits={() => alert('Synced sandbox limits.')}
+          onLogout={() => {
+            dispatch(logoutThunk());
+            window.history.pushState(null, '', window.location.pathname);
+          }}
+          onBackToDashboard={(tab) => {
+            setDashboardTab(tab);
+            setActiveRoute('dashboard');
+          }}
+        />
       ) : (
         <Dashboard
+          activeTab={dashboardTab}
+          setActiveTab={setDashboardTab}
           onSelectProject={(id, title) => {
             setCurrentProjectId(id);
             setCurrentProjectTitle(title);
           }}
+          onNavigateSettings={() => setActiveRoute('settings')}
         />
       )}
-      <AppAgentFloat projectId={currentProjectId} />
+      {currentProjectId && <AppAgentFloat projectId={currentProjectId} />}
     </>
   );
 }

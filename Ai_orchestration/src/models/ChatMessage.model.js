@@ -13,7 +13,8 @@ const chatMessageSchema = new mongoose.Schema(
     },
     agentType: {
       type: String,
-      enum: ["codingAgent", "copilot"],
+      enum: ["codingAgent"],
+      default: "codingAgent",
       required: true,
     },
     role: {

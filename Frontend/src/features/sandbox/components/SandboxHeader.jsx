@@ -11,7 +11,8 @@ export default function SandboxHeader({
   isChatOpen, setIsChatOpen,
   isTerminalOpen, setIsTerminalOpen,
   workspaceTab, setWorkspaceTab,
-  projectId, projectTitle, onBackToDashboard
+  projectId, projectTitle, onBackToDashboard,
+  onNavigateSettings
 }) {
   const {
     sandboxId,
@@ -359,7 +360,7 @@ export default function SandboxHeader({
           Publish
         </button>
 
-        <button className="icon-btn" style={{ padding: '6px' }} title="Settings">
+        <button onClick={onNavigateSettings} className="icon-btn" style={{ padding: '6px' }} title="Settings">
           <Settings size={13} />
         </button>
       </div>

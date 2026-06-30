@@ -128,6 +128,21 @@ export const useCodingAgent = (projectId) => {
       dispatch(setStreaming(false));
       socket.disconnect();
     });
+
+    // 10. Safety net: if the socket closes for ANY reason before agent:done fires
+    //     (network drop, server restart, timeout), force-complete the message so the
+    //     thinking animation never stays frozen indefinitely.
+    socket.on('disconnect', (reason) => {
+      if (reason === 'io client disconnect') return; // intentional — already handled above
+      console.warn('[CodingAgent] Socket disconnected unexpectedly:', reason);
+      dispatch(updateLastMessage({
+        text: assistantText || '',
+        toolLogs,
+        status: assistantText ? 'completed' : 'error',
+        error: assistantText ? undefined : 'Connection lost before agent finished.',
+      }));
+      dispatch(setStreaming(false));
+    });
   }, [projectId, sandboxId, dispatch, syncAllFilesToCache]);
 
   // Auto-load chat history from MongoDB when projectId changes

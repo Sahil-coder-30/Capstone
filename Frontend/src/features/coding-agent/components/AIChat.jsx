@@ -1,12 +1,13 @@
-import React, { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useCodingAgent } from '../Hooks/codingAgent.hooks';
 import { useSandbox } from '../../sandbox/Hooks/sandbox.hooks';
 import { useEditor } from '../../editor/Hooks/editor.hooks';
 import {
-  Send, Sparkles, ChevronDown, ChevronRight, Check, Copy, Trash2, Cpu,
-  FileText, Code, Terminal, CheckCircle2, AlertCircle, Loader2, Play,
-  X, ListTodo, Activity, RefreshCw, Layers, FileCode, ArrowRight, Zap
+  Send, ChevronDown, ChevronRight, Check, Trash2, Cpu,
+  CheckCircle2, AlertCircle, Loader2,
+  X, Activity, FileCode, ArrowRight
 } from 'lucide-react';
+import { parseMarkdownToReact } from '../../../components/Markdown';
 import './AIChat.scss';
 import { TakshaIcon } from '../../../components/BrandLogo';
 
@@ -24,7 +25,7 @@ const TOOL_TYPE_COLORS = {
  * Uses ONLY useCodingAgent hook (socket.io pipeline, /api/ai/invoke).
  * No references to copilot / app-agent.
  */
-export default function AIChat({ projectId }) {
+export default function AIChat({ projectId, onCloseChat }) {
   const { sandboxId, status } = useSandbox();
   const { messages, isStreaming, isHistoryLoading, sendMessage, clearChatHistory } = useCodingAgent(projectId);
   const { fetchFilesList, activeFile, isModified, fetchFileContent } = useEditor();
@@ -106,16 +107,7 @@ export default function AIChat({ projectId }) {
 
   const runs = getTaskRuns();
 
-  // Expand latest run by default
-  useEffect(() => {
-    if (runs.length > 0) {
-      const lastRun = runs[runs.length - 1];
-      setExpandedRuns(prev => {
-        if (prev[lastRun.id] === undefined) return { ...prev, [lastRun.id]: true };
-        return prev;
-      });
-    }
-  }, [runs.length]);
+  // Default card expansion calculated dynamically
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -142,7 +134,10 @@ export default function AIChat({ projectId }) {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSubmit(e); }
   };
 
-  const toggleRun = (runId) => setExpandedRuns(prev => ({ ...prev, [runId]: !prev[runId] }));
+  const toggleRun = (runId) => setExpandedRuns(prev => {
+    const isCurrentlyExpanded = prev[runId] !== undefined ? prev[runId] : (runId === runs[runs.length - 1]?.id);
+    return { ...prev, [runId]: !isCurrentlyExpanded };
+  });
   const toggleLogs = (runId) => setExpandedLogs(prev => ({ ...prev, [runId]: !prev[runId] }));
 
   const handleClearHistory = () => {
@@ -246,7 +241,7 @@ export default function AIChat({ projectId }) {
     const isSuccess = log.includes(': success') || log.includes('success -') || log.includes('patched successfully') || log.includes('success (on retry)');
     const isError   = log.includes(': error') || log.includes('failed');
     const cleanLog  = log.replace(/\\"/g, '"');
-    let title = '', description = '', type = 'info';
+    let title, description, type = 'info';
 
     if (log.startsWith('listFiles')) {
       title = 'Scan Directory'; type = 'read';
@@ -286,50 +281,7 @@ export default function AIChat({ projectId }) {
     return { title, description, type, status, timestamp: new Date().toLocaleTimeString() };
   };
 
-  // ─── Inline markdown formatter ──────────────────────────────────────────────
-  const formatInline = (line) => {
-    if (!line) return '';
-    const parts = line.split(/(\*\*.*?\*\*|`.*?`)/g);
-    return parts.map((part, i) => {
-      if (part.startsWith('**') && part.endsWith('**'))
-        return <strong key={i} style={{ color: '#fff', fontWeight: '700' }}>{part.slice(2, -2)}</strong>;
-      if (part.startsWith('`') && part.endsWith('`'))
-        return <code key={i} className="ai-chat__inline-code">{part.slice(1, -1)}</code>;
-      return part;
-    });
-  };
-
-  const renderMarkdown = (text) => {
-    if (!text) return null;
-    const parts = text.split(/(```[\s\S]*?```)/g);
-    return parts.map((part, index) => {
-      if (part.startsWith('```')) {
-        const lines = part.split('\n');
-        const lang = lines[0].replace('```', '').trim();
-        const code = lines.slice(1, -1).join('\n');
-        return (
-          <div key={index} className="ai-chat__code-block">
-            <div className="ai-chat__code-block-header">
-              <span className="ai-chat__code-block-lang">{lang || 'code'}</span>
-              <button className={`ai-chat__code-block-copy ${copiedCodeIdx === index ? 'ai-chat__code-block-copy--copied' : ''}`} onClick={() => copyToClipboard(code, index)}>
-                {copiedCodeIdx === index ? <><Check size={10} /> Copied</> : <><Copy size={10} /> Copy</>}
-              </button>
-            </div>
-            <pre><code>{code}</code></pre>
-          </div>
-        );
-      }
-      const lines = part.split('\n');
-      return lines.map((line, lIdx) => {
-        if (line.trim().startsWith('- ') || line.trim().startsWith('* '))
-          return <li key={lIdx} style={{ fontSize: '13px', color: 'var(--text-main)', marginBottom: '4px', marginLeft: '16px', lineHeight: '1.6' }}>{formatInline(line.trim().substring(2))}</li>;
-        if (line.startsWith('# '))  return <h1 key={lIdx} style={{ fontSize: '18px', fontWeight: '700', margin: '16px 0 8px', color: '#fff' }}>{line.substring(2)}</h1>;
-        if (line.startsWith('## ')) return <h2 key={lIdx} style={{ fontSize: '15px', fontWeight: '600', margin: '14px 0 6px', color: '#fff' }}>{line.substring(3)}</h2>;
-        if (line.startsWith('### ')) return <h3 key={lIdx} style={{ fontSize: '13px', fontWeight: '600', margin: '12px 0 4px', color: '#fff' }}>{line.substring(4)}</h3>;
-        return <p key={lIdx} style={{ fontSize: '13px', color: 'var(--text-main)', margin: '0 0 8px', lineHeight: '1.6', minHeight: line.trim() ? 'auto' : '8px' }}>{formatInline(line)}</p>;
-      });
-    });
-  };
+  // Old inline markdown formatter removed - using new robust parser
 
   // ─── Run status color ───────────────────────────────────────────────────────
   const getStatusDotClass = (assistant) => {
@@ -371,8 +323,8 @@ export default function AIChat({ projectId }) {
       <div className="ai-chat__header">
         <div className="ai-chat__header-left">
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <TakshaIcon size={18} />
-            <span style={{ fontWeight: 700, fontSize: '13px', color: '#fff' }}>Orion Coding Agent</span>
+            <Cpu size={12} color="var(--primary)" />
+            <span className="ai-chat__header-title">Orion Coding Agent</span>
           </div>
 
           {/* Model selector */}
@@ -416,6 +368,12 @@ export default function AIChat({ projectId }) {
           <button className="ai-chat__clear-btn" onClick={handleClearHistory} title="Clear chat history">
             <Trash2 size={13} />
           </button>
+
+          {onCloseChat && (
+            <button className="ai-chat__close-btn" onClick={onCloseChat} title="Collapse Orion Coding Agent">
+              <X size={13} />
+            </button>
+          )}
         </div>
       </div>
 
@@ -492,12 +450,11 @@ export default function AIChat({ projectId }) {
               ))}
             </div>
           </div>
-
         ) : (
           /* Task Run Cards */
           runs.map((run) => {
             const isWelcome = run.goal === null;
-            const isExpanded = expandedRuns[run.id];
+            const isExpanded = expandedRuns[run.id] !== undefined ? expandedRuns[run.id] : (run.id === runs[runs.length - 1]?.id);
             const assistant = run.assistant;
             const phases = assistant ? getWorkflowPhases(assistant) : [];
             const modifiedFiles = assistant ? getModifiedFiles(assistant.toolLogs) : [];
@@ -618,19 +575,44 @@ export default function AIChat({ projectId }) {
                         <span className="ai-chat__report-header">Agent Report</span>
 
                         {assistant.text ? (
-                          renderMarkdown(assistant.text)
-                        ) : (
-                          assistant.status === 'running' && !assistant.error && (
-                            <div className="ai-chat__report-thinking">
-                              <div className="ai-chat__report-thinking-dots">
-                                <div className="ai-chat__report-thinking-dot" />
-                                <div className="ai-chat__report-thinking-dot" />
-                                <div className="ai-chat__report-thinking-dot" />
+                          parseMarkdownToReact(assistant.text, { copiedCodeIdx, copyToClipboard })
+                        ) : (() => {
+                          // Show the animated thinking dots ONLY when the socket stream
+                          // is genuinely active (isStreaming=true) AND this is the most
+                          // recent assistant message. If isStreaming=false but status is
+                          // still 'running' (page refreshed mid-stream, socket dropped),
+                          // show a neutral fallback instead of a frozen animation.
+                          const isThisLatest =
+                            messages[messages.length - 1]?.id === assistant.id ||
+                            messages[messages.length - 2]?.id === assistant.id;
+                          const isGenuinelyRunning =
+                            assistant.status === 'running' &&
+                            !assistant.error &&
+                            isStreaming &&
+                            isThisLatest;
+
+                          if (isGenuinelyRunning) {
+                            return (
+                              <div className="ai-chat__report-thinking">
+                                <div className="ai-chat__report-thinking-dots">
+                                  <div className="ai-chat__report-thinking-dot" />
+                                  <div className="ai-chat__report-thinking-dot" />
+                                  <div className="ai-chat__report-thinking-dot" />
+                                </div>
+                                <span>Thinking &amp; applying modifications…</span>
                               </div>
-                              <span>Thinking & applying modifications…</span>
-                            </div>
-                          )
-                        )}
+                            );
+                          }
+                          if (assistant.status === 'running' && !isStreaming) {
+                            return (
+                              <p style={{ fontSize: '13px', color: 'var(--text-muted)', fontStyle: 'italic', margin: 0 }}>
+                                Task completed.
+                              </p>
+                            );
+                          }
+                          return null;
+                        })()}
+
 
                         {assistant.error && (
                           <div className="ai-chat__error-block">Error: {assistant.error}</div>
@@ -655,8 +637,9 @@ export default function AIChat({ projectId }) {
       {/* ─── Input Footer ────────────────────────────────────────────────────── */}
       <div className="ai-chat__footer">
         {status !== 'running' ? (
-          <div className="ai-chat__offline-notice">
-            <strong>Sandbox offline.</strong> Launch the environment to interact with Orion.
+          <div className="ai-chat__offline-notice animate-fade-in">
+            <AlertCircle size={14} style={{ flexShrink: 0 }} />
+            <span><strong>Sandbox offline.</strong> Launch the environment to interact with Orion.</span>
           </div>
         ) : (
           <div className="ai-chat__form">

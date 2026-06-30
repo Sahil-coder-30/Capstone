@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
 import { v7 as uuid } from "uuid";
 import { createSandboxKey, deleteSandboxKey } from "../config/redis.js";
-import { createPod, deletePod } from "../kubernetes/pod.js";
+import { createPod, deletePod, getPodStatus } from "../kubernetes/pod.js";
 import { createService, deleteService } from "../kubernetes/service.js";
 import Project from "../models/Project.model.js";
 
@@ -95,24 +95,64 @@ export const listAllProjectsController = async (req, res, next) => {
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 2B. GET PROJECT STATUS
-//     Returns status and preview information for a single project.
+// 2B. GET PROJECT STATUS  (with live K8s reconciliation)
+//     Queries the actual pod phase from K8s and reconciles the DB status.
+//     This ensures the frontend always sees the real state — even if the pod
+//     was started/stopped externally or crashed without going through the API.
 // ─────────────────────────────────────────────────────────────────────────────
 export const getProjectStatusController = async (req, res, next) => {
     try {
         const project = await getAuthorizedProject(req, res, req.params.projectId);
         if (!project) return;
 
+        const { sandboxId } = project;
+
+        // ── Real-time K8s reconciliation ─────────────────────────────────────
+        // Map actual K8s pod phase → canonical DB status:
+        //   Running  → "live"
+        //   Pending  → "building"
+        //   no pod / Failed / Succeeded / Unknown → "down"
+        //   ("not_started" is preserved when the project was never launched)
+        let reconciledStatus = project.status;
+
+        try {
+            const podPhase = await getPodStatus(sandboxId);
+
+            if (podPhase === "Running") {
+                reconciledStatus = "live";
+            } else if (podPhase === "Pending") {
+                reconciledStatus = "building";
+            } else if (podPhase === null) {
+                // Pod does not exist in K8s
+                reconciledStatus =
+                    project.status === "not_started" ? "not_started" : "down";
+            } else {
+                // Failed | Succeeded | Unknown
+                reconciledStatus = "down";
+            }
+        } catch (k8sErr) {
+            // K8s query failed — fall back to DB status rather than erroring out
+            console.warn(`[reconcile] K8s query failed for ${sandboxId}:`, k8sErr?.message);
+        }
+
+        // Persist reconciled status if it changed
+        if (reconciledStatus !== project.status) {
+            console.log(`[reconcile] ${sandboxId}: DB said "${project.status}" → K8s says "${reconciledStatus}" — updating DB`);
+            await Project.findByIdAndUpdate(project._id, { status: reconciledStatus });
+        }
+
         res.status(200).json({
             status: "success",
             project: {
                 _id: project._id,
                 title: project.title,
-                status: project.status,
+                status: reconciledStatus,
                 sandboxId: project.sandboxId,
-                previewUrl: project.status === "live" ? `http://${project.sandboxId}.preview.localhost` : "",
-                createdAt: project.createdAt
-            }
+                previewUrl: reconciledStatus === "live"
+                    ? `http://${sandboxId}.preview.localhost`
+                    : "",
+                createdAt: project.createdAt,
+            },
         });
     } catch (err) {
         next(err);
@@ -130,28 +170,32 @@ export const startSandboxController = async (req, res, next) => {
         const project = await getAuthorizedProject(req, res, req.params.projectId);
         if (!project) return;
 
-        if (project.status === "live") {
-            return res.status(400).json({ status: "error", message: "Sandbox is already running" });
-        }
-
-        if (project.status === "building") {
-            return res.status(400).json({ status: "error", message: "Sandbox is currently building, please wait" });
-        }
-
-        // Mark as building immediately so duplicate requests are rejected
-        await Project.findByIdAndUpdate(project._id, { status: "building" });
-
         const { sandboxId } = project;
+
+        // If the project appears to already be live or building, perform a force-restart.
+        // This handles the case where the K8s pod crashed or was deleted externally but
+        // the DB status was never reset (which previously caused an infinite 400 loop).
+        // We clean up stale resources first (errors are intentionally swallowed via allSettled).
+        if (project.status === "live" || project.status === "building") {
+            await Promise.allSettled([
+                deletePod(sandboxId),
+                deleteService(sandboxId),
+                deleteSandboxKey(sandboxId),
+            ]);
+        }
+
+        // Mark as building immediately so concurrent duplicate requests are rejected
+        await Project.findByIdAndUpdate(project._id, { status: "building" });
 
         try {
             await Promise.all([
                 createPod(sandboxId),
                 createService(sandboxId),
-                createSandboxKey(sandboxId)
+                createSandboxKey(sandboxId),
             ]);
         } catch (resourceError) {
-            // Roll back to previous status on K8s / Redis failure
-            await Project.findByIdAndUpdate(project._id, { status: project.status });
+            // Roll back to a restartable status on K8s / Redis failure
+            await Project.findByIdAndUpdate(project._id, { status: "down" });
             throw resourceError;
         }
 
@@ -160,7 +204,8 @@ export const startSandboxController = async (req, res, next) => {
         res.status(200).json({
             status: "success",
             message: `Sandbox ${sandboxId} started successfully`,
-            previewUrl: `http://${sandboxId}.preview.localhost`
+            previewUrl: `http://${sandboxId}.preview.localhost`,
+            sandboxId,
         });
     } catch (err) {
         next(err);

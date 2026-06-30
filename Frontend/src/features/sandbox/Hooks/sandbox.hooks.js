@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { startSandboxAPI, stopSandboxAPI, deleteProjectAPI, pingPreviewURL, getProjectStatusAPI } from '../service/sandbox.api';
 import {
@@ -44,15 +44,22 @@ export const useSandbox = () => {
     error,
   } = useSelector((state) => state.sandbox);
 
+  // Tracks ongoing waitForPreview loops so we can abort them on project switch
+  const warmingAbortRef = useRef(false);
+
   /**
-   * Poll previewUrl every POLL_INTERVAL_MS until the container responds
-   * with a non-error HTTP status, or until WARM_TIMEOUT_MS is exceeded.
+   * Poll previewUrl every POLL_INTERVAL_MS until the container responds,
+   * or until WARM_TIMEOUT_MS is exceeded, or until aborted.
+   * Returns true if preview came up, false otherwise.
    */
-  const waitForPreview = useCallback(async (url) => {
+  const waitForPreview = useCallback(async (url, abortRef) => {
     const deadline = Date.now() + WARM_TIMEOUT_MS;
     let attempt = 0;
 
     while (Date.now() < deadline) {
+      // Abort if project switched mid-wait
+      if (abortRef?.current) return false;
+
       dispatch(setWarmingProgress({
         attempt,
         message: getWarmingMessage(attempt),
@@ -78,7 +85,9 @@ export const useSandbox = () => {
 
   /**
    * Start the sandbox for a given project.
-   * Uses the sandboxId already allocated when the project was created.
+   * On success, kicks off the preview warmup polling loop.
+   * This should be called explicitly (user action or loadSandboxStatus decision).
+   * NEVER call this in response to a status change — use loadSandboxStatus instead.
    */
   const startSandbox = useCallback(async (projectId) => {
     try {
@@ -86,7 +95,6 @@ export const useSandbox = () => {
 
       const data = await startSandboxAPI(projectId);
 
-      // Extract the sandboxId from previewUrl (backend does not return it directly)
       const extractedId =
         data.sandboxId ||
         data.previewUrl?.match(/^https?:\/\/([^.]+)\./)?.[1] ||
@@ -104,8 +112,9 @@ export const useSandbox = () => {
       }));
 
       if (data.previewUrl) {
+        warmingAbortRef.current = false;
         dispatch(setWarmingProgress({ attempt: 0, message: WARMING_STEPS[0].message }));
-        await waitForPreview(data.previewUrl);
+        await waitForPreview(data.previewUrl, warmingAbortRef);
       } else {
         dispatch(setStatus('running'));
       }
@@ -119,13 +128,94 @@ export const useSandbox = () => {
   }, [dispatch, waitForPreview]);
 
   /**
+   * Load the REAL sandbox status for a project by querying the backend.
+   * The backend reconciles with K8s before responding, so the status returned
+   * is always the ground truth — not a stale DB value.
+   *
+   * This function is SILENT — it does NOT flash the UI with 'starting' before
+   * the fetch completes. This prevents disrupting a sandbox that is already
+   * running (e.g. after the Dashboard playground flow just started it).
+   *
+   * Status flow after this call:
+   *   "live"        → set Redux to 'running' immediately (pod is confirmed up by backend)
+   *   "building"    → attach to the warmup polling loop
+   *   "down" / "not_started" → set Redux to 'idle' (caller decides whether to start)
+   *   error / null  → set Redux to 'idle' (safe default)
+   *
+   * Returns the reconciled status string so callers can decide what to do next.
+   */
+  const loadSandboxStatus = useCallback(async (projectId) => {
+    // Abort any in-progress warmup loop from a previous project
+    warmingAbortRef.current = true;
+
+    if (!projectId) {
+      dispatch(initializeSandboxForProject(null));
+      return 'idle';
+    }
+
+    try {
+      // NOTE: No dispatch(setStatus('starting')) here.
+      // Flashing 'starting' upfront would disrupt a sandbox already running
+      // (e.g. just started by the Dashboard playground flow), causing AIChat
+      // to show "Sandbox offline." and breaking the initialPrompt timing.
+      const data = await getProjectStatusAPI(projectId);
+
+      if (data.status !== 'success' || !data.project) {
+        dispatch(initializeSandboxForProject(projectId));
+        return 'idle';
+      }
+
+      const { status: realStatus, sandboxId: sId, previewUrl: pUrl } = data.project;
+
+      if (realStatus === 'live') {
+        // Backend confirmed the pod is Running — show immediately as running
+        dispatch(setSandboxDetails({
+          projectId,
+          sandboxId: sId,
+          previewUrl: pUrl || `http://${sId}.preview.localhost`,
+          agentUrl: '',
+        }));
+        return 'live';
+      }
+
+      if (realStatus === 'building') {
+        // Pod is Pending in K8s — attach to warmup loop
+        const previewUrl = pUrl || `http://${sId}.preview.localhost`;
+        dispatch(setSandboxDetails({
+          projectId,
+          sandboxId: sId,
+          previewUrl,
+          agentUrl: '',
+        }));
+        warmingAbortRef.current = false;
+        dispatch(setWarmingProgress({ attempt: 0, message: 'Attaching to active sandbox boot…' }));
+        const isUp = await waitForPreview(previewUrl, warmingAbortRef);
+        if (!isUp && !warmingAbortRef.current) {
+          // Warmup timed out and we weren't aborted — reset to idle
+          dispatch(initializeSandboxForProject(projectId));
+        }
+        return isUp ? 'live' : 'idle';
+      }
+
+      // "down", "not_started", or any unexpected value → idle
+      dispatch(initializeSandboxForProject(projectId));
+      return 'idle';
+
+    } catch (err) {
+      // Network error or backend crash — don't leave the UI broken
+      dispatch(initializeSandboxForProject(projectId));
+      return 'idle';
+    }
+  }, [dispatch, waitForPreview]);
+
+  /**
    * Stop the sandbox (soft-stop).
    * Tears down K8s Pod + Service + Redis key.
    * The project record is KEPT — sandbox can be restarted later.
-   * projectId is required; sandboxId is cleared from Redux state.
    */
   const terminateSandbox = useCallback(async (projectId) => {
     try {
+      warmingAbortRef.current = true; // abort any in-progress warmup
       await stopSandboxAPI(projectId);
       dispatch(clearSandbox(projectId));
     } catch (err) {
@@ -137,10 +227,10 @@ export const useSandbox = () => {
 
   /**
    * Permanently delete a project and all its resources.
-   * Also clears Redux sandbox state.
    */
   const deleteProject = useCallback(async (projectId) => {
     try {
+      warmingAbortRef.current = true; // abort any in-progress warmup
       await deleteProjectAPI(projectId);
       dispatch(clearSandbox(projectId));
     } catch (err) {
@@ -149,43 +239,6 @@ export const useSandbox = () => {
       throw err;
     }
   }, [dispatch]);
-
-  const loadSandboxStatus = useCallback(async (projectId) => {
-    if (!projectId) {
-      dispatch(initializeSandboxForProject(null));
-      return;
-    }
-    try {
-      dispatch(setStatus('starting'));
-      const data = await getProjectStatusAPI(projectId);
-      if (data.status === 'success' && data.project) {
-        const { status: projStatus, sandboxId: sId } = data.project;
-        if (projStatus === 'live') {
-          dispatch(setSandboxDetails({
-            projectId,
-            sandboxId: sId,
-            previewUrl: `http://${sId}.preview.localhost`,
-            agentUrl: '',
-          }));
-          return;
-        } else if (projStatus === 'building') {
-          const previewUrl = `http://${sId}.preview.localhost`;
-          dispatch(setSandboxDetails({
-            projectId,
-            sandboxId: sId,
-            previewUrl,
-            agentUrl: '',
-          }));
-          dispatch(setWarmingProgress({ attempt: 0, message: 'Attaching to active sandbox boot…' }));
-          await waitForPreview(previewUrl);
-          return;
-        }
-      }
-      dispatch(initializeSandboxForProject(projectId));
-    } catch (err) {
-      dispatch(initializeSandboxForProject(projectId));
-    }
-  }, [dispatch, waitForPreview]);
 
   return {
     sandboxId,

@@ -304,7 +304,7 @@ export default function AIChat({ projectId }) {
     const parts = line.split(/(\*\*.*?\*\*|`.*?`)/g);
     return parts.map((part, i) => {
       if (part.startsWith('**') && part.endsWith('**'))
-        return <strong key={i} style={{ color: '#fff', fontWeight: '700' }}>{part.slice(2, -2)}</strong>;
+        return <strong key={i} style={{ color: 'var(--text-primary)', fontWeight: '700' }}>{part.slice(2, -2)}</strong>;
       if (part.startsWith('`') && part.endsWith('`'))
         return <code key={i} className="ai-chat__inline-code">{part.slice(1, -1)}</code>;
       return part;
@@ -335,9 +335,9 @@ export default function AIChat({ projectId }) {
       return lines.map((line, lIdx) => {
         if (line.trim().startsWith('- ') || line.trim().startsWith('* '))
           return <li key={lIdx} style={{ fontSize: '13px', color: 'var(--text-main)', marginBottom: '4px', marginLeft: '16px', lineHeight: '1.6' }}>{formatInline(line.trim().substring(2))}</li>;
-        if (line.startsWith('# '))  return <h1 key={lIdx} style={{ fontSize: '18px', fontWeight: '700', margin: '16px 0 8px', color: '#fff' }}>{line.substring(2)}</h1>;
-        if (line.startsWith('## ')) return <h2 key={lIdx} style={{ fontSize: '15px', fontWeight: '600', margin: '14px 0 6px', color: '#fff' }}>{line.substring(3)}</h2>;
-        if (line.startsWith('### ')) return <h3 key={lIdx} style={{ fontSize: '13px', fontWeight: '600', margin: '12px 0 4px', color: '#fff' }}>{line.substring(4)}</h3>;
+        if (line.startsWith('# '))  return <h1 key={lIdx} style={{ fontSize: '18px', fontWeight: '700', margin: '16px 0 8px', color: 'var(--text-primary)' }}>{line.substring(2)}</h1>;
+        if (line.startsWith('## ')) return <h2 key={lIdx} style={{ fontSize: '15px', fontWeight: '600', margin: '14px 0 6px', color: 'var(--text-primary)' }}>{line.substring(3)}</h2>;
+        if (line.startsWith('### ')) return <h3 key={lIdx} style={{ fontSize: '13px', fontWeight: '600', margin: '12px 0 4px', color: 'var(--text-primary)' }}>{line.substring(4)}</h3>;
         return <p key={lIdx} style={{ fontSize: '13px', color: 'var(--text-main)', margin: '0 0 8px', lineHeight: '1.6', minHeight: line.trim() ? 'auto' : '8px' }}>{formatInline(line)}</p>;
       });
     });
@@ -390,13 +390,13 @@ export default function AIChat({ projectId }) {
               style={{
                 fontSize: '12.5px',
                 fontWeight: '700',
-                color: '#fff',
+                color: 'var(--text-primary)',
                 display: 'flex',
                 alignItems: 'center',
                 gap: '6px',
                 padding: '4px 8px',
                 borderRadius: '6px',
-                background: 'rgba(255,255,255,0.02)',
+                background: 'var(--bg-active)',
                 border: '1px solid var(--border)',
                 cursor: 'pointer',
               }}
@@ -416,9 +416,9 @@ export default function AIChat({ projectId }) {
                   left: 0,
                   width: '190px',
                   zIndex: 200,
-                  backgroundColor: '#161922',
+                  backgroundColor: 'var(--bg-overlay)',
                   border: '1px solid var(--border)',
-                  boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
+                  boxShadow: '0 8px 24px rgba(0,0,0,0.15)',
                   padding: '4px',
                 }}
               >
@@ -429,7 +429,7 @@ export default function AIChat({ projectId }) {
               >
                 <Sparkles size={11} color="#60a5fa" />
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', flex: 1, textAlign: 'left' }}>
-                  <span style={{ fontWeight: 600, fontSize: '11px', color: '#fff' }}>Clio (Assistant)</span>
+                  <span style={{ fontWeight: 600, fontSize: '11px', color: 'var(--text-primary)' }}>Clio (Assistant)</span>
                     <span style={{ fontSize: '9px', color: 'var(--text-dark)' }}>Copilot helper for files & info</span>
                   </div>
                 </div>
@@ -440,7 +440,7 @@ export default function AIChat({ projectId }) {
                 >
                   <Cpu size={11} color="#34d399" />
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', flex: 1, textAlign: 'left' }}>
-                    <span style={{ fontWeight: 600, fontSize: '11px', color: '#fff' }}>Orion (Coding Agent)</span>
+                    <span style={{ fontWeight: 600, fontSize: '11px', color: 'var(--text-primary)' }}>Orion (Coding Agent)</span>
                     <span style={{ fontSize: '9px', color: 'var(--text-dark)' }}>5-agent code-gen pipeline</span>
                   </div>
                 </div>

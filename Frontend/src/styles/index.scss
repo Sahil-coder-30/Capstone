@@ -55,9 +55,9 @@
 
   /* Typography Colors (High legibility & Contrast Redesign) */
   --text-primary: #FFFFFF;
-  --text-secondary: #E2E8F0; /* clean readable text (slate-200) */
-  --text-muted: #CBD5E1;     /* secondary text / titles (slate-300) */
-  --text-dark: #8E9BAE;      /* subtle details / hints (slate-350) */
+  --text-secondary: #F8FAFC; /* clean readable text (slate-50) */
+  --text-muted: #E2E8F0;     /* secondary text / titles (slate-200) */
+  --text-dark: #94A3B8;      /* subtle details / hints (slate-400) */
 
   /* Legacy mappings */
   --text-main: var(--text-primary);
@@ -70,6 +70,33 @@
 
   /* RGB version of primary text for custom opacities */
   --color-rgb-text: 255, 255, 255;
+}
+
+:root.light-theme {
+  --bg-canvas: #f1f3f5;       /* Softer, eye-friendly light gray canvas */
+  --bg-surface: #fafafa;      /* Warm premium off-white surface */
+  --bg-overlay: #eef0f3;      /* Softer overlay background */
+  --bg-element: #e4e7eb;      /* Softer element backgrounds */
+  --bg-active: rgba(0, 0, 0, 0.08);
+
+  --border: #e2e8f0;
+  --border-strong: #cbd5e1;
+  --border-glow: rgba(59, 130, 246, 0.05);
+
+  --text-primary: #1e293b;    /* High contrast, eye-friendly slate-800 instead of black */
+  --text-secondary: #475569;  /* slate-600 */
+  --text-muted: #64748b;      /* slate-500 */
+  --text-dark: #8a99ad;       /* slate-400 */
+
+  --brand-subtle: rgba(16, 185, 129, 0.06);
+
+  /* Light-mode status backgrounds (soft, readable tints) */
+  --warning-bg: #fef3c7;      /* soft amber alert */
+  --error-bg: #fee2e2;        /* soft red error */
+  --info-bg: #dbeafe;         /* soft blue info */
+
+  /* Text color in RGB for dynamic opacity overlays */
+  --color-rgb-text: 30, 41, 59;
 }
 
 // Imports
@@ -139,11 +166,11 @@ input, select, textarea {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(var(--color-rgb-text), 0.12);
   border-radius: 4px;
   
   &:hover {
-    background: rgba(255, 255, 255, 0.16);
+    background: rgba(var(--color-rgb-text), 0.22);
   }
 }
 
@@ -272,7 +299,7 @@ input, select, textarea {
 
 .modal-card {
   background: $color-bg-panel;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--border);
   border-radius: 14px;
   padding: 24px;
   width: 400px;

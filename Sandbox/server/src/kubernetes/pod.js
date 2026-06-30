@@ -79,12 +79,24 @@ export async function createPod(sandboxId) {
     },
   };
 
-  const response = await k8sCoreV1Api.createNamespacedPod({
-    namespace: "default",
-    body: podManifest,
-  });
-
-  return response;
+  try {
+    const response = await k8sCoreV1Api.createNamespacedPod({
+      namespace: "default",
+      body: podManifest,
+    });
+    return response;
+  } catch (err) {
+    // @kubernetes/client-node v1.x surfaces the HTTP status in err.body.code
+    // (the K8s Status object) and also as "HTTP-Code: N" in err.message.
+    const httpCode =
+      err?.body?.code ??
+      Number(String(err?.message ?? '').match(/HTTP-Code:\s*(\d+)/)?.[1]);
+    if (httpCode === 409) {
+      console.warn(`Pod sandbox-pod-${sandboxId} already exists — skipping create.`);
+      return null;
+    }
+    throw err;
+  }
 }
 
 export async function deletePod(sandboxId) {
@@ -95,4 +107,25 @@ export async function deletePod(sandboxId) {
     gracePeriodSeconds: 0,
   });
   return response;
+}
+
+/**
+ * Query K8s for the real phase of a sandbox pod.
+ * Returns the pod phase string: "Pending" | "Running" | "Succeeded" | "Failed" | "Unknown"
+ * Returns null if the pod does not exist (404).
+ */
+export async function getPodStatus(sandboxId) {
+  try {
+    const pod = await k8sCoreV1Api.readNamespacedPod({
+      namespace: "default",
+      name: `sandbox-pod-${sandboxId}`,
+    });
+    return pod?.status?.phase ?? "Unknown";
+  } catch (err) {
+    const httpCode =
+      err?.body?.code ??
+      Number(String(err?.message ?? '').match(/HTTP-Code:\s*(\d+)/)?.[1]);
+    if (httpCode === 404) return null; // pod doesn't exist
+    throw err;
+  }
 }

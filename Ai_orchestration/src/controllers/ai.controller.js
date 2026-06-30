@@ -1,7 +1,8 @@
 import { appAgent, appModel } from "../agent/code.agent.js";
-import ChatMessage from "../models/ChatMessage.model.js";
+import CopilotChatMessage from "../models/CopilotChatMessage.model.js";
 import fs from "fs";
 import path from "path";
+import axios from "axios";
 
 // POST /app-agent/invoke
 export const appAgentInvoke = async (req, res) => {
@@ -19,6 +20,33 @@ export const appAgentInvoke = async (req, res) => {
 
   if (!prompt) {
     res.write(`event: error\ndata: ${JSON.stringify({ message: "message or userPrompt is required" })}\n\n`);
+    return res.end();
+  }
+
+  // Credit check
+  const AUTH_SERVICE_URL = process.env.AUTH_SERVICE_URL || 'http://auth-service';
+  let hasCredit = true;
+  try {
+    const token = req.cookies?.token || req.headers.authorization?.split(" ")[1];
+    const headers = {};
+    if (req.cookies?.token) {
+      headers['Cookie'] = `token=${req.cookies.token}`;
+    }
+    if (req.headers.authorization) {
+      headers['Authorization'] = req.headers.authorization;
+    }
+
+    const checkRes = await axios.get(`${AUTH_SERVICE_URL}/api/auth/credit/check`, {
+      headers,
+      timeout: 5000
+    });
+    hasCredit = checkRes.data.hasCredit;
+  } catch (err) {
+    console.error("Failed to check credits in appAgentInvoke:", err.message);
+  }
+
+  if (!hasCredit) {
+    res.write(`event: error\ndata: ${JSON.stringify({ message: "Insufficient credits. Your balance is 0. Please upgrade to Developer Pro to continue." })}\n\n`);
     return res.end();
   }
 
@@ -52,7 +80,7 @@ export const appAgentInvoke = async (req, res) => {
     }
 
     let truncatedFileContent = fileContent;
-    const MAX_FILE_CHARS = 10000;
+    const MAX_FILE_CHARS = 3000;
     if (fileContent && fileContent.length > MAX_FILE_CHARS) {
       truncatedFileContent = fileContent.substring(0, MAX_FILE_CHARS) + "\n\n... [Active File Content Truncated to Save Token Costs] ...";
     }
@@ -68,19 +96,21 @@ ${truncatedFileContent || "(empty or new file)"}`;
 [USER PROMPT]
 ${prompt}`;
 
+    const fileClean = activeFile && activeFile !== "none" ? activeFile.replace(/^\/+/, "") : "";
+    const chatSessionKey = fileClean ? `${projId}:${fileClean}` : projId;
+
     // 1. Save user message to database
-    await ChatMessage.create({
-      projectId: projId,
+    await CopilotChatMessage.create({
+      projectId: chatSessionKey,
       userId,
-      agentType: "copilot",
       role: "user",
       content: prompt,
+      file: activeFile || "",
     });
 
-    // 2. Retrieve last 5 messages for copilot (filtering by projectId and userId)
-    const history = await ChatMessage.find({
-      projectId: projId,
-      agentType: "copilot",
+    // 2. Retrieve last 5 messages for copilot (filtering by chatSessionKey and userId)
+    const history = await CopilotChatMessage.find({
+      projectId: chatSessionKey,
       $or: [{ userId }, { userId: { $exists: false } }],
     })
       .sort({ timestamp: -1 })
@@ -154,12 +184,12 @@ ${prompt}`;
 
     const finalResponse = finalChunks.join("");
     if (finalResponse) {
-      await ChatMessage.create({
-        projectId: projId,
+      await CopilotChatMessage.create({
+        projectId: chatSessionKey,
         userId,
-        agentType: "copilot",
         role: "assistant",
         content: finalResponse,
+        file: activeFile || "",
         tokenUsage: {
           promptTokens,
           completionTokens,
@@ -170,18 +200,32 @@ ${prompt}`;
       res.write(`event: final\ndata: ${finalResponse}\n\n`);
     }
 
+    // Deduct credits and update token counts on the auth service
+    const totalTokensUsed = totalTokens || (promptTokens + completionTokens);
+    if (totalTokensUsed > 0 && userId) {
+      try {
+        await axios.post(`${AUTH_SERVICE_URL}/api/auth/credit/update`, {
+          userId,
+          promptTokens,
+          completionTokens
+        }, { timeout: 5000 });
+      } catch (err) {
+        console.error("Failed to update credit usage on auth-service:", err.message);
+      }
+    }
+
     res.write(`event: done\ndata: [DONE]\n\n`);
     cleanup();
     res.end();
   } catch (error) {
     console.error("appAgent invocation error:", error);
     try {
-      await ChatMessage.create({
-        projectId: projId,
+      await CopilotChatMessage.create({
+        projectId: chatSessionKey,
         userId,
-        agentType: "copilot",
         role: "assistant",
         content: `Error occurred during execution: ${error.message || "Error running app agent"}`,
+        file: activeFile || "",
         tokenUsage: {
           promptTokens: 0,
           completionTokens: 0,

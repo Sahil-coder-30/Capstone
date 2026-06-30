@@ -16,37 +16,112 @@
     pointer-events: none;
     overflow: hidden;
     z-index: 0;
+    background: radial-gradient(circle at 50% 50%, rgba(14, 16, 23, 0.4) 0%, $color-bg 100%);
 
-    &--top-right {
+    &--orb {
       position: absolute;
-      top: 10%;
-      right: 5%;
-      width: 600px;
-      height: 600px;
-      background: radial-gradient(circle, rgba(255, 255, 255, 0.01) 0%, transparent 70%);
       border-radius: 50%;
-      filter: blur(40px);
+      filter: blur(140px);
+      opacity: 0.75;
+      mix-blend-mode: screen;
+      will-change: transform, border-radius;
+      pointer-events: none;
     }
 
-    &--bottom-left {
-      position: absolute;
-      bottom: 15%;
-      left: 15%;
-      width: 500px;
-      height: 500px;
-      background: radial-gradient(circle, rgba(16, 185, 129, 0.01) 0%, transparent 70%);
-      border-radius: 50%;
-      filter: blur(40px);
+    &--orb-1 {
+      top: -10%;
+      left: -10%;
+      width: 700px;
+      height: 700px;
+      background: radial-gradient(circle, rgba(16, 185, 129, 0.09) 0%, transparent 70%);
+      animation: orbMorph1 35s infinite ease-in-out;
+    }
+
+    &--orb-2 {
+      bottom: -15%;
+      right: -10%;
+      width: 800px;
+      height: 800px;
+      background: radial-gradient(circle, rgba(59, 130, 246, 0.09) 0%, transparent 70%);
+      animation: orbMorph2 40s infinite ease-in-out;
+    }
+
+    &--orb-3 {
+      top: 30%;
+      right: 15%;
+      width: 600px;
+      height: 600px;
+      background: radial-gradient(circle, rgba(167, 139, 250, 0.07) 0%, transparent 70%);
+      animation: orbMorph3 45s infinite ease-in-out;
     }
 
     &--grid {
       position: absolute;
       inset: 0;
-      background-image: 
-        linear-gradient(rgba(255,255,255,0.01) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(255,255,255,0.01) 1px, transparent 1px);
-      background-size: 40px 40px;
-      opacity: 0.6;
+      background-image: radial-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+      background-size: 32px 32px;
+      -webkit-mask-image: radial-gradient(circle at 50% 50%, black 30%, transparent 80%);
+      mask-image: radial-gradient(circle at 50% 50%, black 30%, transparent 80%);
+      opacity: 0.85;
+      z-index: 1;
+    }
+
+    &--noise {
+      position: absolute;
+      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+      opacity: 0.012;
+      mix-blend-mode: overlay;
+      z-index: 2;
+    }
+  }
+
+  // ── Dashboard-wide cosmic star field ────────────────────────────────────────
+  // Lives inside .dashboard__ambient-glow so it is position:absolute / full viewport.
+  // Stars are intentionally VERY subtle — just a hint of life in the background.
+  .dashboard-stars {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  .dashboard-star {
+    position: absolute;
+    border-radius: 50%;
+    background: #fff;
+    will-change: opacity, box-shadow;
+    box-shadow:
+      0 0 1px 0.5px rgba(255, 255, 255, 0.6),
+      0 0 3px 1px rgba(255, 255, 255, 0.15);
+    animation-name: cosmicTwinkle;
+    animation-timing-function: ease-in-out;
+    animation-iteration-count: infinite;
+    animation-direction: alternate;
+  }
+
+  @keyframes cosmicTwinkle {
+    0% {
+      opacity: 0.01;
+      box-shadow:
+        0 0 1px 0.5px rgba(255, 255, 255, 0.05),
+        0 0 2px 1px rgba(255, 255, 255, 0.02);
+    }
+    60% {
+      opacity: 0.05;
+    }
+    80% {
+      opacity: 0.08;
+      box-shadow:
+        0 0 1px 1px rgba(255, 255, 255, 0.35),
+        0 0 3px 1px rgba(255, 255, 255, 0.10),
+        0 0 5px 1px rgba(16, 185, 129, 0.05);
+    }
+    100% {
+      opacity: 0.01;
+      box-shadow:
+        0 0 1px 0.5px rgba(255, 255, 255, 0.05),
+        0 0 2px 1px rgba(255, 255, 255, 0.02);
     }
   }
 
@@ -62,10 +137,19 @@
     flex-shrink: 0;
     z-index: 20;
     position: relative;
+    transition: width 0.3s cubic-bezier(0.16, 1, 0.3, 1), padding 0.3s;
+    will-change: width;
+
+    &.is-resizing {
+      transition: none !important;
+    }
 
     &-header {
       padding: 0 $space-4 $space-5;
       border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+      display: flex;
+      align-items: center;
+      transition: padding 0.3s;
     }
 
     &-brand {
@@ -85,15 +169,15 @@
     }
 
     &-title {
-      font-size: 12.5px;
+      font-size: 16px;
       font-weight: 800;
-      color: #fff;
+      color: var(--text-primary);
       letter-spacing: -0.02em;
       line-height: 1.2;
     }
 
     &-subtitle {
-      font-size: 10px;
+      font-size: 11px;
       color: $color-text-dark;
       font-family: $font-mono;
     }
@@ -102,10 +186,11 @@
       padding: $space-4 $space-2;
       @include flex-column;
       gap: 4px;
+      transition: padding 0.3s;
     }
 
     &-nav-title {
-      font-size: 9px;
+      font-size: 11px;
       font-weight: 700;
       color: $color-text-dark;
       padding: 0 $space-2 $space-2;
@@ -120,22 +205,22 @@
       padding: $space-2 $space-3;
       border-radius: 6px;
       color: $color-text-muted;
-      font-size: 12px;
+      font-size: 14px;
       cursor: pointer;
       transition: all 0.2s;
 
       &:hover {
-        background-color: rgba(255, 255, 255, 0.03);
-        color: #fff;
+        background-color: var(--bg-active);
+        color: var(--text-primary);
       }
 
       &--active {
-        background-color: rgba(255, 255, 255, 0.06);
+        background-color: var(--bg-active);
         color: $color-primary;
         font-weight: 600;
 
         &:hover {
-          background-color: rgba(255, 255, 255, 0.06);
+          background-color: var(--bg-active);
           color: $color-primary;
         }
       }
@@ -156,6 +241,7 @@
       padding: 0 $space-2;
       @include flex-column;
       gap: $space-2;
+      transition: padding 0.3s;
     }
 
     &-actions {
@@ -163,11 +249,20 @@
       border-bottom: 1px solid rgba(255, 255, 255, 0.04);
       padding-bottom: $space-3;
       justify-content: space-around;
+      transition: all 0.3s;
+
+      &--collapsed {
+        flex-direction: column;
+        align-items: center;
+        gap: 8px;
+        padding-bottom: $space-2;
+      }
     }
 
     &-profile-bar {
       @include flex-between;
       padding: $space-2 $space-2;
+      transition: padding 0.3s;
     }
 
     &-profile-details {
@@ -203,8 +298,8 @@
     }
 
     &-username {
-      font-size: 11.5px;
-      color: #f8fafc;
+      font-size: 13.5px;
+      color: var(--text-primary);
       font-weight: 600;
       overflow: hidden;
       text-overflow: ellipsis;
@@ -213,12 +308,12 @@
     }
 
     &-tier {
-      font-size: 9px;
+      font-size: 11px;
       color: $color-text-muted;
     }
 
     &-pro-badge {
-      font-size: 8px;
+      font-size: 10px;
       font-weight: 800;
       color: $color-success;
       background: rgba(16, 185, 129, 0.1);
@@ -240,12 +335,74 @@
       background: transparent;
       border: 1px solid rgba(244, 63, 94, 0.15);
       color: $color-error;
-      font-size: 11px;
+      font-size: 13px;
       font-weight: 600;
       transition: all 0.2s;
 
       &:hover {
         background: rgba(244, 63, 94, 0.05);
+      }
+    }
+
+    &-resizer {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      right: 0;
+      width: 4px;
+      cursor: col-resize;
+      background-color: transparent;
+      transition: background-color 0.2s, box-shadow 0.2s;
+      z-index: 30;
+
+      &:hover, &.active {
+        background-color: $color-primary;
+        box-shadow: 0 0 8px $color-primary-glow;
+      }
+    }
+
+    &--collapsed {
+      padding: $space-4 0;
+      align-items: center;
+
+      .dashboard__sidebar-header {
+        padding: 0 0 $space-5;
+        width: 100%;
+        display: flex;
+        justify-content: center;
+      }
+
+      .dashboard__sidebar-nav {
+        padding: $space-4 0;
+        align-items: center;
+        width: 100%;
+      }
+
+      .dashboard__sidebar-item {
+        justify-content: center;
+        width: 40px;
+        height: 40px;
+        padding: 0;
+        border-radius: 50%;
+      }
+
+      .dashboard__sidebar-footer {
+        padding: 0;
+        align-items: center;
+        width: 100%;
+      }
+
+      .dashboard__sidebar-profile-bar {
+        padding: $space-2 0;
+        justify-content: center;
+      }
+
+      .dashboard__sidebar-logout {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        padding: 0;
+        justify-content: center;
       }
     }
   }
@@ -274,67 +431,84 @@
     justify-content: center;
     margin: auto 0;
     width: 100%;
+    position: relative; // needed so playground-orbs children are scoped here
+    overflow: visible;
 
     &-title-row {
       display: flex;
       align-items: center;
       gap: $space-2;
       margin-bottom: $space-3;
+      position: relative;
+      z-index: 1;
     }
 
     &-title {
-      font-size: 32px;
+      font-size: 36px;
       font-weight: 800;
-      color: #fff;
+      color: var(--text-primary);
       letter-spacing: -0.03em;
       font-family: $font-heading;
       margin: 0;
     }
 
     &-subtitle {
-      font-size: 13px;
+      font-size: 15px;
       color: $color-text-muted;
       margin: 0 0 $space-8;
       text-align: center;
-      max-width: 440px;
+      max-width: 480px;
+      position: relative;
+      z-index: 1;
     }
 
     &-prompt-card {
       width: 100%;
-      max-width: 640px;
-      background: rgba(24, 24, 28, 0.75);
-      border: none;
-      border-radius: 12px;
-      padding: $space-3 $space-4;
+      max-width: 720px;
+      background: var(--bg-overlay);
+      border: none; // border handled by .prompt-card-wrapper pseudo-element
+      border-radius: 14.5px; // slightly inset so the 1.5px wrapper border shows
+      padding: $space-4 $space-6;
       @include flex-column;
-      gap: $space-3;
-      box-shadow: 0 10px 30px rgba(0,0,0,0.3);
-      backdrop-filter: blur(16px);
+      gap: $space-4;
+      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.2);
+      backdrop-filter: blur(20px);
       position: relative;
-      z-index: 2;
+      z-index: 1; // above the ::before / ::after pseudo-elements on the wrapper
     }
 
     &-textarea {
       background: none;
       border: none;
       outline: none;
-      color: #f8fafc;
-      font-size: 13.5px;
+      color: var(--text-primary);
+      font-size: 16px;
+      line-height: 1.6;
       font-family: $font-sans;
       resize: none;
       width: 100%;
-      height: 100%;
-      min-height: 72px;
+      min-height: 88px;
+      max-height: 280px;
+      overflow-y: auto;
+      display: block;
+      transition: height 0.15s ease;
+      scrollbar-width: thin;
+      scrollbar-color: rgba(255,255,255,0.08) transparent;
 
       &::placeholder {
         color: $color-text-dark;
+        transition: opacity 0.2s;
+      }
+
+      &:focus::placeholder {
+        opacity: 0.45;
       }
     }
 
     &-prompt-footer {
       @include flex-between;
-      border-top: 1px solid rgba(255,255,255,0.04);
-      padding-top: $space-2;
+      border-top: 1px solid var(--border);
+      padding-top: $space-3;
     }
 
     &-actions-left {
@@ -351,9 +525,9 @@
       background: rgba(255, 255, 255, 0.04);
       border: 1px solid rgba(255, 255, 255, 0.1);
       color: $color-primary;
-      padding: 5px 12px;
+      padding: 6px 14px;
       border-radius: 6px;
-      font-size: 11px;
+      font-size: 13px;
       font-weight: 700;
       cursor: pointer;
       display: flex;
@@ -368,9 +542,9 @@
 
     &-create-btn {
       border: none;
-      padding: 6px 14px;
+      padding: 7px 16px;
       border-radius: 6px;
-      font-size: 11px;
+      font-size: 13px;
       font-weight: 700;
       transition: all 0.2s;
       
@@ -396,23 +570,25 @@
       gap: $space-2;
       flex-wrap: wrap;
       justify-content: center;
-      margin-top: $space-5;
-      max-width: 640px;
+      margin-top: $space-6;
+      max-width: 720px;
+      position: relative;
+      z-index: 1;
     }
 
     &-chip {
       background: $color-bg-element;
       border: 1px solid $color-border;
       color: $color-text-muted;
-      padding: 4px 10px;
+      padding: 6px 14px;
       border-radius: 20px;
-      font-size: 11px;
+      font-size: 13px;
       cursor: pointer;
       transition: all 0.2s;
 
       &:hover {
-        border-color: rgba(255, 255, 255, 0.15);
-        color: #fff;
+        border-color: var(--border-strong);
+        color: var(--text-primary);
       }
     }
   }
@@ -432,16 +608,16 @@
 
     &-title {
       margin: 0 0 4px;
-      font-size: 22px;
+      font-size: 26px;
       font-weight: 800;
       font-family: $font-heading;
       letter-spacing: -0.02em;
-      color: #fff;
+      color: var(--text-primary);
     }
 
     &-subtitle {
       margin: 0;
-      font-size: 13px;
+      font-size: 15px;
       color: $color-text-muted;
     }
 
@@ -452,7 +628,7 @@
       padding: 8px 16px;
       border-radius: 8px;
       cursor: pointer;
-      font-size: 12px;
+      font-size: 14px;
       font-weight: 700;
       letter-spacing: -0.01em;
       transition: all 0.25s ease;
@@ -484,7 +660,7 @@
       margin-bottom: $space-6;
       background: $color-bg-panel;
       border: 1px solid $color-border;
-      font-size: 11px;
+      font-size: 13px;
       color: $color-text-dark;
       font-family: $font-mono;
     }
@@ -615,8 +791,8 @@
     height: 36px;
     border-radius: 10px;
     flex-shrink: 0;
-    background: linear-gradient(135deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.02));
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: linear-gradient(135deg, rgba(var(--color-rgb-text), 0.06), rgba(var(--color-rgb-text), 0.02));
+    border: 1px solid var(--border);
     @include flex-center;
     transition: all 0.4s ease;
 
@@ -628,9 +804,9 @@
 
   &__title {
     margin: 0;
-    font-size: 14px;
+    font-size: 16px;
     font-weight: 700;
-    color: #fff;
+    color: var(--text-primary);
     font-family: $font-heading;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -648,7 +824,7 @@
   &__meta {
     @include flex-column;
     gap: 6px;
-    font-size: 11px;
+    font-size: 13px;
     color: $color-text-muted;
     font-family: $font-mono;
     margin-bottom: $space-4;
@@ -664,20 +840,20 @@
   }
 
   &__meta-value {
-    color: #cbd5e1;
+    color: var(--text-secondary);
   }
 
   &__btn-open {
     width: 100%;
     background: $color-bg-element;
     border: 1px solid $color-border;
-    color: #e3e3e3;
+    color: var(--text-primary);
     cursor: pointer;
     padding: 6px 12px;
     border-radius: 6px;
     @include flex-center;
     gap: 6px;
-    font-size: 12px;
+    font-size: 14px;
     font-weight: 600;
     transition: all 0.2s;
 
@@ -760,61 +936,258 @@
   }
 }
 
-// ─── Outstanding Sandbox Provisioning & Animations ──────────────────────────
+// ─── Playground Local Orb Layer ─────────────────────────────────────────────
+// Vivid blurred floating orbs scoped to the playground section.
+// They are absolutely positioned relative to the playground and drift around
+// the central input card for a premium, immersive feel.
+
+.playground-orbs {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  overflow: visible;
+}
+
+// ─── Playground Star Field ───────────────────────────────────────────────────
+.playground-stars {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  overflow: hidden;
+}
+
+.playground-star {
+  position: absolute;
+  border-radius: 50%;
+  background: #ffffff;
+  // Multi-layer glow: white core + colored aura
+  box-shadow:
+    0 0 2px 1px rgba(255, 255, 255, 0.9),
+    0 0 6px 2px rgba(255, 255, 255, 0.4),
+    0 0 10px 3px rgba(16, 185, 129, 0.25); // subtle emerald halo
+  will-change: transform, opacity;
+  // Two animations: twinkle (opacity/scale) + float (drift Y)
+  animation-name: starTwinkle, starFloat;
+  animation-timing-function: ease-in-out, ease-in-out;
+  animation-iteration-count: infinite, infinite;
+  animation-direction: alternate, alternate;
+}
+
+@keyframes starTwinkle {
+  0% {
+    opacity: 0.04;
+    transform: scale(0.8);
+    box-shadow:
+      0 0 1px 0.5px rgba(255, 255, 255, 0.15),
+      0 0 3px 1px rgba(255, 255, 255, 0.05);
+  }
+  50% {
+    opacity: 0.18;
+    transform: scale(1.0);
+  }
+  70% {
+    opacity: 0.35;
+    transform: scale(1.15);
+    box-shadow:
+      0 0 2px 1px rgba(255, 255, 255, 0.5),
+      0 0 5px 2px rgba(255, 255, 255, 0.18),
+      0 0 8px 3px rgba(16, 185, 129, 0.10);
+  }
+  100% {
+    opacity: 0.04;
+    transform: scale(0.8);
+    box-shadow:
+      0 0 1px 0.5px rgba(255, 255, 255, 0.15),
+      0 0 3px 1px rgba(255, 255, 255, 0.05);
+  }
+}
+
+@keyframes starFloat {
+  0%   { translate: 0 0px; }
+  50%  { translate: 0 -8px; }
+  100% { translate: 0 4px; }
+}
+
+.playground-orbs__orb {
+  position: absolute;
+  border-radius: 50%;
+  will-change: transform, border-radius, opacity;
+  pointer-events: none;
+  mix-blend-mode: screen;
+  filter: blur(90px);
+}
+
+// Orb 1 – Emerald / Taksha primary – top-left of the input area
+.playground-orbs__orb--1 {
+  width: 480px;
+  height: 480px;
+  top: 50%;
+  left: 50%;
+  margin-top: -320px;
+  margin-left: -360px;
+  background: radial-gradient(
+    circle,
+    rgba(13, 138, 106, 0.42) 0%,
+    rgba(16, 185, 129, 0.20) 40%,
+    transparent 70%
+  );
+  animation: pgOrb1 14s infinite ease-in-out;
+}
+
+// Orb 2 – Royal Blue / Indigo – bottom-right of the input area
+.playground-orbs__orb--2 {
+  width: 520px;
+  height: 520px;
+  top: 50%;
+  left: 50%;
+  margin-top: -140px;
+  margin-left: -160px;
+  background: radial-gradient(
+    circle,
+    rgba(27, 110, 243, 0.38) 0%,
+    rgba(99, 102, 241, 0.18) 45%,
+    transparent 70%
+  );
+  animation: pgOrb2 18s infinite ease-in-out;
+}
+
+// Orb 3 – Violet / Purple – right side
+.playground-orbs__orb--3 {
+  width: 400px;
+  height: 400px;
+  top: 50%;
+  left: 50%;
+  margin-top: -80px;
+  margin-left: 80px;
+  background: radial-gradient(
+    circle,
+    rgba(167, 139, 250, 0.30) 0%,
+    rgba(139, 92, 246, 0.14) 45%,
+    transparent 70%
+  );
+  animation: pgOrb3 20s infinite ease-in-out;
+}
+
+// Orb 4 – Cyan / Teal – small punchy accent
+.playground-orbs__orb--4 {
+  width: 300px;
+  height: 300px;
+  top: 50%;
+  left: 50%;
+  margin-top: -250px;
+  margin-left: 160px;
+  background: radial-gradient(
+    circle,
+    rgba(6, 182, 212, 0.28) 0%,
+    rgba(14, 165, 233, 0.12) 50%,
+    transparent 70%
+  );
+  animation: pgOrb4 14s infinite ease-in-out;
+}
+
+@keyframes pgOrb1 {
+  0% {
+    transform: translate(0, 0) scale(1);
+    border-radius: 40% 60% 70% 30% / 40% 50% 60% 50%;
+    opacity: 0.85;
+  }
+  25% {
+    transform: translate(140px, 90px) scale(1.18);
+    border-radius: 70% 30% 50% 50% / 60% 40% 60% 40%;
+    opacity: 1;
+  }
+  50% {
+    transform: translate(80px, 180px) scale(0.92);
+    border-radius: 50% 50% 30% 70% / 50% 60% 40% 50%;
+    opacity: 0.75;
+  }
+  75% {
+    transform: translate(-110px, 100px) scale(1.10);
+    border-radius: 60% 40% 60% 40% / 50% 60% 40% 50%;
+    opacity: 0.9;
+  }
+  100% {
+    transform: translate(0, 0) scale(1);
+    border-radius: 40% 60% 70% 30% / 40% 50% 60% 50%;
+    opacity: 0.85;
+  }
+}
+
+@keyframes pgOrb2 {
+  0% {
+    transform: translate(0, 0) scale(1);
+    border-radius: 50% 50% 30% 70% / 50% 60% 40% 50%;
+    opacity: 0.9;
+  }
+  33% {
+    transform: translate(-160px, -120px) scale(0.88);
+    border-radius: 40% 60% 70% 30% / 40% 50% 60% 50%;
+    opacity: 0.65;
+  }
+  66% {
+    transform: translate(130px, -160px) scale(1.22);
+    border-radius: 70% 30% 50% 50% / 60% 40% 60% 40%;
+    opacity: 1;
+  }
+  100% {
+    transform: translate(0, 0) scale(1);
+    border-radius: 50% 50% 30% 70% / 50% 60% 40% 50%;
+    opacity: 0.9;
+  }
+}
+
+@keyframes pgOrb3 {
+  0% {
+    transform: translate(0, 0) scale(1);
+    border-radius: 60% 40% 60% 40% / 50% 60% 40% 50%;
+    opacity: 0.8;
+  }
+  50% {
+    transform: translate(-180px, 130px) scale(1.20);
+    border-radius: 40% 60% 40% 60% / 60% 40% 60% 40%;
+    opacity: 1;
+  }
+  100% {
+    transform: translate(0, 0) scale(1);
+    border-radius: 60% 40% 60% 40% / 50% 60% 40% 50%;
+    opacity: 0.8;
+  }
+}
+
+@keyframes pgOrb4 {
+  0% {
+    transform: translate(0, 0) scale(1);
+    opacity: 0.75;
+  }
+  30% {
+    transform: translate(-90px, 110px) scale(1.3);
+    opacity: 1;
+  }
+  60% {
+    transform: translate(110px, 50px) scale(0.8);
+    opacity: 0.55;
+  }
+  100% {
+    transform: translate(0, 0) scale(1);
+    opacity: 0.75;
+  }
+}
+
+// ─── Dashboard Playground Section ──────────────────────────────────────────
+
 .dashboard__playground {
   position: relative;
   transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);
-  
-  &-particles {
-    position: absolute;
-    inset: -200px;
-    pointer-events: none;
-    z-index: 0;
-    overflow: hidden;
-  }
-
-  &-orb {
-    position: absolute;
-    border-radius: 50%;
-    filter: blur(80px);
-    mix-blend-mode: screen;
-    opacity: 0.6;
-    pointer-events: none;
-
-    &--green {
-      top: 15%;
-      left: 10%;
-      width: 320px;
-      height: 320px;
-      background: radial-gradient(circle, rgba(13, 138, 106, 0.22) 0%, rgba(13, 138, 106, 0) 70%);
-      animation: orbFloatGreen 22s ease-in-out infinite alternate;
-    }
-
-    &--blue {
-      bottom: 10%;
-      right: 15%;
-      width: 380px;
-      height: 380px;
-      background: radial-gradient(circle, rgba(27, 110, 243, 0.18) 0%, rgba(27, 110, 243, 0) 70%);
-      animation: orbFloatBlue 26s ease-in-out infinite alternate;
-    }
-
-    &--purple {
-      top: 35%;
-      right: 25%;
-      width: 290px;
-      height: 290px;
-      background: radial-gradient(circle, rgba(167, 139, 250, 0.18) 0%, rgba(167, 139, 250, 0) 70%);
-      animation: orbFloatPurple 24s ease-in-out infinite alternate;
-    }
-  }
 }
 
 .prompt-card-container {
   position: relative;
   width: 100%;
-  max-width: 640px;
+  max-width: 720px;
   margin: 0 auto;
+  z-index: 1;
 
   &:hover {
     .prompt-card-glow-bg {
@@ -832,121 +1205,221 @@
 .prompt-card-wrapper {
   position: relative;
   width: 100%;
-  border-radius: 14px;
-  padding: 1.5px;
-  background: rgba(255, 255, 255, 0.04);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
+  border-radius: 16px;
+  padding: 2px;
   overflow: hidden;
-  transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  animation: cardEnter 0.55s cubic-bezier(0.16, 1, 0.3, 1) both;
+  box-shadow: 
+    0 8px 32px rgba(0, 0, 0, 0.15),
+    0 1px 0 0 rgba(255, 255, 255, 0.02) inset;
+  transition: box-shadow 0.5s cubic-bezier(0.16, 1, 0.3, 1), background 0.4s;
 
+  // Base dim rail — always visible border track
+  background: rgba(255, 255, 255, 0.06);
+
+  // ── ::before — SNAKE 1 (clockwise, emerald → white) ────────────────────────
   &::before {
     content: '';
     position: absolute;
-    top: 50%;
-    left: 50%;
-    width: 800px;
-    height: 800px;
-    transform: translate(-50%, -50%);
-    background: conic-gradient(
-      from 0deg,
-      transparent 0%,
-      transparent 20%,
-      rgba(13, 138, 106, 0.4) 30%, // Taksha Green
-      rgba(27, 110, 243, 0.5) 40%, // Plasma Blue
-      rgba(167, 139, 250, 0.4) 50%, // Purple Accent
-      transparent 60%,
-      transparent 100%
-    );
-    animation: rotateBorder 6s linear infinite;
-    pointer-events: none;
+    inset: -1px;
+    border-radius: 17px;
     z-index: 0;
+    pointer-events: none;
+    background: conic-gradient(
+      from var(--border-angle, 0deg),
+      transparent                  0deg,
+      transparent                 220deg,
+      rgba(13, 138, 106, 0.15)    260deg,
+      rgba(13, 138, 106, 0.40)    300deg,
+      rgba(16, 185, 129, 0.75)    340deg,
+      rgba(255, 255, 255, 0.95)   355deg,
+      rgba(255, 255, 255, 0.50)   360deg,
+      transparent                 360deg
+    );
+    animation: snakeRotate 4s linear infinite;
+    filter: blur(0.5px);
+    transition: opacity 0.3s;
   }
 
+  // ── ::after — SNAKE 2 (counter-clockwise, cyan → violet → white) ───────────
+  // Hidden by default; activated by .is-typing class
+  &::after {
+    content: '';
+    position: absolute;
+    inset: -1px;
+    border-radius: 17px;
+    z-index: 0;
+    pointer-events: none;
+    // Snake 2 uses the same rotating angle but trails 180° behind snake 1.
+    // calc() on the `from` value keeps both snakes locked in a follow formation.
+    background: conic-gradient(
+      from calc(var(--border-angle, 0deg) - 180deg),
+      transparent                  0deg,
+      transparent                 220deg,
+      rgba(6, 182, 212, 0.10)     255deg,
+      rgba(99, 102, 241, 0.32)    295deg,
+      rgba(167, 139, 250, 0.65)   335deg,
+      rgba(255, 255, 255, 0.85)   352deg,
+      rgba(255, 255, 255, 0.40)   360deg,
+      transparent                 360deg
+    );
+    animation: snakeRotate 4s linear infinite; // same animation as ::before
+    filter: blur(0.5px);
+    opacity: 0;
+    transition: opacity 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  // ── HOVER: single snake brightens ────────────────────────────────────────
   &:hover {
-    background: rgba(255, 255, 255, 0.08);
+    background: rgba(255, 255, 255, 0.09);
+    box-shadow:
+      0 12px 40px rgba(0, 0, 0, 0.28),
+      0 0 28px rgba(13, 138, 106, 0.10);
 
     &::before {
       background: conic-gradient(
-        from 0deg,
-        transparent 0%,
-        transparent 15%,
-        rgba(13, 138, 106, 0.6) 25%,
-        rgba(27, 110, 243, 0.8) 40%,
-        rgba(167, 139, 250, 0.6) 55%,
-        transparent 65%,
-        transparent 100%
+        from var(--border-angle, 0deg),
+        transparent                  0deg,
+        transparent                 200deg,
+        rgba(13, 138, 106, 0.20)    240deg,
+        rgba(27, 110, 243, 0.35)    290deg,
+        rgba(16, 185, 129, 0.80)    335deg,
+        rgba(255, 255, 255, 1.00)   352deg,
+        rgba(255, 255, 255, 0.60)   360deg,
+        transparent                 360deg
       );
-      animation-duration: 4s;
+      animation: snakeRotate 2.5s linear infinite;
+      filter: blur(0px);
     }
   }
 
+  // ── FOCUS: vivid single-snake (multicolor) at speed ──────────────────────
   &:focus-within {
-    background: rgba(255, 255, 255, 0.01);
-    box-shadow: 
-      0 12px 48px rgba(0, 0, 0, 0.5),
-      0 0 24px rgba(13, 138, 106, 0.15);
-    
+    background: rgba(255, 255, 255, 0.04);
+    box-shadow:
+      0 20px 56px rgba(0, 0, 0, 0.60),
+      0 0 50px rgba(13, 138, 106, 0.25),
+      0 0 100px rgba(27, 110, 243, 0.12);
+
     &::before {
       background: conic-gradient(
-        from 0deg,
-        transparent 0%,
-        transparent 10%,
-        #0d8a6a 25%, // Taksha Green
-        #1b6ef3 45%, // Plasma Blue
-        #a78bfa 60%, // Purple Accent
-        transparent 75%,
-        transparent 100%
+        from var(--border-angle, 0deg),
+        transparent                  0deg,
+        transparent                 160deg,
+        rgba(13, 138, 106, 0.12)    190deg,
+        rgba(27, 110, 243, 0.30)    230deg,
+        rgba(99, 102, 241, 0.55)    270deg,
+        rgba(167, 139, 250, 0.80)   310deg,
+        rgba(6, 182, 212, 0.90)     340deg,
+        rgba(255, 255, 255, 1.00)   355deg,
+        rgba(255, 255, 255, 0.40)   360deg,
+        transparent                 360deg
       );
-      animation: rotateBorder 2.5s linear infinite;
+      animation: snakeRotate 1.8s linear infinite;
+      filter: blur(0.3px);
+    }
+  }
+
+  // ── IS-TYPING: DUAL SNAKE — snake 2 follows snake 1 around the border ─────
+  // Triggered by React adding `.is-typing` class when promptInput.length > 0
+  &.is-typing {
+    background: rgba(255, 255, 255, 0.04);
+    box-shadow:
+      0 24px 64px rgba(0, 0, 0, 0.65),
+      0 0 60px rgba(13, 138, 106, 0.28),
+      0 0 120px rgba(99, 102, 241, 0.12);
+
+    // Snake 1 (leader) — vivid emerald→indigo→white tip
+    &::before {
+      background: conic-gradient(
+        from var(--border-angle, 0deg),
+        transparent                  0deg,
+        transparent                 150deg,
+        rgba(13, 138, 106, 0.15)    185deg,
+        rgba(27, 110, 243, 0.40)    225deg,
+        rgba(16, 185, 129, 0.85)    310deg,
+        rgba(255, 255, 255, 1.00)   350deg,
+        rgba(255, 255, 255, 0.55)   360deg,
+        transparent                 360deg
+      );
+      animation: snakeRotate 1.2s linear infinite;
+      filter: blur(0px);
+    }
+
+    // Snake 2 (follower) — trails 180° behind snake 1, same direction & speed.
+    // Using calc(--border-angle - 180deg) on the `from` keeps the gap fixed.
+    &::after {
+      opacity: 1;
+      background: conic-gradient(
+        from calc(var(--border-angle, 0deg) - 180deg),
+        transparent                  0deg,
+        transparent                 150deg,
+        rgba(6, 182, 212, 0.12)     185deg,
+        rgba(99, 102, 241, 0.38)    228deg,
+        rgba(167, 139, 250, 0.80)   310deg,
+        rgba(255, 255, 255, 0.95)   350deg,
+        rgba(255, 255, 255, 0.45)   360deg,
+        transparent                 360deg
+      );
+      animation: snakeRotate 1.2s linear infinite; // same speed = fixed gap
+      filter: blur(0px);
     }
   }
 }
+
+// ── @property declarations ────────────────────────────────────────────────────
+@property --border-angle {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 0deg;
+}
+
+@keyframes snakeRotate {
+  to { --border-angle: 360deg; }
+}
+
+
+
+
+
+
 
 .prompt-card-glow-bg {
   position: absolute;
-  inset: -12px;
-  border-radius: 24px;
+  inset: -16px;
+  border-radius: 32px;
   background: radial-gradient(
     circle at center,
-    rgba(13, 138, 106, 0.25) 0%,
-    rgba(27, 110, 243, 0.2) 35%,
-    rgba(167, 139, 250, 0.1) 70%,
+    rgba(13, 138, 106, 0.2) 0%,
+    rgba(27, 110, 243, 0.12) 40%,
+    rgba(167, 139, 250, 0.06) 75%,
     transparent 100%
   );
-  opacity: 0.05;
-  filter: blur(28px);
+  opacity: 0.1;
+  filter: blur(32px);
   z-index: -1;
-  transition: opacity 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: opacity 0.5s cubic-bezier(0.16, 1, 0.3, 1), transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
   pointer-events: none;
+  transform: scale(0.96);
 }
 
-.prompt-card-laser {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(13, 138, 106, 0.5), rgba(27, 110, 243, 0.5), transparent);
-  animation: lineScanCard 4s ease-in-out infinite;
-  pointer-events: none;
-  z-index: 1;
+@keyframes flowGradient {
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
 }
 
-@keyframes lineScanCard {
-  0% { transform: translateY(0); opacity: 0; }
-  10% { opacity: 0.8; }
-  90% { opacity: 0.8; }
-  100% { transform: translateY(160px); opacity: 0; }
-}
-
-@keyframes rotateBorder {
-  0% {
-    transform: translate(-50%, -50%) rotate(0deg);
+@keyframes cardEnter {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.98);
   }
-  100% {
-    transform: translate(-50%, -50%) rotate(360deg);
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
   }
 }
+
 
 .provisioning-panel {
   width: 100%;
@@ -1154,39 +1627,56 @@
   to { opacity: 1; transform: translateX(0); }
 }
 
-@keyframes orbFloatGreen {
+@keyframes orbMorph1 {
   0% {
-    transform: translate(0, 0) scale(1);
+    transform: translate(0, 0) scale(1) rotate(0deg);
+    border-radius: 40% 60% 70% 30% / 40% 50% 60% 50%;
   }
-  50% {
-    transform: translate(80px, -40px) scale(1.15);
+  33% {
+    transform: translate(120px, 80px) scale(1.1) rotate(120deg);
+    border-radius: 70% 30% 50% 50% / 60% 40% 60% 40%;
+  }
+  66% {
+    transform: translate(-60px, 140px) scale(0.9) rotate(240deg);
+    border-radius: 50% 50% 30% 70% / 50% 60% 40% 50%;
   }
   100% {
-    transform: translate(-40px, 60px) scale(0.9);
+    transform: translate(0, 0) scale(1) rotate(360deg);
+    border-radius: 40% 60% 70% 30% / 40% 50% 60% 50%;
   }
 }
 
-@keyframes orbFloatBlue {
+@keyframes orbMorph2 {
   0% {
-    transform: translate(0, 0) scale(1);
+    transform: translate(0, 0) scale(1) rotate(0deg);
+    border-radius: 50% 50% 30% 70% / 50% 60% 40% 50%;
   }
-  50% {
-    transform: translate(-100px, 80px) scale(0.85);
+  33% {
+    transform: translate(-100px, -80px) scale(0.9) rotate(-120deg);
+    border-radius: 40% 60% 70% 30% / 40% 50% 60% 50%;
+  }
+  66% {
+    transform: translate(80px, -120px) scale(1.15) rotate(-240deg);
+    border-radius: 70% 30% 50% 50% / 60% 40% 60% 40%;
   }
   100% {
-    transform: translate(60px, -60px) scale(1.1);
+    transform: translate(0, 0) scale(1) rotate(-360deg);
+    border-radius: 50% 50% 30% 70% / 50% 60% 40% 50%;
   }
 }
 
-@keyframes orbFloatPurple {
+@keyframes orbMorph3 {
   0% {
-    transform: translate(0, 0) scale(1);
+    transform: translate(0, 0) scale(1) rotate(0deg);
+    border-radius: 60% 40% 60% 40% / 50% 60% 40% 50%;
   }
   50% {
-    transform: translate(50px, 100px) scale(1.2);
+    transform: translate(-80px, 60px) scale(1.1) rotate(180deg);
+    border-radius: 40% 60% 40% 60% / 60% 40% 60% 40%;
   }
   100% {
-    transform: translate(-80px, -50px) scale(0.95);
+    transform: translate(0, 0) scale(1) rotate(360deg);
+    border-radius: 60% 40% 60% 40% / 50% 60% 40% 50%;
   }
 }
 

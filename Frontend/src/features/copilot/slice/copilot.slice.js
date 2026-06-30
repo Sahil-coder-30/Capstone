@@ -12,7 +12,7 @@ const WELCOME_MSG = {
 const copilotSlice = createSlice({
   name: 'copilot',
   initialState: {
-    messages: JSON.parse(localStorage.getItem('copilot_messages')) || [WELCOME_MSG],
+    messages: [WELCOME_MSG],
     isOpen: false,
     isStreaming: false,
   },
@@ -25,7 +25,6 @@ const copilotSlice = createSlice({
         text: '',
         ...action.payload,
       });
-      localStorage.setItem('copilot_messages', JSON.stringify(state.messages));
     },
     updateLastMessage(state, action) {
       if (state.messages.length > 0) {
@@ -38,7 +37,6 @@ const copilotSlice = createSlice({
           if (error !== undefined) lastMsg.error = error;
         }
       }
-      localStorage.setItem('copilot_messages', JSON.stringify(state.messages));
     },
     setStreaming(state, action) {
       state.isStreaming = action.payload;
@@ -51,12 +49,10 @@ const copilotSlice = createSlice({
     },
     setMessages(state, action) {
       state.messages = action.payload;
-      localStorage.setItem('copilot_messages', JSON.stringify(state.messages));
     },
     clearHistory(state) {
       state.messages = [WELCOME_MSG];
       state.isStreaming = false;
-      localStorage.removeItem('copilot_messages');
     },
   },
 });

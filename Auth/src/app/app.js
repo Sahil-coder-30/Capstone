@@ -4,12 +4,18 @@ import passport from 'passport';
 import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
 import cookieParser from 'cookie-parser';
 import authRouter from '../routes/auth.routes.js';
+import profileRouter from '../routes/profile.routes.js';
+import preferencesRouter from '../routes/preferences.routes.js';
+import creditRouter from '../routes/credit.routes.js';
+import { identifyUser } from '../middleware/auth.middleware.js';
 import dotenv from 'dotenv';
 
 dotenv.config();
 const app = express();
 app.set('trust proxy', true);
 app.use(morgan("dev"));
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 app.use(passport.initialize());
 
@@ -25,6 +31,9 @@ passport.use(new GoogleStrategy({
 }))
 
 app.use("/api/auth" , authRouter);
+app.use("/api/auth/profile", identifyUser, profileRouter);
+app.use("/api/auth/preferences", identifyUser, preferencesRouter);
+app.use("/api/auth/credit", creditRouter);
 
 app.get("/healthz" , (req , res) =>{
     res.status(200).json({

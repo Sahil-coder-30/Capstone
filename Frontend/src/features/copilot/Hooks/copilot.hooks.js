@@ -21,7 +21,7 @@ export const useCopilot = (projectId) => {
   const { messages, isOpen, isStreaming } = useSelector((state) => state.copilot);
   const { sandboxId, status: sandboxStatus } = useSelector((state) => state.sandbox);
   const { tabContents } = useSelector((state) => state.editor);
-  const { syncAllFilesToCache } = useEditor();
+  const { syncAllFilesToCache, activeFile } = useEditor();
 
   const sendMessage = async (text, activeFile, onComplete) => {
     if (!text.trim()) return;
@@ -137,15 +137,18 @@ export const useCopilot = (projectId) => {
     }
   };
 
-  // Auto-load chat history from MongoDB when projectId changes
+  // Auto-load chat history from MongoDB when projectId or activeFile changes
   useEffect(() => {
+    if (!projectId) {
+      // Do not clear history here as other components (like CodeEditor) may invoke
+      // this hook with undefined projectId and inadvertently clear the active history.
+      return;
+    }
     const loadChatHistory = async () => {
-      if (!projectId) {
-        dispatch(clearHistory());
-        return;
-      }
       try {
-        const response = await fetch(`/api/ai/chats/${projectId}/copilot`);
+        const fileClean = activeFile && activeFile !== 'none' ? activeFile.replace(/^\/+/, "") : "";
+        const combinedId = fileClean ? `${projectId}:${fileClean}` : projectId;
+        const response = await fetch(`/api/ai/chats/${encodeURIComponent(combinedId)}/copilot`);
         if (response.ok) {
           const data = await response.json();
           if (data.status === 'ok') {
@@ -170,12 +173,14 @@ export const useCopilot = (projectId) => {
     };
 
     loadChatHistory();
-  }, [projectId, dispatch]);
+  }, [projectId, activeFile, dispatch]);
 
   const clearHistoryAction = async () => {
     if (!projectId) return;
     try {
-      await fetch(`/api/ai/chats/${projectId}/copilot`, { method: 'DELETE' });
+      const fileClean = activeFile && activeFile !== 'none' ? activeFile.replace(/^\/+/, "") : "";
+      const combinedId = fileClean ? `${projectId}:${fileClean}` : projectId;
+      await fetch(`/api/ai/chats/${encodeURIComponent(combinedId)}/copilot`, { method: 'DELETE' });
     } catch (err) {
       console.error('Failed to clear copilot chat history from DB:', err);
     }
