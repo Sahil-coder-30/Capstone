@@ -395,10 +395,10 @@ export default function Dashboard({
 
       setAllocationLogs(prev => [
         ...prev,
-        "Sandbox container ready! Redirecting to workspace..."
+        "Sandbox container provisioned! Redirecting to workspace..."
       ]);
 
-      // Delay to let user see "ready" log
+      // Delay to let user see "provisioned" log
       await new Promise(r => setTimeout(r, 600));
 
       // Step 4: Redirect to Coding Workspace

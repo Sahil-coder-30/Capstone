@@ -1,6 +1,6 @@
 import { Server } from "socket.io";
 import jwt from "jsonwebtoken";
-import agent from "../agent/code.agent.js";
+import agent, { getAgentInstance } from "../agent/code.agent.js";
 import ChatMessage from "../models/ChatMessage.model.js";
 
 const getErrorPayload = (error) => {
@@ -78,8 +78,8 @@ export const initSocketIO = (server) => {
   io.on("connection", (socket) => {
     console.log(`WebSocket client connected: ${socket.id}`);
 
-    socket.on("agent:invoke", async ({ message, projectId, sandboxId }) => {
-      console.log(`Received agent:invoke from ${socket.id} for project ${projectId} (sandboxId=${sandboxId})`);
+    socket.on("agent:invoke", async ({ message, projectId, sandboxId, modelName, attachments }) => {
+      console.log(`Received agent:invoke from ${socket.id} for project ${projectId} (sandboxId=${sandboxId}, modelName=${modelName}, attachmentsCount=${attachments ? attachments.length : 0})`);
 
       if(!message) {
         socket.emit("agent:error", { message: "Message is required" });
@@ -114,22 +114,27 @@ export const initSocketIO = (server) => {
         // Chronological order: older messages first
         history.reverse();
         
-        // Map history to the model message format, appending tool logs to assistant messages to guide the agent
-        const formattedHistory = history.map(h => {
-          if (h.role === "assistant" && h.toolLogs && h.toolLogs.length > 0) {
-            const logsText = h.toolLogs.join("\n");
-            return {
-              role: h.role,
-              content: `${h.content}\n\n[System Tool Executions]:\n${logsText}`
-            };
+        // Map history to the model message format: send only content and timestamp to the agent to save tokens.
+        const formattedHistory = history.map((h, index) => {
+          const timestampStr = h.timestamp ? new Date(h.timestamp).toISOString() : new Date().toISOString();
+          let content = `[${timestampStr}] ${h.content}`;
+
+          // Append attachments context to the active (last) user message
+          if (index === history.length - 1 && h.role === "user" && attachments && attachments.length > 0) {
+            const contextText = attachments.map(att => 
+              `=== ATTACHED FILE CONTEXT ===\nFile: ${att.path}\nContent:\n\`\`\`\n${att.content}\n\`\`\``
+            ).join("\n\n");
+            content += `\n\n${contextText}`;
           }
+
           return {
             role: h.role,
-            content: h.content
+            content
           };
         });
 
-        const eventStream = await agent.streamEvents(
+        const agentInstance = typeof getAgentInstance === "function" ? getAgentInstance(modelName) : agent;
+        const eventStream = await agentInstance.streamEvents(
           {
             messages: formattedHistory,
           },

@@ -119,16 +119,10 @@ ${prompt}`;
     history.reverse();
 
     const formattedHistory = history.map(h => {
-      if (h.role === "assistant" && h.toolLogs && h.toolLogs.length > 0) {
-        const logsText = h.toolLogs.join("\n");
-        return {
-          role: h.role,
-          content: `${h.content}\n\n[System Tool Executions]:\n${logsText}`
-        };
-      }
+      const timestampStr = h.timestamp ? new Date(h.timestamp).toISOString() : new Date().toISOString();
       return {
         role: h.role,
-        content: h.content
+        content: `[${timestampStr}] ${h.content}`
       };
     });
 

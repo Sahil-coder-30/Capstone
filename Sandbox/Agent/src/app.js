@@ -8,6 +8,7 @@ import { Server} from "socket.io";
 import http from 'http';
 import pty from 'node-pty';
 import os from 'os';
+import chokidar from 'chokidar';
 
 
 const app = express();
@@ -193,6 +194,31 @@ const io = new Server(httpServer,{
     methods: ["GET", "POST" , "PATCH"]
   }
 })
+
+// Initialize chokidar watcher on WORKING_DIR
+const watcher = chokidar.watch(WORKING_DIR, {
+  ignored: [
+    (filePath) => filePath.includes('node_modules') || filePath.includes('.git') || /(^|[\/\\])\../.test(filePath)
+  ],
+  persistent: true,
+  ignoreInitial: true,
+  awaitWriteFinish: {
+    stabilityThreshold: 100,
+    pollInterval: 100
+  }
+});
+
+// Broadcast workspace changes to all connected clients
+watcher.on('all', (event, filePath) => {
+  const relativePath = stripWorkspace(filePath);
+  console.log(`[Chokidar] File event: ${event} on ${relativePath}`);
+  
+  io.emit('workspace-change', {
+    event,
+    path: relativePath
+  });
+});
+
 
 
 
@@ -854,6 +880,338 @@ app.post("/api/agent/patch-file", async (req, res) => {
     });
   }
 });
+
+// ─── Search Code ──────────────────────────────────────────────────────────────
+
+/**
+ * TOOL: search-code
+ *
+ * @description
+ *   Use this tool to search for a text pattern or regex across the entire codebase
+ *   WITHOUT reading full files. Returns matching file paths, line numbers, the matched
+ *   line, and surrounding context lines — everything needed to locate an issue and then
+ *   patch it directly with patch-file, without ever calling read-file first.
+ *
+ *   Always prefer this over read-file when you're looking for something specific
+ *   (a function name, an import, a string, a bug pattern) rather than trying to
+ *   understand a whole file's structure.
+ *
+ *   The "context" lines returned preserve exact original whitespace/indentation,
+ *   so you can copy them directly into patch-file's oldStr for a guaranteed match —
+ *   no need to re-read the file to get exact formatting.
+ *
+ *   Skips node_modules, .git, dist, build automatically. Skips binary/asset files
+ *   and any file over 2MB. Results are capped at maxResults — if truncated is true,
+ *   narrow your pattern or add a fileGlob filter and search again.
+ *   Overall search is capped at 8 seconds — if timedOut is true, results are partial;
+ *   narrow fileGlob and retry rather than re-running the same broad search.
+ *
+ * @method  GET
+ * @route   /api/agent/search-code
+ *
+ * @queryparam {string}  pattern        Required. Text or regex pattern to search for. Max 500 chars.
+ * @queryparam {boolean} isRegex        Optional. Treat pattern as a regex. Default: false (literal text search).
+ * @queryparam {boolean} caseSensitive  Optional. Default: false.
+ * @queryparam {string}  fileGlob       Optional. Only search files whose relative path includes this substring.
+ * @queryparam {number}  contextLines   Optional. Lines of context above/below each match. Default: 2. Max: 5.
+ * @queryparam {number}  maxResults     Optional. Cap on total matches returned. Default: 20. Max: 50.
+ *
+ * @response-error-400
+ *   Invalid input — bad pattern (missing/array/too long/unsafe regex), bad numeric params.
+ *   {
+ *     "status": "error",
+ *     "message": "Human-readable reason",
+ *     "hint": "What the agent should do differently next call"
+ *   }
+ *
+ * @response-error-500
+ *   Filesystem-level failure unrelated to input validity (rare — e.g. workspace unreadable).
+ *
+ * @example — simple text search
+ *   Request:
+ *     GET /api/agent/search-code?pattern=useProjects
+ *
+ *   Response (200):
+ *     {
+ *       "status": "ok",
+ *       "totalMatches": 3,
+ *       "truncated": false,
+ *       "timedOut": false,
+ *       "filesSkipped": 0,
+ *       "matches": [ ... ]
+ *     }
+ *
+ * @example — invalid input (agent sent pattern twice, becomes an array)
+ *   Response (400):
+ *     {
+ *       "status": "error",
+ *       "message": "'pattern' must be a single string, received an array",
+ *       "hint": "Send exactly one pattern value, not repeated query params."
+ *     }
+ */
+
+const SEARCHABLE_EXT = new Set([
+  ".js", ".jsx", ".ts", ".tsx", ".css", ".scss", ".html",
+  ".json", ".md", ".yml", ".yaml", ".env", ".mjs", ".cjs"
+]);
+
+const SKIP_DIRS = new Set(["node_modules", ".git", "dist", "build", ".vite"]);
+const MAX_FILE_SIZE = 2 * 1024 * 1024; // 2MB — skip huge lockfiles/bundles, not code files
+const MAX_PATTERN_LENGTH = 500;
+const SEARCH_TIME_BUDGET_MS = 8000;
+const MAX_WALK_DEPTH = 20; // guards against symlink loops inflating recursion
+
+// Heuristic ReDoS guard: reject patterns with nested quantifiers that are the
+// classic catastrophic-backtracking shape, e.g. (a+)+ or (a*)*. Not exhaustive,
+// but catches the patterns an LLM is statistically most likely to generate.
+const REDOS_RISK_PATTERN = /(\([^()]*[+*]\)[+*])|(\([^()]*\{\d*,\}\)[+*])/;
+
+function validateSearchInputs(query) {
+  const { pattern, isRegex, caseSensitive, fileGlob, contextLines, maxResults, filesOnly } = query;
+
+  // Agent sent the same query param twice → Express parses it as an array.
+  if (Array.isArray(pattern)) {
+    return { error: "'pattern' must be a single string, received an array", hint: "Send exactly one pattern value, not repeated query params." };
+  }
+  if (!pattern || typeof pattern !== "string" || pattern.trim().length === 0) {
+    return { error: "'pattern' is required and must be a non-empty string", hint: "Provide a text or regex pattern to search for." };
+  }
+  if (pattern.length > MAX_PATTERN_LENGTH) {
+    return { error: `'pattern' exceeds max length of ${MAX_PATTERN_LENGTH} characters`, hint: "Use a shorter, more specific pattern." };
+  }
+  if (fileGlob !== undefined) {
+    if (Array.isArray(fileGlob)) {
+      return { error: "'fileGlob' must be a single string, received an array", hint: "Send exactly one fileGlob value." };
+    }
+    if (typeof fileGlob !== "string") {
+      return { error: "'fileGlob' must be a string", hint: "Provide a single string value for fileGlob." };
+    }
+  }
+  if (filesOnly !== undefined) {
+    if (Array.isArray(filesOnly)) {
+      return { error: "'filesOnly' must be a single value, received an array", hint: "Send exactly one filesOnly value." };
+    }
+  }
+
+  const useRegex = isRegex === "true" || isRegex === true;
+  if (useRegex) {
+    if (REDOS_RISK_PATTERN.test(pattern)) {
+      return {
+        error: "Pattern rejected: nested quantifiers risk catastrophic backtracking (e.g. (a+)+)",
+        hint: "Rewrite the regex to avoid nested repetition groups, or use isRegex=false for a literal search.",
+      };
+    }
+    try {
+      new RegExp(pattern);
+    } catch (err) {
+      return { error: `Invalid regex pattern: ${err.message}`, hint: "Fix the regex syntax or set isRegex=false for a literal text search." };
+    }
+  }
+
+  if (contextLines !== undefined) {
+    if (Array.isArray(contextLines)) {
+      return { error: "'contextLines' must be a single value, received an array", hint: "Send exactly one contextLines value." };
+    }
+    if (typeof contextLines !== "string" && typeof contextLines !== "number") {
+      return { error: "'contextLines' must be a string or number", hint: "Provide a numeric value for contextLines." };
+    }
+  }
+  if (maxResults !== undefined) {
+    if (Array.isArray(maxResults)) {
+      return { error: "'maxResults' must be a single value, received an array", hint: "Send exactly one maxResults value." };
+    }
+    if (typeof maxResults !== "string" && typeof maxResults !== "number") {
+      return { error: "'maxResults' must be a string or number", hint: "Provide a numeric value for maxResults." };
+    }
+  }
+
+  return null; // valid
+}
+
+async function walkTextFiles(dir, basePath = "", out = [], skipped = { count: 0 }, depth = 0, visitedReal = new Set()) {
+  if (depth > MAX_WALK_DEPTH) return out; // symlink loop / pathological nesting guard
+
+  let entries;
+  try {
+    entries = await fs.promises.readdir(dir, { withFileTypes: true });
+  } catch {
+    return out; // unreadable dir (permissions, race with delete) — skip silently, not fatal
+  }
+
+  for (const entry of entries) {
+    if (SKIP_DIRS.has(entry.name)) continue;
+
+    const fullPath = path.join(dir, entry.name);
+    const relativePath = path.join(basePath, entry.name);
+
+    try {
+      if (entry.isSymbolicLink()) {
+        const real = await fs.promises.realpath(fullPath);
+        if (visitedReal.has(real)) continue; // loop detected
+        visitedReal.add(real);
+        const targetStat = await fs.promises.stat(real);
+        if (targetStat.isDirectory()) {
+          await walkTextFiles(fullPath, relativePath, out, skipped, depth + 1, visitedReal);
+        } else if (targetStat.isFile() && SEARCHABLE_EXT.has(path.extname(entry.name))) {
+          if (targetStat.size <= MAX_FILE_SIZE) out.push({ fullPath, relativePath });
+          else skipped.count++;
+        }
+        continue;
+      }
+
+      if (entry.isDirectory()) {
+        await walkTextFiles(fullPath, relativePath, out, skipped, depth + 1, visitedReal);
+      } else if (entry.isFile()) {
+        const ext = path.extname(entry.name);
+        if (!SEARCHABLE_EXT.has(ext)) continue;
+        const stat = await fs.promises.stat(fullPath);
+        if (stat.size > MAX_FILE_SIZE) {
+          skipped.count++;
+          continue;
+        }
+        out.push({ fullPath, relativePath });
+      }
+    } catch {
+      // File vanished mid-walk, broken symlink, permission denied on stat — skip, not fatal
+      skipped.count++;
+      continue;
+    }
+  }
+  return out;
+}
+
+app.get("/api/agent/search-code", async (req, res) => {
+  const validationError = validateSearchInputs(req.query);
+  if (validationError) {
+    return res.status(400).json({ status: "error", ...validationError });
+  }
+
+  const {
+    pattern,
+    isRegex = "false",
+    caseSensitive = "false",
+    fileGlob = "",
+    contextLines = "2",
+    maxResults = "20",
+    filesOnly = "false",
+  } = req.query;
+
+  const ctxLines = Math.min(Math.max(parseInt(contextLines, 10) || 2, 0), 5);
+  const cap = Math.min(Math.max(parseInt(maxResults, 10) || 20, 1), 50);
+  const useRegex = isRegex === "true" || isRegex === true;
+  const isCaseSensitive = caseSensitive === "true" || caseSensitive === true;
+  const wantFilesOnly = filesOnly === "true" || filesOnly === true;
+
+  let matcher;
+  try {
+    if (useRegex) {
+      matcher = new RegExp(pattern, isCaseSensitive ? "" : "i");
+    } else {
+      const flatPattern = isCaseSensitive ? pattern : pattern.toLowerCase();
+      matcher = { test: (line) => (isCaseSensitive ? line : line.toLowerCase()).includes(flatPattern) };
+    }
+  } catch (err) {
+    // Belt-and-suspenders — already checked in validateSearchInputs, but regex
+    // construction can still surprise us with engine-specific edge cases.
+    return res.status(400).json({
+      status: "error",
+      message: `Invalid regex pattern: ${err.message}`,
+      hint: "Fix the regex syntax or set isRegex=false.",
+    });
+  }
+
+  const startTime = Date.now();
+  const skipped = { count: 0 };
+
+  try {
+    const allFiles = await walkTextFiles(WORKING_DIR, "", [], skipped);
+    const candidateFiles = fileGlob
+      ? allFiles.filter((f) => f.relativePath.includes(fileGlob))
+      : allFiles;
+
+    const matches = [];
+    let truncated = false;
+    let timedOut = false;
+
+    fileLoop:
+    for (const { fullPath, relativePath } of candidateFiles) {
+      if (Date.now() - startTime > SEARCH_TIME_BUDGET_MS) {
+        timedOut = true;
+        break;
+      }
+      if (matches.length >= cap) {
+        truncated = true;
+        break;
+      }
+
+      let content;
+      try {
+        content = await fs.promises.readFile(fullPath, "utf-8");
+      } catch {
+        skipped.count++;
+        continue; // unreadable / non-UTF8 file that slipped past the extension filter
+      }
+
+      const lines = content.split("\n");
+
+      for (let i = 0; i < lines.length; i++) {
+        if (i % 500 === 0 && Date.now() - startTime > SEARCH_TIME_BUDGET_MS) {
+          timedOut = true;
+          break fileLoop; // bail mid-file on a pathological single-file match storm
+        }
+        if (matches.length >= cap) {
+          truncated = true;
+          break fileLoop;
+        }
+
+        let isMatch;
+        try {
+          isMatch = matcher.test(lines[i]);
+        } catch {
+          continue; // defensive — a matcher should never throw, but never trust user regex fully
+        }
+
+        if (isMatch) {
+          const start = Math.max(0, i - ctxLines);
+          const end = Math.min(lines.length - 1, i + ctxLines);
+          const context = [];
+          for (let j = start; j <= end; j++) {
+            context.push({ line: j + 1, text: lines[j], ...(j === i ? { isMatch: true } : {}) });
+          }
+          matches.push({ file: relativePath, line: i + 1, match: lines[i], context });
+        }
+      }
+    }
+
+    if (wantFilesOnly) {
+      const uniqueFiles = [...new Set(matches.map((m) => m.file))];
+      return res.status(200).json({
+        status: "ok",
+        totalMatches: matches.length,
+        truncated,
+        timedOut,
+        filesSkipped: skipped.count,
+        files: uniqueFiles,
+      });
+    }
+
+    res.status(200).json({
+      status: "ok",
+      totalMatches: matches.length,
+      truncated,
+      timedOut,
+      filesSkipped: skipped.count,
+      matches,
+    });
+  } catch (err) {
+    res.status(500).json({
+      status: "error",
+      message: `Search failed: ${err.message}`,
+      hint: "This is a server-side failure, not a bad query — retry, or narrow fileGlob if the workspace is very large.",
+    });
+  }
+});
+
 
 /**
  * TOOL: execute-command

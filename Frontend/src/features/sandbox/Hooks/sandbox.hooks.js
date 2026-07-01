@@ -114,7 +114,7 @@ export const useSandbox = () => {
       if (data.previewUrl) {
         warmingAbortRef.current = false;
         dispatch(setWarmingProgress({ attempt: 0, message: WARMING_STEPS[0].message }));
-        await waitForPreview(data.previewUrl, warmingAbortRef);
+        waitForPreview(data.previewUrl, warmingAbortRef);
       } else {
         dispatch(setStatus('running'));
       }

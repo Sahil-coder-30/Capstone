@@ -72,6 +72,8 @@
   overflow: hidden;
   background-color: var(--bg-sidebar);
   position: relative;
+  container-type: inline-size;
+  container-name: aichat;
 
   &__ambient {
     position: absolute;
@@ -163,7 +165,7 @@
   }
 
   &__agent-name {
-    font-size: 11.5px;
+    font-size: 13px;
     font-weight: 700;
     color: var(--text-main);
     white-space: nowrap;
@@ -213,6 +215,11 @@
     width: 200px;
     padding: 4px;
     animation: slideInUp 0.15s ease-out;
+
+    &--upward {
+      top: auto;
+      bottom: 28px;
+    }
 
     &-item {
       padding: 7px 12px;
@@ -398,7 +405,7 @@
     }
 
     &-desc {
-      font-size: 12px;
+      font-size: 13.5px;
       color: var(--text-muted);
       line-height: 1.6;
       margin: 0;
@@ -424,7 +431,7 @@
       display: flex;
       align-items: center;
       gap: 8px;
-      font-size: 11.5px;
+      font-size: 13px;
       color: var(--text-muted);
 
       &-dot {
@@ -503,14 +510,14 @@
     }
 
     &-title {
-      font-size: 11.5px;
+      font-size: 13px;
       font-weight: 600;
       color: var(--text-main);
       margin-bottom: 2px;
     }
 
     &-preview {
-      font-size: 10.5px;
+      font-size: 11.5px;
       color: var(--text-dark);
       overflow: hidden;
       text-overflow: ellipsis;
@@ -582,7 +589,7 @@
     }
 
     &__title {
-      font-size: 12px;
+      font-size: 13.5px;
       font-weight: 600;
       color: var(--text-main);
       overflow: hidden;
@@ -630,7 +637,7 @@
 
     &-text {
       margin: 0;
-      font-size: 12px;
+      font-size: 13.5px;
       color: var(--text-main);
       line-height: 1.5;
       white-space: pre-wrap;
@@ -677,13 +684,13 @@
     }
 
     &-name {
-      font-size: 11.5px;
+      font-size: 13px;
       font-weight: 600;
       line-height: 1.3;
     }
 
     &-desc {
-      font-size: 10px;
+      font-size: 11.5px;
       color: var(--text-muted);
       margin-top: 2px;
       line-height: 1.4;
@@ -788,12 +795,15 @@
     flex-direction: column;
     gap: 7px;
     animation: slideInUp 0.15s ease-out;
+    min-width: 0;
+    overflow: hidden;
   }
 
   &__log-event {
     display: flex;
     gap: 8px;
     font-size: 10.5px;
+    min-width: 0;
 
     &-dot {
       width: 6px;
@@ -814,6 +824,11 @@
     &-name {
       font-weight: 600;
       color: var(--text-main);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      flex-shrink: 1;
+      min-width: 0;
     }
 
     &-desc {
@@ -821,6 +836,9 @@
       font-family: var(--font-mono);
       font-size: 10px;
       margin-top: 1px;
+      word-break: break-word;
+      overflow-wrap: break-word;
+      white-space: pre-wrap;
     }
 
     &-time {
@@ -839,6 +857,27 @@
     border-radius: 8px;
     position: relative;
     overflow: hidden;
+    min-width: 0;
+
+    p {
+      font-size: 13.5px;
+      line-height: 1.6;
+      color: var(--text-main);
+      margin: 0 0 10px 0;
+      &:last-child { margin-bottom: 0; }
+    }
+
+    ul, ol {
+      font-size: 13.5px;
+      line-height: 1.6;
+      color: var(--text-main);
+      margin: 0 0 10px 0;
+      padding-left: 20px;
+    }
+
+    li {
+      margin-bottom: 4px;
+    }
 
     &::before {
       content: '';
@@ -919,6 +958,10 @@
     border-radius: 8px;
     border: 1px solid var(--border);
     overflow: hidden;
+    min-width: 0;
+    max-width: 100%;
+    width: 100%;
+    box-sizing: border-box;
 
     &-header {
       display: flex;
@@ -957,6 +1000,8 @@
       padding: 12px;
       background: var(--bg-main);
       overflow-x: auto;
+      max-width: 100%;
+      box-sizing: border-box;
       font-size: 12px;
       line-height: 1.6;
       font-family: var(--font-mono);
@@ -1085,12 +1130,26 @@
     border-radius: 10px;
     padding: 10px 40px 10px 12px;
     color: var(--text-main);
-    font-size: 12px;
+    font-size: 13.5px;
     outline: none;
     resize: none;
     line-height: 1.5;
     font-family: var(--font-sans);
     transition: border-color 0.2s, background 0.2s;
+    max-height: 180px;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    
+    &::-webkit-scrollbar {
+      width: 4px;
+    }
+    &::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    &::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 2px;
+    }
 
     &::placeholder {
       color: var(--text-dark);
@@ -1275,4 +1334,111 @@
     margin-bottom: 4px;
     line-height: 1.6;
   }
+
+  &__attachments {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 8px;
+    padding: 0 4px;
+    animation: fadeIn 0.2s ease-out;
+  }
+
+  &__attachment-pill {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    background: rgba(13, 138, 106, 0.08);
+    border: 1px solid rgba(13, 138, 106, 0.2);
+    padding: 3px 8px;
+    border-radius: 6px;
+    font-size: 11.5px;
+    color: var(--text-main);
+    animation: slideInUp 0.15s ease-out;
+
+    .ai-chat__attachment-name {
+      max-width: 140px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .ai-chat__attachment-remove {
+      background: none;
+      border: none;
+      color: var(--text-dark);
+      cursor: pointer;
+      font-size: 13px;
+      padding: 0;
+      line-height: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: color 0.15s;
+
+      &:hover { color: #f43f5e; }
+    }
+  }
+
+  &__suggestions {
+    position: absolute;
+    bottom: calc(100% + 4px);
+    left: 0;
+    right: 0;
+    background: var(--bg-element);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.4);
+    z-index: 200;
+    max-height: 180px;
+    overflow-y: auto;
+    padding: 4px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    animation: slideInUp 0.1s ease-out;
+
+    &::-webkit-scrollbar { width: 4px; }
+    &::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 2px; }
+  }
+
+  &__suggestion-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 11.5px;
+    color: var(--text-muted);
+    transition: all 0.1s;
+
+    &--active {
+      background: rgba(13, 138, 106, 0.08);
+      color: var(--brand-hover);
+    }
+
+    &:hover {
+      background: rgba(13, 138, 106, 0.06);
+      color: var(--brand-hover);
+    }
+  }
+
+  @container aichat (max-width: 320px) {
+    .ai-chat__status-text {
+      display: none;
+    }
+    .ai-chat__model-btn {
+      max-width: 80px;
+      padding: 2px 4px;
+      font-size: 9px;
+    }
+    .ai-chat__header-title {
+      max-width: 70px;
+    }
+    .ai-chat__header-left {
+      gap: 4px !important;
+    }
+  }
 }
+

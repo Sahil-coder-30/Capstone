@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import gsap from 'gsap';
-import { Tween } from 'react-gsap';
 import {
   Cpu, Code, Activity, Zap, ArrowRight, Sparkles,
   ChevronRight, Server, Play, RotateCw, CheckCircle,
@@ -274,10 +273,12 @@ function buildLines(prompt) {
 export default function LandingPage({ onNavigateToLogin }) {
   const landingRef  = useRef(null);
   const headerRef   = useRef(null);
+  const heroInnerRef = useRef(null);
   const logsEndRef  = useRef(null);
   const ivRef       = useRef(null);
 
   const [isScrolled,   setIsScrolled]   = useState(false);
+  const [isScrolling,  setIsScrolling]  = useState(false);
   const [isHovered,    setIsHovered]    = useState(false);
   const [activeAgent,  setActiveAgent]  = useState('planner');
   const [openFaq,      setOpenFaq]      = useState(null);
@@ -300,26 +301,69 @@ export default function LandingPage({ onNavigateToLogin }) {
   useEffect(() => {
     const el = landingRef.current;
     if (!el) return;
-    const h = () => { setIsScrolled(el.scrollTop > 60); setShowChevron(el.scrollTop < 80); };
+    let scrollTimeout;
+    const h = () => {
+      const scrollTop = el.scrollTop;
+      // Scroll hysteresis: collapse past 80px, restore only when returning close to top (< 20px)
+      if (scrollTop > 80) {
+        setIsScrolled(true);
+      } else if (scrollTop < 20) {
+        setIsScrolled(false);
+      }
+      setShowChevron(scrollTop < 80);
+      
+      // Temporarily lock hover state during active scroll to avoid cursor trigger glitch
+      setIsScrolling(true);
+      clearTimeout(scrollTimeout);
+      scrollTimeout = setTimeout(() => {
+        setIsScrolling(false);
+      }, 150);
+    };
     el.addEventListener('scroll', h, { passive: true });
-    return () => el.removeEventListener('scroll', h);
+    return () => {
+      el.removeEventListener('scroll', h);
+      clearTimeout(scrollTimeout);
+    };
   }, []);
 
-  /* dynamic island */
-  const expanded = !isScrolled || isHovered;
+  /* dynamic island expanded state */
+  const expanded = !isScrolled || (isHovered && !isScrolling);
+
+  /* mount animations */
   useEffect(() => {
-    const hdr = headerRef.current;
-    if (!hdr) return;
-    if (expanded) {
-      gsap.to(hdr, { width: Math.min(960, window.innerWidth - 48) + 'px', height: 54, borderRadius: 28, duration: 0.42, ease: 'back.out(1.3)', overwrite: 'auto' });
-    } else {
-      gsap.to(hdr, { width: '190px', height: 38, borderRadius: 20, duration: 0.38, ease: 'power3.inOut', overwrite: 'auto' });
+    if (headerRef.current) {
+      gsap.fromTo(headerRef.current,
+        { y: -50, opacity: 0 },
+        { y: 0, opacity: 1, duration: 0.7, ease: 'power3.out' }
+      );
     }
-  }, [expanded]);
+    if (heroInnerRef.current) {
+      gsap.fromTo(heroInnerRef.current,
+        { y: 32, opacity: 0 },
+        { y: 0, opacity: 1, duration: 0.95, ease: 'power3.out', delay: 0.1 }
+      );
+    }
+  }, []);
+
+  /* smooth scroll to sections with offset */
+  const handleScrollTo = useCallback((e, targetId) => {
+    if (e && e.preventDefault) e.preventDefault();
+    const container = landingRef.current;
+    const targetEl = document.getElementById(targetId);
+    if (container && targetEl) {
+      const targetOffsetTop = targetEl.offsetTop;
+      container.scrollTo({
+        top: targetOffsetTop - 80,
+        behavior: 'smooth'
+      });
+    }
+  }, []);
 
   /* auto-scroll demo logs */
   useEffect(() => {
-    logsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (demoLogs.length > 0) {
+      logsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
   }, [demoLogs]);
 
   /* run demo */
@@ -360,81 +404,82 @@ export default function LandingPage({ onNavigateToLogin }) {
       <div className="lp__glow lp__glow--tr" />
       <div className="lp__glow lp__glow--bl" />
       <div className="lp__glow lp__glow--mid" />
+      <div className="lp__glow lp__glow--bottom" />
 
       {/* ━━━━ NAV ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
       <div className="lp__nav-wrap">
-        <Tween from={{ y: -50, opacity: 0 }} to={{ y: 0, opacity: 1 }} duration={0.7} ease="power3.out">
-          <header
-            ref={headerRef}
-            className="lp__header"
-            onMouseEnter={() => setIsHovered(true)}
-            onMouseLeave={() => setIsHovered(false)}
-          >
-            {/* pill — collapsed */}
-            <div className="lp__pill-collapsed" style={{ opacity: expanded ? 0 : 1, pointerEvents: expanded ? 'none' : 'auto' }}>
-              <span className="pulse-dot" /><span>Taksha Codespace</span>
+        <header
+          ref={headerRef}
+          className={`lp__header ${expanded ? 'lp__header--expanded' : 'lp__header--collapsed'}`}
+          onMouseEnter={() => setIsHovered(true)}
+          onMouseLeave={() => setIsHovered(false)}
+        >
+          {/* pill — collapsed */}
+          <div className="lp__pill-collapsed">
+            <span className="pulse-dot" /><span>Taksha Codespace</span>
+          </div>
+          {/* pill — expanded */}
+          <div className="lp__pill-expanded">
+            <div className="lp__brand"><BrandLogo height={22} variant="dark" /></div>
+            <nav className="lp__nav-links">
+              <a href="#demo" onClick={(e) => handleScrollTo(e, 'demo')}>Demo</a>
+              <a href="#pipeline" onClick={(e) => handleScrollTo(e, 'pipeline')}>Architecture</a>
+              <a href="#features" onClick={(e) => handleScrollTo(e, 'features')}>Features</a>
+              <a href="#access" onClick={(e) => handleScrollTo(e, 'access')}>Early Access</a>
+            </nav>
+            <div className="lp__nav-cta">
+              <button onClick={onNavigateToLogin} className="btn btn--ghost btn--sm">Sign in</button>
+              <button onClick={onNavigateToLogin} className="btn btn--primary btn--sm">Get started <ChevronRight size={11} /></button>
             </div>
-            {/* pill — expanded */}
-            <div className="lp__pill-expanded" style={{ opacity: expanded ? 1 : 0, pointerEvents: expanded ? 'auto' : 'none' }}>
-              <div className="lp__brand"><BrandLogo height={22} variant="dark" /></div>
-              <nav className="lp__nav-links">
-                <a href="#demo">Demo</a>
-                <a href="#pipeline">Architecture</a>
-                <a href="#features">Features</a>
-                <a href="#access">Early Access</a>
-              </nav>
-              <div className="lp__nav-cta">
-                <button onClick={onNavigateToLogin} className="btn btn--ghost btn--sm">Sign in</button>
-                <button onClick={onNavigateToLogin} className="btn btn--primary btn--sm">Get started <ChevronRight size={11} /></button>
-              </div>
-            </div>
-          </header>
-        </Tween>
+          </div>
+        </header>
       </div>
 
       {/* ━━━━ HERO ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
       <section className="lp__hero">
-        <Tween from={{ y: 32, opacity: 0 }} to={{ y: 0, opacity: 1 }} duration={0.95} ease="power3.out" delay={0.1}>
-          <div className="lp__hero-inner">
+        <div ref={heroInnerRef} className="lp__hero-inner">
 
-            <div className="lp__badge">
-              <Sparkles size={10} />
-              <span>Mistral Devstral · LangGraph · Kubernetes</span>
-            </div>
-
-            <h1 className="lp__hero-h1">
-              Describe your app.<br />
-              <span className="grad">Taksha builds, tests &amp; heals it.</span>
-            </h1>
-
-            <p className="lp__hero-sub">
-              A 4-layer multi-agent pipeline on Kubernetes. One prompt &rarr; a production-ready
-              React app running live in a browser sandbox — with a self-healing compiler
-              loop that fixes its own errors automatically.
-            </p>
-
-            <div className="lp__hero-actions">
-              <a href="#demo" className="btn btn--primary btn--lg">
-                Try the live demo <ArrowRight size={14} />
-              </a>
-              <button onClick={onNavigateToLogin} className="btn btn--ghost btn--lg">
-                Open workspace
-              </button>
-            </div>
-
-            <div className="lp__stats">
-              {STATS.map((s, i) => (
-                <div key={i} className="lp__stat">
-                  <span className="lp__stat-val">{s.value}</span>
-                  <span className="lp__stat-label">{s.label}</span>
-                </div>
-              ))}
-            </div>
-
+          <div className="lp__badge">
+            <Sparkles size={10} />
+            <span>Mistral Devstral · LangGraph · Kubernetes</span>
           </div>
-        </Tween>
 
-        <div className={`lp__scroll-cue${showChevron ? ' lp__scroll-cue--on' : ''}`}>
+          <h1 className="lp__hero-h1">
+            Describe your app.<br />
+            <span className="grad">Taksha builds, tests &amp; heals it.</span>
+          </h1>
+
+          <p className="lp__hero-sub">
+            A 4-layer multi-agent pipeline on Kubernetes. One prompt &rarr; a production-ready
+            React app running live in a browser sandbox — with a self-healing compiler
+            loop that fixes its own errors automatically.
+          </p>
+
+          <div className="lp__hero-actions">
+            <a href="#demo" onClick={(e) => handleScrollTo(e, 'demo')} className="btn btn--primary btn--lg">
+              Try the live demo <ArrowRight size={14} />
+            </a>
+            <button onClick={onNavigateToLogin} className="btn btn--ghost btn--lg">
+              Open workspace
+            </button>
+          </div>
+
+          <div className="lp__stats">
+            {STATS.map((s, i) => (
+              <div key={i} className="lp__stat">
+                <span className="lp__stat-val">{s.value}</span>
+                <span className="lp__stat-label">{s.label}</span>
+              </div>
+            ))}
+          </div>
+
+        </div>
+
+        <div 
+          className={`lp__scroll-cue${showChevron ? ' lp__scroll-cue--on' : ''}`}
+          onClick={(e) => handleScrollTo(e, 'demo')}
+          style={{ cursor: 'pointer' }}
+        >
           <ChevronDown size={17} />
         </div>
         <div className="lp__hero-fade" />
@@ -455,7 +500,7 @@ export default function LandingPage({ onNavigateToLogin }) {
           </Reveal>
 
           <Reveal delay={60}>
-            <div className="demo-shell">
+            <div className={`demo-shell${demoState === 'running' ? ' demo-shell--running' : ''}`}>
 
               {/* — Left panel — */}
               <div className="demo-left">
@@ -792,7 +837,52 @@ export default function LandingPage({ onNavigateToLogin }) {
                     <li key={i}><CheckCircle size={11} color="#0D8A6A" /> {f}</li>
                   ))}
                 </ul>
-                <a href="#access" className="btn btn--primary btn--sm price-card__cta">Join beta waitlist →</a>
+                <a href="#access" onClick={(e) => handleScrollTo(e, 'access')} className="btn btn--primary btn--sm price-card__cta">Join beta waitlist →</a>
+              </div>
+            </div>
+          </Reveal>
+
+          <Reveal delay={150}>
+            <div className="waitlist-box">
+              <div className="waitlist-badge">
+                <Sparkles size={11} /> BETA WAITLIST PHASE 1
+              </div>
+              <h3 className="waitlist-title">Reserve your node</h3>
+              <p className="waitlist-desc">
+                Phase 1 is limited to 50 active developers. Submit your email to request an invite.
+              </p>
+              
+              {!submitted ? (
+                <form 
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    if (email.trim() && email.includes('@')) {
+                      setSubmitted(true);
+                    }
+                  }} 
+                  className="waitlist-form"
+                >
+                  <input
+                    type="email"
+                    placeholder="Enter your email address…"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                  />
+                  <button type="submit" className="btn btn--primary btn--sm">
+                    Request invite
+                  </button>
+                </form>
+              ) : (
+                <div className="waitlist-success">
+                  <CheckCircle size={13} /> You're on the list! We'll reach out shortly.
+                </div>
+              )}
+
+              <div className="waitlist-perks">
+                <span className="waitlist-perk">✓ 100% Free Trial</span>
+                <span className="waitlist-perk">✓ 100GB NVMe Node</span>
+                <span className="waitlist-perk">✓ Direct Discord Access</span>
               </div>
             </div>
           </Reveal>

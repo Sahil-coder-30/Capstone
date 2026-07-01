@@ -21,29 +21,84 @@ app.get("/api/router/ready", (req, res) => {
     });
 });
 
-const proxyies = {};
-const agentProxyies = {};
+// Caches for HTTP proxies (ws: false to prevent auto upgrade subscription)
+const httpProxies = {};
+const httpAgentProxies = {};
 
-const getProxyies = (sandboxId) => {
-    if (!proxyies[sandboxId]) {
-        proxyies[sandboxId] = createProxyMiddleware({
+// Caches for WebSocket proxies (ws: true, but not mounted as express middleware, so no auto subscription)
+const wsProxies = {};
+const wsAgentProxies = {};
+
+const getHttpProxy = (sandboxId) => {
+    if (!httpProxies[sandboxId]) {
+        httpProxies[sandboxId] = createProxyMiddleware({
             target: `http://sandbox-service-${sandboxId}`,
-            changeOrigin: false,
-            ws: false,
+            changeOrigin: true,
+            ws: false
         });
     }
-    return proxyies[sandboxId];
+    return httpProxies[sandboxId];
 };
 
-const getAgentProxy = (sandboxId) => {
-    if (!agentProxyies[sandboxId]) {
-        agentProxyies[sandboxId] = createProxyMiddleware({
+const getHttpAgentProxy = (sandboxId) => {
+    if (!httpAgentProxies[sandboxId]) {
+        httpAgentProxies[sandboxId] = createProxyMiddleware({
             target: `http://sandbox-service-${sandboxId}:3000`,
             changeOrigin: true,
-            ws: false,
+            ws: false
         });
     }
-    return agentProxyies[sandboxId];
+    return httpAgentProxies[sandboxId];
+};
+
+const getWsProxy = (sandboxId) => {
+    if (!wsProxies[sandboxId]) {
+        wsProxies[sandboxId] = createProxyMiddleware({
+            target: `http://sandbox-service-${sandboxId}`,
+            changeOrigin: true,
+            ws: true,
+            on: {
+                error: (err, req, res) => {
+                    console.error(`[Router Preview WS Error] sandboxId: ${sandboxId}, url: ${req?.url}, err:`, err);
+                },
+                proxyReqWs: (proxyReq, req, socket, options) => {
+                    console.log(`[Router Preview WS Upgrade] sandboxId: ${sandboxId}, url: ${req?.url}`);
+                },
+                open: (proxySocket) => {
+                    console.log(`[Router Preview WS Connected] sandboxId: ${sandboxId}`);
+                },
+                close: (res, socket, head) => {
+                    console.log(`[Router Preview WS Closed] sandboxId: ${sandboxId}`);
+                }
+            }
+        });
+    }
+    return wsProxies[sandboxId];
+};
+
+const getWsAgentProxy = (sandboxId) => {
+    if (!wsAgentProxies[sandboxId]) {
+        wsAgentProxies[sandboxId] = createProxyMiddleware({
+            target: `http://sandbox-service-${sandboxId}:3000`,
+            changeOrigin: true,
+            ws: true,
+            on: {
+                error: (err, req, res) => {
+                    console.error(`[Router Agent WS Error] sandboxId: ${sandboxId}, url: ${req?.url}, err:`, err);
+                },
+                proxyReqWs: (proxyReq, req, socket, options) => {
+                    console.log(`[Router Agent WS Upgrade] sandboxId: ${sandboxId}, url: ${req?.url}`);
+                },
+                open: (proxySocket) => {
+                    console.log(`[Router Agent WS Connected] sandboxId: ${sandboxId}`);
+                },
+                close: (res, socket, head) => {
+                    console.log(`[Router Agent WS Closed] sandboxId: ${sandboxId}`);
+                }
+            }
+        });
+    }
+    return wsAgentProxies[sandboxId];
 };
 
 app.use(async (req, res, next) => {
@@ -59,18 +114,15 @@ app.use(async (req, res, next) => {
     await refreshTTL(sandboxId);
 
     if (targetHost === 'agent') {
-        return getAgentProxy(sandboxId)(req, res, next);
+        return getHttpAgentProxy(sandboxId)(req, res, next);
     } else if (targetHost === 'preview') {
-        return getProxyies(sandboxId)(req, res, next);
+        return getHttpProxy(sandboxId)(req, res, next);
     }
 
     next();
 });
 
 // Create the raw HTTP server so we can hook into the 'upgrade' event.
-// Express's app.listen() does this internally too, but we need a direct
-// reference to attach the WebSocket upgrade handler ourselves, since
-// upgrade events never pass through Express's middleware chain.
 const server = http.createServer(app);
 
 server.on('upgrade', async (req, socket, head) => {
@@ -90,9 +142,9 @@ server.on('upgrade', async (req, socket, head) => {
 
     let proxy;
     if (targetHost === 'agent') {
-        proxy = getAgentProxy(sandboxId);
+        proxy = getWsAgentProxy(sandboxId);
     } else if (targetHost === 'preview') {
-        proxy = getProxyies(sandboxId);
+        proxy = getWsProxy(sandboxId);
     }
 
     if (proxy) {

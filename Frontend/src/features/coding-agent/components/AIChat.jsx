@@ -5,11 +5,12 @@ import { useEditor } from '../../editor/Hooks/editor.hooks';
 import {
   Send, ChevronDown, ChevronRight, Check, Trash2, Cpu,
   CheckCircle2, AlertCircle, Loader2,
-  X, Activity, FileCode, ArrowRight
+  X, Activity, FileCode, ArrowRight, Paperclip
 } from 'lucide-react';
 import { parseMarkdownToReact } from '../../../components/Markdown';
 import './AIChat.scss';
 import { TakshaIcon } from '../../../components/BrandLogo';
+import { readFileAPI } from '../../editor/service/editor.api';
 
 // ─── Tool type icon colors ────────────────────────────────────────────────────
 const TOOL_TYPE_COLORS = {
@@ -28,19 +29,118 @@ const TOOL_TYPE_COLORS = {
 export default function AIChat({ projectId, onCloseChat }) {
   const { sandboxId, status } = useSandbox();
   const { messages, isStreaming, isHistoryLoading, sendMessage, clearChatHistory } = useCodingAgent(projectId);
-  const { fetchFilesList, activeFile, isModified, fetchFileContent } = useEditor();
+  const { files, fetchFilesList, activeFile, isModified, fetchFileContent } = useEditor();
 
   const [input, setInput] = useState('');
   const [expandedRuns, setExpandedRuns] = useState({});
   const [expandedLogs, setExpandedLogs] = useState({});
   const [inputFocused, setInputFocused] = useState(false);
   const [copiedCodeIdx, setCopiedCodeIdx] = useState(null);
-  const [selectedModel, setSelectedModel] = useState('Gemini 3.5 Flash');
+  const [selectedModel, setSelectedModel] = useState('gemini-1.5-flash');
   const [isModelDropdownOpen, setIsModelDropdownOpen] = useState(false);
 
   const scrollContainerRef = useRef(null);
   const lastScrollHeightRef = useRef(0);
   const prevSandboxIdRef = useRef(sandboxId);
+  const textareaRef = useRef(null);
+  const [attachedFiles, setAttachedFiles] = useState([]); // [{ name, path, content }]
+  const [fileSuggestions, setFileSuggestions] = useState([]);
+  const [activeSuggestionIdx, setActiveSuggestionIdx] = useState(0);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [suggestionQuery, setSuggestionQuery] = useState('');
+  const [suggestionTriggerIdx, setSuggestionTriggerIdx] = useState(-1);
+  const [isFilePickerOpen, setIsFilePickerOpen] = useState(false);
+
+  const suggestionsContainerRef = useRef(null);
+
+  // Auto-scroll active suggestion into view inside the dropdown list
+  useEffect(() => {
+    if (showSuggestions && suggestionsContainerRef.current) {
+      const activeEl = suggestionsContainerRef.current.children[activeSuggestionIdx];
+      if (activeEl) {
+        activeEl.scrollIntoView({ block: 'nearest' });
+      }
+    }
+  }, [activeSuggestionIdx, showSuggestions]);
+
+  // Auto-resize textarea height dynamically based on content
+  useEffect(() => {
+    const ta = textareaRef.current;
+    if (ta) {
+      ta.style.height = 'auto';
+      ta.style.height = `${ta.scrollHeight + 2}px`;
+    }
+  }, [input]);
+
+  const handleTextareaChange = (e) => {
+    const val = e.target.value;
+    setInput(val);
+
+    const selectionStart = e.target.selectionStart;
+    const textBeforeCursor = val.slice(0, selectionStart);
+    
+    // Check if the current word being typed starts with @
+    const lastWordMatch = textBeforeCursor.match(/(?:^|\s)(@)([^\s]*)$/);
+    if (lastWordMatch) {
+      const triggerChar = lastWordMatch[1]; // '@'
+      const query = lastWordMatch[2]; // e.g. 'app'
+      setSuggestionQuery(query);
+      setSuggestionTriggerIdx(selectionStart - lastWordMatch[0].length + (lastWordMatch[0].startsWith(' ') ? 1 : 0));
+      
+      // Filter flat list of file paths based on query
+      if (files && files.length > 0) {
+        const filtered = files.filter(f => f.toLowerCase().includes(query.toLowerCase()));
+        setFileSuggestions(filtered.slice(0, 8)); // limit to 8 suggestions
+        setShowSuggestions(filtered.length > 0);
+        setActiveSuggestionIdx(0);
+      } else {
+        setShowSuggestions(false);
+      }
+    } else {
+      setShowSuggestions(false);
+    }
+  };
+
+  const handleSelectSuggestion = async (filePath) => {
+    let content = '';
+    try {
+      if (sandboxId) {
+        const response = await readFileAPI(sandboxId, filePath);
+        content = response.files?.[0]?.content || '';
+      }
+    } catch (err) {
+      console.error("Failed to read file content for attachment:", err);
+    }
+
+    if (!attachedFiles.some(f => f.path === filePath)) {
+      setAttachedFiles(prev => [...prev, { name: filePath.split('/').pop(), path: filePath, content }]);
+    }
+
+    // Replace trigger word in textarea input using the trigger index
+    if (suggestionTriggerIdx !== -1) {
+      const beforeTrigger = input.slice(0, suggestionTriggerIdx);
+      const afterTrigger = input.slice(suggestionTriggerIdx + 1 + suggestionQuery.length);
+      setInput(beforeTrigger + afterTrigger);
+      setShowSuggestions(false);
+      
+      setTimeout(() => {
+        if (textareaRef.current) {
+          textareaRef.current.focus();
+          const newCursorPos = beforeTrigger.length;
+          textareaRef.current.setSelectionRange(newCursorPos, newCursorPos);
+        }
+      }, 50);
+    }
+  };
+
+  // Auto-resize textarea height dynamically based on content
+  useEffect(() => {
+    const ta = textareaRef.current;
+    if (ta) {
+      ta.style.height = 'auto';
+      ta.style.height = `${ta.scrollHeight + 2}px`;
+    }
+  }, [input]);
 
   // Load initial prompt from session storage and auto-submit once sandbox is running and history is ready
   useEffect(() => {
@@ -48,7 +148,7 @@ export default function AIChat({ projectId, onCloseChat }) {
       const initPrompt = sessionStorage.getItem(`initialPrompt_${projectId}`);
       if (initPrompt) {
         sessionStorage.removeItem(`initialPrompt_${projectId}`);
-        sendMessage(initPrompt, () => {
+        sendMessage(initPrompt, selectedModel, () => {
           if (sandboxId) {
             fetchFilesList(sandboxId);
             if (activeFile && !isModified) fetchFileContent(sandboxId, activeFile, true);
@@ -56,7 +156,14 @@ export default function AIChat({ projectId, onCloseChat }) {
         });
       }
     }
-  }, [projectId, status, sandboxId, isHistoryLoading, sendMessage, fetchFilesList, activeFile, isModified, fetchFileContent]);
+  }, [projectId, status, sandboxId, isHistoryLoading, sendMessage, selectedModel, fetchFilesList, activeFile, isModified, fetchFileContent]);
+
+  // Auto-fetch files list when sandbox is active to populate autocomplete suggestions
+  useEffect(() => {
+    if (status === 'running' && sandboxId) {
+      fetchFilesList(sandboxId);
+    }
+  }, [status, sandboxId, fetchFilesList]);
 
   // Auto-clear history when sandbox session changes
   useEffect(() => {
@@ -70,15 +177,29 @@ export default function AIChat({ projectId, onCloseChat }) {
     prevSandboxIdRef.current = sandboxId;
   }, [sandboxId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Smart auto-scroll
+  // Smart auto-scroll and resize observer
   useEffect(() => {
     const container = scrollContainerRef.current;
     if (!container) return;
-    const prevHeight = lastScrollHeightRef.current;
-    const isShrunk = container.scrollHeight < prevHeight;
-    const wasAtBottom = !prevHeight || isShrunk || (prevHeight - container.scrollTop - container.clientHeight <= 100);
-    if (wasAtBottom) container.scrollTop = container.scrollHeight;
-    lastScrollHeightRef.current = container.scrollHeight;
+
+    const handleScrollAdjustment = () => {
+      const prevHeight = lastScrollHeightRef.current;
+      const isShrunk = container.scrollHeight < prevHeight;
+      const wasAtBottom = !prevHeight || isShrunk || (prevHeight - container.scrollTop - container.clientHeight <= 100);
+      if (wasAtBottom) container.scrollTop = container.scrollHeight;
+      lastScrollHeightRef.current = container.scrollHeight;
+    };
+
+    handleScrollAdjustment();
+
+    const resizeObserver = new ResizeObserver(() => {
+      handleScrollAdjustment();
+    });
+    resizeObserver.observe(container);
+
+    return () => {
+      resizeObserver.disconnect();
+    };
   }, [messages, isStreaming]);
 
   // Close model dropdown on outside click
@@ -119,10 +240,12 @@ export default function AIChat({ projectId, onCloseChat }) {
     }
 
     const query = input;
+    const currentAttachments = [...attachedFiles];
     setInput('');
+    setAttachedFiles([]);
     lastScrollHeightRef.current = 0;
 
-    sendMessage(query, () => {
+    sendMessage(query, selectedModel, currentAttachments, () => {
       if (sandboxId) {
         fetchFilesList(sandboxId);
         if (activeFile && !isModified) fetchFileContent(sandboxId, activeFile, true);
@@ -131,6 +254,23 @@ export default function AIChat({ projectId, onCloseChat }) {
   };
 
   const handleKeyDown = (e) => {
+    if (showSuggestions) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setActiveSuggestionIdx(prev => (prev + 1) % fileSuggestions.length);
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setActiveSuggestionIdx(prev => (prev - 1 + fileSuggestions.length) % fileSuggestions.length);
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        handleSelectSuggestion(fileSuggestions[activeSuggestionIdx]);
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        setShowSuggestions(false);
+      }
+      return;
+    }
+
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSubmit(e); }
   };
 
@@ -302,10 +442,14 @@ export default function AIChat({ projectId, onCloseChat }) {
 
   // ─── Models list ────────────────────────────────────────────────────────────
   const MODELS = [
-    { id: 'gemini',  label: 'Gemini 3.5 Flash (High)', tag: 'Fast',    color: '#60a5fa' },
-    { id: 'mistral', label: 'Mistral Devstral',         tag: 'Default', color: '#34d399' },
-    { id: 'claude',  label: 'Claude 3.5 Sonnet',        tag: 'Smart',   color: '#a78bfa' },
+    { id: 'gemini-1.5-flash',  label: 'Gemini 1.5 Flash',  tag: 'Fast',    color: '#60a5fa' },
+    { id: 'gemini-1.5-pro',    label: 'Gemini 1.5 Pro',    tag: 'Smart',   color: '#3b82f6' },
+    { id: 'mistral-large',     label: 'Mistral Large',     tag: 'Powerful',color: '#34d399' },
+    { id: 'mistral-medium',    label: 'Mistral Medium',    tag: 'Balanced',color: '#10b981' },
+    { id: 'mistral-small',     label: 'Mistral Small',     tag: 'Lite',    color: '#059669' },
   ];
+
+  const activeModelObj = MODELS.find(m => m.id === selectedModel) || MODELS[0];
 
   const charCount = input.length;
   const charClass = charCount > 900 ? 'ai-chat__char-count--danger' : charCount > 600 ? 'ai-chat__char-count--warning' : 'ai-chat__char-count--normal';
@@ -326,42 +470,18 @@ export default function AIChat({ projectId, onCloseChat }) {
             <Cpu size={12} color="var(--primary)" />
             <span className="ai-chat__header-title">Orion Coding Agent</span>
           </div>
-
-          {/* Model selector */}
-          <div style={{ position: 'relative', marginLeft: '6px' }} onClick={e => e.stopPropagation()}>
-            <button className="ai-chat__model-btn" onClick={() => setIsModelDropdownOpen(v => !v)}>
-              <span>{selectedModel}</span>
-              <ChevronDown size={9} />
-            </button>
-
-            {isModelDropdownOpen && (
-              <div className="ai-chat__model-dropdown">
-                {MODELS.map(m => (
-                  <div
-                    key={m.id}
-                    className={`ai-chat__model-dropdown-item ${selectedModel === m.label ? 'ai-chat__model-dropdown-item--active' : ''}`}
-                    onClick={() => { setSelectedModel(m.label); setIsModelDropdownOpen(false); }}
-                  >
-                    <span style={{ width: 6, height: 6, borderRadius: '50%', background: m.color, flexShrink: 0 }} />
-                    <span style={{ flex: 1 }}>{m.label}</span>
-                    <span style={{ fontSize: '8px', color: m.color, background: `${m.color}18`, padding: '1px 4px', borderRadius: '3px', fontWeight: 700 }}>{m.tag}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
         </div>
 
         <div className="ai-chat__header-right">
           {isStreaming ? (
             <div className="ai-chat__status ai-chat__status--busy">
               <div className="ai-chat__status-spinner" />
-              BUSY
+              <span className="ai-chat__status-text">BUSY</span>
             </div>
           ) : (
             <div className="ai-chat__status ai-chat__status--ready">
               <div className="ai-chat__status-dot ai-chat__status-dot--ready" />
-              READY
+              <span className="ai-chat__status-text">READY</span>
             </div>
           )}
 
@@ -554,7 +674,7 @@ export default function AIChat({ projectId, onCloseChat }) {
                             {parsedEvents.map((ev, evIdx) => (
                               <div key={evIdx} className="ai-chat__log-event">
                                 <div className={`ai-chat__log-event-dot ai-chat__log-event-dot--${ev.status === 'success' ? 'success' : ev.status === 'running' ? 'running' : ev.status === 'error' ? 'error' : 'info'}`} />
-                                <div style={{ flex: 1 }}>
+                                <div style={{ flex: 1, minWidth: 0 }}>
                                   <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                                     <span className="ai-chat__log-event-name" style={{ color: TOOL_TYPE_COLORS[ev.type] || 'var(--text-main)' }}>
                                       {ev.title}
@@ -643,17 +763,59 @@ export default function AIChat({ projectId, onCloseChat }) {
           </div>
         ) : (
           <div className="ai-chat__form">
+            {attachedFiles.length > 0 && (
+              <div className="ai-chat__attachments">
+                {attachedFiles.map(file => (
+                  <div key={file.path} className="ai-chat__attachment-pill">
+                    <FileCode size={11} color="var(--brand-primary)" />
+                    <span className="ai-chat__attachment-name" title={file.path}>{file.name}</span>
+                    <button
+                      type="button"
+                      className="ai-chat__attachment-remove"
+                      onClick={() => setAttachedFiles(prev => prev.filter(f => f.path !== file.path))}
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
             <div className={`ai-chat__input-wrap ${inputFocused && !isStreaming ? 'ai-chat__input-wrap--active' : ''} ${isStreaming ? 'ai-chat__input-wrap--busy' : ''}`}>
               <form onSubmit={handleSubmit} style={{ position: 'relative', minWidth: 0 }}>
+                {showSuggestions && (
+                  <div ref={suggestionsContainerRef} className="ai-chat__suggestions">
+                    {fileSuggestions.map((suggestion, idx) => (
+                      <div
+                        key={suggestion}
+                        className={`ai-chat__suggestion-item ${idx === activeSuggestionIdx ? 'ai-chat__suggestion-item--active' : ''}`}
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          handleSelectSuggestion(suggestion);
+                        }}
+                      >
+                        <FileCode size={11} color="var(--brand-primary)" />
+                        <span className="ai-chat__suggestion-text" style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {suggestion}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
                 <textarea
+                  ref={textareaRef}
                   value={input}
-                  onChange={(e) => setInput(e.target.value)}
+                  onChange={handleTextareaChange}
                   onKeyDown={handleKeyDown}
                   onFocus={() => setInputFocused(true)}
-                  onBlur={() => setInputFocused(false)}
-                  placeholder={isStreaming ? 'Orion is working…' : 'Enter instructions for Orion…'}
+                  onBlur={() => {
+                    setInputFocused(false);
+                    // Slight delay to allow clicking suggestions before hiding
+                    setTimeout(() => setShowSuggestions(false), 200);
+                  }}
+                  placeholder={isStreaming ? 'Orion is working…' : 'Type @ to attach files…'}
                   disabled={isStreaming}
-                  rows={2}
+                  rows={1}
                   className="ai-chat__textarea"
                 />
                 <button
@@ -670,14 +832,77 @@ export default function AIChat({ projectId, onCloseChat }) {
             </div>
 
             <div className="ai-chat__form-footer">
-              <span className="ai-chat__hint">
-                <kbd>Enter</kbd> to send · <kbd>Shift+Enter</kbd> newline
-              </span>
-              {input.length > 0 && (
-                <span className={`ai-chat__char-count ${charClass}`}>
-                  {charCount}/1000
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                {/* Model selector placed inside input footer */}
+                <div style={{ position: 'relative' }} onClick={e => e.stopPropagation()}>
+                  <button className="ai-chat__model-btn" onClick={() => { setIsModelDropdownOpen(v => !v); setIsFilePickerOpen(false); }}>
+                    <span>{activeModelObj.label}</span>
+                    <ChevronDown size={9} />
+                  </button>
+                  {isModelDropdownOpen && (
+                    <div className="ai-chat__model-dropdown ai-chat__model-dropdown--upward">
+                      {MODELS.map(m => (
+                        <div
+                          key={m.id}
+                          className={`ai-chat__model-dropdown-item ${selectedModel === m.id ? 'ai-chat__model-dropdown-item--active' : ''}`}
+                          onClick={() => { setSelectedModel(m.id); setIsModelDropdownOpen(false); }}
+                        >
+                          <span style={{ width: 6, height: 6, borderRadius: '50%', background: m.color, flexShrink: 0 }} />
+                          <span style={{ flex: 1 }}>{m.label}</span>
+                          <span style={{ fontSize: '8px', color: m.color, background: `${m.color}18`, padding: '1px 4px', borderRadius: '3px', fontWeight: 700 }}>{m.tag}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Attach File Button Context */}
+                <div style={{ position: 'relative' }} onClick={e => e.stopPropagation()}>
+                  <button
+                    type="button"
+                    className="ai-chat__model-btn"
+                    onClick={() => { setIsFilePickerOpen(v => !v); setIsModelDropdownOpen(false); }}
+                    title="Attach File Context"
+                  >
+                    <Paperclip size={10} />
+                    <span>Attach File</span>
+                  </button>
+                  {isFilePickerOpen && (
+                    <div className="ai-chat__model-dropdown ai-chat__model-dropdown--upward" style={{ width: '220px', maxHeight: '200px', overflowY: 'auto' }}>
+                      <div style={{ padding: '6px 10px', fontSize: '9px', color: 'var(--text-dark)', fontWeight: 700, borderBottom: '1px solid var(--border)', background: 'var(--bg-main)' }}>
+                        SELECT A FILE TO ATTACH
+                      </div>
+                      {files && files.length > 0 ? (
+                        files.map(f => (
+                          <div
+                            key={f}
+                            className="ai-chat__model-dropdown-item"
+                            onClick={() => { handleSelectSuggestion(f); setIsFilePickerOpen(false); }}
+                            style={{ padding: '6px 10px' }}
+                          >
+                            <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f}</span>
+                          </div>
+                        ))
+                      ) : (
+                        <div style={{ padding: '10px', fontSize: '11px', color: 'var(--text-dark)', textAlign: 'center' }}>
+                          No files available
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <span className="ai-chat__hint">
+                  <kbd>Enter</kbd> to send · <kbd>Shift+Enter</kbd> newline
                 </span>
-              )}
+                {input.length > 0 && (
+                  <span className={`ai-chat__char-count ${charClass}`}>
+                    {charCount}/1000
+                  </span>
+                )}
+              </div>
             </div>
           </div>
         )}

@@ -10,7 +10,7 @@ export default function Layout({
   isRightOpen = true,
   isBottomOpen = true
 }) {
-  const [leftWidth, setLeftWidth] = useState(280);
+  const [leftWidth, setLeftWidth] = useState(380);
   const [rightWidth, setRightWidth] = useState(380);
   const [bottomHeight, setBottomHeight] = useState(250);
   const [resizingSide, setResizingSide] = useState(null); // 'left' | 'right' | 'bottom' | null
@@ -19,15 +19,32 @@ export default function Layout({
   const isResizingRight = useRef(false);
   const isResizingBottom = useRef(false);
 
+  const leftRatioRef = useRef(380 / window.innerWidth);
+
+  useEffect(() => {
+    const handleResize = () => {
+      const offset = activityBar ? 48 : 0;
+      const maxW = window.innerWidth - offset;
+      const newWidth = Math.max(220, Math.min(maxW, Math.round(leftRatioRef.current * window.innerWidth)));
+      setLeftWidth(newWidth);
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [activityBar]);
+
   useEffect(() => {
     let animationFrameId = null;
 
     const handleMouseMove = (e) => {
+      const offset = activityBar ? 48 : 0;
       if (isResizingLeft.current) {
         if (animationFrameId) cancelAnimationFrame(animationFrameId);
         animationFrameId = requestAnimationFrame(() => {
-          const newWidth = Math.max(220, Math.min(420, e.clientX - 48)); // Offset by activity bar width
+          const maxW = window.innerWidth - offset;
+          const newWidth = Math.max(220, Math.min(maxW, e.clientX - offset));
           setLeftWidth(newWidth);
+          leftRatioRef.current = newWidth / window.innerWidth;
         });
       } else if (isResizingRight.current) {
         if (animationFrameId) cancelAnimationFrame(animationFrameId);
@@ -62,7 +79,7 @@ export default function Layout({
       document.removeEventListener('mouseup', handleMouseUp);
       if (animationFrameId) cancelAnimationFrame(animationFrameId);
     };
-  }, []);
+  }, [activityBar]);
 
   const startLeftResize = (e) => {
     e.preventDefault();

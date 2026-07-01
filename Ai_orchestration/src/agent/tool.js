@@ -662,5 +662,85 @@ export const deleteFile = tool(
   },
 );
 
+export const searchCode = tool(
+  async ({ pattern, isRegex, caseSensitive, fileGlob, contextLines, maxResults, filesOnly }, config) => {
+    config = ensureWriter(config);
+    try {
+      config.writer(
+        `searchCode: start - pattern: ${pattern}, isRegex: ${isRegex}, caseSensitive: ${caseSensitive}, fileGlob: ${fileGlob}, contextLines: ${contextLines}, maxResults: ${maxResults}, filesOnly: ${filesOnly}`,
+      );
+
+      const params = {};
+      if (pattern !== undefined) params.pattern = pattern;
+      if (isRegex !== undefined) params.isRegex = String(isRegex);
+      if (caseSensitive !== undefined) params.caseSensitive = String(caseSensitive);
+      if (fileGlob !== undefined) params.fileGlob = fileGlob;
+      if (contextLines !== undefined) params.contextLines = String(contextLines);
+      if (maxResults !== undefined) params.maxResults = String(maxResults);
+      if (filesOnly !== undefined) params.filesOnly = String(filesOnly);
+
+      const response = await axios.get(
+        `http://sandbox-service-${config.configurable.projectId}:3000/api/agent/search-code`,
+        {
+          params,
+          timeout: 15_000,
+        },
+      );
+      config.writer(
+        `searchCode: success - response: ${JSON.stringify(response.data)}`,
+      );
+      return JSON.stringify(response.data);
+    } catch (err) {
+      const formatted = logError("searchCode", err);
+      config.writer(
+        `searchCode: error - details: ${JSON.stringify(formatted)}`,
+      );
+      return JSON.stringify({
+        error: true,
+        message: "Failed to search code",
+        details: formatted,
+      });
+    }
+  },
+  {
+    name: "search_code",
+    description: `Search for a text pattern or regex across the entire codebase WITHOUT reading full files.
+Returns matching file paths, line numbers, the matched line, and surrounding context lines.
+Use this to find specific variables, functions, classes, imports, or bug patterns.
+The context lines returned preserve exact original whitespace and indentation, so they can be copied directly into patch_file's oldStr.
+Always prefer this over read_file when you know what you are looking for.`,
+    schema: z.object({
+      pattern: z
+        .string()
+        .describe("The text pattern or regex pattern to search for (max 500 characters)."),
+      isRegex: z
+        .boolean()
+        .optional()
+        .describe("Whether to treat the pattern as a regular expression. Defaults to false."),
+      caseSensitive: z
+        .boolean()
+        .optional()
+        .describe("Whether to perform a case-sensitive search. Defaults to false."),
+      fileGlob: z
+        .string()
+        .optional()
+        .describe("Substring filter to restrict search to matching relative file paths (e.g. 'src/components')."),
+      contextLines: z
+        .number()
+        .optional()
+        .describe("Number of lines of context above and below the match to return (0 to 5, default 2). Ignored if filesOnly is true."),
+      maxResults: z
+        .number()
+        .optional()
+        .describe("Maximum number of search results to return (1 to 50, default 20)."),
+      filesOnly: z
+        .boolean()
+        .optional()
+        .describe("If true, only returns a list of unique relative file paths containing matches (much cheaper and faster). Defaults to false."),
+    }),
+  },
+);
+
+
 
 

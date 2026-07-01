@@ -17,6 +17,7 @@ import { fetchMeAPI } from './features/auth/service/auth.api';
 import SettingsPage from './features/settings/pages/SettingsPage';
 import { useSandbox } from './features/sandbox/Hooks/sandbox.hooks';
 import { useEditor } from './features/editor/Hooks/editor.hooks';
+import { useWorkspaceSync } from './features/editor/Hooks/useWorkspaceSync';
 import {
   Sparkles, FolderTree, Play, AlertTriangle,
   ExternalLink, RefreshCw, Eye, Loader2, Code2, Terminal, X, Cpu, Check, Info, Activity
@@ -129,6 +130,9 @@ function PreviewWarmingScreen({ message, attempt }) {
 export default function App() {
   const { sandboxId, previewUrl, status, warmingMessage, warmingAttempt, loadSandboxStatus, startSandbox } = useSandbox();
   const { syncAllFilesToCache } = useEditor();
+
+  // Initialize real-time workspace file synchronization
+  useWorkspaceSync();
 
   const dispatch = useDispatch();
   const { isAuthenticated, loading, user } = useSelector((state) => state.auth);
@@ -282,16 +286,10 @@ export default function App() {
   const isRunning  = status === 'running';
   const isStarting = status === 'starting';
 
-  // 5-second polling loop for real-time file cache sync
+  // Initial sync for real-time file cache sync when sandbox starts running
   useEffect(() => {
     if (status === 'running' && sandboxId) {
       syncAllFilesToCache(sandboxId);
-
-      const interval = setInterval(() => {
-        syncAllFilesToCache(sandboxId);
-      }, 5000); // Poll every 5s for real-time filesystem sync
-
-      return () => clearInterval(interval);
     }
   }, [sandboxId, status, syncAllFilesToCache]);
 

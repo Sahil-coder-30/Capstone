@@ -23,8 +23,15 @@ export const useCodingAgent = (projectId) => {
   const { sandboxId } = useSelector((state) => state.sandbox);
   const { syncAllFilesToCache } = useEditor();
 
-  const sendMessage = useCallback((text, onComplete) => {
+  const sendMessage = useCallback((text, modelName, attachments, onComplete) => {
     if (!text.trim() || !sandboxId || !projectId) return;
+
+    let actualAttachments = attachments;
+    let actualOnComplete = onComplete;
+    if (typeof attachments === 'function') {
+      actualOnComplete = attachments;
+      actualAttachments = [];
+    }
 
     // 1. Add user message
     dispatch(addMessage({ role: 'user', text }));
@@ -52,7 +59,13 @@ export const useCodingAgent = (projectId) => {
 
     socket.on('connect', () => {
       console.log('[CodingAgent] Socket.io connected to AI orchestrator');
-      socket.emit('agent:invoke', { message: text, projectId, sandboxId });
+      socket.emit('agent:invoke', { 
+        message: text, 
+        projectId, 
+        sandboxId, 
+        modelName,
+        attachments: actualAttachments 
+      });
     });
 
     // 4. Stream LLM tokens
@@ -107,7 +120,7 @@ export const useCodingAgent = (projectId) => {
       dispatch(setStreaming(false));
       socket.disconnect();
       syncAllFilesToCache(sandboxId);
-      onComplete?.();
+      actualOnComplete?.();
     });
 
     // 8. Stream error
