@@ -1,19 +1,26 @@
-import React from 'react';
-import { CreditCard, RefreshCw, Cpu, Database, CheckCircle2, Coins, ArrowUpRight, Sparkles } from 'lucide-react';
+import { RefreshCw, Cpu, Database, CheckCircle2, Coins, ArrowUpRight, Sparkles } from 'lucide-react';
 
 export default function SettingsBillingPage({ 
   projectsCount = 2, 
   onSyncLimits, 
   credit = { credits: 20, promptTokens: 0, completionTokens: 0, totalTokens: 0 },
-  onRefreshCredit 
+  onRefreshCredit,
+  onUpdateSubscription
 }) {
   const creditsRemaining = credit?.credits !== undefined ? credit.credits : 20;
+  const subscription = credit?.subscription || 'free';
+  const providerCredits = credit?.providerCredits || [];
+  const unbilledCents = credit?.billing?.unbilledCents || 0;
+  const lifetimeCents = credit?.billing?.lifetimeCents || 0;
+  const centsPer1kTokens = credit?.billingRate?.centsPer1kTokens || 0;
   const promptTokens = credit?.promptTokens || 0;
   const completionTokens = credit?.completionTokens || 0;
   const totalTokens = credit?.totalTokens || 0;
 
   // Percentage of remaining credits (max 20 credits for Free Tier)
   const creditPercentage = Math.min(100, Math.max(0, (creditsRemaining / 20) * 100));
+  const formatCurrency = (cents) => `$${(Number(cents || 0) / 100).toFixed(2)}`;
+  const planLabel = subscription.charAt(0).toUpperCase() + subscription.slice(1);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '28px', fontFamily: 'var(--font-sans)', paddingBottom: '32px' }}>
@@ -63,6 +70,32 @@ export default function SettingsBillingPage({
           </button>
         </div>
 
+        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+          {['free', 'pro', 'max'].map((tier) => (
+            <button
+              key={tier}
+              type="button"
+              onClick={() => onUpdateSubscription?.(tier).then?.(() => onRefreshCredit?.())}
+              style={{
+                border: `1px solid ${subscription === tier ? 'var(--primary)' : 'var(--border)'}`,
+                background: subscription === tier ? 'var(--brand-subtle)' : 'var(--bg-canvas)',
+                color: subscription === tier ? 'var(--primary)' : 'var(--text-muted)',
+                borderRadius: '7px',
+                padding: '7px 12px',
+                cursor: 'pointer',
+                fontSize: '11px',
+                fontWeight: 800,
+                textTransform: 'uppercase'
+              }}
+            >
+              {tier}
+            </button>
+          ))}
+          <span style={{ alignSelf: 'center', fontSize: '12px', color: 'var(--text-dark)' }}>
+            Current plan: <strong style={{ color: 'var(--text-primary)' }}>{planLabel}</strong>
+          </span>
+        </div>
+
         {/* Credit Gauge and Summary */}
         <div style={{ display: 'flex', gap: '24px', alignItems: 'center', flexWrap: 'wrap' }}>
           {/* Visual Progress Bar */}
@@ -87,7 +120,7 @@ export default function SettingsBillingPage({
             </div>
             
             <p style={{ fontSize: '11.5px', color: 'var(--text-dark)', marginTop: '10px', margin: '10px 0 0', lineHeight: '1.5' }}>
-              Every AI Copilot run and developer agent command compilation consumes API credits based on token metrics. Free plans are initialized with 20.00 credits.
+              Free users receive 20 credits for each model company. Sub-models from the same company share that company bucket. Pro and Max usage is metered for billing and is not blocked by credit limits.
             </p>
           </div>
 
@@ -104,6 +137,30 @@ export default function SettingsBillingPage({
             <span style={{ fontSize: '10.5px', color: 'var(--text-muted)', marginTop: '2px' }}>Credits Left</span>
           </div>
         </div>
+
+        {providerCredits.length > 0 && (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '10px' }}>
+            {providerCredits.filter(bucket => bucket.company !== 'unknown').map((bucket) => {
+              const remaining = Number(bucket.creditsRemaining || 0);
+              const granted = Number(bucket.creditsGranted || 20);
+              const pct = granted ? Math.min(100, Math.max(0, (remaining / granted) * 100)) : 0;
+              return (
+                <div key={bucket.company} style={{ background: 'var(--bg-canvas)', border: '1px solid var(--border)', borderRadius: '8px', padding: '12px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: '8px', marginBottom: '8px' }}>
+                    <span style={{ textTransform: 'uppercase', fontSize: '10px', fontWeight: 900, color: 'var(--text-primary)' }}>{bucket.company}</span>
+                    <span style={{ fontSize: '10px', color: 'var(--text-dark)' }}>{remaining.toFixed(2)} / {granted}</span>
+                  </div>
+                  <div style={{ height: '7px', background: 'var(--bg-element)', borderRadius: '4px', overflow: 'hidden' }}>
+                    <div style={{ width: `${pct}%`, height: '100%', background: '#10B981' }} />
+                  </div>
+                  <div style={{ marginTop: '8px', fontSize: '10.5px', color: 'var(--text-dark)' }}>
+                    {(bucket.totalTokens || 0).toLocaleString()} tokens · {bucket.requestCount || 0} calls
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
 
         {/* Detailed Token Breakdown Cards */}
         <div style={{ display: 'flex', gap: '14px', flexWrap: 'wrap', marginTop: '4px' }}>
@@ -126,6 +183,11 @@ export default function SettingsBillingPage({
               <h4 style={{ fontSize: '16px', fontWeight: '800', color: 'var(--primary)', margin: '4px 0 0' }}>{totalTokens.toLocaleString()}</h4>
             </div>
             <ArrowUpRight size={16} style={{ color: 'var(--text-dark)' }} />
+          </div>
+          <div style={{ flex: '1 1 180px', background: 'var(--bg-canvas)', padding: '14px 16px', borderRadius: '8px', border: '1px solid var(--border)' }}>
+            <span style={{ fontSize: '10px', fontWeight: '800', color: 'var(--text-dark)', textTransform: 'uppercase' }}>Unbilled Usage</span>
+            <h4 style={{ fontSize: '16px', fontWeight: '800', color: subscription === 'free' ? 'var(--text-muted)' : 'var(--primary)', margin: '4px 0 0' }}>{formatCurrency(unbilledCents)}</h4>
+            <span style={{ fontSize: '10px', color: 'var(--text-dark)' }}>{centsPer1kTokens}¢ / 1k tokens · lifetime {formatCurrency(lifetimeCents)}</span>
           </div>
         </div>
       </div>
@@ -265,11 +327,11 @@ export default function SettingsBillingPage({
         </div>
 
         <button 
-          onClick={() => alert('Billing portal connection simulates Stripe webhook initialization.')} 
+          onClick={() => onUpdateSubscription?.('pro').then?.(() => onRefreshCredit?.())} 
           className="btn-primary"
           style={{ padding: '12px 28px', fontSize: '14px', fontWeight: '700', marginTop: '8px', zIndex: 1 }}
         >
-          Upgrade to Pro for $15/mo
+          {subscription === 'pro' ? 'Pro Active' : 'Upgrade to Pro'}
         </button>
       </div>
 

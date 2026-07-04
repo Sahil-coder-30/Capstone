@@ -280,7 +280,7 @@ export default function FileExplorer() {
         </span>
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
           <button
-            onClick={() => sandboxId && fetchFilesList(sandboxId)}
+            onClick={() => sandboxId && fetchFilesList(sandboxId, { forceNetwork: true })}
             disabled={status !== 'running' || isLoading}
             title="Refresh Files"
             style={{

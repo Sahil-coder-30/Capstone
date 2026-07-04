@@ -12,7 +12,7 @@ export default function SettingsAppearancePage({ preferences, onUpdatePreference
   const [minimap, setMinimap] = useState(true);
   const [wordWrap, setWordWrap] = useState(true);
 
-  const [modelPreference, setModelPreference] = useState('gemini-2.5-flash');
+
   const [autoSuggest, setAutoSuggest] = useState(true);
   const [interactiveMode, setInteractiveMode] = useState('detailed');
 
@@ -28,7 +28,7 @@ export default function SettingsAppearancePage({ preferences, onUpdatePreference
         if (preferences.editor.wordWrap !== undefined) setWordWrap(preferences.editor.wordWrap);
       }
       if (preferences.copilot) {
-        if (preferences.copilot.modelPreference) setModelPreference(preferences.copilot.modelPreference);
+
         if (preferences.copilot.autoSuggest !== undefined) setAutoSuggest(preferences.copilot.autoSuggest);
         if (preferences.copilot.interactiveMode) setInteractiveMode(preferences.copilot.interactiveMode);
       }
@@ -264,22 +264,7 @@ export default function SettingsAppearancePage({ preferences, onUpdatePreference
         </h3>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          {/* AI Model selection */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border)', paddingBottom: '12px' }}>
-            <div>
-              <h4 style={{ fontSize: '13.5px', fontWeight: '700', color: 'var(--text-primary)', margin: 0 }}>Preferred LLM Model</h4>
-              <p style={{ fontSize: '11.5px', color: 'var(--text-dark)', marginTop: '2px', margin: '2px 0 0' }}>Default AI model to coordinate edits and chat support.</p>
-            </div>
-            <select 
-              value={modelPreference} 
-              onChange={(e) => { setModelPreference(e.target.value); handleCopilotChange('modelPreference', e.target.value); }}
-              style={{ padding: '8px 12px', borderRadius: '8px', backgroundColor: 'var(--bg-canvas)', border: '1px solid var(--border)', color: 'var(--text-primary)', fontSize: '13px', cursor: 'pointer' }}
-            >
-              <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
-              <option value="gemini-2.5-pro">Gemini 2.5 Pro</option>
-              <option value="gemini-1.5-pro">Gemini 1.5 Pro</option>
-            </select>
-          </div>
+
 
           {/* Auto Suggestion */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border)', paddingBottom: '12px' }}>

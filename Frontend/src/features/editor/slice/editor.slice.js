@@ -26,6 +26,28 @@ const editorSlice = createSlice({
     setFiles(state, action) {
       state.files = action.payload;
     },
+    applyWorkspaceFileEvent(state, action) {
+      const { event, path } = action.payload || {};
+      if (!path) return;
+
+      if (event === 'add') {
+        if (!state.files.includes(path)) {
+          state.files.push(path);
+          state.files.sort((a, b) => a.localeCompare(b));
+        }
+        return;
+      }
+
+      if (event === 'unlink') {
+        state.files = state.files.filter((file) => file !== path);
+        return;
+      }
+
+      if (event === 'unlinkDir') {
+        const prefix = `${path}/`;
+        state.files = state.files.filter((file) => file !== path && !file.startsWith(prefix));
+      }
+    },
     setActiveFile(state, action) {
       state.activeFile = action.payload;
       if (action.payload) {
@@ -144,6 +166,7 @@ const editorSlice = createSlice({
 
 export const {
   setFiles,
+  applyWorkspaceFileEvent,
   setActiveFile,
   setActiveFileContent,
   setOriginalContent,

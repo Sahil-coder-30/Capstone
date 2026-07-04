@@ -31,11 +31,12 @@ const codingAgentSlice = createSlice({
       if (state.messages.length > 0) {
         const lastMsg = state.messages[state.messages.length - 1];
         if (lastMsg.role === 'assistant') {
-          const { text, toolLogs, status, error } = action.payload;
+          const { text, toolLogs, status, error, streamState } = action.payload;
           if (text !== undefined) lastMsg.text = text;
           if (toolLogs !== undefined) lastMsg.toolLogs = toolLogs;
           if (status !== undefined) lastMsg.status = status;
           if (error !== undefined) lastMsg.error = error;
+          if (streamState !== undefined) lastMsg.streamState = streamState;
         }
       }
       localStorage.setItem('codingAgent_messages', JSON.stringify(state.messages));

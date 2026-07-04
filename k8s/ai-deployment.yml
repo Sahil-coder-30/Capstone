@@ -5,7 +5,7 @@ metadata:
   labels:
     name:  ai-deployment
 spec:
-  replicas: 2
+  replicas: 1
   selector:
     matchLabels:
       app: ai-server
@@ -31,11 +31,19 @@ spec:
               secretKeyRef:
                 name: ai-secret
                 key: MISTRALAI_API_KEY
+                optional: true
           - name: GOOGLE_API_KEY
             valueFrom:
               secretKeyRef:
                 name: ai-secret
                 key: GOOGLE_API_KEY
+                optional: true
+          - name: COHERE_API_KEY
+            valueFrom:
+              secretKeyRef:
+                name: ai-secret
+                key: COHERE_API_KEY
+                optional: true
 
           - name: MONGO_URI
             valueFrom:
@@ -48,7 +56,12 @@ spec:
               secretKeyRef:
                 name: jwt
                 key: JWT_SECRET
-                
+
+          - name: REDIS_URI
+            valueFrom:
+              secretKeyRef:
+                name: database
+                key: REDIS_URI      
         livenessProbe:
           httpGet:
             path: /api/ai/healthz

@@ -2,6 +2,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { listProjectsAPI, createProjectAPI } from '../features/sandbox/service/sandbox.api';
 import { stopSandboxAPI, deleteProjectAPI } from '../features/sandbox/service/sandbox.api';
+import { getCachedProjects, setCachedProjects, upsertCachedProject } from '../features/editor/service/dbService';
 import {
   Cpu, Plus, Loader2, Folder, AlertTriangle, LogOut,
   Code, Play, RefreshCw, X, Square, Trash2, MoreVertical,
@@ -273,14 +274,30 @@ export default function Dashboard({
   };
 
   const fetchProjects = async (silent = false) => {
-    if (!silent) setLoading(true);
+    // --- Offline-first: render from IndexedDB cache immediately ---
+    if (!silent) {
+      const cached = await getCachedProjects();
+      if (cached.length > 0) {
+        setProjects(cached);
+        setLoading(false);
+      } else {
+        setLoading(true);
+      }
+    }
     setError(null);
     try {
       const data = await listProjectsAPI();
-      if (data.status === 'success') setProjects(data.projects || []);
-      else setError('Failed to fetch projects');
+      if (data.status === 'success') {
+        const freshProjects = data.projects || [];
+        setProjects(freshProjects);
+        // Persist to IndexedDB for next offline load
+        await setCachedProjects(freshProjects);
+      } else {
+        setError('Failed to fetch projects');
+      }
     } catch (err) {
-      setError(err.response?.data?.message || err.message || 'Error listing projects');
+      // Network failed — already rendered from cache, show a soft warning
+      if (!silent) setError(err.response?.data?.message || err.message || 'Error listing projects (cached data shown)');
     } finally {
       setLoading(false);
     }
@@ -390,6 +407,9 @@ export default function Dashboard({
       sessionStorage.setItem(`initialPrompt_${newProjectId}`, originalPrompt);
       setPromptInput('');
 
+      // Cache new project in IndexedDB so it's available offline immediately
+      await upsertCachedProject(responseProj.project);
+
       // Step 3: Spin up sandbox container and wait for network/preview response
       await startSandbox(newProjectId);
 
@@ -448,7 +468,7 @@ export default function Dashboard({
     if (!deleteTarget) return;
     setDeleteLoading(true);
     try {
-      await deleteProject(deleteTarget.id);
+      await deleteProject(deleteTarget.id, deleteTarget.sandboxId);
       setDeleteTarget(null);
       await fetchProjects(true);
     } catch (err) {

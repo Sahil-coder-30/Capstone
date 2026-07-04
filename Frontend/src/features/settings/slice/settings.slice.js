@@ -4,9 +4,11 @@ import {
   updateProfileSettingsAPI, 
   updatePreferencesAPI, 
   fetchCreditAPI,
+  updateSubscriptionAPI,
   generateApiKeyAPI, 
   deleteApiKeyAPI 
 } from '../service/settings.api';
+import { getCachedPreferences, setCachedPreferences } from '../../editor/service/dbService';
 
 // ─── Async Thunks ──────────────────────────────────────────────────────────
 export const fetchSettingsThunk = createAsyncThunk(
@@ -14,8 +16,18 @@ export const fetchSettingsThunk = createAsyncThunk(
   async (_, { rejectWithValue }) => {
     try {
       const data = await fetchSettingsAPI();
+      // Cache preferences to IndexedDB for offline access
+      if (data.settings?.preferences) {
+        await setCachedPreferences(data.settings.preferences);
+      }
       return data.settings;
     } catch (err) {
+      // Network failed — attempt to restore preferences from IndexedDB
+      const cachedPrefs = await getCachedPreferences();
+      if (cachedPrefs) {
+        console.warn('[settings] Network unavailable — restoring preferences from IndexedDB cache');
+        return { profile: {}, preferences: cachedPrefs };
+      }
       return rejectWithValue(err.message || 'Failed to load settings');
     }
   }
@@ -50,9 +62,24 @@ export const updatePreferencesThunk = createAsyncThunk(
   async (preferencesData, { rejectWithValue }) => {
     try {
       const data = await updatePreferencesAPI(preferencesData);
-      return data.preferences;
+      // Also persist to IndexedDB so preferences survive offline sessions
+      await setCachedPreferences(data.preferences ?? preferencesData);
+      return data.preferences ?? preferencesData;
     } catch (err) {
       return rejectWithValue(err.message || 'Failed to save preferences');
+    }
+  }
+);
+
+export const updateSubscriptionThunk = createAsyncThunk(
+  'settings/updateSubscription',
+  async (subscription, { dispatch, rejectWithValue }) => {
+    try {
+      const data = await updateSubscriptionAPI(subscription);
+      await dispatch(fetchCreditThunk());
+      return data.user;
+    } catch (err) {
+      return rejectWithValue(err.message || 'Failed to update subscription');
     }
   }
 );
@@ -118,6 +145,8 @@ const settingsSlice = createSlice({
     },
     credit: {
       credits: 20,
+      subscription: 'free',
+      providerCredits: [],
       promptTokens: 0,
       completionTokens: 0,
       totalTokens: 0
@@ -150,7 +179,12 @@ const settingsSlice = createSlice({
       })
       // Fetch credit
       .addCase(fetchCreditThunk.fulfilled, (state, action) => {
-        state.credit = action.payload || { credits: 20, promptTokens: 0, completionTokens: 0, totalTokens: 0 };
+        state.credit = action.payload || { credits: 20, subscription: 'free', providerCredits: [], promptTokens: 0, completionTokens: 0, totalTokens: 0 };
+      })
+      .addCase(updateSubscriptionThunk.fulfilled, (state, action) => {
+        if (action.payload?.subscription) {
+          state.credit.subscription = action.payload.subscription;
+        }
       })
       // Update profile
       .addCase(updateProfileThunk.fulfilled, (state, action) => {

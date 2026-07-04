@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { 
   User, CreditCard, Sliders, Shield, ArrowLeft, Terminal, Layers
 } from 'lucide-react';
@@ -29,6 +29,7 @@ export default function SettingsPage({
     loadCredit,
     updateProfile, 
     updatePreferences, 
+    updateSubscription,
     generateApiKey, 
     deleteApiKey 
   } = useSettings();
@@ -57,7 +58,7 @@ export default function SettingsPage({
           <button 
             onClick={() => onBackToDashboard('playground')}
             style={{
-              display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 14px', borderRadius: '8px', border: 'none',
+              display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 14px', borderRadius: '8px',
               backgroundColor: 'rgba(255,255,255,0.02)', color: 'var(--text-dark)', fontSize: '13px', fontWeight: '700', cursor: 'pointer',
               marginBottom: '28px', width: '100%', transition: 'all 0.2s', border: '1px solid var(--border)'
             }}
@@ -192,6 +193,7 @@ export default function SettingsPage({
               onSyncLimits={onSyncLimits}
               credit={credit}
               onRefreshCredit={loadCredit}
+              onUpdateSubscription={updateSubscription}
             />
           )}
 

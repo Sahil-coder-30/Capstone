@@ -6,6 +6,10 @@ export const getChats = async (req, res) => {
   const { projectId, agentType } = req.params;
   const userId = req.user?.id;
 
+  if (!userId) {
+    return res.status(401).json({ status: "error", message: "Unauthorized - Invalid user context" });
+  }
+
   if (!["codingAgent", "copilot"].includes(agentType)) {
     return res.status(400).json({ status: "error", message: "Invalid agentType" });
   }
@@ -36,6 +40,10 @@ export const getChats = async (req, res) => {
 export const deleteChats = async (req, res) => {
   const { projectId, agentType } = req.params;
   const userId = req.user?.id;
+
+  if (!userId) {
+    return res.status(401).json({ status: "error", message: "Unauthorized - Invalid user context" });
+  }
 
   if (!["codingAgent", "copilot"].includes(agentType)) {
     return res.status(400).json({ status: "error", message: "Invalid agentType" });

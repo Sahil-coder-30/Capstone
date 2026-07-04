@@ -1,25 +1,52 @@
 import axios from "axios";
 import { tool } from "@langchain/core/tools";
 import * as z from "zod";
-import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
 import { ChatMistralAI } from "@langchain/mistralai";
 import CommandSummary from "../models/CommandSummary.model.js";
+
+// Caps how much of any single string field gets sent back into the model's
+// context. Response bodies/error data can otherwise be arbitrarily large
+// (e.g. an echoed file payload), which bloats tokens and derails the agent.
+const MAX_ERROR_FIELD_CHARS = 2000;
+
+function truncate(value) {
+  if (typeof value !== "string") return value;
+  return value.length > MAX_ERROR_FIELD_CHARS
+    ? value.slice(0, MAX_ERROR_FIELD_CHARS) + "...[truncated]"
+    : value;
+}
 
 function formatError(err) {
   try {
     const isAxios = axios.isAxiosError && axios.isAxiosError(err);
     if (isAxios) {
+      // IMPORTANT: never spread the raw err.config/err.request back into the
+      // tool result. err.config.data is the JSON body we just sent (e.g. the
+      // full new file content for create_file/update_file), so including it
+      // verbatim would echo potentially huge payloads straight back into the
+      // model's context on every transient failure. err.config can also hold
+      // non-plain values (agents, transformers) that are unsafe to serialize.
+      // Only pull out the small, safe-to-share bits of request context.
       return {
         message: err.message,
         code: err.code || null,
         stack: err.stack || null,
-        config: err.config || null,
+        request: err.config
+          ? {
+              method: err.config.method || null,
+              url: err.config.url || null,
+              timeout: err.config.timeout || null,
+            }
+          : null,
         response: err.response
           ? {
               status: err.response.status,
               statusText: err.response.statusText,
-              data: err.response.data,
-              headers: err.response.headers,
+              data: truncate(
+                typeof err.response.data === "string"
+                  ? err.response.data
+                  : JSON.stringify(err.response.data),
+              ),
             }
           : null,
       };
@@ -102,9 +129,13 @@ export const readFile = tool(
       config.writer(
         `readFile: start - files: ${JSON.stringify(file)}`,
       );
+      // File paths must be URL-encoded individually — an un-encoded path
+      // containing spaces, "&", "#", "%", or non-ASCII characters would
+      // otherwise corrupt the query string (breaking the request or silently
+      // dropping/merging file names).
       const response = await axios.get(
         `http://sandbox-service-${config.configurable.projectId}:3000/api/agent/read-file?files=` +
-          file.join(","),
+          file.map(encodeURIComponent).join(","),
         { timeout: 30_000 },
       );
       const filesContent = response.data.files || response.data.content || response.data;
@@ -248,12 +279,22 @@ export const createFile = tool(
   },
 );
 
-const summaryModel = new ChatMistralAI({
-  model: "mistral-medium-latest",
-  apiKey: process.env.MISTRALAI_API_KEY,
-  maxRetries: 6,
-  timeout: 180_000, // 3 minutes
-});
+let summaryModelInstance = null;
+const getSummaryModel = () => {
+  if (!summaryModelInstance) {
+    const mistralApiKey = process.env.MISTRALAI_API_KEY?.trim();
+    if (!mistralApiKey) {
+      throw new Error("No AI provider key configured. Set MISTRALAI_API_KEY.");
+    }
+    summaryModelInstance = new ChatMistralAI({
+      model: "codestral-latest",
+      apiKey: mistralApiKey,
+      maxRetries: 6,
+      timeout: 180_000, // 3 minutes
+    });
+  }
+  return summaryModelInstance;
+};
 
 export const executeCommand = tool(
   async ({ command, subDir }, config) => {
@@ -289,7 +330,7 @@ Please provide a concise one-sentence summary of the work that was accomplished 
         let completionTokens = 0;
         let totalTokens = 0;
 
-        const summaryResponse = await summaryModel.invoke([
+        const summaryResponse = await getSummaryModel().invoke([
           { role: "user", content: prompt }
         ]);
         summary = summaryResponse.content?.trim() || "Executed command successfully";
@@ -369,7 +410,7 @@ Please provide a concise one-sentence summary of the work that was accomplished 
   {
     name: "execute_command",
     description:
-      "Execute shell commands within the workspace directory with safety restrictions. Commands run in /workspace by default. Optional subDir restricts execution to a subdirectory. Commands timeout after 30 seconds. Output is limited to 1MB per stream. Use only for shell tooling like npm install, build commands, tests, git, mkdir, rm. Never use executeCommand to read, write, or create files; use readFile/createFile/updateFile for that.",
+      "Execute shell commands within the workspace directory with safety restrictions. Commands run in /workspace by default. Optional subDir restricts execution to a subdirectory. Commands timeout after 120 seconds. Output is limited to 1MB per stream. Use only for shell tooling like npm install, build commands, tests, git, mkdir, rm. Never use executeCommand to read, write, or create files; use readFile/createFile/updateFile for that.",
     schema: z.object({
       command: z
         .string()
@@ -427,17 +468,16 @@ export const getViteRuntimeErrors = tool(
 );
 
 /**
- * patchFile — targeted string-replace with automatic read-then-retry fallback.
+ * patchFile — targeted string-replace with automatic read-then-rewrite fallback.
  *
  * Attempt order (all transparent to the agent):
  *   1. POST /api/agent/patch-file with the supplied oldStr/newStr.
  *   2. If the patch fails (oldStr not found / ambiguous), automatically read
- *      the current file content via GET /api/agent/read-file, then retry the
- *      patch with the freshest possible content as context.
- *   3. If the retry also fails, fall through to an updateFile rewrite using
- *      the live file content with newStr substituted in.
- *   4. Only surface a hard failure string to the agent if all three attempts
- *      fail — at that point the agent has enough context to decide what to do.
+ *      the current file content via GET /api/agent/read-file, then fall
+ *      through to an updateFile rewrite: an exact match of oldStr against
+ *      the live content is tried first, then a whitespace-trimmed match.
+ *   3. Only surface a hard failure string to the agent if every attempt
+ *      fails — at that point the agent has enough context to decide what to do.
  */
 export const patchFile = tool(
   async ({ filePath, oldStr, newStr }, config) => {
@@ -502,29 +542,16 @@ export const patchFile = tool(
       });
     }
 
-    // ── attempt 2: retry patch — the server now has the freshest content ─────
-    // The most common failure is a stale/mismatched oldStr. We do a best-effort
-    // substring search in the live content to give the agent a corrected oldStr.
-    config.writer(`patchFile: attempt 2 - retrying patch for "${filePath}"`);
-    try {
-      patchResult = await tryPatch(oldStr);
-    } catch (err) {
-      const formatted = logError("patchFile/attempt2", err);
-      config.writer(`patchFile: attempt 2 network error - ${JSON.stringify(formatted)}`);
-      // fall through to auto-rewrite below
-      patchResult = { success: false, error: formatted.message };
-    }
+    // NOTE: there used to be an "attempt 2" here that just called tryPatch()
+    // again with the exact same oldStr/newStr. Since the sandbox patch
+    // endpoint is a deterministic string match, resending an identical
+    // request is guaranteed to fail identically (barring a pure network
+    // blip already handled above) — it only added a wasted round trip and
+    // extra latency before the agent got useful feedback. The real recovery
+    // path is the substring-based repair below, using the content we just
+    // read, so we go straight there.
 
-    if (patchResult.success) {
-      config.writer(`patchFile: attempt 2 success - "${filePath}" patched on retry`);
-      return `Patched ${filePath} successfully (on retry)`;
-    }
-
-    config.writer(
-      `patchFile: attempt 2 failed - "${patchResult.error}". Attempting auto-rewrite via updateFile.`,
-    );
-
-    // ── attempt 3: auto-rewrite ──────────────────────────────────────────────
+    // ── attempt 2: auto-rewrite ───────────────────────────────────────────────
     // If oldStr does not appear in the live content at all, nothing we can do
     // automatically — surface a clear error with the live content snippet so
     // the agent can craft a correct call.
@@ -601,9 +628,8 @@ IMPORTANT — oldStr quality rules (follow these to avoid failures):
 
 This tool has automatic fallback built in:
   1. Tries the patch directly.
-  2. If it fails, reads the live file content and retries automatically.
-  3. If it still fails, attempts a direct string-replace rewrite as a last resort.
-  4. Only surfaces an error to you if all three attempts fail — which is rare.
+  2. If it fails, reads the live file content and attempts a direct string-replace rewrite instead (falling back to a whitespace-trimmed match if needed).
+  3. Only surfaces an error to you if every attempt fails — which is rare.
 
 You do NOT need to manually call readFile and retry — the tool does it for you.`,
     schema: z.object({
@@ -740,7 +766,3 @@ Always prefer this over read_file when you know what you are looking for.`,
     }),
   },
 );
-
-
-
-

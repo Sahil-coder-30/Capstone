@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import './App.scss';
 import SandboxHeader from './features/sandbox/components/SandboxHeader';
@@ -19,15 +19,15 @@ import { useSandbox } from './features/sandbox/Hooks/sandbox.hooks';
 import { useEditor } from './features/editor/Hooks/editor.hooks';
 import { useWorkspaceSync } from './features/editor/Hooks/useWorkspaceSync';
 import {
-  Sparkles, FolderTree, Play, AlertTriangle,
-  ExternalLink, RefreshCw, Eye, Loader2, Code2, Terminal, X, Cpu, Check, Info, Activity
+  FolderTree, Play, AlertTriangle,
+  ExternalLink, RefreshCw, Eye, Loader2, Code2, Terminal, X, Cpu, Check, Info
 } from 'lucide-react';
 
 // ─────────────────────────────────────────────
 // Redesigned Google-style loading carousel shown
 // in the preview panel while sandbox container is booting.
 // ─────────────────────────────────────────────
-function PreviewWarmingScreen({ message, attempt }) {
+function PreviewWarmingScreen({ message }) {
   const [tipIndex, setTipIndex] = useState(0);
 
   const tips = [
@@ -129,7 +129,7 @@ function PreviewWarmingScreen({ message, attempt }) {
 // ─────────────────────────────────────────────
 export default function App() {
   const { sandboxId, previewUrl, status, warmingMessage, warmingAttempt, loadSandboxStatus, startSandbox } = useSandbox();
-  const { syncAllFilesToCache } = useEditor();
+  const { fetchFilesList } = useEditor();
 
   // Initialize real-time workspace file synchronization
   useWorkspaceSync();
@@ -289,16 +289,16 @@ export default function App() {
   // Initial sync for real-time file cache sync when sandbox starts running
   useEffect(() => {
     if (status === 'running' && sandboxId) {
-      syncAllFilesToCache(sandboxId);
+      fetchFilesList(sandboxId);
     }
-  }, [sandboxId, status, syncAllFilesToCache]);
+  }, [sandboxId, status, fetchFilesList]);
 
   // Sync on visiting the editor tab
   useEffect(() => {
     if (workspaceTab === 'editor' && status === 'running' && sandboxId) {
-      syncAllFilesToCache(sandboxId);
+      fetchFilesList(sandboxId);
     }
-  }, [workspaceTab, sandboxId, status, syncAllFilesToCache]);
+  }, [workspaceTab, sandboxId, status, fetchFilesList]);
 
   // Keyboard Shortcuts
   useEffect(() => {

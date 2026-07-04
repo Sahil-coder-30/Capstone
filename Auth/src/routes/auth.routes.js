@@ -4,6 +4,7 @@ import {
     authGoogleCallbackController,
     authGetMeController,
     authLogoutController,
+    updateSubscriptionController,
 } from '../controllers/auth.controller.js';
 import { identifyUser } from '../middleware/auth.middleware.js';
 
@@ -19,6 +20,7 @@ authRouter.get('/google/callback', passport.authenticate('google', {
 
 // ── Session ───────────────────────────────────────────────────────────────────
 authRouter.get('/getMe', identifyUser, authGetMeController);
+authRouter.patch('/subscription', identifyUser, updateSubscriptionController);
 
 // ── Logout (POST so it's never accidentally triggered by a browser pre-fetch) ──
 // identifyUser runs first so we can decode the token; even if it's missing we

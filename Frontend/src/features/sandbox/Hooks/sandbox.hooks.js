@@ -9,6 +9,7 @@ import {
   setError,
   clearSandbox,
 } from '../slice/sandbox.slice';
+import { clearCachedFilesForSandbox, deleteCachedProject } from '../../editor/service/dbService';
 
 // How long to poll before giving up (ms)
 const WARM_TIMEOUT_MS = 90_000;
@@ -201,7 +202,7 @@ export const useSandbox = () => {
       dispatch(initializeSandboxForProject(projectId));
       return 'idle';
 
-    } catch (err) {
+    } catch (_err) {
       // Network error or backend crash — don't leave the UI broken
       dispatch(initializeSandboxForProject(projectId));
       return 'idle';
@@ -228,11 +229,19 @@ export const useSandbox = () => {
   /**
    * Permanently delete a project and all its resources.
    */
-  const deleteProject = useCallback(async (projectId) => {
+  const deleteProject = useCallback(async (projectId, sandboxId = null) => {
     try {
       warmingAbortRef.current = true; // abort any in-progress warmup
       await deleteProjectAPI(projectId);
       dispatch(clearSandbox(projectId));
+
+      // Clean up cached files from IndexedDB for this sandbox
+      if (sandboxId) {
+        await clearCachedFilesForSandbox(sandboxId);
+      }
+
+      // Clean up project from IndexedDB projects list
+      await deleteCachedProject(projectId);
     } catch (err) {
       const errMsg = err.response?.data?.message || err.message || 'Failed to delete project';
       dispatch(setError(errMsg));

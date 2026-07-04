@@ -5,6 +5,7 @@ import {
   fetchCreditThunk,
   updateProfileThunk, 
   updatePreferencesThunk, 
+  updateSubscriptionThunk,
   generateApiKeyThunk, 
   deleteApiKeyThunk,
   clearSettingsError
@@ -37,6 +38,10 @@ export const useSettings = () => {
     return dispatch(updatePreferencesThunk(preferencesData)).unwrap();
   }, [dispatch]);
 
+  const updateSubscription = useCallback((subscription) => {
+    return dispatch(updateSubscriptionThunk(subscription)).unwrap();
+  }, [dispatch]);
+
   const generateApiKey = useCallback((keyName) => {
     return dispatch(generateApiKeyThunk(keyName)).unwrap();
   }, [dispatch]);
@@ -60,6 +65,7 @@ export const useSettings = () => {
     loadCredit,
     updateProfile,
     updatePreferences,
+    updateSubscription,
     generateApiKey,
     deleteApiKey,
     clearError

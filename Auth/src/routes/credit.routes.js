@@ -10,7 +10,7 @@ creditRouter.get('/', identifyUser, getCreditController);
 // GET /api/auth/credit/check - Check if user has credits left
 creditRouter.get('/check', identifyUser, checkCreditController);
 
-// POST /api/auth/credit/update - Update tokens and deduct credits (Internal service call)
-creditRouter.post('/update', updateCreditController);
+// POST /api/auth/credit/update - Update tokens and deduct credits for the authenticated user
+creditRouter.post('/update', identifyUser, updateCreditController);
 
 export default creditRouter;

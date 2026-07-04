@@ -136,14 +136,14 @@ export default function AIChat({ projectId }) {
     if (activeAgent === 'clio') {
       sendAppAgentMessage(query, activeFile, () => {
         if (sandboxId) {
-          fetchFilesList(sandboxId);
+          fetchFilesList(sandboxId, { forceNetwork: true });
           if (activeFile && !isModified) fetchFileContent(sandboxId, activeFile, true);
         }
       });
     } else {
       sendMessage(query, () => {
         if (sandboxId) {
-          fetchFilesList(sandboxId);
+          fetchFilesList(sandboxId, { forceNetwork: true });
           if (activeFile && !isModified) fetchFileContent(sandboxId, activeFile, true);
         }
       });

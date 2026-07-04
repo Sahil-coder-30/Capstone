@@ -3,7 +3,11 @@ import { isTokenBlacklisted } from '../config/redis.js';
 
 export const identifyUser = async (req, res, next) => {
     try {
-        const token = req.cookies.token;
+        let token = req.cookies.token;
+        if (!token && req.headers.authorization) {
+            const [scheme, value] = req.headers.authorization.split(' ');
+            if (scheme?.toLowerCase() === 'bearer' && value) token = value;
+        }
         if (!token) {
             return res.status(401).json({
                 status: 'error',
@@ -22,6 +26,7 @@ export const identifyUser = async (req, res, next) => {
 
         const decodedToken = jwt.verify(token, process.env.JWT_SECRET);
         req.user = decodedToken;
+        req.authToken = token;
         next();
     } catch (err) {
         return res.status(401).json({

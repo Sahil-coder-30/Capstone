@@ -5,7 +5,7 @@ import { useEditor } from '../../editor/Hooks/editor.hooks';
 import {
   Send, ChevronDown, ChevronRight, Check, Trash2, Cpu,
   CheckCircle2, AlertCircle, Loader2,
-  X, Activity, FileCode, ArrowRight, Paperclip
+  X, Activity, FileCode, ArrowRight, Paperclip, Square
 } from 'lucide-react';
 import { parseMarkdownToReact } from '../../../components/Markdown';
 import './AIChat.scss';
@@ -23,12 +23,12 @@ const TOOL_TYPE_COLORS = {
 
 /**
  * AIChat — Coding Agent left-panel chat.
- * Uses ONLY useCodingAgent hook (socket.io pipeline, /api/ai/invoke).
+ * Uses ONLY useCodingAgent hook (Socket.io pipeline, /api/ai/socket.io).
  * No references to copilot / app-agent.
  */
 export default function AIChat({ projectId, onCloseChat }) {
   const { sandboxId, status } = useSandbox();
-  const { messages, isStreaming, isHistoryLoading, sendMessage, clearChatHistory } = useCodingAgent(projectId);
+  const { messages, isStreaming, isHistoryLoading, sendMessage, stopAgent, clearChatHistory } = useCodingAgent(projectId);
   const { files, fetchFilesList, activeFile, isModified, fetchFileContent } = useEditor();
 
   const [input, setInput] = useState('');
@@ -36,8 +36,7 @@ export default function AIChat({ projectId, onCloseChat }) {
   const [expandedLogs, setExpandedLogs] = useState({});
   const [inputFocused, setInputFocused] = useState(false);
   const [copiedCodeIdx, setCopiedCodeIdx] = useState(null);
-  const [selectedModel, setSelectedModel] = useState('gemini-1.5-flash');
-  const [isModelDropdownOpen, setIsModelDropdownOpen] = useState(false);
+  const selectedModel = 'codestral';
 
   const scrollContainerRef = useRef(null);
   const lastScrollHeightRef = useRef(0);
@@ -82,7 +81,6 @@ export default function AIChat({ projectId, onCloseChat }) {
     // Check if the current word being typed starts with @
     const lastWordMatch = textBeforeCursor.match(/(?:^|\s)(@)([^\s]*)$/);
     if (lastWordMatch) {
-      const triggerChar = lastWordMatch[1]; // '@'
       const query = lastWordMatch[2]; // e.g. 'app'
       setSuggestionQuery(query);
       setSuggestionTriggerIdx(selectionStart - lastWordMatch[0].length + (lastWordMatch[0].startsWith(' ') ? 1 : 0));
@@ -133,30 +131,21 @@ export default function AIChat({ projectId, onCloseChat }) {
     }
   };
 
-  // Auto-resize textarea height dynamically based on content
-  useEffect(() => {
-    const ta = textareaRef.current;
-    if (ta) {
-      ta.style.height = 'auto';
-      ta.style.height = `${ta.scrollHeight + 2}px`;
-    }
-  }, [input]);
-
   // Load initial prompt from session storage and auto-submit once sandbox is running and history is ready
   useEffect(() => {
     if (projectId && status === 'running' && !isHistoryLoading) {
       const initPrompt = sessionStorage.getItem(`initialPrompt_${projectId}`);
       if (initPrompt) {
         sessionStorage.removeItem(`initialPrompt_${projectId}`);
-        sendMessage(initPrompt, selectedModel, () => {
+        sendMessage(initPrompt, () => {
           if (sandboxId) {
-            fetchFilesList(sandboxId);
+            fetchFilesList(sandboxId, { forceNetwork: true });
             if (activeFile && !isModified) fetchFileContent(sandboxId, activeFile, true);
           }
         });
       }
     }
-  }, [projectId, status, sandboxId, isHistoryLoading, sendMessage, selectedModel, fetchFilesList, activeFile, isModified, fetchFileContent]);
+  }, [projectId, status, sandboxId, isHistoryLoading, sendMessage, fetchFilesList, activeFile, isModified, fetchFileContent]);
 
   // Auto-fetch files list when sandbox is active to populate autocomplete suggestions
   useEffect(() => {
@@ -202,13 +191,7 @@ export default function AIChat({ projectId, onCloseChat }) {
     };
   }, [messages, isStreaming]);
 
-  // Close model dropdown on outside click
-  useEffect(() => {
-    if (!isModelDropdownOpen) return;
-    const handler = () => setIsModelDropdownOpen(false);
-    document.addEventListener('click', handler);
-    return () => document.removeEventListener('click', handler);
-  }, [isModelDropdownOpen]);
+
 
   // ─── Task run grouper ───────────────────────────────────────────────────────
   const getTaskRuns = () => {
@@ -245,7 +228,7 @@ export default function AIChat({ projectId, onCloseChat }) {
     setAttachedFiles([]);
     lastScrollHeightRef.current = 0;
 
-    sendMessage(query, selectedModel, currentAttachments, () => {
+    sendMessage(query, currentAttachments, () => {
       if (sandboxId) {
         fetchFilesList(sandboxId);
         if (activeFile && !isModified) fetchFileContent(sandboxId, activeFile, true);
@@ -409,6 +392,9 @@ export default function AIChat({ projectId, onCloseChat }) {
     } else if (log.startsWith('getViteRuntimeErrors')) {
       title = 'Audit Compiler'; type = 'verify';
       description = isStart ? 'Checking Vite output…' : isSuccess ? 'No errors found.' : 'Compiler checked.';
+    } else if (log.startsWith('model:')) {
+      title = 'Model Selected'; type = 'info';
+      description = cleanLog.replace(/^model:\s*/i, '');
     } else {
       const parts = log.split(':'); title = parts[0] || 'Agent Action'; description = parts.slice(1).join(':').trim();
     }
@@ -419,6 +405,105 @@ export default function AIChat({ projectId, onCloseChat }) {
     else if (isStart) status = 'running';
 
     return { title, description, type, status, timestamp: new Date().toLocaleTimeString() };
+  };
+
+  const formatActivityTime = (timestamp) => {
+    if (!timestamp) return '';
+    const date = new Date(timestamp);
+    if (Number.isNaN(date.getTime())) return '';
+    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  };
+
+  const getLiveReportEvents = (assistantMsg, parsedToolEvents) => {
+    const streamEvents = assistantMsg?.streamState?.events || [];
+    if (streamEvents.length > 0) return streamEvents.slice(-4);
+
+    return (parsedToolEvents || []).slice(-4).map((event, index) => ({
+      id: `${event.title}-${index}`,
+      title: event.title,
+      detail: event.description,
+      status: event.status,
+      timestamp: null,
+    }));
+  };
+
+  const getCurrentLiveReport = (assistantMsg, parsedToolEvents) => {
+    const streamState = assistantMsg?.streamState;
+    if (streamState?.title) {
+      return {
+        title: streamState.title,
+        detail: streamState.detail,
+        status: streamState.status || 'running',
+      };
+    }
+
+    const latestEvent = parsedToolEvents?.[parsedToolEvents.length - 1];
+    if (latestEvent) {
+      return {
+        title: latestEvent.title,
+        detail: latestEvent.description,
+        status: latestEvent.status,
+      };
+    }
+
+    return {
+      title: 'Preparing Orion',
+      detail: 'Opening realtime stream',
+      status: 'running',
+    };
+  };
+
+  const renderLiveReport = (assistantMsg, parsedToolEvents) => {
+    const current = getCurrentLiveReport(assistantMsg, parsedToolEvents);
+    const events = getLiveReportEvents(assistantMsg, parsedToolEvents);
+    const stateClass = current.status === 'error'
+      ? 'error'
+      : current.status === 'success'
+        ? 'success'
+        : 'running';
+
+    return (
+      <div className={`ai-chat__live-report ai-chat__live-report--${stateClass}`}>
+        <div className="ai-chat__live-report-current">
+          <div className={`ai-chat__live-report-orb ai-chat__live-report-orb--${stateClass}`} />
+          <div className="ai-chat__live-report-copy">
+            <div className="ai-chat__live-report-title">{current.title}</div>
+            {current.detail && (
+              <div className="ai-chat__live-report-detail">{current.detail}</div>
+            )}
+          </div>
+          <span className="ai-chat__live-report-state">
+            {stateClass === 'running' ? 'LIVE' : stateClass === 'success' ? 'DONE' : 'ERROR'}
+          </span>
+        </div>
+
+        {events.length > 0 && (
+          <div className="ai-chat__live-report-events">
+            {events.map((event) => {
+              const eventStatus = event.status === 'success'
+                ? 'success'
+                : event.status === 'error'
+                  ? 'error'
+                  : event.status === 'running'
+                    ? 'running'
+                    : 'info';
+              return (
+                <div key={event.id || `${event.title}-${event.timestamp}`} className="ai-chat__live-report-event">
+                  <div className={`ai-chat__live-report-event-dot ai-chat__live-report-event-dot--${eventStatus}`} />
+                  <div className="ai-chat__live-report-event-copy">
+                    <span className="ai-chat__live-report-event-title">{event.title}</span>
+                    {event.detail && <span className="ai-chat__live-report-event-detail">{event.detail}</span>}
+                  </div>
+                  {formatActivityTime(event.timestamp) && (
+                    <span className="ai-chat__live-report-event-time">{formatActivityTime(event.timestamp)}</span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    );
   };
 
   // Old inline markdown formatter removed - using new robust parser
@@ -441,15 +526,7 @@ export default function AIChat({ projectId, onCloseChat }) {
   };
 
   // ─── Models list ────────────────────────────────────────────────────────────
-  const MODELS = [
-    { id: 'gemini-1.5-flash',  label: 'Gemini 1.5 Flash',  tag: 'Fast',    color: '#60a5fa' },
-    { id: 'gemini-1.5-pro',    label: 'Gemini 1.5 Pro',    tag: 'Smart',   color: '#3b82f6' },
-    { id: 'mistral-large',     label: 'Mistral Large',     tag: 'Powerful',color: '#34d399' },
-    { id: 'mistral-medium',    label: 'Mistral Medium',    tag: 'Balanced',color: '#10b981' },
-    { id: 'mistral-small',     label: 'Mistral Small',     tag: 'Lite',    color: '#059669' },
-  ];
-
-  const activeModelObj = MODELS.find(m => m.id === selectedModel) || MODELS[0];
+  // Removed model selection list. Defaulting to codestral.
 
   const charCount = input.length;
   const charClass = charCount > 900 ? 'ai-chat__char-count--danger' : charCount > 600 ? 'ai-chat__char-count--warning' : 'ai-chat__char-count--normal';
@@ -466,7 +543,7 @@ export default function AIChat({ projectId, onCloseChat }) {
       {/* ─── Header ─────────────────────────────────────────────────────────── */}
       <div className="ai-chat__header">
         <div className="ai-chat__header-left">
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div className="ai-chat__header-brand">
             <Cpu size={12} color="var(--primary)" />
             <span className="ai-chat__header-title">Orion Coding Agent</span>
           </div>
@@ -504,9 +581,9 @@ export default function AIChat({ projectId, onCloseChat }) {
           /* Welcome Panel */
           <div className="ai-chat__welcome">
             <div className="ai-chat__welcome-hero">
-              <div className="ai-chat__welcome-brand" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <div className="ai-chat__welcome-brand">
                 <TakshaIcon size={36} />
-                <div>
+                <div className="ai-chat__welcome-brand-copy">
                   <h2 className="ai-chat__welcome-title">Orion</h2>
                   <span className="ai-chat__welcome-version">v1.0.0-orch</span>
                 </div>
@@ -544,7 +621,7 @@ export default function AIChat({ projectId, onCloseChat }) {
                 {
                   variant: 'feature', category: 'FEATURE', categoryColor: '#a78bfa', bg: 'rgba(139,92,246,0.06)', border: 'rgba(139,92,246,0.2)',
                   title: 'Cache Editor Files Locally',
-                  prompt: 'Implement file caching in local storage when visiting the code editor, refetch data on editor navigation, update cache on file changes.',
+                  prompt: 'Implement file caching in IndexedDB when visiting the code editor, reuse cached data on editor navigation, update cache on file changes.',
                 },
                 {
                   variant: 'docs', category: 'DOCS', categoryColor: '#f59e0b', bg: 'rgba(245,158,11,0.06)', border: 'rgba(245,158,11,0.2)',
@@ -579,6 +656,25 @@ export default function AIChat({ projectId, onCloseChat }) {
             const phases = assistant ? getWorkflowPhases(assistant) : [];
             const modifiedFiles = assistant ? getModifiedFiles(assistant.toolLogs) : [];
             const parsedEvents = assistant ? assistant.toolLogs.map((log, i) => parseToolLogToEvent(log, i)) : [];
+            const isThisLatestAssistant =
+              assistant &&
+              (
+                messages[messages.length - 1]?.id === assistant.id ||
+                messages[messages.length - 2]?.id === assistant.id
+              );
+            const isGenuinelyRunning =
+              assistant?.status === 'running' &&
+              !assistant.error &&
+              isStreaming &&
+              isThisLatestAssistant;
+            const showLiveReport =
+              assistant &&
+              !isWelcome &&
+              (
+                isGenuinelyRunning ||
+                assistant.streamState?.events?.length > 0 ||
+                (assistant.status === 'running' && parsedEvents.length > 0)
+              );
 
             return (
               <div key={run.id} className={`ai-chat__run-card ${isExpanded ? 'ai-chat__run-card--expanded' : ''}`}>
@@ -587,13 +683,13 @@ export default function AIChat({ projectId, onCloseChat }) {
                   className={`ai-chat__run-card__header ${isExpanded ? 'ai-chat__run-card__header--expanded' : ''}`}
                   onClick={() => toggleRun(run.id)}
                 >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, minWidth: 0 }}>
+                  <div className="ai-chat__run-card__summary">
                     <div className={`ai-chat__run-card__status-dot ${getStatusDotClass(assistant)}`} />
                     <span className="ai-chat__run-card__title">
                       {isWelcome ? 'System Workspace Initialized' : `Task: ${run.goal}`}
                     </span>
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginLeft: '8px' }}>
+                  <div className="ai-chat__run-card__meta">
                     <span className="ai-chat__run-card__time">
                       {run.timestamp ? new Date(run.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
                     </span>
@@ -621,12 +717,12 @@ export default function AIChat({ projectId, onCloseChat }) {
                               <div className="ai-chat__phases-icon">
                                 <PhaseIcon status={phase.status} />
                               </div>
-                              <div style={{ flex: 1, minWidth: 0 }}>
+                              <div className="ai-chat__phases-content">
                                 <div className="ai-chat__phases-name" style={{
                                   color: phase.status === 'running' ? '#a78bfa' : phase.status === 'completed' ? 'var(--text-main)' : 'var(--text-dark)'
                                 }}>
                                   {phase.name}
-                                  {phase.optional && <span style={{ marginLeft: 4, fontSize: '9px', color: 'var(--text-dark)' }}>(optional)</span>}
+                                  {phase.optional && <span className="ai-chat__phases-optional">(optional)</span>}
                                 </div>
                                 {phase.status === 'running' && (
                                   <div className="ai-chat__phases-desc">{phase.description}</div>
@@ -674,8 +770,8 @@ export default function AIChat({ projectId, onCloseChat }) {
                             {parsedEvents.map((ev, evIdx) => (
                               <div key={evIdx} className="ai-chat__log-event">
                                 <div className={`ai-chat__log-event-dot ai-chat__log-event-dot--${ev.status === 'success' ? 'success' : ev.status === 'running' ? 'running' : ev.status === 'error' ? 'error' : 'info'}`} />
-                                <div style={{ flex: 1, minWidth: 0 }}>
-                                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                <div className="ai-chat__log-event-content">
+                                  <div className="ai-chat__log-event-head">
                                     <span className="ai-chat__log-event-name" style={{ color: TOOL_TYPE_COLORS[ev.type] || 'var(--text-main)' }}>
                                       {ev.title}
                                     </span>
@@ -694,38 +790,16 @@ export default function AIChat({ projectId, onCloseChat }) {
                       <div className="ai-chat__report">
                         <span className="ai-chat__report-header">Agent Report</span>
 
-                        {assistant.text ? (
-                          parseMarkdownToReact(assistant.text, { copiedCodeIdx, copyToClipboard })
-                        ) : (() => {
-                          // Show the animated thinking dots ONLY when the socket stream
-                          // is genuinely active (isStreaming=true) AND this is the most
-                          // recent assistant message. If isStreaming=false but status is
-                          // still 'running' (page refreshed mid-stream, socket dropped),
-                          // show a neutral fallback instead of a frozen animation.
-                          const isThisLatest =
-                            messages[messages.length - 1]?.id === assistant.id ||
-                            messages[messages.length - 2]?.id === assistant.id;
-                          const isGenuinelyRunning =
-                            assistant.status === 'running' &&
-                            !assistant.error &&
-                            isStreaming &&
-                            isThisLatest;
+                        {showLiveReport && renderLiveReport(assistant, parsedEvents)}
 
-                          if (isGenuinelyRunning) {
+                        {assistant.text ? (
+                          <div className={showLiveReport ? 'ai-chat__report-output' : undefined}>
+                            {parseMarkdownToReact(assistant.text, { copiedCodeIdx, copyToClipboard })}
+                          </div>
+                        ) : (() => {
+                          if (!showLiveReport && assistant.status === 'running' && !isStreaming) {
                             return (
-                              <div className="ai-chat__report-thinking">
-                                <div className="ai-chat__report-thinking-dots">
-                                  <div className="ai-chat__report-thinking-dot" />
-                                  <div className="ai-chat__report-thinking-dot" />
-                                  <div className="ai-chat__report-thinking-dot" />
-                                </div>
-                                <span>Thinking &amp; applying modifications…</span>
-                              </div>
-                            );
-                          }
-                          if (assistant.status === 'running' && !isStreaming) {
-                            return (
-                              <p style={{ fontSize: '13px', color: 'var(--text-muted)', fontStyle: 'italic', margin: 0 }}>
+                              <p className="ai-chat__report-fallback">
                                 Task completed.
                               </p>
                             );
@@ -782,7 +856,7 @@ export default function AIChat({ projectId, onCloseChat }) {
             )}
 
             <div className={`ai-chat__input-wrap ${inputFocused && !isStreaming ? 'ai-chat__input-wrap--active' : ''} ${isStreaming ? 'ai-chat__input-wrap--busy' : ''}`}>
-              <form onSubmit={handleSubmit} style={{ position: 'relative', minWidth: 0 }}>
+              <form onSubmit={handleSubmit} className="ai-chat__input-form">
                 {showSuggestions && (
                   <div ref={suggestionsContainerRef} className="ai-chat__suggestions">
                     {fileSuggestions.map((suggestion, idx) => (
@@ -795,7 +869,7 @@ export default function AIChat({ projectId, onCloseChat }) {
                         }}
                       >
                         <FileCode size={11} color="var(--brand-primary)" />
-                        <span className="ai-chat__suggestion-text" style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        <span className="ai-chat__suggestion-text">
                           {suggestion}
                         </span>
                       </div>
@@ -818,58 +892,43 @@ export default function AIChat({ projectId, onCloseChat }) {
                   rows={1}
                   className="ai-chat__textarea"
                 />
-                <button
-                  type="submit"
-                  disabled={isStreaming || !input.trim()}
-                  className={`ai-chat__send-btn ${input.trim() && !isStreaming ? 'ai-chat__send-btn--active' : 'ai-chat__send-btn--disabled'}`}
-                >
-                  {isStreaming
-                    ? <Loader2 size={12} style={{ animation: 'spin 0.8s linear infinite' }} />
-                    : <Send size={12} />
-                  }
-                </button>
+                {isStreaming ? (
+                  <button
+                    type="button"
+                    className="ai-chat__send-btn ai-chat__send-btn--stop"
+                    onClick={stopAgent}
+                    title="Stop Orion"
+                  >
+                    <Square size={11} fill="currentColor" />
+                  </button>
+                ) : (
+                  <button
+                    type="submit"
+                    disabled={!input.trim()}
+                    className={`ai-chat__send-btn ${input.trim() ? 'ai-chat__send-btn--active' : 'ai-chat__send-btn--disabled'}`}
+                  >
+                    <Send size={12} />
+                  </button>
+                )}
               </form>
             </div>
 
             <div className="ai-chat__form-footer">
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                {/* Model selector placed inside input footer */}
-                <div style={{ position: 'relative' }} onClick={e => e.stopPropagation()}>
-                  <button className="ai-chat__model-btn" onClick={() => { setIsModelDropdownOpen(v => !v); setIsFilePickerOpen(false); }}>
-                    <span>{activeModelObj.label}</span>
-                    <ChevronDown size={9} />
-                  </button>
-                  {isModelDropdownOpen && (
-                    <div className="ai-chat__model-dropdown ai-chat__model-dropdown--upward">
-                      {MODELS.map(m => (
-                        <div
-                          key={m.id}
-                          className={`ai-chat__model-dropdown-item ${selectedModel === m.id ? 'ai-chat__model-dropdown-item--active' : ''}`}
-                          onClick={() => { setSelectedModel(m.id); setIsModelDropdownOpen(false); }}
-                        >
-                          <span style={{ width: 6, height: 6, borderRadius: '50%', background: m.color, flexShrink: 0 }} />
-                          <span style={{ flex: 1 }}>{m.label}</span>
-                          <span style={{ fontSize: '8px', color: m.color, background: `${m.color}18`, padding: '1px 4px', borderRadius: '3px', fontWeight: 700 }}>{m.tag}</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
+              <div className="ai-chat__footer-controls">
                 {/* Attach File Button Context */}
-                <div style={{ position: 'relative' }} onClick={e => e.stopPropagation()}>
+                <div className="ai-chat__footer-menu" onClick={e => e.stopPropagation()}>
                   <button
                     type="button"
                     className="ai-chat__model-btn"
-                    onClick={() => { setIsFilePickerOpen(v => !v); setIsModelDropdownOpen(false); }}
+                    onClick={() => { setIsFilePickerOpen(v => !v); }}
                     title="Attach File Context"
                   >
                     <Paperclip size={10} />
                     <span>Attach File</span>
                   </button>
                   {isFilePickerOpen && (
-                    <div className="ai-chat__model-dropdown ai-chat__model-dropdown--upward" style={{ width: '220px', maxHeight: '200px', overflowY: 'auto' }}>
-                      <div style={{ padding: '6px 10px', fontSize: '9px', color: 'var(--text-dark)', fontWeight: 700, borderBottom: '1px solid var(--border)', background: 'var(--bg-main)' }}>
+                    <div className="ai-chat__model-dropdown ai-chat__model-dropdown--upward ai-chat__file-dropdown">
+                      <div className="ai-chat__file-dropdown-header">
                         SELECT A FILE TO ATTACH
                       </div>
                       {files && files.length > 0 ? (
@@ -878,13 +937,12 @@ export default function AIChat({ projectId, onCloseChat }) {
                             key={f}
                             className="ai-chat__model-dropdown-item"
                             onClick={() => { handleSelectSuggestion(f); setIsFilePickerOpen(false); }}
-                            style={{ padding: '6px 10px' }}
                           >
-                            <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f}</span>
+                            <span className="ai-chat__file-dropdown-path">{f}</span>
                           </div>
                         ))
                       ) : (
-                        <div style={{ padding: '10px', fontSize: '11px', color: 'var(--text-dark)', textAlign: 'center' }}>
+                        <div className="ai-chat__file-dropdown-empty">
                           No files available
                         </div>
                       )}
@@ -893,7 +951,7 @@ export default function AIChat({ projectId, onCloseChat }) {
                 </div>
               </div>
 
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <div className="ai-chat__footer-meta">
                 <span className="ai-chat__hint">
                   <kbd>Enter</kbd> to send · <kbd>Shift+Enter</kbd> newline
                 </span>

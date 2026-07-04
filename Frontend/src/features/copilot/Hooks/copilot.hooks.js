@@ -21,7 +21,7 @@ export const useCopilot = (projectId) => {
   const { messages, isOpen, isStreaming } = useSelector((state) => state.copilot);
   const { sandboxId, status: sandboxStatus } = useSelector((state) => state.sandbox);
   const { tabContents } = useSelector((state) => state.editor);
-  const { syncAllFilesToCache, activeFile } = useEditor();
+  const { fetchFilesList, activeFile } = useEditor();
 
   const sendMessage = async (text, activeFile, onComplete) => {
     if (!text.trim()) return;
@@ -127,7 +127,7 @@ export const useCopilot = (projectId) => {
 
       dispatch(updateLastMessage({ text: assistantText, toolLogs, status: 'completed' }));
       dispatch(setStreaming(false));
-      syncAllFilesToCache(sandboxId);
+      fetchFilesList(sandboxId, { forceNetwork: true });
       onComplete?.();
     } catch (err) {
       console.error('[Copilot] invoke failed:', err);

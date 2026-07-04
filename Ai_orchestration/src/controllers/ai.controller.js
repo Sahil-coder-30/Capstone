@@ -1,8 +1,8 @@
-import { appAgent, appModel } from "../agent/code.agent.js";
+import { appAgent, appModel, getAppModelInfo } from "../agent/code.agent.js";
 import CopilotChatMessage from "../models/CopilotChatMessage.model.js";
 import fs from "fs";
 import path from "path";
-import axios from "axios";
+import { checkAiCredit, recordAiUsage } from "../services/credit.service.js";
 
 // POST /app-agent/invoke
 export const appAgentInvoke = async (req, res) => {
@@ -11,6 +11,10 @@ export const appAgentInvoke = async (req, res) => {
   const projId = projectId || sessionId;
   const containerId = sandboxId || projId;
   const userId = req.user?.id;
+
+  if (!userId) {
+    return res.status(401).json({ status: "error", message: "Unauthorized - Invalid user context" });
+  }
 
   res.writeHead(200, {
     "Content-Type": "text/event-stream",
@@ -23,30 +27,40 @@ export const appAgentInvoke = async (req, res) => {
     return res.end();
   }
 
-  // Credit check
-  const AUTH_SERVICE_URL = process.env.AUTH_SERVICE_URL || 'http://auth-service';
-  let hasCredit = true;
+  let modelInfo;
   try {
-    const token = req.cookies?.token || req.headers.authorization?.split(" ")[1];
-    const headers = {};
-    if (req.cookies?.token) {
-      headers['Cookie'] = `token=${req.cookies.token}`;
-    }
-    if (req.headers.authorization) {
-      headers['Authorization'] = req.headers.authorization;
-    }
-
-    const checkRes = await axios.get(`${AUTH_SERVICE_URL}/api/auth/credit/check`, {
-      headers,
-      timeout: 5000
-    });
-    hasCredit = checkRes.data.hasCredit;
-  } catch (err) {
-    console.error("Failed to check credits in appAgentInvoke:", err.message);
+    modelInfo = getAppModelInfo();
+  } catch (error) {
+    res.write(`event: error\ndata: ${JSON.stringify({
+      message: error.message,
+      code: error.code || "AI_PROVIDER_NOT_CONFIGURED",
+    })}\n\n`);
+    return res.end();
   }
 
-  if (!hasCredit) {
-    res.write(`event: error\ndata: ${JSON.stringify({ message: "Insufficient credits. Your balance is 0. Please upgrade to Developer Pro to continue." })}\n\n`);
+  try {
+    const isMeteredPlan = req.user?.subscription === "pro" || req.user?.subscription === "max";
+    const creditCheck = isMeteredPlan
+      ? { hasCredit: true, billable: true, subscription: req.user.subscription }
+      : await checkAiCredit({
+          authToken: req.authToken,
+          company: modelInfo.provider,
+        });
+
+    if (!creditCheck.hasCredit) {
+      res.write(`event: error\ndata: ${JSON.stringify({
+        message: `Insufficient ${modelInfo.provider} credits. Free users receive 20 credits per model company. Please upgrade to Pro to continue.`,
+        code: "INSUFFICIENT_CREDITS",
+        company: modelInfo.provider,
+      })}\n\n`);
+      return res.end();
+    }
+  } catch (err) {
+    console.error("Failed to check credits in appAgentInvoke:", err.message);
+    res.write(`event: error\ndata: ${JSON.stringify({
+      message: "Unable to validate AI credits. Please try again.",
+      code: "CREDIT_CHECK_FAILED",
+    })}\n\n`);
     return res.end();
   }
 
@@ -58,12 +72,14 @@ export const appAgentInvoke = async (req, res) => {
   }, HEARTBEAT_INTERVAL_MS);
 
   const cleanup = () => clearInterval(heartbeat);
+  const fileClean = activeFile && activeFile !== "none" ? activeFile.replace(/^\/+/, "") : "";
+  const chatSessionKey = fileClean ? `${projId}:${fileClean}` : projId;
+  let promptTokens = 0;
+  let completionTokens = 0;
+  let totalTokens = 0;
 
   try {
     const finalChunks = [];
-    let promptTokens = 0;
-    let completionTokens = 0;
-    let totalTokens = 0;
 
     let fileContent = activeFileContent || "";
     if (!fileContent && activeFile && activeFile !== "none") {
@@ -95,9 +111,6 @@ ${truncatedFileContent || "(empty or new file)"}`;
 
 [USER PROMPT]
 ${prompt}`;
-
-    const fileClean = activeFile && activeFile !== "none" ? activeFile.replace(/^\/+/, "") : "";
-    const chatSessionKey = fileClean ? `${projId}:${fileClean}` : projId;
 
     // 1. Save user message to database
     await CopilotChatMessage.create({
@@ -198,11 +211,17 @@ ${prompt}`;
     const totalTokensUsed = totalTokens || (promptTokens + completionTokens);
     if (totalTokensUsed > 0 && userId) {
       try {
-        await axios.post(`${AUTH_SERVICE_URL}/api/auth/credit/update`, {
+        await recordAiUsage({
+          authToken: req.authToken,
           userId,
+          company: modelInfo.provider,
+          modelId: modelInfo.modelId || modelInfo.id,
+          agentType: "copilot",
+          projectId: projId,
           promptTokens,
-          completionTokens
-        }, { timeout: 5000 });
+          completionTokens,
+          totalTokens: totalTokensUsed,
+        });
       } catch (err) {
         console.error("Failed to update credit usage on auth-service:", err.message);
       }
@@ -213,12 +232,16 @@ ${prompt}`;
     res.end();
   } catch (error) {
     console.error("appAgent invocation error:", error);
+    const isProviderConfigError = error.code === "AI_PROVIDER_NOT_CONFIGURED";
+    const errorMessage = isProviderConfigError
+      ? error.message
+      : error.message || "Error running app agent";
     try {
       await CopilotChatMessage.create({
         projectId: chatSessionKey,
         userId,
         role: "assistant",
-        content: `Error occurred during execution: ${error.message || "Error running app agent"}`,
+        content: `Error occurred during execution: ${errorMessage}`,
         file: activeFile || "",
         tokenUsage: {
           promptTokens: 0,
@@ -229,7 +252,10 @@ ${prompt}`;
     } catch (dbErr) {
       console.error("Failed to save copilot error response to database:", dbErr);
     }
-    res.write(`event: error\ndata: ${JSON.stringify({ message: error.message || "Error running app agent" })}\n\n`);
+    res.write(`event: error\ndata: ${JSON.stringify({
+      message: errorMessage,
+      code: isProviderConfigError ? "AI_PROVIDER_NOT_CONFIGURED" : undefined,
+    })}\n\n`);
     cleanup();
     res.end();
   }
@@ -239,12 +265,35 @@ ${prompt}`;
 export const appAgentTitle = async (req, res) => {
   const { userPrompt, message } = req.body;
   const prompt = userPrompt || message;
+  const userId = req.user?.id;
+
+  if (!userId) {
+    return res.status(401).json({ status: "error", message: "Unauthorized - Invalid user context" });
+  }
 
   if (!prompt) {
     return res.status(400).json({ status: "error", message: "message or userPrompt is required" });
   }
 
   try {
+    const modelInfo = getAppModelInfo();
+    const isMeteredPlan = req.user?.subscription === "pro" || req.user?.subscription === "max";
+    const creditCheck = isMeteredPlan
+      ? { hasCredit: true, billable: true, subscription: req.user.subscription }
+      : await checkAiCredit({
+          authToken: req.authToken,
+          company: modelInfo.provider,
+        });
+
+    if (!creditCheck.hasCredit) {
+      return res.status(402).json({
+        status: "error",
+        code: "INSUFFICIENT_CREDITS",
+        message: `Insufficient ${modelInfo.provider} credits. Free users receive 20 credits per model company.`,
+        company: modelInfo.provider,
+      });
+    }
+
     const response = await appModel.invoke([
       {
         role: "system",
@@ -275,9 +324,33 @@ If the prompt is vague (e.g. "something cool"), return:
       titleData = { title: "Untitled Project" };
     }
 
+    const usage = response.usage_metadata || response.response_metadata?.tokenUsage || response.response_metadata?.usage || {};
+    const promptTokens = usage.input_tokens || usage.prompt_tokens || usage.promptTokens || 0;
+    const completionTokens = usage.output_tokens || usage.completion_tokens || usage.completionTokens || 0;
+    const totalTokens = usage.total_tokens || usage.totalTokens || (promptTokens + completionTokens);
+    if (totalTokens > 0) {
+      recordAiUsage({
+        authToken: req.authToken,
+        userId,
+        company: modelInfo.provider,
+        modelId: modelInfo.modelId || modelInfo.id,
+        agentType: "title",
+        promptTokens,
+        completionTokens,
+        totalTokens,
+      }).catch((err) => {
+        console.error("Failed to record title credit usage:", err.message);
+      });
+    }
+
     res.status(200).json(titleData);
   } catch (error) {
     console.error("appAgent title generation error:", error);
-    res.status(500).json({ status: "error", message: error.message || "Failed to generate title" });
+    const isProviderConfigError = error.code === "AI_PROVIDER_NOT_CONFIGURED";
+    res.status(isProviderConfigError ? 503 : 500).json({
+      status: "error",
+      code: isProviderConfigError ? "AI_PROVIDER_NOT_CONFIGURED" : undefined,
+      message: isProviderConfigError ? error.message : error.message || "Failed to generate title",
+    });
   }
 };

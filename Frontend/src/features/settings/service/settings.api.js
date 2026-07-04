@@ -17,7 +17,7 @@ export const fetchSettingsAPI = async () => {
         preferences: prefRes.data.preferences
       }
     };
-  } catch (err) {
+  } catch {
     // Return standard dummy settings payload if backend fails
     return {
       status: 'success',
@@ -65,7 +65,7 @@ export const updateProfileSettingsAPI = async (profileData) => {
   try {
     const res = await axios.put('/api/auth/profile', profileData, { timeout: 15_000 });
     return res.data;
-  } catch (err) {
+  } catch {
     return { status: 'success', profile: profileData };
   }
 };
@@ -77,17 +77,24 @@ export const fetchCreditAPI = async () => {
   try {
     const res = await axios.get('/api/auth/credit', { timeout: 15_000 });
     return res.data;
-  } catch (err) {
+  } catch {
     return {
       status: 'success',
       credit: {
         credits: 20,
+        subscription: 'free',
+        providerCredits: [],
         promptTokens: 0,
         completionTokens: 0,
         totalTokens: 0
       }
     };
   }
+};
+
+export const updateSubscriptionAPI = async (subscription) => {
+  const res = await axios.patch('/api/auth/subscription', { subscription }, { timeout: 15_000 });
+  return res.data;
 };
 
 /**
@@ -97,7 +104,7 @@ export const updatePreferencesAPI = async (preferencesData) => {
   try {
     const res = await axios.put('/api/auth/preferences', preferencesData, { timeout: 15_000 });
     return res.data;
-  } catch (err) {
+  } catch {
     return { status: 'success', preferences: preferencesData };
   }
 };
@@ -109,7 +116,7 @@ export const generateApiKeyAPI = async (keyName) => {
   try {
     const res = await axios.post('/api/settings/keys', { name: keyName }, { timeout: 15_000 });
     return res.data;
-  } catch (err) {
+  } catch {
     const randomHex = Math.random().toString(16).substring(2, 6);
     return {
       status: 'success',
@@ -130,7 +137,7 @@ export const deleteApiKeyAPI = async (keyId) => {
   try {
     const res = await axios.delete(`/api/settings/keys/${keyId}`, { timeout: 15_000 });
     return res.data;
-  } catch (err) {
+  } catch {
     return { status: 'success', deletedId: keyId };
   }
 };

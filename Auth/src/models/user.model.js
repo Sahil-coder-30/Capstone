@@ -16,6 +16,12 @@ const UserShema = new mongoose.Schema({
     photo:{
         type:String,
     },
+    subscription: {
+        type: String,
+        enum: ['free', 'pro', 'max'],
+        default: 'free',
+        index: true
+    },
 } , {timestamps : true});
 
 const User = mongoose.model('user' , UserShema);
