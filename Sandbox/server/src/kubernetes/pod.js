@@ -1,6 +1,6 @@
 import { k8sCoreV1Api } from "./config.js";
 
-export async function createPod(sandboxId) {
+export async function createPod(sandboxId, projectId) {
   const podManifest = {
     metadata: {
       name: `sandbox-pod-${sandboxId}`,
@@ -17,20 +17,85 @@ export async function createPod(sandboxId) {
           emptyDir: {},
         },
       ],
-      initContainers: [{
-        image: "template",
-        imagePullPolicy: "IfNotPresent",
-        name: "init-container",
-        command: ["sh", "-c", "cp -r /workspace/. /seed/"],
-        volumeMounts: [
-          {
-            name: "workspace-volume",
-            mountPath: "/seed",
+      initContainers: [
+        {
+          image: "template",
+          imagePullPolicy: "IfNotPresent",
+          name: "init-container",
+          command: ["sh", "-c", "cp -r /workspace/. /seed/"],
+          volumeMounts: [
+            {
+              name: "workspace-volume",
+              mountPath: "/seed",
+            },
+          ],
+        },
+        {
+          image: "sync-agent",
+          imagePullPolicy: "IfNotPresent",
+          name: "restore-container",
+          command: ["node", "sync.js", "--restore-only"],
+          env: [
+            {
+              name: "PROJECT_ID",
+              value: projectId,
+            },
+            {
+              name: "AWS_REGION",
+              valueFrom: {
+                secretKeyRef: {
+                  name: "aws-secret",
+                  key: "AWS_REGION",
+                },
+              },
+            },
+            {
+              name: "AWS_ACCESS_KEY_ID",
+              valueFrom: {
+                secretKeyRef: {
+                  name: "aws-secret",
+                  key: "AWS_ACCESS_KEY_ID",
+                },
+              },
+            },
+            {
+              name: "AWS_SECRET_ACCESS_KEY",
+              valueFrom: {
+                secretKeyRef: {
+                  name: "aws-secret",
+                  key: "AWS_SECRET_ACCESS_KEY",
+                },
+              },
+            },
+            {
+              name: "AWS_BUCKET_NAME",
+              valueFrom: {
+                secretKeyRef: {
+                  name: "aws-secret",
+                  key: "AWS_BUCKET_NAME",
+                },
+              },
+            },
+          ],
+          resources: {
+            limits: {
+              cpu: "500m",
+              memory: "512Mi",
+            },
+            requests: {
+              cpu: "250m",
+              memory: "256Mi",
+            },
           },
-        ],
-      }],
+          volumeMounts: [
+            {
+              name: "workspace-volume",
+              mountPath: "/workspace",
+            },
+          ],
+        },
+      ],
       containers: [
-
         {
           image: "template",
           imagePullPolicy: "IfNotPresent",
@@ -66,6 +131,69 @@ export async function createPod(sandboxId) {
             requests: {
               cpu: "250m",
               memory: "500Mi",
+            },
+          },
+          volumeMounts: [
+            {
+              name: "workspace-volume",
+              mountPath: "/workspace",
+            },
+          ],
+        },
+        {
+          image: "sync-agent",
+          imagePullPolicy: "IfNotPresent",
+          name: "sync-agent-container",
+          env: [
+            {
+              name: "PROJECT_ID",
+              value: projectId,
+            },
+            {
+              name: "AWS_REGION",
+              valueFrom: {
+                secretKeyRef: {
+                  name: "aws-secret",
+                  key: "AWS_REGION",
+                },
+              },
+            },
+            {
+              name: "AWS_ACCESS_KEY_ID",
+              valueFrom: {
+                secretKeyRef: {
+                  name: "aws-secret",
+                  key: "AWS_ACCESS_KEY_ID",
+                },
+              },
+            },
+            {
+              name: "AWS_SECRET_ACCESS_KEY",
+              valueFrom: {
+                secretKeyRef: {
+                  name: "aws-secret",
+                  key: "AWS_SECRET_ACCESS_KEY",
+                },
+              },
+            },
+            {
+              name: "AWS_BUCKET_NAME",
+              valueFrom: {
+                secretKeyRef: {
+                  name: "aws-secret",
+                  key: "AWS_BUCKET_NAME",
+                },
+              },
+            },
+          ],
+          resources: {
+            limits: {
+              cpu: "300m",
+              memory: "256Mi",
+            },
+            requests: {
+              cpu: "100m",
+              memory: "128Mi",
             },
           },
           volumeMounts: [

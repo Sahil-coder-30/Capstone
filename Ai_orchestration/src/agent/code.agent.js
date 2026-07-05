@@ -11,6 +11,8 @@ if (typeof AbortSignal !== "undefined" && typeof AbortSignal.timeout === "functi
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
+import { z } from "zod";
+import { tool } from "@langchain/core/tools";
 import { ChatMistralAI } from "@langchain/mistralai";
 
 import {
@@ -49,6 +51,17 @@ const toolInfoSkill = `
 - **Read Before Write**: Always invoke read_file on a path before invoking update_file or patch_file on it to avoid conflicts.
 - **Surgical Edits**: Prefer target edits rather than overwriting entire files to fix small issues.
 - **Never Exec for File Read**: Do not use execute_command to run commands like "cat", "grep", or "ls" to inspect files/directories; use read_file and list_files instead.
+`;
+
+const planningSkill = `
+- **Plan Before You Build**: For any non-trivial request (new feature, multi-file change, or a bug fix that needs investigation), your FIRST tool call must be submit_plan with 2-8 concrete ordered steps. Skip this only for genuinely trivial single-line edits.
+- **The Plan Is Structural, Not Narration**: Steps should name real files/components/functions you intend to touch and in what order (e.g. "read Cart.jsx to see current state shape", "add removeItem handler to cartSlice.js", "wire button in CartItem.jsx"). This is not a summary for the user — it exists so you sequence your own execution correctly instead of improvising mid-task.
+- **Write Tools Are Locked Until You Plan**: create_file, update_file, and patch_file will refuse to run until submit_plan has been called once for this task. If you get a "call submit_plan first" error, call submit_plan immediately, then retry the write.
+- **Create todo.md Immediately**: Right after calling \`submit_plan\` and before modifying any codebase files, you MUST create a \`todo.md\` file in the workspace root (using \`create_file\`). This file must contain:
+  1. A clear implementation plan describing the goal and design approach.
+  2. A detailed checklist of tasks with markdown checkboxes (\`- [ ]\`).
+- **Keep todo.md Synchronized**: As you work through the tasks, you must update \`todo.md\` (using \`patch_file\` or \`update_file\`) to mark completed items as checked (\`- [x]\`).
+- **Revise If Needed**: If mid-task you discover the plan was wrong (e.g. a file doesn't exist, or the approach won't work), call submit_plan again with the corrected steps, and update \`todo.md\` accordingly before continuing to write.
 `;
 
 let appModelInstance = null;
@@ -94,6 +107,69 @@ export const appModel = {
 
 const guardedToolInvokes = new WeakSet();
 
+/**
+ * Creates a fresh submit_plan tool bound to a specific taskState object.
+ * Calling it flips taskState.planSubmitted = true and records the steps,
+ * which the write-tool guards below check before allowing any file mutation.
+ */
+function createSubmitPlanTool(taskState) {
+  return tool(
+    async ({ steps, revision }) => {
+      taskState.planSubmitted = true;
+      taskState.plan = steps;
+      taskState.planRevisions = (taskState.planRevisions || 0) + (revision ? 1 : 0);
+      return {
+        ok: true,
+        stepCount: steps.length,
+        note: "Plan recorded. You may now use create_file/update_file/patch_file.",
+      };
+    },
+    {
+      name: "submit_plan",
+      description:
+        "MANDATORY first step for any non-trivial request (new feature, multi-file change, or a bug fix requiring investigation). Submit a short ordered list of concrete, file-level steps before writing any code. Skip only for single-line trivial edits. Call again with revision=true if you need to correct the plan mid-task.",
+      schema: z.object({
+        steps: z
+          .array(z.string())
+          .min(2)
+          .max(8)
+          .describe("Ordered, concrete, file-level steps (e.g. 'read Cart.jsx', 'add removeItem to cartSlice.js')."),
+        revision: z
+          .boolean()
+          .optional()
+          .describe("Set true if this replaces an earlier plan that turned out to be wrong."),
+      }),
+    }
+  );
+}
+
+/**
+ * Wraps write tools (create_file, update_file, patch_file) so they refuse to
+ * run until taskState.planSubmitted is true. Read/search/list tools and
+ * execute_command are untouched by this gate — only mutation is blocked.
+ */
+const WRITE_TOOL_NAMES = new Set(["create_file", "update_file", "patch_file"]);
+
+function applyPlanGate(tools, taskState) {
+  return tools.map((toolInstance) => {
+    if (!WRITE_TOOL_NAMES.has(toolInstance.name)) return toolInstance;
+    if (guardedToolInvokes.has(toolInstance)) return toolInstance;
+
+    const original = toolInstance.invoke.bind(toolInstance);
+    toolInstance.invoke = async (input, config) => {
+      if (!taskState.planSubmitted) {
+        return {
+          error:
+            "BLOCKED: call submit_plan first with your ordered, file-level steps, then retry this write.",
+        };
+      }
+      return original(input, config);
+    };
+    guardedToolInvokes.add(toolInstance);
+    return toolInstance;
+  });
+}
+
 function applyGuards(tools) {
   const TOOL_RULES = {
     list_files: {
@@ -108,17 +184,17 @@ function applyGuards(tools) {
     },
     create_file: {
       description:
-        "Create a new file with content. Use for ALL new file creation. Never use executeCommand to create or write files.",
+        "Create a new file with content. Use for ALL new file creation. Never use executeCommand to create or write files. Requires submit_plan to have been called first.",
       block: null,
     },
     update_file: {
       description:
-        "Edit an existing file. Use for source edits AND todo.md tick updates. Never use executeCommand to modify files.",
+        "Edit an existing file. Use for source edits AND todo.md tick updates. Never use executeCommand to modify files. Requires submit_plan to have been called first.",
       block: null,
     },
     patch_file: {
       description:
-        "Make a targeted, surgical line-level replacement in a file. Prefer this over update_file for small changes under 20 lines. Never use executeCommand to modify files.",
+        "Make a targeted, surgical line-level replacement in a file. Prefer this over update_file for small changes under 20 lines. Never use executeCommand to modify files. Requires submit_plan to have been called first.",
       block: null,
     },
     execute_command: {
@@ -158,15 +234,15 @@ function applyGuards(tools) {
     },
   };
 
-  return tools.map((tool) => {
-    const rule = TOOL_RULES[tool.name];
-    if (!rule) return tool;
+  return tools.map((toolInstance) => {
+    const rule = TOOL_RULES[toolInstance.name];
+    if (!rule) return toolInstance;
 
-    if (rule.description) tool.description = rule.description;
+    if (rule.description) toolInstance.description = rule.description;
 
-    if (rule.block && !guardedToolInvokes.has(tool)) {
-      const original = tool.invoke.bind(tool);
-      tool.invoke = async (input, config) => {
+    if (rule.block && !guardedToolInvokes.has(toolInstance)) {
+      const original = toolInstance.invoke.bind(toolInstance);
+      toolInstance.invoke = async (input, config) => {
         const cmd =
           input?.command ?? input?.cmd ?? Object.values(input ?? {})[0] ?? "";
         // The block patterns are anchored to the start of a command
@@ -180,28 +256,32 @@ function applyGuards(tools) {
         if (blocked) return { error: rule.block.message };
         return original(input, config);
       };
-      guardedToolInvokes.add(tool);
+      guardedToolInvokes.add(toolInstance);
     }
 
-    return tool;
+    return toolInstance;
   });
 }
+
 const SYSTEM_PROMPT = `
 You are Orion, an elite React+Vite frontend engineer embedded inside Taksha — an AI code generation platform. Build exactly what the user asks — nothing more, nothing less.
 
 The Vite dev server is already running on port 5173 — never run "npm run dev" yourself.
 
 === EXECUTION RULES (MANDATORY) ===
-- **Attached File Context**: If the user has attached file content inside their prompt marked with "=== ATTACHED FILE CONTEXT ===", you do NOT need to invoke the \`read_file\` tool to inspect those files. Treat them as already read and proceed directly to writing or patching code.
-- **First action must be a tool call**: For every build, fix, debug, game, UI, or code request, your first assistant action MUST be a tool call such as \`list_files\`, \`search_code\`, or \`read_file\`. Do not write prose before at least one tool call.
-- **Silent execution**: DO NOT narrate your plan, announce what you are about to do, or describe steps in prose before doing them. Jump straight to tool calls.
-- **No pre-work commentary**: Never write text like "Here's my plan:", "Step 1:", "I'll start by...", "Let me...", or "Here's what I'll build" before invoking tools.
+- **Attached File Context**: If the user has attached file content inside their prompt marked with "=== ATTACHED FILE CONTEXT ===", you do NOT need to invoke the \`read_file\` tool to inspect those files. Treat them as already read and proceed directly to planning/writing code.
+- **First action must be a tool call**: For every build, fix, debug, game, UI, or code request, your first assistant action MUST be a tool call — submit_plan for non-trivial work, or list_files/search_code/read_file for investigation. Do not write prose before at least one tool call.
+- **Silent execution**: DO NOT narrate your plan in prose, announce what you are about to do, or describe steps outside of the submit_plan tool call. Jump straight to tool calls.
+- **No pre-work commentary**: Never write text like "Here's my plan:", "Step 1:", "I'll start by...", "Let me...", or "Here's what I'll build" before invoking tools. The plan goes into submit_plan, not into chat text.
 - **Compact final report only**: After ALL tool calls are complete, write ONE brief summary (3-8 bullet points max) covering only: files created/changed, commands run, and anything notable. No code blocks in the report unless directly asked.
 - **No redundant explanations**: Do not explain CSS properties, React patterns, or design decisions unless the user asked. Just implement.
 - **Grounded edits only**: Do not guess file names, APIs, components, or package scripts. Use search_code/read_file first, then edit only files you have located or inspected.
 - **Verify claims**: Only say a command passed, a file changed, or a bug was fixed after the corresponding tool result confirms it. If verification could not run, say that briefly in the final report.
 - **Limit tool loops**: Prefer one batched create_file/update_file call for related edits and one verification command at the end. Do not repeatedly call the same tool with the same input.
 - **No Endless Search Loops**: If a file search or read fails (e.g., returns 0 matches or file not found), do not repeat the exact same search or slightly altered searches in a loop. Instead, try listing the workspace files using \`list_files\` to find the correct file names, search for broader/different keywords (like "route", "Link", "App", "menu"), or check parent/layout components. If you still cannot find the file or component after 3 distinct search/read attempts, stop and ask the user for clarification.
+
+=== PLANNING (MANDATORY FOR NON-TRIVIAL TASKS) ===
+${planningSkill}
 
 === FINDING → PATCHING WORKFLOW ===
 To locate then fix something:
@@ -210,6 +290,7 @@ To locate then fix something:
 3. patch_file using that context as oldStr — no read_file needed in between!
 Only fall back to read_file if patch_file reports oldStr not found or ambiguous.
 This keeps the "search → patch" loop at 2 API calls total.
+(For non-trivial tasks, submit_plan still comes first — the search → patch loop happens inside a planned step, not instead of one.)
 
 === WORKFLOW RULES ===
 ${codegenSkill}
@@ -419,6 +500,11 @@ const MISTRAL_LARGE_MODEL = {
 };
 
 const agentCache = new Map();
+// Per-agent-instance task state, keyed the same way as agentCache. Each
+// entry's planSubmitted flag is reset right before every invoke/stream call
+// so a fresh task always has to plan again, but tool closures (bound once at
+// agent-creation time) keep working off the same live object reference.
+const taskStateCache = new Map();
 
 export const createAgentForModel = () => {
   const modelDef = MISTRAL_LARGE_MODEL;
@@ -429,9 +515,11 @@ export const createAgentForModel = () => {
   }
 
   if (!agentCache.has(modelDef.id)) {
-    agentCache.set(modelDef.id, createReactAgent({
-      llm: modelDef.create(),
-      tools: applyGuards([
+    const taskState = { planSubmitted: false, plan: null, planRevisions: 0 };
+    taskStateCache.set(modelDef.id, taskState);
+
+    const guardedTools = applyPlanGate(
+      applyGuards([
         listFiles,
         readFile,
         createFile,
@@ -442,12 +530,19 @@ export const createAgentForModel = () => {
         getViteRuntimeErrors,
         searchCode,
       ]),
+      taskState
+    );
+
+    agentCache.set(modelDef.id, createReactAgent({
+      llm: modelDef.create(),
+      tools: [createSubmitPlanTool(taskState), ...guardedTools],
       prompt: SYSTEM_PROMPT,
     }));
   }
 
   return {
     agent: agentCache.get(modelDef.id),
+    taskState: taskStateCache.get(modelDef.id),
     model: {
       id: modelDef.id,
       label: modelDef.label,
@@ -460,10 +555,29 @@ export const createAgentForModel = () => {
 
 export const getAgentInstance = () => createAgentForModel().agent;
 
+// Reset the plan gate at the start of every new task so each run has to plan
+// again — otherwise a plan submitted on a previous task would silently
+// authorize writes on an unrelated later task.
+const resetTaskState = () => {
+  const { taskState } = createAgentForModel();
+  taskState.planSubmitted = false;
+  taskState.plan = null;
+  taskState.planRevisions = 0;
+};
+
 const agent = {
-  streamEvents: (...args) => getAgentInstance().streamEvents(...args),
-  stream: (...args) => getAgentInstance().stream(...args),
-  invoke: (...args) => getAgentInstance().invoke(...args),
+  streamEvents: (...args) => {
+    resetTaskState();
+    return getAgentInstance().streamEvents(...args);
+  },
+  stream: (...args) => {
+    resetTaskState();
+    return getAgentInstance().stream(...args);
+  },
+  invoke: (...args) => {
+    resetTaskState();
+    return getAgentInstance().invoke(...args);
+  },
 };
 
 const APP_AGENT_PROMPT = `You are Clio, an elite developer co-pilot. Your job is to help users understand their codebase, clear doubts about specific files, and fix small bugs in any file in the workspace.
@@ -475,6 +589,7 @@ const APP_AGENT_PROMPT = `You are Clio, an elite developer co-pilot. Your job is
 - Always check files first before updating them.
 - If a file doesn't exist, say so. Don't invent content.
 - Do not explain your reasoning or CSS/React details unless asked.
+- **For multi-file or multi-step fixes**: think through the file-level order of changes before touching anything (which file first, what depends on what) — you don't need a formal plan tool for this, just don't start editing before you know the full shape of the change.
 - **No Endless Loops**: If a file search or read fails (e.g., returns 0 matches or file not found), do not repeat the search in a loop. Try listing files or searching for broader/different keywords (like "route", "Link", "App", "menu") to locate them. If you cannot find the files after 3 distinct search/read attempts, stop and ask the user for clarification.
 
 === FINDING → PATCHING WORKFLOW ===

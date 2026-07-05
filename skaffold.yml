@@ -41,6 +41,15 @@ build:
         infer:
           - "src/**"
 
+    - image: sync-agent
+      context: Sandbox/sync-agent
+      docker:
+        dockerfile: dockerfile
+      sync:
+        infer:
+          - "*.js"
+          - "package.json"
+
     - image: sandbox
       context: Sandbox/server
       docker:
