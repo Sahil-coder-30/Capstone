@@ -52,6 +52,13 @@ export default function AIChat({ projectId, onCloseChat }) {
 
   const suggestionsContainerRef = useRef(null);
 
+  const handleFileClick = (filePath) => {
+    if (sandboxId) {
+      const normalizedPath = filePath.replace(/^\.\//, '').replace(/^\/workspace\//, '');
+      fetchFileContent(sandboxId, normalizedPath);
+    }
+  };
+
   // Auto-scroll active suggestion into view inside the dropdown list
   useEffect(() => {
     if (showSuggestions && suggestionsContainerRef.current) {
@@ -434,6 +441,7 @@ export default function AIChat({ projectId, onCloseChat }) {
         title: streamState.title,
         detail: streamState.detail,
         status: streamState.status || 'running',
+        phase: streamState.phase || 'working',
       };
     }
 
@@ -443,6 +451,7 @@ export default function AIChat({ projectId, onCloseChat }) {
         title: latestEvent.title,
         detail: latestEvent.description,
         status: latestEvent.status,
+        phase: latestEvent.type || 'working',
       };
     }
 
@@ -450,6 +459,7 @@ export default function AIChat({ projectId, onCloseChat }) {
       title: 'Preparing Orion',
       detail: 'Opening realtime stream',
       status: 'running',
+      phase: 'queued',
     };
   };
 
@@ -462,23 +472,112 @@ export default function AIChat({ projectId, onCloseChat }) {
         ? 'success'
         : 'running';
 
+    // Map phase to nice description and visual attributes
+    let phaseIcon = <Activity className="ai-chat__thinking-orb-icon" size={14} />;
+    let phaseColor = 'var(--brand-primary)';
+    let phaseBadgeText = 'RUNNING';
+
+    if (current.phase === 'thinking') {
+      phaseIcon = <Cpu className="ai-chat__thinking-orb-icon pulse-animation" size={14} />;
+      phaseColor = '#a78bfa'; // Purple/Indigo
+      phaseBadgeText = 'THINKING';
+    } else if (current.phase === 'rate_limit') {
+      phaseIcon = <AlertCircle className="ai-chat__thinking-orb-icon alert-pulse" size={14} />;
+      phaseColor = '#f59e0b'; // Amber
+      phaseBadgeText = 'RATE LIMIT';
+    } else if (stateClass === 'error') {
+      phaseIcon = <AlertCircle className="ai-chat__thinking-orb-icon" size={14} />;
+      phaseColor = '#f43f5e'; // Red
+      phaseBadgeText = 'ERROR';
+    } else if (stateClass === 'success') {
+      phaseIcon = <CheckCircle2 className="ai-chat__thinking-orb-icon" size={14} />;
+      phaseColor = '#10b981'; // Green
+      phaseBadgeText = 'DONE';
+    } else if (current.phase === 'tool') {
+      phaseIcon = <Loader2 className="ai-chat__thinking-orb-icon spin-animation" size={14} />;
+      phaseColor = '#34d399'; // Mint Green
+      phaseBadgeText = 'EXECUTING';
+    } else if (current.phase === 'queued') {
+      phaseIcon = <Loader2 className="ai-chat__thinking-orb-icon pulse-animation" size={14} />;
+      phaseColor = '#60a5fa'; // Blue
+      phaseBadgeText = 'QUEUED';
+    }
+
+    // Monospace terminal logs display
+    const logs = assistantMsg?.toolLogs || [];
+    const latestLogs = logs.slice(-3); // Get last 3 logs to keep it clean
+
     return (
-      <div className={`ai-chat__live-report ai-chat__live-report--${stateClass}`}>
-        <div className="ai-chat__live-report-current">
-          <div className={`ai-chat__live-report-orb ai-chat__live-report-orb--${stateClass}`} />
-          <div className="ai-chat__live-report-copy">
-            <div className="ai-chat__live-report-title">{current.title}</div>
-            {current.detail && (
-              <div className="ai-chat__live-report-detail">{current.detail}</div>
-            )}
+      <div className={`ai-chat__thinking-panel ai-chat__thinking-panel--${stateClass}`}>
+        {/* Glowing aura background elements */}
+        <div className="ai-chat__thinking-aura" style={{ '--glow-color': phaseColor }} />
+        
+        {/* Header containing status indicator & badge */}
+        <div className="ai-chat__thinking-header">
+          <div className="ai-chat__thinking-indicator">
+            <div 
+              className={`ai-chat__thinking-orb ai-chat__thinking-orb--${stateClass}`}
+              style={{ borderColor: `${phaseColor}33`, boxShadow: `0 0 12px ${phaseColor}44` }}
+            >
+              <div className="ai-chat__thinking-orb-inner" style={{ background: phaseColor }}>
+                {phaseIcon}
+              </div>
+            </div>
+            <div className="ai-chat__thinking-info">
+              <div className="ai-chat__thinking-status-text">{current.title}</div>
+              {current.detail && (
+                <div className="ai-chat__thinking-detail-text">{current.detail}</div>
+              )}
+            </div>
           </div>
-          <span className="ai-chat__live-report-state">
-            {stateClass === 'running' ? 'LIVE' : stateClass === 'success' ? 'DONE' : 'ERROR'}
+          <span 
+            className={`ai-chat__thinking-badge ai-chat__thinking-badge--${stateClass}`}
+            style={{ color: phaseColor, borderColor: `${phaseColor}44`, background: `${phaseColor}11` }}
+          >
+            {phaseBadgeText}
           </span>
         </div>
 
+        {/* Live Terminal Terminal Logs Screen */}
+        {latestLogs.length > 0 && (
+          <div className="ai-chat__thinking-terminal">
+            <div className="ai-chat__thinking-terminal-header">
+              <div className="ai-chat__thinking-terminal-buttons">
+                <span className="dot" />
+                <span className="dot" />
+                <span className="dot" />
+              </div>
+              <span className="ai-chat__thinking-terminal-title">orion-execution-console.log</span>
+            </div>
+            <div className="ai-chat__thinking-terminal-body">
+              {latestLogs.map((log, index) => {
+                const logType = log.startsWith('model:') 
+                  ? 'model' 
+                  : log.includes('starting') 
+                    ? 'start' 
+                    : log.includes('finished') 
+                      ? 'end' 
+                      : 'info';
+                
+                let textColor = 'var(--text-main)';
+                if (logType === 'model') textColor = '#c084fc';
+                else if (logType === 'start') textColor = '#60a5fa';
+                else if (logType === 'end') textColor = '#34d399';
+                
+                return (
+                  <div key={index} className="ai-chat__thinking-terminal-line" style={{ color: textColor }}>
+                    <span className="ai-chat__thinking-terminal-prompt">&gt;</span>
+                    <span className="ai-chat__thinking-terminal-text">{log}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Timeline representation of recent events */}
         {events.length > 0 && (
-          <div className="ai-chat__live-report-events">
+          <div className="ai-chat__thinking-timeline">
             {events.map((event) => {
               const eventStatus = event.status === 'success'
                 ? 'success'
@@ -487,15 +586,28 @@ export default function AIChat({ projectId, onCloseChat }) {
                   : event.status === 'running'
                     ? 'running'
                     : 'info';
+              
+              let eventIcon = <Activity size={10} />;
+              if (event.kind === 'tool') eventIcon = <FileCode size={10} />;
+              else if (event.kind === 'model') eventIcon = <Cpu size={10} />;
+              else if (event.kind === 'rate_limit') eventIcon = <AlertCircle size={10} />;
+              else if (eventStatus === 'success') eventIcon = <Check size={10} />;
+              
               return (
-                <div key={event.id || `${event.title}-${event.timestamp}`} className="ai-chat__live-report-event">
-                  <div className={`ai-chat__live-report-event-dot ai-chat__live-report-event-dot--${eventStatus}`} />
-                  <div className="ai-chat__live-report-event-copy">
-                    <span className="ai-chat__live-report-event-title">{event.title}</span>
-                    {event.detail && <span className="ai-chat__live-report-event-detail">{event.detail}</span>}
+                <div key={event.id || `${event.title}-${event.timestamp}`} className="ai-chat__thinking-timeline-item">
+                  <div className={`ai-chat__thinking-timeline-icon-wrapper ai-chat__thinking-timeline-icon-wrapper--${eventStatus}`}>
+                    {eventIcon}
+                  </div>
+                  <div className="ai-chat__thinking-timeline-copy">
+                    <span className="ai-chat__thinking-timeline-title">{event.title}</span>
+                    {event.detail && (
+                      <span className="ai-chat__thinking-timeline-detail">{event.detail}</span>
+                    )}
                   </div>
                   {formatActivityTime(event.timestamp) && (
-                    <span className="ai-chat__live-report-event-time">{formatActivityTime(event.timestamp)}</span>
+                    <span className="ai-chat__thinking-timeline-time">
+                      {formatActivityTime(event.timestamp)}
+                    </span>
                   )}
                 </div>
               );
@@ -519,9 +631,9 @@ export default function AIChat({ projectId, onCloseChat }) {
 
   // ─── Phase icon renderer ────────────────────────────────────────────────────
   const PhaseIcon = ({ status }) => {
-    if (status === 'completed') return <CheckCircle2 size={13} color="#10b981" />;
-    if (status === 'running')   return <Loader2 size={13} color="var(--primary)" style={{ animation: 'spin 1s linear infinite' }} />;
-    if (status === 'error')     return <AlertCircle size={13} color="#f43f5e" />;
+    if (status === 'completed') return <Check size={10} strokeWidth={3} />;
+    if (status === 'running')   return <Loader2 size={10} className="spin-animation" />;
+    if (status === 'error')     return <AlertCircle size={10} />;
     return <div className="ai-chat__phases-pending-dot" />;
   };
 
@@ -703,7 +815,10 @@ export default function AIChat({ projectId, onCloseChat }) {
 
                     {!isWelcome && (
                       <div className="ai-chat__objective">
-                        <span className="ai-chat__objective-label">Objective</span>
+                        <div className="ai-chat__objective-header">
+                          <Activity size={11} className="ai-chat__objective-icon animate-pulse" style={{ color: 'var(--brand-primary)' }} />
+                          <span className="ai-chat__objective-label">Active Objective</span>
+                        </div>
                         <p className="ai-chat__objective-text">{run.goal}</p>
                       </div>
                     )}
@@ -713,13 +828,13 @@ export default function AIChat({ projectId, onCloseChat }) {
                         <span className="ai-chat__phases-label">Execution Phases</span>
                         <div className="ai-chat__phases-grid">
                           {phases.map(phase => (
-                            <div key={phase.id} className="ai-chat__phases-row">
-                              <div className="ai-chat__phases-icon">
+                            <div key={phase.id} className={`ai-chat__phases-row ai-chat__phases-row--${phase.status}`}>
+                              <div className={`ai-chat__phases-icon ai-chat__phases-icon--${phase.status}`}>
                                 <PhaseIcon status={phase.status} />
                               </div>
                               <div className="ai-chat__phases-content">
                                 <div className="ai-chat__phases-name" style={{
-                                  color: phase.status === 'running' ? '#a78bfa' : phase.status === 'completed' ? 'var(--text-main)' : 'var(--text-dark)'
+                                  color: phase.status === 'running' ? 'var(--brand-primary)' : phase.status === 'completed' ? 'var(--text-main)' : 'var(--text-dark)'
                                 }}>
                                   {phase.name}
                                   {phase.optional && <span className="ai-chat__phases-optional">(optional)</span>}
@@ -735,22 +850,30 @@ export default function AIChat({ projectId, onCloseChat }) {
                     )}
 
                     {modifiedFiles.length > 0 && (
-                      <div>
+                      <div className="ai-chat__files">
                         <span className="ai-chat__files-label">Working Files</span>
                         <div className="ai-chat__files-list">
                           {modifiedFiles.map((file, fIdx) => (
-                            <div key={fIdx} className="ai-chat__files-row">
+                            <div 
+                              key={fIdx} 
+                              className="ai-chat__files-row ai-chat__files-row--clickable"
+                              onClick={() => handleFileClick(file.path)}
+                              title={`Open ${file.path} in editor`}
+                            >
                               <div className="ai-chat__files-name">
                                 <div className="ai-chat__files-check-wrap" style={{ background: file.type === 'create' ? 'rgba(16,185,129,0.1)' : 'rgba(139,92,246,0.1)' }}>
                                   {file.type === 'create'
                                     ? <Check size={8} color="#10b981" strokeWidth={3} />
                                     : <FileCode size={8} color="#a78bfa" />}
                                 </div>
-                                <span>{file.path}</span>
+                                <span className="ai-chat__files-path-text">{file.path}</span>
                               </div>
-                              <span className="ai-chat__files-badge" style={{ color: file.type === 'create' ? '#10b981' : '#a78bfa' }}>
-                                {file.type === 'create' ? 'NEW' : 'MOD'}
-                              </span>
+                              <div className="ai-chat__files-action">
+                                <span className="ai-chat__files-badge" style={{ color: file.type === 'create' ? '#10b981' : '#a78bfa' }}>
+                                  {file.type === 'create' ? 'NEW' : 'MOD'}
+                                </span>
+                                <ArrowRight size={10} className="ai-chat__files-arrow" />
+                              </div>
                             </div>
                           ))}
                         </div>

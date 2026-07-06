@@ -1,6 +1,6 @@
 import { Server } from "socket.io";
 import jwt from "jsonwebtoken";
-import { createAgentForModel } from "../agent/code.agent.js";
+import { createAgentForModel, onRateLimitEvent } from "../agent/code.agent.js";
 import ChatMessage from "../models/ChatMessage.model.js";
 import { checkAiCredit, recordAiUsage } from "../services/credit.service.js";
 
@@ -130,6 +130,20 @@ export const initSocketIO = (server) => {
     socket.data.activeAgentRunKey = runKey;
     return run;
   };
+
+  // Listen to rate limit events from code.agent.js and broadcast to all active runs
+  onRateLimitEvent((event) => {
+    console.warn(`[ModelSafety Global] Rate limited (attempt ${event.attempt}); waiting ${event.delayMs}ms`);
+    for (const [runKey, run] of activeAgentRuns.entries()) {
+      if (run.abortController && !run.abortController.signal.aborted) {
+        emitToRun(runKey, "agent:status", {
+          phase: "rate_limit",
+          title: "Rate Limit Backoff",
+          detail: `AI provider rate-limited. Retrying in ${Math.round(event.delayMs / 1000)}s (Attempt ${event.attempt}).`,
+        });
+      }
+    }
+  });
 
   const io = new Server(server, {
     path: "/api/ai/socket.io",
@@ -336,15 +350,23 @@ export const initSocketIO = (server) => {
           if (statusHeartbeat) clearInterval(statusHeartbeat);
           statusHeartbeat = setInterval(() => {
             if (!abortController.signal.aborted) {
-              emitToRun(runKey, "agent:status", {
+              const currentStatus = activeRun.status || {
                 phase: "working",
-                title: "Still working",
+                title: "Working",
                 detail: "Waiting for model or tool results",
+              };
+              const title = currentStatus.title;
+              const formattedTitle = title.toLowerCase().startsWith("still")
+                ? title
+                : `Still ${title.charAt(0).toLowerCase() + title.slice(1)}`;
+              emitToRun(runKey, "agent:status", {
+                ...currentStatus,
+                title: formattedTitle,
               });
             }
           }, 8_000);
 
-          const AGENT_TIMEOUT_MS = 3 * 60 * 1000;
+          const AGENT_TIMEOUT_MS = 60 * 60 * 1000; // 60 minutes
           let timedOut = false;
           const timeoutId = setTimeout(() => {
             if (!abortController.signal.aborted) {
@@ -362,7 +384,7 @@ export const initSocketIO = (server) => {
                 version: "v2",
                 signal: abortController.signal,
                 configurable: { projectId: sandboxId || projectId }, // Use sandboxId (UUID) for K8s service routing
-                recursionLimit: 35,
+                recursionLimit: 100,
                 writer: (msg) => {
                   console.log(`[Agent Project ${projectId}]: ${msg}`);
                   const parsedLog = parseToolWriterMessage(msg);
@@ -606,7 +628,7 @@ export const initSocketIO = (server) => {
             ? getErrorCode(error) || "RATE_LIMIT"
             : getErrorCode(error);
         const messageText = isTimeout
-          ? "Agent timed out. The task may be too large — try breaking it into smaller steps."
+          ? "Agent timed out after 60 minutes. The task may be too large or stuck in an infinite loop."
           : isProviderRateLimited || isProviderModelTimeout
             ? error.message
           : isModelTimeout

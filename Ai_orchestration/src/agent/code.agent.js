@@ -345,13 +345,69 @@ const getRetryAfterMs = (error, fallbackMs) => {
   return fallbackMs;
 };
 
+const MAX_RATE_LIMIT_WAIT_MS = 30 * 60 * 1000; // 30 minutes of total backoff before giving up
+
 const MODEL_SAFETY = {
-  codestral: { minIntervalMs: 850, retryDelaysMs: [4_000, 10_000, 20_000], callTimeoutMs: 60_000 },
-  mistralLarge: { minIntervalMs: 850, retryDelaysMs: [4_000, 10_000, 20_000], callTimeoutMs: 110_000 },
+  codestral: {
+    baseIntervalMs: 1_500,
+    maxIntervalMs: 20_000,
+    maxRetryDelayMs: 90_000,
+    callTimeoutMs: 60_000,
+  },
+  mistralLarge: {
+    baseIntervalMs: 1_500,
+    maxIntervalMs: 20_000,
+    maxRetryDelayMs: 90_000,
+    callTimeoutMs: 110_000,
+  },
 };
 
+// Per-model adaptive state. currentIntervalMs grows every time we get rate
+// limited (queue slows itself down automatically) and decays back toward
+// baseIntervalMs after a run of clean successes.
 const modelSafetyState = new Map();
 const wrappedRunnables = new WeakSet();
+
+let rateLimitListener = null;
+// Lets the route handler subscribe to progress events instead of the
+// request just silently taking longer with no feedback.
+export const onRateLimitEvent = (listener) => {
+  rateLimitListener = typeof listener === "function" ? listener : null;
+};
+
+const getSafetyState = (modelId) => {
+  if (!modelSafetyState.has(modelId)) {
+    const safety = MODEL_SAFETY[modelId] || MODEL_SAFETY.codestral;
+    modelSafetyState.set(modelId, {
+      chain: Promise.resolve(),
+      lastStartedAt: 0,
+      currentIntervalMs: safety.baseIntervalMs,
+      consecutiveSuccesses: 0,
+    });
+  }
+  return modelSafetyState.get(modelId);
+};
+
+const recordSuccess = (modelId, safety) => {
+  const state = getSafetyState(modelId);
+  state.consecutiveSuccesses += 1;
+  if (state.consecutiveSuccesses >= 5 && state.currentIntervalMs > safety.baseIntervalMs) {
+    state.currentIntervalMs = Math.max(
+      safety.baseIntervalMs,
+      Math.floor(state.currentIntervalMs * 0.8)
+    );
+    state.consecutiveSuccesses = 0;
+  }
+};
+
+const recordRateLimit = (modelId, safety) => {
+  const state = getSafetyState(modelId);
+  state.consecutiveSuccesses = 0;
+  state.currentIntervalMs = Math.min(
+    safety.maxIntervalMs,
+    Math.round(state.currentIntervalMs * 1.6)
+  );
+};
 
 const isModelTimeoutError = (error) =>
   error?.code === "MODEL_CALL_TIMEOUT" ||
@@ -372,67 +428,102 @@ const withModelCallTimeout = (modelId, timeoutMs, operation) =>
       .finally(() => clearTimeout(timeoutId));
   });
 
+// Exponential backoff with jitter, capped at safety.maxRetryDelayMs, honoring
+// a Retry-After header if the provider sent one.
+const computeBackoffDelay = (error, attempt, safety) => {
+  const exponential = Math.min(
+    safety.maxRetryDelayMs,
+    1_000 * 2 ** Math.min(attempt, 10)
+  );
+  const jitter = Math.floor(Math.random() * 1_000);
+  const fallback = exponential + jitter;
+  return getRetryAfterMs(error, fallback);
+};
+
+const throwPersistentRateLimit = (modelId, waitedMs) => {
+  const error = new Error(
+    `Still being rate-limited by the AI provider after ${Math.round(waitedMs / 1000)}s of backoff. This is unusual — check your Mistral account for a billing/quota issue rather than a normal transient limit.`
+  );
+  error.code = "PERSISTENT_RATE_LIMIT";
+  error.modelId = modelId;
+  error.waitedMs = waitedMs;
+  throw error;
+};
+
 const runWithModelSafety = async (modelId, operation) => {
   const safety = MODEL_SAFETY[modelId] || MODEL_SAFETY.codestral;
-  const state = modelSafetyState.get(modelId) || {
-    chain: Promise.resolve(),
-    lastStartedAt: 0,
-  };
+  const state = getSafetyState(modelId);
 
   const run = state.chain.then(async () => {
-    const waitMs = Math.max(0, safety.minIntervalMs - (Date.now() - state.lastStartedAt));
+    const waitMs = Math.max(0, state.currentIntervalMs - (Date.now() - state.lastStartedAt));
     if (waitMs > 0) await sleep(waitMs);
     state.lastStartedAt = Date.now();
 
-    for (let attempt = 0; attempt <= safety.retryDelaysMs.length; attempt += 1) {
+    let attempt = 0;
+    let totalWaitedMs = 0;
+
+    // No attempt cap — only a total-time cap. A rate limit is retried
+    // forever (slowing down as it goes) until MAX_RATE_LIMIT_WAIT_MS.
+    while (true) {
       try {
-        return await withModelCallTimeout(modelId, safety.callTimeoutMs, operation);
+        const result = await withModelCallTimeout(modelId, safety.callTimeoutMs, operation);
+        recordSuccess(modelId, safety);
+        return result;
       } catch (error) {
-        if (
-          isModelTimeoutError(error) ||
-          !isRateLimitError(error) ||
-          attempt === safety.retryDelaysMs.length
-        ) {
-          throw error;
+        if (isModelTimeoutError(error) || !isRateLimitError(error)) {
+          throw error; // real error — never retried here, surfaces immediately
         }
 
-        const fallbackDelay = safety.retryDelaysMs[attempt];
-        const delayMs = getRetryAfterMs(error, fallbackDelay);
-        console.warn(`[ModelSafety] ${modelId} rate limited; retrying in ${delayMs}ms`);
+        recordRateLimit(modelId, safety);
+        const delayMs = computeBackoffDelay(error, attempt, safety);
+
+        if (totalWaitedMs + delayMs > MAX_RATE_LIMIT_WAIT_MS) {
+          throwPersistentRateLimit(modelId, totalWaitedMs);
+        }
+
+        console.warn(
+          `[ModelSafety] ${modelId} rate limited (attempt ${attempt + 1}); waiting ${delayMs}ms (interval now ${state.currentIntervalMs}ms)`
+        );
+        rateLimitListener?.({
+          modelId,
+          attempt: attempt + 1,
+          waitedMs: totalWaitedMs,
+          delayMs,
+          willWaitUntilMs: Date.now() + delayMs,
+        });
+
         await sleep(delayMs);
+        totalWaitedMs += delayMs;
+        attempt += 1;
       }
     }
-
-    return null;
   });
 
   state.chain = run.catch(() => {});
-  modelSafetyState.set(modelId, state);
   return run;
 };
 
 const streamWithModelSafety = async function* (modelId, operation) {
   const safety = MODEL_SAFETY[modelId] || MODEL_SAFETY.codestral;
-  const state = modelSafetyState.get(modelId) || {
-    chain: Promise.resolve(),
-    lastStartedAt: 0,
-  };
+  const state = getSafetyState(modelId);
 
   let releaseSlot = () => {};
   const previous = state.chain.catch(() => {});
   state.chain = previous.then(() => new Promise((resolve) => {
     releaseSlot = resolve;
   }));
-  modelSafetyState.set(modelId, state);
 
   await previous;
 
   try {
-    const waitMs = Math.max(0, safety.minIntervalMs - (Date.now() - state.lastStartedAt));
+    const waitMs = Math.max(0, state.currentIntervalMs - (Date.now() - state.lastStartedAt));
     if (waitMs > 0) await sleep(waitMs);
     state.lastStartedAt = Date.now();
 
-    for (let attempt = 0; attempt <= safety.retryDelaysMs.length; attempt += 1) {
+    let attempt = 0;
+    let totalWaitedMs = 0;
+
+    while (true) {
       let yieldedAnyChunk = false;
       try {
         const stream = await withModelCallTimeout(modelId, safety.callTimeoutMs, operation);
@@ -440,21 +531,37 @@ const streamWithModelSafety = async function* (modelId, operation) {
           yieldedAnyChunk = true;
           yield chunk;
         }
+        recordSuccess(modelId, safety);
         return;
       } catch (error) {
-        if (
-          yieldedAnyChunk ||
-          isModelTimeoutError(error) ||
-          !isRateLimitError(error) ||
-          attempt === safety.retryDelaysMs.length
-        ) {
+        // If output already started streaming, this isn't a clean
+        // "hadn't started" rate limit — retrying could duplicate/garble
+        // partial output, so surface it instead of retrying.
+        if (yieldedAnyChunk || isModelTimeoutError(error) || !isRateLimitError(error)) {
           throw error;
         }
 
-        const fallbackDelay = safety.retryDelaysMs[attempt];
-        const delayMs = getRetryAfterMs(error, fallbackDelay);
-        console.warn(`[ModelSafety] ${modelId} stream rate limited; retrying in ${delayMs}ms`);
+        recordRateLimit(modelId, safety);
+        const delayMs = computeBackoffDelay(error, attempt, safety);
+
+        if (totalWaitedMs + delayMs > MAX_RATE_LIMIT_WAIT_MS) {
+          throwPersistentRateLimit(modelId, totalWaitedMs);
+        }
+
+        console.warn(
+          `[ModelSafety] ${modelId} stream rate limited (attempt ${attempt + 1}); waiting ${delayMs}ms (interval now ${state.currentIntervalMs}ms)`
+        );
+        rateLimitListener?.({
+          modelId,
+          attempt: attempt + 1,
+          waitedMs: totalWaitedMs,
+          delayMs,
+          willWaitUntilMs: Date.now() + delayMs,
+        });
+
         await sleep(delayMs);
+        totalWaitedMs += delayMs;
+        attempt += 1;
       }
     }
   } finally {
