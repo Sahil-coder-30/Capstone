@@ -208,10 +208,31 @@ rules:
 
 ## 6. Model Context Protocol (MCP) Connectors
 
-To prevent tool bloat, the platform implements the **Model Context Protocol (MCP)**.
-1. On sandbox launch, the AI Orchestration layer acts as an **MCP Client** and queries the local MCP server running in the sandbox pod.
-2. The server exposes its tool schemas over a Server-Sent Events (SSE) stream.
-3. The AI agent appends these dynamic tools directly into its execution loop.
+The platform utilizes Anthropic's **Model Context Protocol (MCP)** to allow the AI Agent to dynamically connect to and orchestrate external applications (such as Postgres, Slack, Jira, Figma, or search APIs) without modifying the core orchestrator codebase.
+
+```
+                      ┌──────────────────────────────────────┐
+                      │    AI Orchestration (MCP Client)     │
+                      └──────────┬────────────────────┬──────┘
+                                 │                    │
+                  (SSE / WS)     │                    │ (SSE / WS)
+            ┌────────────────────▼───┐            ┌───▼────────────────────┐
+            │   Sandbox Local DB     │            │ External App Connector │
+            │      MCP Server        │            │ (Slack/Jira MCP Server)│
+            └────────────────────────┘            └────────────────────────┘
+```
+
+### Dynamic Application Integration
+* **Host-to-Server Protocol**: The AI Orchestration agent acts as an **MCP Client (Host)**. On sandbox startup, it establishes connections to active MCP servers via Server-Sent Events (SSE) or WebSockets.
+* **External Application Bridges**: MCP Servers act as isolated gateways to third-party applications. By exposing standard tool protocols, they allow the AI Agent to:
+  * **Database Connectors**: Run schema queries and fetch diagnostics on sandboxed databases.
+  * **Collaboration Tools**: Send progress notifications to Slack channels or fetch task updates from Jira cards.
+  * **Design Integrations**: Fetch UI assets and color schemas from Figma layout models.
+* **Security & Isolation**: The credentials and OAuth keys for these external integrations are isolated on the specific MCP server (which is protected inside the sandbox network namespace). The LLM orchestrator never touches or holds these raw third-party access tokens.
+* **Dynamic Protocol Handshake**:
+  1. The agent calls `tools/list` to fetch the schemas of all available operations.
+  2. The tools are instantly registered inside the LangGraph ReAct loop.
+  3. The agent triggers actions by sending a JSON-RPC request `tools/call` containing the tool name and arguments.
 
 ---
 
