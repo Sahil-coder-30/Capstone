@@ -9,7 +9,7 @@ import {
   setError,
   clearSandbox,
 } from '../slice/sandbox.slice';
-import { clearCachedFilesForSandbox, deleteCachedProject } from '../../editor/service/dbService';
+import { clearCachedFilesForSandbox, deleteCachedProject, updateCachedProjectStatus } from '../../editor/service/dbService';
 
 // How long to poll before giving up (ms)
 const WARM_TIMEOUT_MS = 90_000;
@@ -93,6 +93,7 @@ export const useSandbox = () => {
   const startSandbox = useCallback(async (projectId) => {
     try {
       dispatch(setStatus('starting'));
+      await updateCachedProjectStatus(projectId, 'building');
 
       const data = await startSandboxAPI(projectId);
 
@@ -112,6 +113,8 @@ export const useSandbox = () => {
         agentUrl: data.agentUrl || '',
       }));
 
+      await updateCachedProjectStatus(projectId, 'live');
+
       if (data.previewUrl) {
         warmingAbortRef.current = false;
         dispatch(setWarmingProgress({ attempt: 0, message: WARMING_STEPS[0].message }));
@@ -122,6 +125,7 @@ export const useSandbox = () => {
 
       return data;
     } catch (err) {
+      await updateCachedProjectStatus(projectId, 'down');
       const errMsg = err.response?.data?.message || err.message || 'Error launching sandbox';
       dispatch(setError(errMsg));
       throw err;
@@ -163,6 +167,7 @@ export const useSandbox = () => {
 
       if (data.status !== 'success' || !data.project) {
         dispatch(initializeSandboxForProject(projectId));
+        await updateCachedProjectStatus(projectId, 'down');
         return 'idle';
       }
 
@@ -176,6 +181,7 @@ export const useSandbox = () => {
           previewUrl: pUrl || `http://${sId}.preview.localhost`,
           agentUrl: '',
         }));
+        await updateCachedProjectStatus(projectId, 'live');
         return 'live';
       }
 
@@ -188,18 +194,23 @@ export const useSandbox = () => {
           previewUrl,
           agentUrl: '',
         }));
+        await updateCachedProjectStatus(projectId, 'building');
         warmingAbortRef.current = false;
         dispatch(setWarmingProgress({ attempt: 0, message: 'Attaching to active sandbox boot…' }));
         const isUp = await waitForPreview(previewUrl, warmingAbortRef);
         if (!isUp && !warmingAbortRef.current) {
           // Warmup timed out and we weren't aborted — reset to idle
           dispatch(initializeSandboxForProject(projectId));
+          await updateCachedProjectStatus(projectId, 'down');
+        } else if (isUp) {
+          await updateCachedProjectStatus(projectId, 'live');
         }
         return isUp ? 'live' : 'idle';
       }
 
       // "down", "not_started", or any unexpected value → idle
       dispatch(initializeSandboxForProject(projectId));
+      await updateCachedProjectStatus(projectId, realStatus === 'not_started' ? 'not_started' : 'down');
       return 'idle';
 
     } catch (_err) {
@@ -219,6 +230,7 @@ export const useSandbox = () => {
       warmingAbortRef.current = true; // abort any in-progress warmup
       await stopSandboxAPI(projectId);
       dispatch(clearSandbox(projectId));
+      await updateCachedProjectStatus(projectId, 'down');
     } catch (err) {
       const errMsg = err.response?.data?.message || err.message || 'Failed to stop sandbox';
       dispatch(setError(errMsg));

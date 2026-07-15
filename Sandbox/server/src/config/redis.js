@@ -1,6 +1,7 @@
 import Redis from 'ioredis'
 import { deletePod } from '../kubernetes/pod.js';
 import { deleteService } from '../kubernetes/service.js';
+import Project from '../models/Project.model.js';
 
 const redis = new Redis(process.env.REDIS_URI);
 
@@ -37,6 +38,12 @@ subscriber.on('message', async (channel , key) => {
     console.log(`service deleted : ${sandboxId}`);
     await redis.del(`sandbox:${sandboxId}`);
     console.log(`redis key deleted : ${sandboxId}`);
+    try {
+        await Project.updateOne({ sandboxId }, { status: "down" });
+        console.log(`project status updated to down in DB for sandbox: ${sandboxId}`);
+    } catch (err) {
+        console.error(`Failed to update project status in DB for sandbox: ${sandboxId}:`, err);
+    }
 })
 
 

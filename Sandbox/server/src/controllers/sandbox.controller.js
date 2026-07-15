@@ -88,7 +88,41 @@ export const listAllProjectsController = async (req, res, next) => {
         }
 
         const projects = await Project.find({ user: req.user.id }).sort({ createdAt: -1 });
-        res.status(200).json({ status: "success", projects });
+
+        // Reconcile status for each project that is "live" or "building" in parallel
+        const reconciledProjects = await Promise.all(projects.map(async (project) => {
+            if (project.status !== "live" && project.status !== "building") {
+                return project;
+            }
+            try {
+                const podPhase = await getPodStatus(project.sandboxId);
+                let reconciledStatus = project.status;
+                if (podPhase === "Running") {
+                    reconciledStatus = "live";
+                } else if (podPhase === "Pending") {
+                    reconciledStatus = "building";
+                } else if (podPhase === null) {
+                    reconciledStatus = "down";
+                } else {
+                    reconciledStatus = "down";
+                }
+
+                if (reconciledStatus !== project.status) {
+                    console.log(`[list-reconcile] ${project.sandboxId}: DB said "${project.status}" -> K8s says "${reconciledStatus}" - updating DB`);
+                    const updatedProject = await Project.findByIdAndUpdate(
+                        project._id,
+                        { status: reconciledStatus },
+                        { new: true }
+                    );
+                    return updatedProject || project;
+                }
+            } catch (err) {
+                console.warn(`[list-reconcile] K8s query failed for ${project.sandboxId}:`, err?.message);
+            }
+            return project;
+        }));
+
+        res.status(200).json({ status: "success", projects: reconciledProjects });
     } catch (err) {
         next(err);
     }

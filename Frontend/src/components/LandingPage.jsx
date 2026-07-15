@@ -110,7 +110,7 @@ function ParticleBackground() {
       tweens.forEach(t => t.kill());
     };
   }, []);
-  return <canvas ref={canvasRef} style={{ position: 'fixed', inset: 0, zIndex: 0, pointerEvents: 'none', opacity: 0.7 }} />;
+  return <canvas ref={canvasRef} style={{ position: 'fixed', inset: 0, zIndex: 0, pointerEvents: 'none', opacity: 0.7, willChange: 'transform', transform: 'translate3d(0,0,0)', backfaceVisibility: 'hidden' }} />;
 }
 
 /* ── Static data ────────────────────────────────────────────────── */

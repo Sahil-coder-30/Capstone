@@ -3,12 +3,13 @@ import { useDispatch, useSelector } from 'react-redux';
 import { listProjectsAPI, createProjectAPI } from '../features/sandbox/service/sandbox.api';
 import { stopSandboxAPI, deleteProjectAPI } from '../features/sandbox/service/sandbox.api';
 import { getCachedProjects, setCachedProjects, upsertCachedProject } from '../features/editor/service/dbService';
+import { fetchCreditThunk } from '../features/settings/slice/settings.slice';
 import {
   Cpu, Plus, Loader2, Folder, AlertTriangle, LogOut,
   Code, Play, RefreshCw, X, Square, Trash2, MoreVertical,
   Zap, Clock, CheckCircle, XCircle, Activity, Settings, Search,
   Sparkles, BookOpen, Layers, Terminal, History, Keyboard, HelpCircle,
-  ChevronLeft, ChevronRight
+  ChevronLeft, ChevronRight, Mic, Paperclip
 } from 'lucide-react';
 import './Dashboard.scss';
 import BrandLogo, { TakshaIcon } from './BrandLogo';
@@ -158,6 +159,120 @@ function ProjectCard({ project, index, onOpen, onStop, onDelete }) {
   );
 }
 
+// ─── Dashboard Stars Background ───────────────────────────────────────────────
+function DashboardStars() {
+  const canvasRef = useRef(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    
+    let w = (canvas.width = window.innerWidth);
+    let h = (canvas.height = window.innerHeight);
+
+    const handleResize = () => {
+      w = canvas.width = window.innerWidth;
+      h = canvas.height = window.innerHeight;
+    };
+    window.addEventListener('resize', handleResize);
+
+    // Create stars
+    const starCount = 80;
+    const stars = Array.from({ length: starCount }, () => ({
+      x: Math.random() * w,
+      y: Math.random() * h,
+      size: Math.random() * 1.2 + 0.4,
+      // Different depth layers for parallax
+      depth: Math.random() * 0.6 + 0.1,
+      // Twinkle properties
+      alpha: Math.random(),
+      twinkleSpeed: Math.random() * 0.015 + 0.005,
+      direction: Math.random() * Math.PI * 2,
+      speed: Math.random() * 0.05 + 0.02
+    }));
+
+    let mouseX = w / 2;
+    let mouseY = h / 2;
+    let targetMouseX = w / 2;
+    let targetMouseY = h / 2;
+
+    const handleMouseMove = (e) => {
+      targetMouseX = e.clientX;
+      targetMouseY = e.clientY;
+    };
+    window.addEventListener('mousemove', handleMouseMove);
+
+    let animationId;
+    const render = () => {
+      ctx.clearRect(0, 0, w, h);
+
+      // Smooth mouse interpolation for parallax easing
+      mouseX += (targetMouseX - mouseX) * 0.05;
+      mouseY += (targetMouseY - mouseY) * 0.05;
+
+      stars.forEach((star) => {
+        // Twinkle (sinusoidal alpha modulation)
+        star.alpha += star.twinkleSpeed;
+        const currentAlpha = 0.1 + (Math.sin(star.alpha) + 1) * 0.4 * star.depth;
+
+        // Slow drifting movement
+        star.x += Math.cos(star.direction) * star.speed;
+        star.y += Math.sin(star.direction) * star.speed;
+
+        // Boundary wrap
+        if (star.x < 0) star.x = w;
+        if (star.x > w) star.x = 0;
+        if (star.y < 0) star.y = h;
+        if (star.y > h) star.y = 0;
+
+        // Mouse Parallax offset based on depth
+        const offsetX = (mouseX - w / 2) * 0.03 * star.depth;
+        const offsetY = (mouseY - h / 2) * 0.03 * star.depth;
+
+        const renderX = (star.x + offsetX + w) % w;
+        const renderY = (star.y + offsetY + h) % h;
+
+        ctx.beginPath();
+        ctx.arc(renderX, renderY, star.size, 0, Math.PI * 2);
+        
+        // Combine star glow with orb color theme (soft white/green tint)
+        ctx.fillStyle = `rgba(240, 246, 255, ${currentAlpha})`;
+        ctx.shadowBlur = star.depth > 0.5 ? 4 : 0;
+        ctx.shadowColor = 'rgba(255, 255, 255, 0.4)';
+        ctx.fill();
+        ctx.shadowBlur = 0; // reset
+      });
+
+      animationId = requestAnimationFrame(render);
+    };
+
+    render();
+
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      window.removeEventListener('mousemove', handleMouseMove);
+      cancelAnimationFrame(animationId);
+    };
+  }, []);
+
+  return (
+    <canvas
+      ref={canvasRef}
+      style={{
+        position: 'absolute',
+        inset: 0,
+        pointerEvents: 'none',
+        zIndex: 1,
+        opacity: 0.85,
+        willChange: 'transform',
+        transform: 'translate3d(0, 0, 0)',
+        backfaceVisibility: 'hidden'
+      }}
+    />
+  );
+}
+
 // ─── Main Dashboard ───────────────────────────────────────────────────────────
 export default function Dashboard({ 
   activeTab = 'playground', 
@@ -167,6 +282,7 @@ export default function Dashboard({
 }) {
   const dispatch = useDispatch();
   const { user } = useSelector((state) => state.auth);
+  const subscription = useSelector((state) => state.settings?.credit?.subscription || 'free');
   const { startSandbox, terminateSandbox, deleteProject, warmingMessage } = useSandbox();
 
   const userPhoto = user?.photo;
@@ -303,7 +419,11 @@ export default function Dashboard({
     }
   };
 
-  useEffect(() => { fetchProjects(); }, []);
+  useEffect(() => { 
+    fetchProjects();
+    // Fetch subscription/credit data so the sidebar tier ring shows correctly
+    dispatch(fetchCreditThunk());
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (isCreateOpen) setTimeout(() => inputRef.current?.focus(), 80);
@@ -490,59 +610,8 @@ export default function Dashboard({
         <div className="dashboard__ambient-glow--grid" />
         <div className="dashboard__ambient-glow--noise" />
 
-        {/* Cosmic star field — barely visible, spread across the whole dashboard */}
-        <div className="dashboard-stars" aria-hidden="true">
-          {[
-            { top:'3%',  left:'12%', sz:1,   d:0,    t:5.2, f:7.1 },
-            { top:'7%',  left:'38%', sz:1.5, d:1.4,  t:6.8, f:9.0 },
-            { top:'4%',  left:'65%', sz:1,   d:0.7,  t:4.5, f:8.3 },
-            { top:'9%',  left:'85%', sz:1.5, d:2.1,  t:7.2, f:6.5 },
-            { top:'14%', left:'22%', sz:1,   d:0.3,  t:5.8, f:10.0 },
-            { top:'18%', left:'50%', sz:1,   d:1.9,  t:6.1, f:7.8 },
-            { top:'11%', left:'75%', sz:1.5, d:0.5,  t:4.9, f:9.5 },
-            { top:'22%', left:'5%',  sz:1,   d:1.1,  t:7.5, f:8.0 },
-            { top:'28%', left:'42%', sz:1.5, d:2.6,  t:5.3, f:6.8 },
-            { top:'33%', left:'90%', sz:1,   d:0.9,  t:6.4, f:10.5 },
-            { top:'38%', left:'18%', sz:1,   d:1.7,  t:4.7, f:7.4 },
-            { top:'42%', left:'60%', sz:1.5, d:0.2,  t:8.0, f:9.2 },
-            { top:'47%', left:'30%', sz:1,   d:2.8,  t:5.6, f:6.1 },
-            { top:'50%', left:'78%', sz:1,   d:1.3,  t:7.0, f:8.7 },
-            { top:'55%', left:'8%',  sz:1.5, d:0.6,  t:5.1, f:11.0 },
-            { top:'58%', left:'47%', sz:1,   d:1.8,  t:6.6, f:7.3 },
-            { top:'63%', left:'70%', sz:1.5, d:0.4,  t:4.8, f:9.8 },
-            { top:'67%', left:'25%', sz:1,   d:2.3,  t:7.3, f:8.4 },
-            { top:'72%', left:'55%', sz:1.5, d:1.0,  t:5.9, f:6.6 },
-            { top:'76%', left:'88%', sz:1,   d:0.8,  t:6.2, f:10.2 },
-            { top:'80%', left:'15%', sz:1,   d:2.0,  t:4.6, f:7.9 },
-            { top:'84%', left:'40%', sz:1.5, d:1.5,  t:8.1, f:9.4 },
-            { top:'88%', left:'68%', sz:1,   d:0.1,  t:5.5, f:8.1 },
-            { top:'92%', left:'22%', sz:1.5, d:2.5,  t:6.9, f:7.0 },
-            { top:'96%', left:'80%', sz:1,   d:1.2,  t:5.0, f:11.5 },
-            { top:'2%',  left:'95%', sz:1.5, d:0.4,  t:7.6, f:6.3 },
-            { top:'20%', left:'97%', sz:1,   d:1.6,  t:5.4, f:9.1 },
-            { top:'40%', left:'98%', sz:1.5, d:2.4,  t:6.7, f:8.6 },
-            { top:'60%', left:'96%', sz:1,   d:0.9,  t:4.3, f:10.8 },
-            { top:'75%', left:'1%',  sz:1.5, d:1.8,  t:7.8, f:7.5 },
-            { top:'15%', left:'1%',  sz:1,   d:0.3,  t:5.7, f:9.7 },
-            { top:'45%', left:'52%', sz:1,   d:2.2,  t:6.3, f:8.9 },
-            { top:'30%', left:'33%', sz:1.5, d:1.1,  t:7.4, f:6.4 },
-            { top:'68%', left:'82%', sz:1,   d:0.6,  t:5.2, f:10.4 },
-            { top:'85%', left:'57%', sz:1.5, d:2.7,  t:6.0, f:7.6 },
-          ].map((s, i) => (
-            <span
-              key={i}
-              className="dashboard-star"
-              style={{
-                top: s.top,
-                left: s.left,
-                width: `${s.sz}px`,
-                height: `${s.sz}px`,
-                animationDelay: `${s.d}s, ${s.d + 1}s`,
-                animationDuration: `${s.t}s, ${s.f}s`,
-              }}
-            />
-          ))}
-        </div>
+        {/* Cosmic star field — dynamic, hardware-accelerated star canvas background */}
+        <DashboardStars />
       </div>
 
       {/* 1. Left Navigation Sidebar */}
@@ -550,41 +619,20 @@ export default function Dashboard({
         className={`dashboard__sidebar ${isSidebarCollapsed ? 'dashboard__sidebar--collapsed' : ''} ${isResizingSidebar ? 'is-resizing' : ''}`}
         style={{ width: isSidebarCollapsed ? '64px' : `${sidebarWidth}px` }}
       >
+        {/* Border-floating collapse/expand toggle button */}
+        <button 
+          onClick={toggleSidebarCollapse} 
+          className="sidebar-toggle-btn"
+          title={isSidebarCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
+        >
+          <ChevronLeft size={10} className="sidebar-toggle-icon" />
+        </button>
+
         <div>
           {/* Header Workspace Selector */}
           <div className="dashboard__sidebar-header">
-            <div 
-              className="dashboard__sidebar-brand" 
-              style={{ 
-                padding: '4px 0', 
-                justifyContent: isSidebarCollapsed ? 'center' : 'space-between',
-                width: '100%',
-                display: 'flex',
-                alignItems: 'center'
-              }}
-            >
-              {isSidebarCollapsed ? (
-                <button 
-                  onClick={toggleSidebarCollapse}
-                  className="icon-btn sidebar-expand-btn"
-                  title="Expand Sidebar"
-                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', cursor: 'pointer' }}
-                >
-                  <TakshaIcon size={24} />
-                </button>
-              ) : (
-                <>
-                  <BrandLogo height={24} variant={localStorage.getItem('theme') === 'light' ? 'light' : 'dark'} />
-                  <button 
-                    onClick={toggleSidebarCollapse} 
-                    className="icon-btn sidebar-collapse-btn"
-                    title="Collapse Sidebar"
-                    style={{ padding: '4px' }}
-                  >
-                    <ChevronLeft size={14} />
-                  </button>
-                </>
-              )}
+            <div className="sidebar-logo-wrapper">
+              <BrandLogo height={18} variant={localStorage.getItem('theme') === 'light' ? 'light' : 'dark'} />
             </div>
           </div>
 
@@ -595,8 +643,8 @@ export default function Dashboard({
               className={`dashboard__sidebar-item ${activeTab === 'playground' ? 'dashboard__sidebar-item--active' : ''}`}
               title={isSidebarCollapsed ? "Playground" : undefined}
             >
-              <Terminal size={14} />
-              {!isSidebarCollapsed && <span>Playground</span>}
+              <Terminal size={14} style={{ flexShrink: 0 }} />
+              <span className="sidebar-label">Playground</span>
             </div>
 
             <div 
@@ -604,8 +652,8 @@ export default function Dashboard({
               className="dashboard__sidebar-item"
               title={isSidebarCollapsed ? "New App" : undefined}
             >
-              <Plus size={14} />
-              {!isSidebarCollapsed && <span>New App</span>}
+              <Plus size={14} style={{ flexShrink: 0 }} />
+              <span className="sidebar-label">New App</span>
             </div>
 
             <div 
@@ -613,28 +661,29 @@ export default function Dashboard({
               className={`dashboard__sidebar-item ${activeTab === 'my-apps' ? 'dashboard__sidebar-item--active' : ''}`}
               title={isSidebarCollapsed ? "My Apps" : undefined}
             >
-              <Layers size={14} />
-              {!isSidebarCollapsed && <span>My Apps</span>}
+              <Layers size={14} style={{ flexShrink: 0 }} />
+              <span className="sidebar-label">My Apps</span>
             </div>
           </div>
         </div>
 
         {/* User profile / Settings footer */}
         <div className="dashboard__sidebar-footer">
-          <div className="dashboard__sidebar-profile-bar" style={{ justifyContent: isSidebarCollapsed ? 'center' : 'space-between' }}>
+          <div className="dashboard__sidebar-profile-bar">
             <div className="dashboard__sidebar-profile-details">
-              {userPhoto
-                ? <img src={userPhoto} alt={userName} className="dashboard__sidebar-avatar" />
-                : <div className="dashboard__sidebar-initials">{userInitials}</div>
-              }
-              {!isSidebarCollapsed && (
-                <div className="dashboard__sidebar-user-meta">
-                  <span className="dashboard__sidebar-username">{userName}</span>
-                  <span className="dashboard__sidebar-tier">Free Tier</span>
-                </div>
-              )}
+              <div className={`dashboard__sidebar-avatar-ring dashboard__sidebar-avatar-ring--${subscription}`}>
+                {userPhoto
+                  ? <img src={userPhoto} alt={userName} className="dashboard__sidebar-avatar" />
+                  : <div className="dashboard__sidebar-initials">{userInitials}</div>
+                }
+              </div>
+              <div className="dashboard__sidebar-user-meta sidebar-label">
+                <span className="dashboard__sidebar-username">{userName}</span>
+                <span className={`dashboard__sidebar-tier-badge dashboard__sidebar-tier-badge--${subscription}`}>
+                  {subscription === 'free' ? 'Free' : subscription === 'pro' ? 'Pro' : 'Max'}
+                </span>
+              </div>
             </div>
-            {!isSidebarCollapsed && <span className="dashboard__sidebar-pro-badge">PRO</span>}
           </div>
 
           <button 
@@ -658,8 +707,8 @@ export default function Dashboard({
               transition: 'all 0.2s',
             }}
           >
-            <Settings size={14} style={{ color: activeTab === 'settings' ? 'var(--primary)' : 'inherit' }} />
-            {!isSidebarCollapsed && <span>Settings</span>}
+            <Settings size={14} style={{ color: activeTab === 'settings' ? 'var(--primary)' : 'inherit', flexShrink: 0 }} />
+            <span className="sidebar-label">Settings</span>
           </button>
         </div>
 
@@ -741,44 +790,6 @@ export default function Dashboard({
                   <div className="playground-orbs__orb playground-orbs__orb--4" />
                 </div>
 
-                {/* Star field — twinkling & drifting across the playground */}
-                <div className="playground-stars" aria-hidden="true">
-                  {[
-                    { top: '8%',  left: '6%',  size: 2,   delay: 0,    dur: 2.8, float: 3.2 },
-                    { top: '12%', left: '82%', size: 1.5, delay: 0.4,  dur: 2.1, float: 4.1 },
-                    { top: '5%',  left: '45%', size: 2.5, delay: 0.9,  dur: 3.5, float: 2.8 },
-                    { top: '18%', left: '92%', size: 1,   delay: 1.2,  dur: 1.9, float: 5.0 },
-                    { top: '25%', left: '15%', size: 2,   delay: 0.6,  dur: 2.4, float: 3.6 },
-                    { top: '30%', left: '88%', size: 1.5, delay: 1.8,  dur: 3.1, float: 4.4 },
-                    { top: '72%', left: '4%',  size: 2,   delay: 0.3,  dur: 2.6, float: 3.9 },
-                    { top: '80%', left: '78%', size: 1,   delay: 2.1,  dur: 1.8, float: 5.2 },
-                    { top: '88%', left: '35%', size: 2.5, delay: 0.7,  dur: 3.3, float: 2.5 },
-                    { top: '92%', left: '90%', size: 1.5, delay: 1.5,  dur: 2.0, float: 4.7 },
-                    { top: '65%', left: '93%', size: 2,   delay: 0.2,  dur: 2.9, float: 3.3 },
-                    { top: '55%', left: '2%',  size: 1,   delay: 1.1,  dur: 2.2, float: 4.8 },
-                    { top: '42%', left: '96%', size: 2,   delay: 0.8,  dur: 3.0, float: 3.7 },
-                    { top: '35%', left: '3%',  size: 1.5, delay: 1.9,  dur: 1.7, float: 5.5 },
-                    { top: '78%', left: '55%', size: 1,   delay: 0.5,  dur: 2.5, float: 4.2 },
-                    { top: '3%',  left: '68%', size: 2,   delay: 1.3,  dur: 2.7, float: 3.0 },
-                    { top: '95%', left: '12%', size: 1.5, delay: 2.2,  dur: 3.2, float: 4.5 },
-                    { top: '15%', left: '58%', size: 1,   delay: 0.1,  dur: 1.6, float: 6.0 },
-                    { top: '48%', left: '9%',  size: 2,   delay: 1.6,  dur: 2.3, float: 3.4 },
-                    { top: '60%', left: '72%', size: 1.5, delay: 0.95, dur: 2.8, float: 4.0 },
-                  ].map((s, i) => (
-                    <span
-                      key={i}
-                      className="playground-star"
-                      style={{
-                        top: s.top,
-                        left: s.left,
-                        width: `${s.size}px`,
-                        height: `${s.size}px`,
-                        animationDelay: `${s.delay}s, ${s.delay + 0.5}s`,
-                        animationDuration: `${s.dur}s, ${s.float}s`,
-                      }}
-                    />
-                  ))}
-                </div>
 
                 <div className="dashboard__playground-title-row">
                   <Sparkles size={20} color="var(--primary)" />
@@ -828,11 +839,11 @@ export default function Dashboard({
                       
                       <div className="dashboard__playground-prompt-footer">
                         <div className="dashboard__playground-actions-left">
-                          <button type="button" className="icon-btn" style={{ padding: '6px' }} title="Voice Input">
-                            <span style={{ fontSize: '13px' }}>🎤</span>
+                          <button type="button" className="icon-btn dashboard__playground-action-btn" title="Voice Input">
+                            <Mic size={14} />
                           </button>
-                          <button type="button" className="icon-btn" style={{ padding: '6px' }} title="Attach Design Spec">
-                            <span style={{ fontSize: '13px' }}>📎</span>
+                          <button type="button" className="icon-btn dashboard__playground-action-btn" title="Attach Design Spec">
+                            <Paperclip size={14} />
                           </button>
                         </div>
 

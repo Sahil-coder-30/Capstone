@@ -12,6 +12,7 @@ import Layout from './components/Layout';
 import Dashboard from './components/Dashboard';
 import LandingPage from './components/LandingPage';
 import Login from './components/Login';
+import { TakshaIcon } from './components/BrandLogo';
 import { loginSuccess, loginFailure, logoutThunk } from './features/auth/slice/auth.slice';
 import { fetchMeAPI } from './features/auth/service/auth.api';
 import SettingsPage from './features/settings/pages/SettingsPage';
@@ -20,7 +21,8 @@ import { useEditor } from './features/editor/Hooks/editor.hooks';
 import { useWorkspaceSync } from './features/editor/Hooks/useWorkspaceSync';
 import {
   FolderTree, Play, AlertTriangle,
-  ExternalLink, RefreshCw, Eye, Loader2, Code2, Terminal, X, Cpu, Check, Info
+  ExternalLink, RefreshCw, Eye, Loader2, Code2, Terminal, X, Cpu, Check, Info,
+  Zap, BookOpen, GitBranch, Plug, ChevronRight
 } from 'lucide-react';
 
 // ─────────────────────────────────────────────
@@ -34,22 +36,22 @@ function PreviewWarmingScreen({ message }) {
     {
       title: "Use Custom Instructions",
       description: "Save custom instructions to define app styles, frameworks, or other preferences to ensure the agent builds exactly what you have in mind.",
-      icon: "📖"
+      icon: <BookOpen size={18} color="var(--primary)" />
     },
     {
       title: "Real-time Hot Reload",
       description: "Watch your application update in real time. Any React component or style changes are immediately compiled and reflected in the preview.",
-      icon: "⚡"
+      icon: <Zap size={18} color="var(--primary)" />
     },
     {
       title: "Collapsible Terminal Shell",
       description: "Run test suites, execute shell scripts, and verify compiler outputs using the integrated terminal panel at the bottom.",
-      icon: "🐚"
+      icon: <Terminal size={18} color="var(--primary)" />
     },
     {
       title: "Bidirectional Syncing",
       description: "Files edited by the AI agent are instantly synced with your editor. You can take over coding or refine edits at any moment.",
-      icon: "🔄"
+      icon: <RefreshCw size={18} color="var(--primary)" />
     }
   ];
 
@@ -100,7 +102,7 @@ function PreviewWarmingScreen({ message }) {
         transition: 'all 0.3s ease-in-out'
       }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <span style={{ fontSize: '20px' }}>{activeTip.icon}</span>
+          <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '28px', height: '28px', borderRadius: '6px', background: 'var(--bg-element)' }}>{activeTip.icon}</span>
           {/* Pulsing loading dots */}
           <div style={{ display: 'flex', gap: '4px' }}>
             <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#e3e3e3', animation: 'spin 1.2s infinite' }} />
@@ -334,14 +336,26 @@ export default function App() {
   if (loading) {
     return (
       <div className="auth-loader">
-        <div className="auth-loader__glow" />
-        <div className="auth-loader__spinner-box">
-          <Loader2 className="animate-spin" size={40} color="var(--text-muted)" />
-          <Cpu className="absolute" style={{ position: 'absolute' }} size={16} color="var(--text-muted)" />
+        {/* Background ambient elements */}
+        <div className="auth-loader__ambient-orb auth-loader__ambient-orb--1" />
+        <div className="auth-loader__ambient-orb auth-loader__ambient-orb--2" />
+        <div className="auth-loader__ambient-grid" />
+
+        <div className="auth-loader__content">
+          <div className="auth-loader__logo-container">
+            <div className="auth-loader__pulse-ring" />
+            <div className="auth-loader__logo-box">
+              <TakshaIcon size={34} variant="primary" />
+            </div>
+          </div>
+          <div className="auth-loader__meta">
+            <h2 className="auth-loader__title">TAKSHA CODESPACE</h2>
+            <div className="auth-loader__status-container">
+              <span className="auth-loader__status-dot" />
+              <p className="auth-loader__text">Authenticating session…</p>
+            </div>
+          </div>
         </div>
-        <p className="auth-loader__text animate-pulse">
-          Authenticating Codespace…
-        </p>
       </div>
     );
   }
@@ -358,7 +372,7 @@ export default function App() {
       <div className="status-bar-section">
         <div className="status-bar-item" title="Git Branch">
           <span style={{ display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--text-muted)' }}>
-            🌿 <span>main*</span>
+            <GitBranch size={12} /> <span>main*</span>
           </span>
         </div>
         <div className="status-bar-item" title="Sandbox Status">
@@ -423,6 +437,20 @@ export default function App() {
             isLeftOpen={isChatOpen} // Left panel hosts Chat
             isRightOpen={false} // Right panel collapses
             isBottomOpen={isTerminalOpen}
+            onToggleLeft={(forceState) => {
+              if (typeof forceState === 'boolean') {
+                setIsChatOpen(forceState);
+              } else {
+                setIsChatOpen(prev => !prev);
+              }
+            }}
+            onToggleBottom={(forceState) => {
+              if (typeof forceState === 'boolean') {
+                setIsTerminalOpen(forceState);
+              } else {
+                setIsTerminalOpen(prev => !prev);
+              }
+            }}
             leftPanel={
               <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
                 <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
@@ -454,7 +482,7 @@ export default function App() {
                   {workspaceTab === 'editor' ? (
                     <div style={{ display: 'flex', flex: 1, overflow: 'hidden', height: '100%' }}>
                       {/* Left: Collapsible File Explorer inside Code workspace */}
-                      {isExplorerOpen && (
+                      {isExplorerOpen ? (
                         <div style={{
                           width: '250px',
                           borderRight: '1px solid var(--border)',
@@ -478,6 +506,20 @@ export default function App() {
                           </div>
                           <div style={{ flex: 1, overflow: 'hidden' }}>
                             <FileExplorer />
+                          </div>
+                        </div>
+                      ) : (
+                        <div 
+                          className="collapsed-panel-bar vertical-collapsed-bar collapsed-explorer-bar"
+                          onClick={() => setIsExplorerOpen(true)}
+                          title="Click to expand File Explorer"
+                        >
+                          <div className="collapsed-handle-icon">
+                            <FolderTree size={13} />
+                          </div>
+                          <div className="collapsed-label">Explorer</div>
+                          <div className="collapsed-chevron">
+                            <ChevronRight size={10} />
                           </div>
                         </div>
                       )}
@@ -690,7 +732,7 @@ export default function App() {
                       className={`tab-btn ${bottomTab === 'ports' ? 'active' : ''}`}
                       onClick={() => setBottomTab('ports')}
                     >
-                      <span style={{ fontSize: '11px' }}>🔌</span>
+                      <Plug size={12} color={bottomTab === 'ports' ? 'var(--primary)' : 'var(--text-dark)'} />
                       <span>Ports</span>
                     </button>
                   </div>

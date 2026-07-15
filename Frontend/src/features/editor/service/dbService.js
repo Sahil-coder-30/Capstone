@@ -260,6 +260,26 @@ export const deleteCachedProject = async (projectId) => {
 };
 
 /**
+ * Update the status of a cached project in IndexedDB.
+ * @param {string} projectId
+ * @param {string} status
+ */
+export const updateCachedProjectStatus = async (projectId, status) => {
+  if (!projectId) return;
+
+  try {
+    const project = await db.projects.get(projectId);
+    if (project) {
+      project.status = status;
+      await db.projects.put(project);
+      console.log(`[dbService] Updated project status in cache: ${projectId} -> ${status}`);
+    }
+  } catch (e) {
+    console.error('[dbService] updateCachedProjectStatus error:', e);
+  }
+};
+
+/**
  * Add or update a single project in the cache (called after project creation).
  * @param {object} project
  */

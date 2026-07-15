@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&family=Fira+Sans:wght@300;400;500;600;700&display=swap');
+
 // ─────────────────────────────────────────────
 // Global Variables & Custom CSS Properties
 // ─────────────────────────────────────────────
@@ -6,8 +8,8 @@
   /* Onyx/Obsidian Canvas & Backgrounds (Google AI Studio style) */
   --bg-canvas: #07080B;
   --bg-surface: #0E1017;
-  --bg-overlay: #131622;
-  --bg-element: #1C1F30;
+  --bg-overlay: #161929;   /* bumped +3% luminance for clear panel depth */
+  --bg-element: #202438;   /* bumped +4% luminance for input/dropdown clarity */
   --bg-active: rgba(255, 255, 255, 0.08);
 
   /* Legacy mappings to keep the rest of the application stable */
@@ -15,9 +17,9 @@
   --bg-sidebar: var(--bg-surface);
   --bg-panel: var(--bg-overlay);
 
-  /* Solid & Crisp Borders */
-  --border: #1B1E2E;
-  --border-strong: #2B2F48;
+  /* Solid & Crisp Borders — raised contrast for panel/tab separators */
+  --border: #252A40;        /* was #1B1E2E — now ~3:1 contrast on canvas */
+  --border-strong: #353A56; /* was #2B2F48 — clear on hover/active states */
   --border-glow: rgba(59, 130, 246, 0.15);
 
   /* Brand/Primary (Emerald/Mint Accent) */
@@ -39,9 +41,9 @@
   --accent: var(--accent-primary);
   --accent-glow: var(--accent-subtle);
 
-  /* Status Colors */
-  --success: #10B981;
-  --success-glow: rgba(16, 185, 129, 0.15);
+  /* Status Colors — success split from brand-primary for semantic distinction */
+  --success: #22C55E;                        /* green-500: status confirmed/done */
+  --success-glow: rgba(34, 197, 94, 0.15);   /* was brand glow, now success glow */
 
   --warning: #F59E0B;
   --warning-bg: #2E1A05;
@@ -53,20 +55,21 @@
   --info: #3B82F6;
   --info-bg: #0A132C;
 
-  /* Typography Colors (High legibility & Contrast Redesign) */
-  --text-primary: #FFFFFF;
-  --text-secondary: #F8FAFC; /* clean readable text (slate-50) */
-  --text-muted: #E2E8F0;     /* secondary text / titles (slate-200) */
-  --text-dark: #94A3B8;      /* subtle details / hints (slate-400) */
+  /* Typography Colors — corrected semantic hierarchy */
+  --text-primary:   #FFFFFF;    /* AAA — active labels, headings, selected states */
+  --text-secondary: #E2E8F0;    /* AA  — general body text, panel titles (slate-200) */
+  --text-muted:     #94A3B8;    /* AA  — hints, inactive tabs, status bar (slate-400) */
+  --text-dark:      #94A3B8;    /* alias kept for backwards compat → same as muted */
+  --text-disabled:  #475569;    /* non-interactive / placeholder chrome (slate-600) */
 
   /* Legacy mappings */
   --text-main: var(--text-primary);
   --text-muted-legacy: var(--text-secondary);
 
   /* Typography Scales */
-  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
-  --font-heading: 'Inter', system-ui, sans-serif;
-  --font-mono: 'JetBrains Mono', monospace;
+  --font-sans: 'Fira Sans', 'Inter', system-ui, -apple-system, sans-serif;
+  --font-heading: 'Fira Sans', 'Inter', system-ui, sans-serif;
+  --font-mono: 'Fira Code', 'JetBrains Mono', monospace;
 
   /* RGB version of primary text for custom opacities */
   --color-rgb-text: 255, 255, 255;
@@ -206,6 +209,11 @@ input, select, textarea {
     background-color: $color-bg-element;
     border-color: $color-border;
   }
+
+  &:active {
+    transform: scale(0.94);
+    opacity: 0.85;
+  }
 }
 
 // ─── Shared action buttons ─────────────────────────────────────────────────────
@@ -231,6 +239,11 @@ input, select, textarea {
     background: linear-gradient(135deg, var(--brand-hover), var(--accent-hover));
   }
 
+  &:active:not(:disabled) {
+    transform: translateY(0.5px) scale(0.97);
+    box-shadow: 0 1px 4px rgba(13, 138, 106, 0.2);
+  }
+
   &:disabled {
     opacity: 0.5;
     cursor: not-allowed;
@@ -253,6 +266,11 @@ input, select, textarea {
     color: $color-text;
   }
 
+  &:active:not(:disabled) {
+    transform: scale(0.97);
+    background-color: var(--bg-active);
+  }
+
   &:disabled {
     opacity: 0.5;
     cursor: not-allowed;
@@ -260,9 +278,9 @@ input, select, textarea {
 }
 
 .btn-danger {
-  background: rgba(244, 63, 94, 0.1);
-  border: 1px solid rgba(244, 63, 94, 0.3);
-  color: #f43f5e;
+  background: rgba(239, 68, 68, 0.1);         /* aligned to --error: #EF4444 */
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: var(--error);                         /* was hardcoded #f43f5e (rose-500) */
   padding: 7px 14px;
   border-radius: 7px;
   font-size: 12px;
@@ -275,7 +293,12 @@ input, select, textarea {
   transition: all 0.2s;
 
   &:hover:not(:disabled) {
-    background: rgba(244, 63, 94, 0.15);
+    background: rgba(239, 68, 68, 0.15);
+  }
+
+  &:active:not(:disabled) {
+    transform: scale(0.97);
+    background-color: rgba(239, 68, 68, 0.25);
   }
 
   &:disabled {
@@ -394,3 +417,17 @@ input, select, textarea {
   to   { opacity: 1; }
 }
 
+// ─────────────────────────────────────────────
+// Accessibility — Reduced Motion
+// ─────────────────────────────────────────────
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

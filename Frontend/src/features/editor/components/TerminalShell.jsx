@@ -129,28 +129,34 @@ export default function TerminalShell() {
     // Terminal already exists for this sandbox — nothing to do
     if (xtermInstance.current) return;
 
+    const computedStyle = getComputedStyle(document.documentElement);
+    const bgPanel = computedStyle.getPropertyValue('--bg-panel').trim() || '#131622';
+    const textMain = computedStyle.getPropertyValue('--text-primary').trim() || '#FFFFFF';
+    const brandPrimary = computedStyle.getPropertyValue('--brand-primary').trim() || '#10B981';
+    const textDark = computedStyle.getPropertyValue('--text-dark').trim() || '#94A3B8';
+
     const term = new Terminal({
       cursorBlink: true,
       fontSize: 12.5,
-      fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
+      fontFamily: "'Fira Code', 'JetBrains Mono', monospace",
       theme: {
-        background: '#1C1E2E', // Match var(--bg-panel)
-        foreground: '#F0F0F5', // Match var(--text-main)
-        cursor: '#0D8A6A',     // Match var(--brand-primary)
-        cursorAccent: '#1C1E2E',
-        selectionBackground: 'rgba(27, 110, 243, 0.15)', // Match var(--accent-subtle)
+        background: bgPanel,
+        foreground: textMain,
+        cursor: brandPrimary,
+        cursorAccent: bgPanel,
+        selectionBackground: 'rgba(59, 130, 246, 0.2)',
         black:        '#0A0B0F',
-        red:          '#D63B3B',
-        green:        '#0D8A6A',
-        yellow:       '#D97B0C',
-        blue:         '#1B6EF3',
+        red:          '#EF4444',
+        green:        brandPrimary,
+        yellow:       '#F59E0B',
+        blue:         '#3B82F6',
         magenta:      '#c084fc',
         cyan:         '#3DC5A1',
-        white:        '#F0F0F5',
-        brightBlack:  '#242738',
-        brightGreen:  '#3DC5A1',
+        white:        textMain,
+        brightBlack:  textDark,
+        brightGreen:  '#34D399',
         brightYellow: '#FDD598',
-        brightBlue:   '#5591F7',
+        brightBlue:   '#60A5FA',
       },
     });
 
@@ -218,52 +224,45 @@ export default function TerminalShell() {
       flexDirection: 'column',
       height: '100%',
       backgroundColor: 'var(--bg-panel)',
-      border: '1px solid var(--border)',
-      borderRadius: '8px',
       overflow: 'hidden',
-      boxShadow: '0 4px 20px rgba(0, 0, 0, 0.25)',
     }}>
-      {/* Terminal Window Header (macOS style) */}
+      {/* Terminal Sub-Toolbar */}
       <div style={{
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
-        padding: '8px 16px',
-        backgroundColor: '#111113',
+        padding: '0 16px',
+        height: '40px',
         borderBottom: '1px solid var(--border)',
+        backgroundColor: 'var(--bg-panel)',
         userSelect: 'none',
         flexShrink: 0,
       }}>
-        {/* macOS Style Window dots */}
-        <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-          <div style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: '#ff5f56' }} />
-          <div style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: '#ffbd2e' }} />
-          <div style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: '#27c93f' }} />
-        </div>
-
-        {/* Central Terminal Info */}
+        {/* Left: Terminal Shell label */}
         <div style={{
-          fontSize: '11px',
-          fontFamily: 'var(--font-mono)',
-          color: 'var(--text-muted)',
+          fontSize: '12px',
+          fontFamily: 'var(--font-sans)',
+          color: 'var(--text-main)',
           display: 'flex',
           alignItems: 'center',
-          gap: '6px',
+          gap: '8px',
+          fontWeight: '500'
         }}>
-          <TerminalIcon size={12} color="var(--text-dark)" />
-          <span>sh — terminal-session</span>
+          <TerminalIcon size={14} color="var(--primary)" />
+          <span>sh (Interactive Terminal)</span>
         </div>
 
-        {/* Reconnect / Status */}
-        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+        {/* Right: Reconnect and Status */}
+        <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
           {status === 'running' && (
             <>
+              {/* Reconnect button */}
               <button
                 onClick={handleReconnect}
                 title="Reconnect Terminal"
                 style={{
-                  background: 'rgba(255, 255, 255, 0.03)',
-                  border: '1px solid var(--border)',
+                  background: 'none',
+                  border: 'none',
                   color: 'var(--text-muted)',
                   cursor: 'pointer',
                   padding: '4px',
@@ -274,27 +273,31 @@ export default function TerminalShell() {
                   transition: 'all 0.2s ease',
                 }}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = 'var(--bg-active)';
+                  e.currentTarget.style.backgroundColor = 'var(--bg-element)';
                   e.currentTarget.style.color = 'var(--text-main)';
                 }}
                 onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.03)';
+                  e.currentTarget.style.backgroundColor = 'transparent';
                   e.currentTarget.style.color = 'var(--text-muted)';
                 }}
               >
-                <RefreshCw size={11} />
+                <RefreshCw size={13} />
               </button>
+
+              {/* Status Indicator */}
               <div style={{
                 fontSize: '10px',
                 color: 'var(--success)',
                 display: 'flex',
                 alignItems: 'center',
                 gap: '5px',
-                background: 'rgba(16, 185, 129, 0.06)',
+                background: 'var(--brand-subtle)',
                 padding: '3px 8px',
                 borderRadius: '4px',
                 border: '1px solid rgba(16, 185, 129, 0.15)',
-                fontWeight: '500',
+                fontWeight: '600',
+                textTransform: 'uppercase',
+                letterSpacing: '0.05em'
               }}>
                 <span style={{
                   width: '5px',
@@ -315,8 +318,8 @@ export default function TerminalShell() {
         flex: 1,
         overflow: 'hidden',
         position: 'relative',
-        backgroundColor: '#0c0c0e',
-        padding: '10px 12px'
+        backgroundColor: 'var(--bg-panel)',
+        padding: '12px'
       }}>
         {status !== 'running' ? (
           <div style={{

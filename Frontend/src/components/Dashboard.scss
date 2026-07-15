@@ -76,54 +76,7 @@
     }
   }
 
-  // ── Dashboard-wide cosmic star field ────────────────────────────────────────
-  // Lives inside .dashboard__ambient-glow so it is position:absolute / full viewport.
-  // Stars are intentionally VERY subtle — just a hint of life in the background.
-  .dashboard-stars {
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-    z-index: 1;
-  }
 
-  .dashboard-star {
-    position: absolute;
-    border-radius: 50%;
-    background: #fff;
-    will-change: opacity, box-shadow;
-    box-shadow:
-      0 0 1px 0.5px rgba(255, 255, 255, 0.6),
-      0 0 3px 1px rgba(255, 255, 255, 0.15);
-    animation-name: cosmicTwinkle;
-    animation-timing-function: ease-in-out;
-    animation-iteration-count: infinite;
-    animation-direction: alternate;
-  }
-
-  @keyframes cosmicTwinkle {
-    0% {
-      opacity: 0.01;
-      box-shadow:
-        0 0 1px 0.5px rgba(255, 255, 255, 0.05),
-        0 0 2px 1px rgba(255, 255, 255, 0.02);
-    }
-    60% {
-      opacity: 0.05;
-    }
-    80% {
-      opacity: 0.08;
-      box-shadow:
-        0 0 1px 1px rgba(255, 255, 255, 0.35),
-        0 0 3px 1px rgba(255, 255, 255, 0.10),
-        0 0 5px 1px rgba(16, 185, 129, 0.05);
-    }
-    100% {
-      opacity: 0.01;
-      box-shadow:
-        0 0 1px 0.5px rgba(255, 255, 255, 0.05),
-        0 0 2px 1px rgba(255, 255, 255, 0.02);
-    }
-  }
 
   // 1. Sidebar Panel styles
   &__sidebar {
@@ -142,6 +95,60 @@
 
     &.is-resizing {
       transition: none !important;
+    }
+
+    .sidebar-logo-wrapper {
+      width: 130px;
+      overflow: hidden;
+      transition: width 0.3s cubic-bezier(0.16, 1, 0.3, 1), margin 0.3s;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+    }
+
+    .sidebar-label {
+      opacity: 1;
+      max-width: 150px;
+      margin-left: 0;
+      transition: opacity 0.25s ease, max-width 0.25s ease, margin 0.25s ease, padding 0.25s ease;
+      display: inline-block;
+      overflow: hidden;
+      white-space: nowrap;
+      vertical-align: middle;
+      flex-shrink: 0;
+    }
+
+    .sidebar-toggle-btn {
+      position: absolute;
+      top: 24px;
+      right: -10px;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      color: var(--text-dark);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      z-index: 100;
+      transition: all 0.2s ease;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+      
+      &:hover {
+        color: var(--text-primary);
+        background: var(--bg-element);
+        border-color: var(--border-strong);
+      }
+      
+      &:active {
+        transform: scale(0.9);
+      }
+
+      .sidebar-toggle-icon {
+        transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+      }
     }
 
     &-header {
@@ -201,13 +208,17 @@
     &-item {
       display: flex;
       align-items: center;
-      gap: $space-2;
+      gap: 0;
       padding: $space-2 $space-3;
       border-radius: 6px;
       color: $color-text-muted;
       font-size: 14px;
       cursor: pointer;
       transition: all 0.2s;
+
+      .sidebar-label {
+        margin-left: $space-3;
+      }
 
       &:hover {
         background-color: var(--bg-active);
@@ -263,6 +274,7 @@
       @include flex-between;
       padding: $space-2 $space-2;
       transition: padding 0.3s;
+      align-items: center;
     }
 
     &-profile-details {
@@ -272,12 +284,116 @@
       min-width: 0;
     }
 
+    // ── Avatar ring wrapper (subscription tier animations) ──────────────────
+    &-avatar-ring {
+      position: relative;
+      flex-shrink: 0;
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+
+      // Free — bare static border, nothing more
+      &--free {
+        .dashboard__sidebar-avatar,
+        .dashboard__sidebar-initials {
+          border: 1.5px solid rgba(255, 255, 255, 0.08);
+        }
+      }
+
+      // Pro — thin seamless emerald ring, very slow drift
+      // 2px wide, ~45% opacity, 10s rotation. Present but quiet.
+      &--pro {
+        &::before {
+          content: '';
+          position: absolute;
+          inset: -1.5px;
+          border-radius: 50%;
+          background: conic-gradient(
+            from 0deg,
+            #059669, #10b981, #34d399,
+            #6ee7b7, #34d399, #10b981, #059669
+          );
+          opacity: 0.55;
+          animation: ringDrift 10s linear infinite;
+          z-index: 0;
+          will-change: transform;
+        }
+        &::after {
+          content: '';
+          position: absolute;
+          inset: 1.5px;
+          border-radius: 50%;
+          background: $color-bg-sidebar;
+          z-index: 1;
+        }
+        .dashboard__sidebar-avatar,
+        .dashboard__sidebar-initials {
+          position: relative;
+          z-index: 2;
+          border: none;
+        }
+      }
+
+      // Max — slightly thicker full-spectrum ring, same quiet approach
+      // 3px wide, ~60% opacity, 14s rotation. Noticeably richer than pro.
+      &--max {
+        &::before {
+          content: '';
+          position: absolute;
+          inset: -2px;
+          border-radius: 50%;
+          background: conic-gradient(
+            from 0deg,
+            hsl(0,   70%, 58%),
+            hsl(60,  70%, 54%),
+            hsl(120, 65%, 50%),
+            hsl(180, 65%, 50%),
+            hsl(240, 70%, 62%),
+            hsl(300, 65%, 58%),
+            hsl(360, 70%, 58%)
+          );
+          opacity: 0.6;
+          animation: ringDrift 14s linear infinite;
+          z-index: 0;
+          will-change: transform;
+        }
+        &::after {
+          content: '';
+          position: absolute;
+          inset: 2px;
+          border-radius: 50%;
+          background: $color-bg-sidebar;
+          z-index: 1;
+        }
+        .dashboard__sidebar-avatar,
+        .dashboard__sidebar-initials {
+          position: relative;
+          z-index: 2;
+          border: none;
+        }
+      }
+    }
+
+    // Single shared keyframe — seamless ring, slow linear drift
+    @keyframes ringDrift {
+      from { transform: rotate(0deg); }
+      to   { transform: rotate(360deg); }
+    }
+
+
+
+
+
     &-avatar {
       width: 28px;
       height: 28px;
       border-radius: 50%;
       border: 1.5px solid $color-border;
       object-fit: cover;
+      display: block;
     }
 
     &-initials {
@@ -290,37 +406,56 @@
       font-size: 11px;
       font-weight: 700;
       color: $color-primary;
+      display: flex;
     }
 
     &-user-meta {
       @include flex-column;
       overflow: hidden;
+      gap: 1px;
     }
 
     &-username {
-      font-size: 13.5px;
+      font-size: 13px;
       color: var(--text-primary);
       font-weight: 600;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
       max-width: 100px;
+      line-height: 1.3;
     }
 
-    &-tier {
-      font-size: 11px;
-      color: $color-text-muted;
-    }
-
-    &-pro-badge {
-      font-size: 10px;
-      font-weight: 800;
-      color: $color-success;
-      background: rgba(16, 185, 129, 0.1);
-      border: 1px solid $color-success-glow;
+    // ── Tier badge (small pill under username) ───────────────────────────────
+    &-tier-badge {
+      font-size: 9.5px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      border-radius: 3px;
       padding: 1px 5px;
-      border-radius: 4px;
-      letter-spacing: 0.05em;
+      display: inline-block;
+      line-height: 1.4;
+
+      &--free {
+        color: $color-text-dark;
+        background: transparent;
+      }
+
+      &--pro {
+        color: #10b981;
+        background: rgba(16, 185, 129, 0.12);
+        border: 1px solid rgba(16, 185, 129, 0.3);
+      }
+
+      &--max {
+        background: linear-gradient(90deg, #f59e0b, #ec4899, #8b5cf6);
+        background-clip: text;
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        border: 1px solid rgba(139, 92, 246, 0.35);
+        border-radius: 3px;
+      }
     }
 
     &-logout {
@@ -365,8 +500,26 @@
       padding: $space-4 0;
       align-items: center;
 
+      .sidebar-logo-wrapper {
+        width: 28px;
+        margin: 0 auto;
+      }
+
+      .sidebar-label {
+        opacity: 0;
+        max-width: 0;
+        margin-left: 0;
+        padding-left: 0;
+        padding-right: 0;
+        pointer-events: none;
+      }
+
+      .sidebar-toggle-icon {
+        transform: rotate(180deg);
+      }
+
       .dashboard__sidebar-header {
-        padding: 0 0 $space-5;
+        padding: 0;
         width: 100%;
         display: flex;
         justify-content: center;
@@ -384,6 +537,10 @@
         height: 40px;
         padding: 0;
         border-radius: 50%;
+
+        .sidebar-label {
+          margin-left: 0;
+        }
       }
 
       .dashboard__sidebar-footer {
@@ -446,10 +603,27 @@
     &-title {
       font-size: 36px;
       font-weight: 800;
-      color: var(--text-primary);
       letter-spacing: -0.03em;
       font-family: $font-heading;
       margin: 0;
+      background: linear-gradient(
+        120deg,
+        #ffffff 35%,
+        #34d399 45%,
+        #60a5fa 55%,
+        #ffffff 65%
+      );
+      background-size: 200% auto;
+      background-clip: text;
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      animation: shineText 5s linear infinite;
+    }
+
+    @keyframes shineText {
+      to {
+        background-position: 200% center;
+      }
     }
 
     &-subtitle {
@@ -514,6 +688,11 @@
     &-actions-left {
       display: flex;
       gap: $space-2;
+
+      .dashboard__playground-action-btn {
+        width: 32px;
+        height: 32px;
+      }
     }
 
     &-actions-right {
@@ -949,66 +1128,7 @@
   overflow: visible;
 }
 
-// ─── Playground Star Field ───────────────────────────────────────────────────
-.playground-stars {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  z-index: 0;
-  overflow: hidden;
-}
 
-.playground-star {
-  position: absolute;
-  border-radius: 50%;
-  background: #ffffff;
-  // Multi-layer glow: white core + colored aura
-  box-shadow:
-    0 0 2px 1px rgba(255, 255, 255, 0.9),
-    0 0 6px 2px rgba(255, 255, 255, 0.4),
-    0 0 10px 3px rgba(16, 185, 129, 0.25); // subtle emerald halo
-  will-change: transform, opacity;
-  // Two animations: twinkle (opacity/scale) + float (drift Y)
-  animation-name: starTwinkle, starFloat;
-  animation-timing-function: ease-in-out, ease-in-out;
-  animation-iteration-count: infinite, infinite;
-  animation-direction: alternate, alternate;
-}
-
-@keyframes starTwinkle {
-  0% {
-    opacity: 0.04;
-    transform: scale(0.8);
-    box-shadow:
-      0 0 1px 0.5px rgba(255, 255, 255, 0.15),
-      0 0 3px 1px rgba(255, 255, 255, 0.05);
-  }
-  50% {
-    opacity: 0.18;
-    transform: scale(1.0);
-  }
-  70% {
-    opacity: 0.35;
-    transform: scale(1.15);
-    box-shadow:
-      0 0 2px 1px rgba(255, 255, 255, 0.5),
-      0 0 5px 2px rgba(255, 255, 255, 0.18),
-      0 0 8px 3px rgba(16, 185, 129, 0.10);
-  }
-  100% {
-    opacity: 0.04;
-    transform: scale(0.8);
-    box-shadow:
-      0 0 1px 0.5px rgba(255, 255, 255, 0.15),
-      0 0 3px 1px rgba(255, 255, 255, 0.05);
-  }
-}
-
-@keyframes starFloat {
-  0%   { translate: 0 0px; }
-  50%  { translate: 0 -8px; }
-  100% { translate: 0 4px; }
-}
 
 .playground-orbs__orb {
   position: absolute;
