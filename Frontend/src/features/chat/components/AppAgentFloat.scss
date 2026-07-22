@@ -285,3 +285,48 @@
     z-index: 10;
   }
 }
+
+// ─────────────────────────────────────────────
+// Light Mode Overrides
+// ─────────────────────────────────────────────
+:root.light-theme {
+  .app-agent-float {
+    background: var(--bg-surface);
+    border-color: var(--border);
+    box-shadow: 0 12px 40px rgba(15, 23, 42, 0.1);
+
+    .app-agent-header {
+      background: var(--bg-surface);
+      border-bottom-color: var(--border);
+
+      .header-title {
+        color: var(--text-primary);
+      }
+
+      .header-controls button {
+        color: var(--text-secondary);
+
+        &:hover {
+          background: var(--bg-element);
+          color: var(--text-primary);
+        }
+      }
+    }
+
+    .message-bubble.assistant {
+      background: var(--bg-overlay);
+      border-color: var(--border);
+      color: var(--text-primary);
+    }
+
+    .footer-form .chat-input {
+      background: var(--bg-element);
+      border-color: var(--border);
+      color: var(--text-primary);
+
+      &::placeholder {
+        color: var(--text-muted);
+      }
+    }
+  }
+}

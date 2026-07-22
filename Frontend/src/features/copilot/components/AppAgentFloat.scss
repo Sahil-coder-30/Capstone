@@ -459,3 +459,58 @@
   50%  { transform: scale(1.12); opacity: 1;    filter: drop-shadow(0 0 5px  rgba(99, 102, 241, 0.7)); }
   100% { transform: scale(1);    opacity: 0.65; filter: drop-shadow(0 0 0px  rgba(99, 102, 241, 0));   }
 }
+
+// ─────────────────────────────────────────────
+// Light Mode Overrides for Copilot Floating Panel
+// ─────────────────────────────────────────────
+:root.light-theme {
+  .app-agent-float {
+    background: rgba(255, 255, 255, 0.95);
+    border-color: var(--border);
+    box-shadow: 0 16px 48px rgba(15, 23, 42, 0.12);
+
+    .app-agent-header {
+      background: var(--bg-surface);
+      border-bottom-color: var(--border);
+
+      .header-title {
+        color: var(--text-primary);
+      }
+
+      .header-controls button {
+        color: var(--text-secondary);
+
+        &:hover {
+          background: var(--bg-element);
+          color: var(--text-primary);
+        }
+      }
+    }
+
+    .message-bubble.assistant {
+      background: var(--bg-overlay);
+      border-color: var(--border);
+      color: var(--text-primary);
+
+      .ai-chat__markdown-p,
+      .ai-chat__markdown-li {
+        color: var(--text-primary);
+      }
+    }
+
+    .footer-form {
+      background: var(--bg-surface);
+      border-top-color: var(--border);
+
+      .chat-input {
+        background: var(--bg-element);
+        border-color: var(--border);
+        color: var(--text-primary);
+
+        &::placeholder {
+          color: var(--text-muted);
+        }
+      }
+    }
+  }
+}

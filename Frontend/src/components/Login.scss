@@ -344,3 +344,65 @@
     }
   }
 }
+
+// ─────────────────────────────────────────────
+// Light Mode Overrides for Login
+// ─────────────────────────────────────────────
+:root.light-theme {
+  .login {
+    background-color: var(--bg-canvas);
+    color: var(--text-primary);
+
+    &__card {
+      background: var(--bg-surface);
+      border-color: var(--border);
+      box-shadow: 0 12px 40px rgba(15, 23, 42, 0.08);
+    }
+
+    &__title {
+      color: var(--text-primary);
+    }
+
+    &__subtitle {
+      color: var(--text-secondary);
+    }
+
+    &__btn--google {
+      background: var(--bg-element);
+      border-color: var(--border);
+      color: var(--text-primary);
+
+      &:hover {
+        background: var(--bg-active);
+        border-color: var(--border-strong);
+      }
+    }
+
+    &__btn--sso {
+      background: var(--bg-surface);
+      border-color: var(--border);
+      color: var(--text-secondary);
+
+      &:hover {
+        background: var(--bg-element);
+        color: var(--text-primary);
+      }
+    }
+
+    &__telemetry {
+      background: var(--bg-overlay);
+      border-color: var(--border);
+    }
+
+    &__back-btn {
+      background: var(--bg-surface);
+      border-color: var(--border);
+      color: var(--text-primary);
+
+      &:hover {
+        background: var(--bg-element);
+        color: var(--text-primary);
+      }
+    }
+  }
+}

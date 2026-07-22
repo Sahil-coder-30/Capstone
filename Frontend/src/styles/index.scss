@@ -76,22 +76,29 @@
 }
 
 :root.light-theme {
-  --bg-canvas: #f1f3f5;       /* Softer, eye-friendly light gray canvas */
-  --bg-surface: #fafafa;      /* Warm premium off-white surface */
-  --bg-overlay: #eef0f3;      /* Softer overlay background */
-  --bg-element: #e4e7eb;      /* Softer element backgrounds */
-  --bg-active: rgba(0, 0, 0, 0.08);
+  --bg-canvas: #f8fafc;       /* Crisp, clean slate-50 canvas */
+  --bg-surface: #ffffff;      /* Pure white surface for cards & panels */
+  --bg-overlay: #f1f5f9;      /* Slate-100 overlay background */
+  --bg-element: #e2e8f0;      /* Slate-200 for inputs & active elements */
+  --bg-active: rgba(0, 0, 0, 0.06);
 
-  --border: #e2e8f0;
-  --border-strong: #cbd5e1;
-  --border-glow: rgba(59, 130, 246, 0.05);
+  --border: #cbd5e1;          /* Crisp slate-300 border for clear panel boundaries */
+  --border-strong: #94a3b8;   /* Slate-400 for focused/hover state borders */
+  --border-glow: rgba(37, 99, 235, 0.12);
 
-  --text-primary: #1e293b;    /* High contrast, eye-friendly slate-800 instead of black */
-  --text-secondary: #475569;  /* slate-600 */
-  --text-muted: #64748b;      /* slate-500 */
-  --text-dark: #8a99ad;       /* slate-400 */
+  --brand-primary: #059669;    /* Darker Emerald-600 for AA/AAA contrast on light surface */
+  --brand-hover: #047857;
+  --brand-subtle: rgba(5, 150, 105, 0.08);
 
-  --brand-subtle: rgba(16, 185, 129, 0.06);
+  --accent-primary: #2563eb;   /* Blue-600 for rich contrast on light mode */
+  --accent-hover: #1d4ed8;
+  --accent-subtle: rgba(37, 99, 235, 0.08);
+
+  --text-primary: #0f172a;    /* High contrast slate-900 (AAA contrast 15:1) */
+  --text-secondary: #334155;  /* Rich slate-700 (9.5:1 contrast) */
+  --text-muted: #64748b;      /* Clear slate-500 (4.6:1 contrast) */
+  --text-dark: #0f172a;       /* Primary slate-900 (high contrast for active labels & icons) */
+  --text-disabled: #94a3b8;   /* slate-400 for disabled states */
 
   /* Light-mode status backgrounds (soft, readable tints) */
   --warning-bg: #fef3c7;      /* soft amber alert */
@@ -99,7 +106,7 @@
   --info-bg: #dbeafe;         /* soft blue info */
 
   /* Text color in RGB for dynamic opacity overlays */
-  --color-rgb-text: 30, 41, 59;
+  --color-rgb-text: 15, 23, 42;
 }
 
 // Imports

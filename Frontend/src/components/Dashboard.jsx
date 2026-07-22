@@ -33,6 +33,7 @@ function StatusBadge({ status }) {
   );
 }
 
+
 // ─── Confirm modal ────────────────────────────────────────────────────────────
 function ConfirmModal({ title, description, confirmLabel, danger, onConfirm, onCancel, loading }) {
   useEffect(() => {
@@ -159,7 +160,9 @@ function ProjectCard({ project, index, onOpen, onStop, onDelete }) {
   );
 }
 
-// ─── Dashboard Stars Background ───────────────────────────────────────────────
+
+// ─── Dashboard Stars Background (Cosmic Space Engine) ─────────────────────────
+// ─── Dashboard Stars Background (Realistic Night Sky Engine) ───────────────────
 function DashboardStars() {
   const canvasRef = useRef(null);
 
@@ -167,7 +170,7 @@ function DashboardStars() {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
-    
+
     let w = (canvas.width = window.innerWidth);
     let h = (canvas.height = window.innerHeight);
 
@@ -177,21 +180,60 @@ function DashboardStars() {
     };
     window.addEventListener('resize', handleResize);
 
-    // Create stars
-    const starCount = 80;
-    const stars = Array.from({ length: starCount }, () => ({
-      x: Math.random() * w,
-      y: Math.random() * h,
-      size: Math.random() * 1.2 + 0.4,
-      // Different depth layers for parallax
-      depth: Math.random() * 0.6 + 0.1,
-      // Twinkle properties
-      alpha: Math.random(),
-      twinkleSpeed: Math.random() * 0.015 + 0.005,
-      direction: Math.random() * Math.PI * 2,
-      speed: Math.random() * 0.05 + 0.02
-    }));
+    // Color palette of realistic night sky stars (subtle, delicate starlight pinpoints)
+    const STAR_TINTS = [
+      'rgba(255, 255, 255,',   // Crisp White
+      'rgba(248, 250, 252,',   // Soft White
+      'rgba(241, 245, 249,',   // Platinum
+      'rgba(226, 232, 240,',   // Cool Slate
+      'rgba(224, 242, 254,'    // Subtle Ice Blue
+    ];
 
+    // Perfectly balanced night sky star field (165 micro & accent stars)
+    const starCount = 165;
+    const stars = Array.from({ length: starCount }, () => {
+      // 80% micro pinpoints (0.3px - 0.9px), 20% delicate shimmer accents (0.9px - 1.5px)
+      const isMicro = Math.random() > 0.20;
+      const size = isMicro ? Math.random() * 0.6 + 0.3 : Math.random() * 0.6 + 0.9;
+      
+      return {
+        x: Math.random() * w,
+        y: Math.random() * h,
+        size,
+        baseAlpha: isMicro ? Math.random() * 0.35 + 0.18 : Math.random() * 0.35 + 0.35,
+        colorPrefix: STAR_TINTS[Math.floor(Math.random() * STAR_TINTS.length)],
+        // Smooth twinkling
+        twinkleSpeed: Math.random() * 0.025 + 0.008,
+        twinklePhase: Math.random() * Math.PI * 2,
+        // Smooth, realistic drifting movement across sky
+        vx: (Math.random() * 0.15 + 0.05) * (Math.random() > 0.5 ? 1 : -1),
+        vy: (Math.random() * 0.12 + 0.04) * (Math.random() > 0.5 ? 1 : -1),
+        depth: size / 1.5
+      };
+    });
+
+    // Falling Stars (Meteors) System - Rare & Subtle
+    const meteors = [];
+    const createMeteor = () => {
+      const startX = Math.random() * (w * 1.2) - w * 0.1;
+      const startY = Math.random() * (h * 0.4) - h * 0.2;
+      const angle = Math.PI / 4 + (Math.random() - 0.5) * 0.2;
+      const speed = Math.random() * 8 + 10;
+      const length = Math.random() * 80 + 50;
+
+      meteors.push({
+        x: startX,
+        y: startY,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed,
+        length,
+        size: Math.random() * 0.6 + 0.8,
+        life: 0,
+        maxLife: Math.random() * 30 + 25
+      });
+    };
+
+    let meteorTimer = 0;
     let mouseX = w / 2;
     let mouseY = h / 2;
     let targetMouseX = w / 2;
@@ -204,46 +246,85 @@ function DashboardStars() {
     window.addEventListener('mousemove', handleMouseMove);
 
     let animationId;
+
     const render = () => {
       ctx.clearRect(0, 0, w, h);
 
-      // Smooth mouse interpolation for parallax easing
-      mouseX += (targetMouseX - mouseX) * 0.05;
-      mouseY += (targetMouseY - mouseY) * 0.05;
+      // Smooth mouse interpolation for subtle parallax depth
+      mouseX += (targetMouseX - mouseX) * 0.03;
+      mouseY += (targetMouseY - mouseY) * 0.03;
 
+      const parallaxX = mouseX - w / 2;
+      const parallaxY = mouseY - h / 2;
+
+      // ── 1. Render & Update Micro Sky Stars ──────────────────────────
       stars.forEach((star) => {
-        // Twinkle (sinusoidal alpha modulation)
-        star.alpha += star.twinkleSpeed;
-        const currentAlpha = 0.1 + (Math.sin(star.alpha) + 1) * 0.4 * star.depth;
+        star.x += star.vx;
+        star.y += star.vy;
 
-        // Slow drifting movement
-        star.x += Math.cos(star.direction) * star.speed;
-        star.y += Math.sin(star.direction) * star.speed;
-
-        // Boundary wrap
         if (star.x < 0) star.x = w;
         if (star.x > w) star.x = 0;
         if (star.y < 0) star.y = h;
         if (star.y > h) star.y = 0;
 
-        // Mouse Parallax offset based on depth
-        const offsetX = (mouseX - w / 2) * 0.03 * star.depth;
-        const offsetY = (mouseY - h / 2) * 0.03 * star.depth;
+        const renderX = (star.x + parallaxX * 0.015 * star.depth + w) % w;
+        const renderY = (star.y + parallaxY * 0.015 * star.depth + h) % h;
 
-        const renderX = (star.x + offsetX + w) % w;
-        const renderY = (star.y + offsetY + h) % h;
+        star.twinklePhase += star.twinkleSpeed;
+        const currentAlpha = Math.min(0.7, Math.max(0.08, star.baseAlpha + Math.sin(star.twinklePhase) * 0.25));
 
+        ctx.fillStyle = `${star.colorPrefix}${currentAlpha})`;
         ctx.beginPath();
         ctx.arc(renderX, renderY, star.size, 0, Math.PI * 2);
-        
-        // Combine star glow with orb color theme (soft white/green tint)
-        ctx.fillStyle = `rgba(240, 246, 255, ${currentAlpha})`;
-        ctx.shadowBlur = star.depth > 0.5 ? 4 : 0;
-        ctx.shadowColor = 'rgba(255, 255, 255, 0.4)';
         ctx.fill();
-        ctx.shadowBlur = 0; // reset
       });
 
+      // ── 2. Render & Update Falling Stars (Meteors) ─────────────────
+      meteorTimer++;
+      if (meteorTimer > 280 && Math.random() < 0.02) { // Rare spawn every ~8-12 seconds
+        createMeteor();
+        meteorTimer = 0;
+      }
+
+      for (let i = meteors.length - 1; i >= 0; i--) {
+        const m = meteors[i];
+        m.x += m.vx;
+        m.y += m.vy;
+        m.life++;
+
+        const progress = m.life / m.maxLife;
+        const alpha = Math.sin(progress * Math.PI) * 0.65; // Soft opacity limit
+
+        const headX = m.x;
+        const headY = m.y;
+        const tailX = m.x - (m.vx / Math.hypot(m.vx, m.vy)) * m.length;
+        const tailY = m.y - (m.vy / Math.hypot(m.vx, m.vy)) * m.length;
+
+        const meteorGrad = ctx.createLinearGradient(tailX, tailY, headX, headY);
+        meteorGrad.addColorStop(0, 'rgba(255, 255, 255, 0)');
+        meteorGrad.addColorStop(0.7, 'rgba(224, 242, 254, 0.25)');
+        meteorGrad.addColorStop(1, 'rgba(255, 255, 255, 0.7)');
+
+        ctx.strokeStyle = meteorGrad;
+        ctx.lineWidth = m.size;
+        ctx.lineCap = 'round';
+        ctx.globalAlpha = Math.max(0, alpha);
+        ctx.beginPath();
+        ctx.moveTo(tailX, tailY);
+        ctx.lineTo(headX, headY);
+        ctx.stroke();
+
+        ctx.fillStyle = '#FFFFFF';
+        ctx.beginPath();
+        ctx.arc(headX, headY, m.size * 1.1, 0, Math.PI * 2);
+        ctx.fill();
+
+        if (m.life >= m.maxLife) {
+          meteors.splice(i, 1);
+        }
+      }
+
+      ctx.globalAlpha = 1.0;
       animationId = requestAnimationFrame(render);
     };
 
@@ -262,9 +343,11 @@ function DashboardStars() {
       style={{
         position: 'absolute',
         inset: 0,
+        width: '100%',
+        height: '100%',
         pointerEvents: 'none',
-        zIndex: 1,
-        opacity: 0.85,
+        zIndex: 3,
+        opacity: 0.95,
         willChange: 'transform',
         transform: 'translate3d(0, 0, 0)',
         backfaceVisibility: 'hidden'
@@ -272,6 +355,7 @@ function DashboardStars() {
     />
   );
 }
+
 
 // ─── Main Dashboard ───────────────────────────────────────────────────────────
 export default function Dashboard({ 
@@ -1061,3 +1145,4 @@ export default function Dashboard({
     </div>
   );
 }
+

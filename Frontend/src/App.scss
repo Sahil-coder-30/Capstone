@@ -629,8 +629,8 @@ body.is-resizing-row * {
 
 .auth-loader__logo-container {
   position: relative;
-  width: 90px;
-  height: 90px;
+  width: 100%;
+  max-width: 360px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -702,10 +702,10 @@ body.is-resizing-row * {
 .auth-loader__title {
   font-size: 13px;
   font-weight: 800;
-  color: #ffffff;
+  color: var(--text-primary);
   letter-spacing: 0.22em;
   margin: 0;
-  text-shadow: 0 2px 10px rgba(0,0,0,0.5);
+  text-shadow: 0 2px 10px rgba(0,0,0,0.2);
 }
 
 .auth-loader__status-container {

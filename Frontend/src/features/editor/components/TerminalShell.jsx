@@ -200,9 +200,40 @@ export default function TerminalShell() {
       resizeObserver.observe(terminalRef.current);
     }
 
+    const themeObserver = new MutationObserver(() => {
+      if (xtermInstance.current) {
+        const style = getComputedStyle(document.documentElement);
+        const bg = style.getPropertyValue('--bg-panel').trim();
+        const fg = style.getPropertyValue('--text-primary').trim();
+        const brand = style.getPropertyValue('--brand-primary').trim();
+        const darkText = style.getPropertyValue('--text-dark').trim();
+        xtermInstance.current.options.theme = {
+          background: bg,
+          foreground: fg,
+          cursor: brand,
+          cursorAccent: bg,
+          selectionBackground: 'rgba(59, 130, 246, 0.2)',
+          black: '#0A0B0F',
+          red: '#EF4444',
+          green: brand,
+          yellow: '#F59E0B',
+          blue: '#3B82F6',
+          magenta: '#c084fc',
+          cyan: '#3DC5A1',
+          white: fg,
+          brightBlack: darkText,
+          brightGreen: '#34D399',
+          brightYellow: '#FDD598',
+          brightBlue: '#60A5FA',
+        };
+      }
+    });
+    themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+
     return () => {
       window.removeEventListener('resize', handleResize);
       resizeObserver.disconnect();
+      themeObserver.disconnect();
       cleanup();
     };
   }, [sandboxId, status, cleanup, connectSocket]);

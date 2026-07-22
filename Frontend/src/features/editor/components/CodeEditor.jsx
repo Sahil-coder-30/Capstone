@@ -123,6 +123,26 @@ export default function CodeEditor() {
     return () => clearTimeout(timer);
   }, [activeFileContent, activeFile, autosaveEnabled, isModified, sandboxId]);
 
+  const [editorTheme, setEditorTheme] = useState(
+    document.documentElement.classList.contains('light-theme') ? 'vs' : 'vs-dark'
+  );
+
+  useEffect(() => {
+    const updateTheme = () => {
+      const isLight = document.documentElement.classList.contains('light-theme');
+      setEditorTheme(isLight ? 'vs' : 'vs-dark');
+    };
+    updateTheme();
+
+    const observer = new MutationObserver(updateTheme);
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['class'],
+    });
+
+    return () => observer.disconnect();
+  }, []);
+
   // Click outside listener to close settings menu
   useEffect(() => {
     const handleClickOutside = (e) => {
@@ -484,12 +504,13 @@ export default function CodeEditor() {
           <div style={{
             position: 'absolute',
             inset: 0,
-            backgroundColor: 'rgba(12, 12, 14, 0.85)',
+            backgroundColor: 'var(--bg-panel)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             zIndex: 5,
             backdropFilter: 'blur(4px)',
+            opacity: 0.9,
           }}>
             <RefreshCw size={24} style={{ animation: 'spin 1s linear infinite', color: 'var(--primary)' }} />
           </div>
@@ -497,7 +518,7 @@ export default function CodeEditor() {
         <Editor
           height="100%"
           language={getLanguage(activeFile)}
-          theme="vs-dark"
+          theme={editorTheme}
           value={activeFileContent}
           onChange={(val) => updateEditorContent(val ?? '')}
           onMount={handleEditorDidMount}

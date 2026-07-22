@@ -248,7 +248,7 @@ export default function SettingsProfilePage({
                 placeholder="React, Node.js, TypeScript, Kubernetes"
                 style={{ 
                   width: '100%', padding: '10px 14px 10px 36px', borderRadius: '8px', border: '1px solid var(--border)', 
-                  backgroundColor: 'var(--bg-canvas)', color: '#fff', fontSize: '13.5px', transition: 'border-color 0.2s'
+                  backgroundColor: 'var(--bg-canvas)', color: 'var(--text-primary)', fontSize: '13.5px', transition: 'border-color 0.2s'
                 }}
                 onFocus={e => e.currentTarget.style.borderColor = 'var(--primary)'}
                 onBlur={e => e.currentTarget.style.borderColor = 'var(--border)'}

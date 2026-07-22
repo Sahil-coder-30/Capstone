@@ -203,7 +203,7 @@ export default function SettingsBillingPage({
         gap: '20px',
         boxShadow: '0 4px 20px rgba(0,0,0,0.1)'
       }}>
-        <h3 style={{ fontSize: '15px', fontWeight: '800', color: '#fff', margin: 0, borderBottom: '1px solid var(--border)', paddingBottom: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <h3 style={{ fontSize: '15px', fontWeight: '800', color: 'var(--text-primary)', margin: 0, borderBottom: '1px solid var(--border)', paddingBottom: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
           <Cpu size={16} color="var(--primary)" /> Active Sandbox Quotas
         </h3>
         

@@ -67,7 +67,7 @@ export default function SandboxHeader({
       padding: '0 16px',
       height: '48px',
       borderBottom: '1px solid var(--border)',
-      background: '#05070a',
+      background: 'var(--bg-surface)',
       position: 'relative',
       zIndex: 50,
       flexShrink: 0,
@@ -80,9 +80,9 @@ export default function SandboxHeader({
             onClick={onBackToDashboard}
             style={{
               background: 'none',
-              border: '1px solid rgba(255,255,255,0.08)',
+              border: '1px solid var(--border)',
               borderRadius: '6px',
-              color: '#cbd5e1',
+              color: 'var(--text-primary)',
               padding: '6px 12px',
               cursor: 'pointer',
               display: 'flex',
@@ -93,14 +93,14 @@ export default function SandboxHeader({
               transition: 'all 0.2s',
             }}
             onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'var(--bg-element)'; e.currentTarget.style.borderColor = 'var(--primary)'; }}
-            onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)'; }}
+            onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.borderColor = 'var(--border)'; }}
           >
             ← Back to start
           </button>
         )}
 
         {/* Panel Toggles */}
-        <div style={{ display: 'flex', gap: '4px', borderLeft: '1px solid rgba(255,255,255,0.06)', paddingLeft: '12px' }}>
+        <div style={{ display: 'flex', gap: '4px', borderLeft: '1px solid var(--border)', paddingLeft: '12px' }}>
           {[
             { icon: Sparkles, active: isChatOpen, toggle: () => setIsChatOpen(v => !v), title: 'Toggle AI Chat (Cmd+Shift+B)' },
             { icon: FolderTree, active: isExplorerOpen, toggle: () => setIsExplorerOpen(v => !v), title: 'Toggle Explorer (Cmd+B)' },
@@ -123,7 +123,7 @@ export default function SandboxHeader({
                 justifyContent: 'center',
                 transition: 'all 0.15s',
               }}
-              onMouseEnter={e => { if(!active) e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.02)'; }}
+              onMouseEnter={e => { if(!active) e.currentTarget.style.backgroundColor = 'var(--bg-element)'; }}
               onMouseLeave={e => { if(!active) e.currentTarget.style.backgroundColor = 'transparent'; }}
             >
               <Icon size={13} />
@@ -137,7 +137,7 @@ export default function SandboxHeader({
         <h1 style={{
           fontSize: '13px',
           fontWeight: '700',
-          color: '#fff',
+          color: 'var(--text-primary)',
           letterSpacing: '-0.01em',
           margin: 0
         }}>
@@ -321,10 +321,10 @@ export default function SandboxHeader({
         <button
           onClick={() => alert("Project Cloned!")}
           style={{
-            background: 'none', border: 'none', color: '#cbd5e1', fontSize: '11px', fontWeight: '600', cursor: 'pointer',
+            background: 'none', border: 'none', color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '600', cursor: 'pointer',
             padding: '5px 10px', borderRadius: '4px'
           }}
-          onMouseEnter={e => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.02)'}
+          onMouseEnter={e => e.currentTarget.style.backgroundColor = 'var(--bg-element)'}
           onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
         >
           Remix
@@ -340,10 +340,10 @@ export default function SandboxHeader({
             }
           }}
           style={{
-            background: 'none', border: 'none', color: '#cbd5e1', fontSize: '11px', fontWeight: '600', cursor: 'pointer',
+            background: 'none', border: 'none', color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '600', cursor: 'pointer',
             padding: '5px 10px', borderRadius: '4px', display: 'flex', alignItems: 'center', gap: '4px'
           }}
-          onMouseEnter={e => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.02)'}
+          onMouseEnter={e => e.currentTarget.style.backgroundColor = 'var(--bg-element)'}
           onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
         >
           <Share2 size={11} />

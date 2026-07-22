@@ -12,7 +12,7 @@ import Layout from './components/Layout';
 import Dashboard from './components/Dashboard';
 import LandingPage from './components/LandingPage';
 import Login from './components/Login';
-import { TakshaIcon } from './components/BrandLogo';
+import { TakshaIcon, TakshaAnimatedLogo } from './components/BrandLogo';
 import { loginSuccess, loginFailure, logoutThunk } from './features/auth/slice/auth.slice';
 import { fetchMeAPI } from './features/auth/service/auth.api';
 import SettingsPage from './features/settings/pages/SettingsPage';
@@ -68,7 +68,7 @@ function PreviewWarmingScreen({ message }) {
     <div style={{
       position: 'absolute',
       inset: 0,
-      backgroundColor: '#10131a',
+      backgroundColor: 'var(--bg-panel)',
       display: 'flex',
       flexDirection: 'column',
       alignItems: 'center',
@@ -82,15 +82,15 @@ function PreviewWarmingScreen({ message }) {
     }}>
       {/* Title */}
       <div>
-        <h2 style={{ fontSize: '18px', fontWeight: '800', color: '#fff', margin: '0 0 6px' }}>Generating application</h2>
-        <p style={{ fontSize: '12.5px', color: '#94a3b8', margin: 0 }}>Enjoy these tips while you wait</p>
+        <h2 style={{ fontSize: '18px', fontWeight: '800', color: 'var(--text-primary)', margin: '0 0 6px' }}>Generating application</h2>
+        <p style={{ fontSize: '12.5px', color: 'var(--text-muted)', margin: 0 }}>Enjoy these tips while you wait</p>
       </div>
 
       {/* Rotating Tip Card */}
       <div style={{
         width: '100%',
         maxWidth: '380px',
-        backgroundColor: '#161922',
+        backgroundColor: 'var(--bg-surface)',
         border: '1px solid var(--border)',
         borderRadius: '12px',
         padding: '24px',
@@ -98,21 +98,21 @@ function PreviewWarmingScreen({ message }) {
         display: 'flex',
         flexDirection: 'column',
         gap: '12px',
-        boxShadow: '0 10px 25px rgba(0,0,0,0.3)',
+        boxShadow: '0 10px 25px rgba(0,0,0,0.1)',
         transition: 'all 0.3s ease-in-out'
       }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '28px', height: '28px', borderRadius: '6px', background: 'var(--bg-element)' }}>{activeTip.icon}</span>
           {/* Pulsing loading dots */}
           <div style={{ display: 'flex', gap: '4px' }}>
-            <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#e3e3e3', animation: 'spin 1.2s infinite' }} />
-            <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#a6a6a6', animation: 'spin 1.2s infinite 0.2s' }} />
-            <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#777777', animation: 'spin 1.2s infinite 0.4s' }} />
-            <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#444444', animation: 'spin 1.2s infinite 0.6s' }} />
+            <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: 'var(--text-muted)', animation: 'spin 1.2s infinite' }} />
+            <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: 'var(--text-dark)', animation: 'spin 1.2s infinite 0.2s' }} />
+            <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: 'var(--border-strong)', animation: 'spin 1.2s infinite 0.4s' }} />
+            <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: 'var(--border)', animation: 'spin 1.2s infinite 0.6s' }} />
           </div>
         </div>
-        <h3 style={{ fontSize: '13.5px', fontWeight: '700', color: '#fff', margin: 0 }}>{activeTip.title}</h3>
-        <p style={{ fontSize: '12px', color: '#cbd5e1', lineHeight: '1.5', margin: 0 }}>{activeTip.description}</p>
+        <h3 style={{ fontSize: '13.5px', fontWeight: '700', color: 'var(--text-primary)', margin: 0 }}>{activeTip.title}</h3>
+        <p style={{ fontSize: '12px', color: 'var(--text-secondary)', lineHeight: '1.5', margin: 0 }}>{activeTip.description}</p>
       </div>
 
       {/* Status Log */}
@@ -342,14 +342,10 @@ export default function App() {
         <div className="auth-loader__ambient-grid" />
 
         <div className="auth-loader__content">
-          <div className="auth-loader__logo-container">
-            <div className="auth-loader__pulse-ring" />
-            <div className="auth-loader__logo-box">
-              <TakshaIcon size={34} variant="primary" />
-            </div>
+          <div className="auth-loader__logo-container" style={{ marginBottom: '1.5rem' }}>
+            <TakshaAnimatedLogo maxWidth="340px" autoPlay={true} interactive={true} />
           </div>
           <div className="auth-loader__meta">
-            <h2 className="auth-loader__title">TAKSHA CODESPACE</h2>
             <div className="auth-loader__status-container">
               <span className="auth-loader__status-dot" />
               <p className="auth-loader__text">Authenticating session…</p>

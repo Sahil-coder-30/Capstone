@@ -1170,3 +1170,54 @@
     &--danger  { color: #f43f5e; }
   }
 }
+
+// ─────────────────────────────────────────────
+// Light Mode Overrides for AI Chat Panel
+// ─────────────────────────────────────────────
+:root.light-theme {
+  .ai-chat {
+    background-color: var(--bg-sidebar);
+
+    &__header {
+      background-color: var(--bg-surface);
+      border-bottom-color: var(--border);
+    }
+
+    &__model-btn {
+      background: var(--bg-surface);
+      border-color: var(--border);
+      color: var(--text-primary);
+    }
+
+    &__task-card,
+    &__run-card {
+      background: var(--bg-surface);
+      border-color: var(--border);
+      box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+
+      &:hover {
+        background: var(--bg-surface);
+        border-color: var(--border-strong);
+      }
+    }
+
+    &__input-wrap {
+      background: var(--bg-surface);
+      border-color: var(--border);
+      box-shadow: 0 4px 16px rgba(15, 23, 42, 0.05);
+
+      &:focus-within {
+        border-color: var(--brand-primary);
+        box-shadow: 0 0 0 3px var(--brand-subtle);
+      }
+    }
+
+    &__textarea {
+      color: var(--text-primary);
+
+      &::placeholder {
+        color: var(--text-muted);
+      }
+    }
+  }
+}

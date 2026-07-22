@@ -935,3 +935,66 @@
 
   &__footer-by { border-left: 1px solid rgba(255,255,255,.05); padding-left: 14px; font-size: 11px; }
 }
+
+// ─────────────────────────────────────────────
+// Light Mode Overrides for Landing Page
+// ─────────────────────────────────────────────
+:root.light-theme {
+  .lp {
+    background: var(--bg-canvas);
+    color: var(--text-primary);
+
+    &__nav {
+      background: rgba(255, 255, 255, 0.85);
+      border-bottom-color: var(--border);
+    }
+
+    &__grid {
+      background-image: radial-gradient(rgba(15, 23, 42, 0.08) 1px, transparent 1px);
+      opacity: 0.5;
+    }
+
+    &__glow {
+      mix-blend-mode: multiply;
+      opacity: 0.3;
+    }
+
+    &__mock {
+      background: var(--bg-surface);
+      border-color: var(--border);
+      box-shadow: 0 12px 40px rgba(15, 23, 42, 0.08);
+    }
+
+    &__feat-card {
+      background: var(--bg-surface);
+      border-color: var(--border);
+      box-shadow: 0 4px 16px rgba(15, 23, 42, 0.04);
+
+      &:hover {
+        background: var(--bg-surface);
+        border-color: var(--border-strong);
+        box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+      }
+    }
+
+    &__faq-item {
+      background: var(--bg-surface);
+      border-color: var(--border);
+    }
+
+    &__footer {
+      background: rgba(255, 255, 255, 0.9);
+      border-top-color: var(--border);
+    }
+
+    &__footer-copy,
+    &__footer-status,
+    &__footer-links {
+      color: var(--text-muted);
+
+      a:hover {
+        color: var(--text-primary);
+      }
+    }
+  }
+}
