@@ -161,6 +161,20 @@ const editorSlice = createSlice({
         }
       });
     },
+    resetEditorState(state) {
+      state.files = [];
+      state.activeFile = '';
+      state.activeFileContent = '';
+      state.originalContent = '';
+      state.openTabs = [];
+      state.tabContents = {};
+      state.tabOriginalContents = {};
+      state.isLoading = false;
+      state.isSaving = false;
+      state.isSyncing = false;
+      state.lastSyncTime = null;
+      state.error = null;
+    },
   },
 });
 
@@ -182,6 +196,7 @@ export const {
   setSyncing,
   setLastSyncTime,
   syncCachedContents,
+  resetEditorState,
 } = editorSlice.actions;
 
 export default editorSlice.reducer;

@@ -54,6 +54,11 @@ const copilotSlice = createSlice({
       state.messages = [WELCOME_MSG];
       state.isStreaming = false;
     },
+    resetCopilot(state) {
+      state.messages = [WELCOME_MSG];
+      state.isOpen = false;
+      state.isStreaming = false;
+    },
   },
 });
 
@@ -65,6 +70,7 @@ export const {
   toggleOpen,
   setMessages,
   clearHistory,
+  resetCopilot,
 } = copilotSlice.actions;
 
 export default copilotSlice.reducer;

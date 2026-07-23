@@ -123,14 +123,46 @@ export default function CodeEditor() {
     return () => clearTimeout(timer);
   }, [activeFileContent, activeFile, autosaveEnabled, isModified, sandboxId]);
 
+  const handleEditorWillMount = (monaco) => {
+    monaco.editor.defineTheme('codespace-light', {
+      base: 'vs',
+      inherit: true,
+      rules: [
+        { token: 'comment', foreground: '6E7781', fontStyle: 'italic' },
+        { token: 'string', foreground: '116329' },
+        { token: 'keyword', foreground: 'CF222E', fontStyle: 'bold' },
+        { token: 'keyword.control', foreground: 'CF222E', fontStyle: 'bold' },
+        { token: 'number', foreground: '0550AE' },
+        { token: 'type', foreground: '953800' },
+        { token: 'function', foreground: '6639BA' },
+        { token: 'identifier', foreground: '1A1A1E' },
+        { token: 'delimiter', foreground: '57606A' },
+        { token: 'operator', foreground: '1A1A1E' }
+      ],
+      colors: {
+        'editor.background': '#FFFFFF',
+        'editor.foreground': '#1A1A1E',
+        'editor.lineHighlightBackground': '#F4F4F6',
+        'editor.selectionBackground': '#0969DA29',
+        'editor.findMatchHighlightBackground': '#9A670025',
+        'editorLineNumber.foreground': '#6E7781',
+        'editorLineNumber.activeForeground': '#1A1A1E',
+        'editorCursor.foreground': '#0969DA',
+        'editorGutter.background': '#FFFFFF',
+        'editorIndentGuide.background': '#E4E4E7',
+        'editorIndentGuide.activeBackground': '#8C8C94'
+      }
+    });
+  };
+
   const [editorTheme, setEditorTheme] = useState(
-    document.documentElement.classList.contains('light-theme') ? 'vs' : 'vs-dark'
+    document.documentElement.classList.contains('light-theme') ? 'codespace-light' : 'vs-dark'
   );
 
   useEffect(() => {
     const updateTheme = () => {
       const isLight = document.documentElement.classList.contains('light-theme');
-      setEditorTheme(isLight ? 'vs' : 'vs-dark');
+      setEditorTheme(isLight ? 'codespace-light' : 'vs-dark');
     };
     updateTheme();
 
@@ -521,6 +553,7 @@ export default function CodeEditor() {
           theme={editorTheme}
           value={activeFileContent}
           onChange={(val) => updateEditorContent(val ?? '')}
+          beforeMount={handleEditorWillMount}
           onMount={handleEditorDidMount}
           options={{
             minimap: { enabled: editorSettings.minimap },

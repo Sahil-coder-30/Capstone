@@ -180,19 +180,31 @@ function DashboardStars() {
     };
     window.addEventListener('resize', handleResize);
 
-    // Color palette of realistic night sky stars (subtle, delicate starlight pinpoints)
-    const STAR_TINTS = [
-      'rgba(255, 255, 255,',   // Crisp White
-      'rgba(248, 250, 252,',   // Soft White
-      'rgba(241, 245, 249,',   // Platinum
-      'rgba(226, 232, 240,',   // Cool Slate
-      'rgba(224, 242, 254,'    // Subtle Ice Blue
+    const isLightMode = document.documentElement.classList.contains('light-theme');
+
+    // Color palette of realistic night sky stars
+    const STAR_TINTS_DARK = [
+      'rgba(255, 255, 255,',
+      'rgba(248, 250, 252,',
+      'rgba(241, 245, 249,',
+      'rgba(226, 232, 240,',
+      'rgba(224, 242, 254,'
     ];
+
+    // Light mode cosmic starlight pinpoints (sapphire, emerald, violet, deep slate)
+    const STAR_TINTS_LIGHT = [
+      'rgba(9, 105, 218,',     // Electric Sapphire
+      'rgba(5, 150, 105,',     // Emerald Starlight
+      'rgba(124, 58, 237,',    // Deep Nebula Violet
+      'rgba(15, 23, 42,',      // Cosmic Slate
+      'rgba(37, 99, 235,'      // Azure Starlight
+    ];
+
+    const STAR_TINTS = isLightMode ? STAR_TINTS_LIGHT : STAR_TINTS_DARK;
 
     // Perfectly balanced night sky star field (165 micro & accent stars)
     const starCount = 165;
     const stars = Array.from({ length: starCount }, () => {
-      // 80% micro pinpoints (0.3px - 0.9px), 20% delicate shimmer accents (0.9px - 1.5px)
       const isMicro = Math.random() > 0.20;
       const size = isMicro ? Math.random() * 0.6 + 0.3 : Math.random() * 0.6 + 0.9;
       
@@ -202,10 +214,8 @@ function DashboardStars() {
         size,
         baseAlpha: isMicro ? Math.random() * 0.35 + 0.18 : Math.random() * 0.35 + 0.35,
         colorPrefix: STAR_TINTS[Math.floor(Math.random() * STAR_TINTS.length)],
-        // Smooth twinkling
         twinkleSpeed: Math.random() * 0.025 + 0.008,
         twinklePhase: Math.random() * Math.PI * 2,
-        // Smooth, realistic drifting movement across sky
         vx: (Math.random() * 0.15 + 0.05) * (Math.random() > 0.5 ? 1 : -1),
         vy: (Math.random() * 0.12 + 0.04) * (Math.random() > 0.5 ? 1 : -1),
         depth: size / 1.5
@@ -249,6 +259,7 @@ function DashboardStars() {
 
     const render = () => {
       ctx.clearRect(0, 0, w, h);
+      const currentlyLight = document.documentElement.classList.contains('light-theme');
 
       // Smooth mouse interpolation for subtle parallax depth
       mouseX += (targetMouseX - mouseX) * 0.03;
@@ -271,7 +282,7 @@ function DashboardStars() {
         const renderY = (star.y + parallaxY * 0.015 * star.depth + h) % h;
 
         star.twinklePhase += star.twinkleSpeed;
-        const currentAlpha = Math.min(0.7, Math.max(0.08, star.baseAlpha + Math.sin(star.twinklePhase) * 0.25));
+        const currentAlpha = Math.min(0.75, Math.max(0.12, star.baseAlpha + Math.sin(star.twinklePhase) * 0.28));
 
         ctx.fillStyle = `${star.colorPrefix}${currentAlpha})`;
         ctx.beginPath();
@@ -281,7 +292,7 @@ function DashboardStars() {
 
       // ── 2. Render & Update Falling Stars (Meteors) ─────────────────
       meteorTimer++;
-      if (meteorTimer > 280 && Math.random() < 0.02) { // Rare spawn every ~8-12 seconds
+      if (meteorTimer > 280 && Math.random() < 0.02) {
         createMeteor();
         meteorTimer = 0;
       }
@@ -293,7 +304,7 @@ function DashboardStars() {
         m.life++;
 
         const progress = m.life / m.maxLife;
-        const alpha = Math.sin(progress * Math.PI) * 0.65; // Soft opacity limit
+        const alpha = Math.sin(progress * Math.PI) * 0.75;
 
         const headX = m.x;
         const headY = m.y;
@@ -301,9 +312,15 @@ function DashboardStars() {
         const tailY = m.y - (m.vy / Math.hypot(m.vx, m.vy)) * m.length;
 
         const meteorGrad = ctx.createLinearGradient(tailX, tailY, headX, headY);
-        meteorGrad.addColorStop(0, 'rgba(255, 255, 255, 0)');
-        meteorGrad.addColorStop(0.7, 'rgba(224, 242, 254, 0.25)');
-        meteorGrad.addColorStop(1, 'rgba(255, 255, 255, 0.7)');
+        if (currentlyLight) {
+          meteorGrad.addColorStop(0, 'rgba(9, 105, 218, 0)');
+          meteorGrad.addColorStop(0.7, 'rgba(5, 150, 105, 0.35)');
+          meteorGrad.addColorStop(1, 'rgba(124, 58, 237, 0.85)');
+        } else {
+          meteorGrad.addColorStop(0, 'rgba(255, 255, 255, 0)');
+          meteorGrad.addColorStop(0.7, 'rgba(224, 242, 254, 0.25)');
+          meteorGrad.addColorStop(1, 'rgba(255, 255, 255, 0.7)');
+        }
 
         ctx.strokeStyle = meteorGrad;
         ctx.lineWidth = m.size;
@@ -314,7 +331,7 @@ function DashboardStars() {
         ctx.lineTo(headX, headY);
         ctx.stroke();
 
-        ctx.fillStyle = '#FFFFFF';
+        ctx.fillStyle = currentlyLight ? '#0969DA' : '#FFFFFF';
         ctx.beginPath();
         ctx.arc(headX, headY, m.size * 1.1, 0, Math.PI * 2);
         ctx.fill();
@@ -379,6 +396,21 @@ export default function Dashboard({
 
   // AI Prompt Inputs
   const [promptInput, setPromptInput] = useState('');
+
+  // Recents tab search & filter states
+  const [recentsSearch, setRecentsSearch] = useState('');
+  const [recentsFilter, setRecentsFilter] = useState('all'); // 'all' | 'live' | 'offline'
+
+  // Computed active and filtered projects
+  const activeProjects = projects.filter(p => p.status === 'live' || p.status === 'building');
+  const filteredRecentProjects = projects.filter(p => {
+    const matchesSearch = !recentsSearch || p.title?.toLowerCase().includes(recentsSearch.toLowerCase()) || p.sandboxId?.toLowerCase().includes(recentsSearch.toLowerCase());
+    if (!matchesSearch) return false;
+    if (recentsFilter === 'live') return p.status === 'live' || p.status === 'building';
+    if (recentsFilter === 'offline') return p.status === 'down' || p.status === 'not_started';
+    return true;
+  });
+
 
   // Create modal
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -741,6 +773,20 @@ export default function Dashboard({
             </div>
 
             <div 
+              onClick={() => setActiveTab('recents')}
+              className={`dashboard__sidebar-item ${activeTab === 'recents' ? 'dashboard__sidebar-item--active' : ''}`}
+              title={isSidebarCollapsed ? "Recents" : undefined}
+            >
+              <Clock size={14} style={{ flexShrink: 0 }} />
+              <span className="sidebar-label">Recents</span>
+              {activeProjects.length > 0 && (
+                <span className="sidebar-badge-count" title={`${activeProjects.length} active sandbox${activeProjects.length > 1 ? 'es' : ''}`}>
+                  {activeProjects.length}
+                </span>
+              )}
+            </div>
+
+            <div 
               onClick={() => setActiveTab('my-apps')}
               className={`dashboard__sidebar-item ${activeTab === 'my-apps' ? 'dashboard__sidebar-item--active' : ''}`}
               title={isSidebarCollapsed ? "My Apps" : undefined}
@@ -749,6 +795,34 @@ export default function Dashboard({
               <span className="sidebar-label">My Apps</span>
             </div>
           </div>
+
+          {/* Quick Active & Recent Projects List inside Sidebar for Faster Access */}
+          {!isSidebarCollapsed && (
+            <div className="dashboard__sidebar-recents-section">
+              <div className="dashboard__sidebar-recents-header">
+                <span className="dashboard__sidebar-recents-title">ACTIVE & RECENTS</span>
+                <span className="dashboard__sidebar-recents-count">{projects.length}</span>
+              </div>
+              <div className="dashboard__sidebar-recents-list">
+                {projects.length === 0 ? (
+                  <div className="dashboard__sidebar-recents-empty">No projects created</div>
+                ) : (
+                  projects.slice(0, 6).map((proj) => (
+                    <div
+                      key={proj._id}
+                      onClick={() => onSelectProject(proj._id, proj.title)}
+                      className={`dashboard__sidebar-recent-item ${proj.status === 'live' ? 'is-live' : ''}`}
+                      title={`Open ${proj.title}`}
+                    >
+                      <span className={`recent-status-dot recent-status-dot--${proj.status}`} />
+                      <span className="recent-project-title">{proj.title}</span>
+                      <ChevronRight size={12} className="recent-project-arrow" />
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* User profile / Settings footer */}
@@ -772,26 +846,24 @@ export default function Dashboard({
 
           <button 
             onClick={onNavigateSettings} 
-            className={`dashboard__sidebar-settings-btn ${activeTab === 'settings' ? 'dashboard__sidebar-settings-btn--active' : ''}`}
+            className={`dashboard__sidebar-item ${activeTab === 'settings' ? 'dashboard__sidebar-item--active' : ''}`}
             title={isSidebarCollapsed ? "Settings" : undefined}
             style={{ 
-              width: '100%',
+              width: 'auto',
               display: 'flex',
               alignItems: 'center',
               justifyContent: isSidebarCollapsed ? 'center' : 'flex-start',
               gap: '8px',
-              padding: isSidebarCollapsed ? '10px' : '10px 14px',
-              borderRadius: '8px',
+              padding: isSidebarCollapsed ? '9px 12px' : '9px 12px',
               cursor: 'pointer',
-              background: activeTab === 'settings' ? 'var(--bg-element)' : 'var(--bg-active)',
-              border: '1px solid var(--border)',
-              color: activeTab === 'settings' ? 'var(--text-primary)' : 'var(--text-muted)',
-              fontSize: '13px',
-              fontWeight: '600',
+              background: 'transparent',
+              border: '1px solid transparent',
+              fontSize: '13.5px',
+              fontWeight: '500',
               transition: 'all 0.2s',
             }}
           >
-            <Settings size={14} style={{ color: activeTab === 'settings' ? 'var(--primary)' : 'inherit', flexShrink: 0 }} />
+            <Settings size={16} style={{ flexShrink: 0 }} />
             <span className="sidebar-label">Settings</span>
           </button>
         </div>
@@ -971,6 +1043,162 @@ export default function Dashboard({
                   ))}
                 </div>
               </>
+            )}
+          </section>
+        ) : activeTab === 'recents' ? (
+          /* Dedicated Recents & Active Workspaces View */
+          <section className="dashboard__projects-panel dashboard__recents-panel">
+            {/* Header section with actions */}
+            <div className="dashboard__projects-panel-header">
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Clock size={20} color="var(--primary)" />
+                  <h2 className="dashboard__projects-panel-title">Recents</h2>
+                </div>
+                <p className="dashboard__projects-panel-subtitle">
+                  Fast access to your active sandbox environments and recently updated workspaces.
+                </p>
+              </div>
+
+              <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                <button
+                  className="icon-btn"
+                  onClick={() => fetchProjects()}
+                  title="Refresh active lists"
+                  style={{ padding: '8px' }}
+                >
+                  <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+                </button>
+                <button
+                  onClick={() => { setPromptInput(''); setActiveTab('playground'); }}
+                  className="dashboard__projects-panel-create-btn dashboard__projects-panel-create-btn--active"
+                >
+                  <Plus size={14} />
+                  New App
+                </button>
+              </div>
+            </div>
+
+            {/* Search & Filter Toolbar for Recents */}
+            <div className="dashboard__recents-toolbar">
+              <div className="dashboard__recents-search-box">
+                <Search size={14} className="search-icon" />
+                <input
+                  type="text"
+                  placeholder="Search active or recent projects..."
+                  value={recentsSearch}
+                  onChange={(e) => setRecentsSearch(e.target.value)}
+                  className="dashboard__recents-search-input"
+                />
+                {recentsSearch && (
+                  <button className="search-clear-btn" onClick={() => setRecentsSearch('')}>
+                    <X size={12} />
+                  </button>
+                )}
+              </div>
+
+              <div className="dashboard__recents-filter-pills">
+                <button
+                  className={`filter-pill ${recentsFilter === 'all' ? 'active' : ''}`}
+                  onClick={() => setRecentsFilter('all')}
+                >
+                  All ({projects.length})
+                </button>
+                <button
+                  className={`filter-pill ${recentsFilter === 'live' ? 'active' : ''}`}
+                  onClick={() => setRecentsFilter('live')}
+                >
+                  <span className="pill-dot live" />
+                  Active ({activeProjects.length})
+                </button>
+                <button
+                  className={`filter-pill ${recentsFilter === 'offline' ? 'active' : ''}`}
+                  onClick={() => setRecentsFilter('offline')}
+                >
+                  Offline ({projects.length - activeProjects.length})
+                </button>
+              </div>
+            </div>
+
+            {/* Active Projects Spotlight (if live projects exist) */}
+            {activeProjects.length > 0 && recentsFilter !== 'offline' && !recentsSearch && (
+              <div className="dashboard__active-spotlight">
+                <div className="dashboard__active-spotlight-header">
+                  <div className="active-badge-pulse">
+                    <span className="pulse-dot" />
+                    <span className="badge-text">ACTIVE NOW ({activeProjects.length})</span>
+                  </div>
+                  <span className="spotlight-hint">Running container instances with instant codespace access</span>
+                </div>
+
+                <div className="dashboard__active-spotlight-grid">
+                  {activeProjects.map((proj) => (
+                    <div key={proj._id} className="active-spotlight-card">
+                      <div className="active-spotlight-card__header">
+                        <div className="active-spotlight-card__title-box">
+                          <div className="status-indicator-ring">
+                            <span className="indicator-core" />
+                          </div>
+                          <div>
+                            <h4 className="card-title">{proj.title}</h4>
+                            <span className="card-sub">ID: {proj.sandboxId?.substring(0, 10)}…</span>
+                          </div>
+                        </div>
+                        <StatusBadge status={proj.status} />
+                      </div>
+
+                      <div className="active-spotlight-card__actions">
+                        <button
+                          className="btn-open-active"
+                          onClick={() => onSelectProject(proj._id, proj.title)}
+                        >
+                          <Play size={13} fill="currentColor" />
+                          Open Workspace
+                        </button>
+                        <button
+                          className="btn-stop-active"
+                          onClick={() => handleStop(proj._id)}
+                          title="Stop sandbox container"
+                        >
+                          <Square size={13} />
+                          Stop
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* List and Grid display */}
+            {loading ? (
+              <div className="dashboard__projects-panel-loader-box">
+                <Loader2 size={32} className="animate-spin text-slate-400" />
+                <p className="dashboard__projects-panel-loader-text">Loading environments…</p>
+              </div>
+            ) : filteredRecentProjects.length === 0 ? (
+              <div className="dashboard__projects-panel-empty-box">
+                <Clock size={28} color="var(--primary)" style={{ marginBottom: '16px' }} />
+                <h3 className="dashboard__projects-panel-empty-title">
+                  {recentsSearch ? 'No matching projects found' : 'No Recent Projects'}
+                </h3>
+                <p className="dashboard__projects-panel-empty-desc">
+                  {recentsSearch ? 'Try clearing your search query or changing filters.' : 'Use the Playground tab to build an app and see active projects here.'}
+                </p>
+              </div>
+            ) : (
+              <div className="dashboard__projects-panel-grid">
+                {filteredRecentProjects.map((project, i) => (
+                  <ProjectCard
+                    key={project._id}
+                    project={project}
+                    index={i}
+                    onOpen={onSelectProject}
+                    onStop={handleStop}
+                    onDelete={(id, title) => setDeleteTarget({ id, title })}
+                  />
+                ))}
+              </div>
             )}
           </section>
         ) : (

@@ -5,7 +5,8 @@ import { useEditor } from '../../editor/Hooks/editor.hooks';
 import {
   Send, ChevronDown, ChevronRight, Check, Trash2, Cpu,
   CheckCircle2, AlertCircle, Loader2,
-  X, Activity, FileCode, ArrowRight, Paperclip, Square
+  X, Activity, FileCode, ArrowRight, Paperclip, Square,
+  CheckSquare2, CheckCheck
 } from 'lucide-react';
 import { parseMarkdownToReact } from '../../../components/Markdown';
 import './AIChat.scss';
@@ -28,7 +29,7 @@ const TOOL_TYPE_COLORS = {
  */
 export default function AIChat({ projectId, onCloseChat }) {
   const { sandboxId, status } = useSandbox();
-  const { messages, isStreaming, isHistoryLoading, sendMessage, stopAgent, clearChatHistory } = useCodingAgent(projectId);
+  const { messages, isStreaming, isHistoryLoading, sendMessage, stopAgent, clearChatHistory, deleteMessage } = useCodingAgent(projectId);
   const { files, fetchFilesList, activeFile, isModified, fetchFileContent } = useEditor();
 
   const [input, setInput] = useState('');
@@ -37,6 +38,10 @@ export default function AIChat({ projectId, onCloseChat }) {
   const [inputFocused, setInputFocused] = useState(false);
   const [copiedCodeIdx, setCopiedCodeIdx] = useState(null);
   const selectedModel = 'codestral';
+
+  // ─── Multi-select deletion state ────────────────────────────────────────────
+  const [isSelectMode, setIsSelectMode] = useState(false);
+  const [selectedRuns, setSelectedRuns] = useState(new Set());
 
   const scrollContainerRef = useRef(null);
   const lastScrollHeightRef = useRef(0);
@@ -274,7 +279,50 @@ export default function AIChat({ projectId, onCloseChat }) {
     clearChatHistory();
     setExpandedRuns({});
     setExpandedLogs({});
+    setSelectedRuns(new Set());
+    setIsSelectMode(false);
     lastScrollHeightRef.current = 0;
+  };
+
+  // ─── Select mode handlers ────────────────────────────────────────────────────
+  const handleToggleSelectMode = () => {
+    setIsSelectMode(prev => !prev);
+    setSelectedRuns(new Set());
+  };
+
+  const handleSelectRun = (runId, e) => {
+    e.stopPropagation();
+    setSelectedRuns(prev => {
+      const next = new Set(prev);
+      next.has(runId) ? next.delete(runId) : next.add(runId);
+      return next;
+    });
+  };
+
+  const handleSelectAll = () => {
+    const allIds = runs.filter(r => r.goal !== null).map(r => r.id);
+    if (selectedRuns.size === allIds.length) {
+      setSelectedRuns(new Set());
+    } else {
+      setSelectedRuns(new Set(allIds));
+    }
+  };
+
+  const handleDeleteSelected = async () => {
+    if (selectedRuns.size === 0) return;
+    // Collect all message IDs (user msg + paired assistant msg) to delete
+    const idsToDelete = new Set();
+    for (const runId of selectedRuns) {
+      idsToDelete.add(runId);
+      // Also delete the paired assistant message
+      const run = runs.find(r => r.id === runId);
+      if (run?.assistant?.id) idsToDelete.add(run.assistant.id);
+    }
+    for (const id of idsToDelete) {
+      await deleteMessage(id);
+    }
+    setSelectedRuns(new Set());
+    setIsSelectMode(false);
   };
 
   const copyToClipboard = (text, idx) => {
@@ -559,13 +607,8 @@ export default function AIChat({ projectId, onCloseChat }) {
                       ? 'end' 
                       : 'info';
                 
-                let textColor = 'var(--text-main)';
-                if (logType === 'model') textColor = '#c084fc';
-                else if (logType === 'start') textColor = '#60a5fa';
-                else if (logType === 'end') textColor = '#34d399';
-                
                 return (
-                  <div key={index} className="ai-chat__thinking-terminal-line" style={{ color: textColor }}>
+                  <div key={index} className={`ai-chat__thinking-terminal-line ai-chat__thinking-terminal-line--${logType}`}>
                     <span className="ai-chat__thinking-terminal-prompt">&gt;</span>
                     <span className="ai-chat__thinking-terminal-text">{log}</span>
                   </div>
@@ -662,26 +705,62 @@ export default function AIChat({ projectId, onCloseChat }) {
         </div>
 
         <div className="ai-chat__header-right">
-          {isStreaming ? (
-            <div className="ai-chat__status ai-chat__status--busy">
-              <div className="ai-chat__status-spinner" />
-              <span className="ai-chat__status-text">BUSY</span>
+          {isSelectMode ? (
+            /* ── Selection toolbar ── */
+            <div className="ai-chat__select-toolbar">
+              <span className="ai-chat__select-count">
+                {selectedRuns.size} selected
+              </span>
+              <button
+                className="ai-chat__select-all-btn"
+                onClick={handleSelectAll}
+                title={selectedRuns.size === runs.filter(r => r.goal !== null).length ? 'Deselect all' : 'Select all'}
+              >
+                <CheckCheck size={12} />
+                {selectedRuns.size === runs.filter(r => r.goal !== null).length ? 'Deselect All' : 'Select All'}
+              </button>
+              {selectedRuns.size > 0 && (
+                <button
+                  className="ai-chat__select-delete-btn"
+                  onClick={handleDeleteSelected}
+                  title={`Delete ${selectedRuns.size} selected`}
+                >
+                  <Trash2 size={11} />
+                  Delete ({selectedRuns.size})
+                </button>
+              )}
+              <button className="ai-chat__select-cancel-btn" onClick={handleToggleSelectMode} title="Cancel selection">
+                <X size={13} />
+              </button>
             </div>
           ) : (
-            <div className="ai-chat__status ai-chat__status--ready">
-              <div className="ai-chat__status-dot ai-chat__status-dot--ready" />
-              <span className="ai-chat__status-text">READY</span>
-            </div>
-          )}
-
-          <button className="ai-chat__clear-btn" onClick={handleClearHistory} title="Clear chat history">
-            <Trash2 size={13} />
-          </button>
-
-          {onCloseChat && (
-            <button className="ai-chat__close-btn" onClick={onCloseChat} title="Collapse Orion Coding Agent">
-              <X size={13} />
-            </button>
+            <>
+              {isStreaming ? (
+                <div className="ai-chat__status ai-chat__status--busy">
+                  <div className="ai-chat__status-spinner" />
+                  <span className="ai-chat__status-text">BUSY</span>
+                </div>
+              ) : (
+                <div className="ai-chat__status ai-chat__status--ready">
+                  <div className="ai-chat__status-dot ai-chat__status-dot--ready" />
+                  <span className="ai-chat__status-text">READY</span>
+                </div>
+              )}
+              {runs.filter(r => r.goal !== null).length > 0 && (
+                <button
+                  className="ai-chat__clear-btn"
+                  onClick={handleToggleSelectMode}
+                  title="Select chats to delete"
+                >
+                  <CheckSquare2 size={13} />
+                </button>
+              )}
+              {onCloseChat && (
+                <button className="ai-chat__close-btn" onClick={onCloseChat} title="Collapse Orion Coding Agent">
+                  <X size={13} />
+                </button>
+              )}
+            </>
           )}
         </div>
       </div>
@@ -788,15 +867,38 @@ export default function AIChat({ projectId, onCloseChat }) {
                 (assistant.status === 'running' && parsedEvents.length > 0)
               );
 
+            const isSelected = selectedRuns.has(run.id);
+
             return (
-              <div key={run.id} className={`ai-chat__run-card ${isExpanded ? 'ai-chat__run-card--expanded' : ''}`}>
+              <div
+                key={run.id}
+                className={[
+                  'ai-chat__run-card',
+                  isExpanded ? 'ai-chat__run-card--expanded' : '',
+                  isSelectMode && !isWelcome ? 'ai-chat__run-card--selectable' : '',
+                  isSelected ? 'ai-chat__run-card--selected' : '',
+                ].filter(Boolean).join(' ')}
+              >
                 {/* Card Header */}
                 <div
                   className={`ai-chat__run-card__header ${isExpanded ? 'ai-chat__run-card__header--expanded' : ''}`}
-                  onClick={() => toggleRun(run.id)}
+                  onClick={() => isSelectMode && !isWelcome ? handleSelectRun(run.id, { stopPropagation: () => {} }) : toggleRun(run.id)}
                 >
                   <div className="ai-chat__run-card__summary">
-                    <div className={`ai-chat__run-card__status-dot ${getStatusDotClass(assistant)}`} />
+                    {/* Checkbox — only visible in select mode for real task cards */}
+                    {isSelectMode && !isWelcome && (
+                      <button
+                        className={`ai-chat__run-card__checkbox ${isSelected ? 'ai-chat__run-card__checkbox--checked' : ''}`}
+                        onClick={(e) => handleSelectRun(run.id, e)}
+                        aria-label={isSelected ? 'Deselect' : 'Select'}
+                      >
+                        {isSelected
+                          ? <Check size={9} strokeWidth={3} />
+                          : null
+                        }
+                      </button>
+                    )}
+                    {!isSelectMode && <div className={`ai-chat__run-card__status-dot ${getStatusDotClass(assistant)}`} />}
                     <span className="ai-chat__run-card__title">
                       {isWelcome ? 'System Workspace Initialized' : `Task: ${run.goal}`}
                     </span>
@@ -805,7 +907,7 @@ export default function AIChat({ projectId, onCloseChat }) {
                     <span className="ai-chat__run-card__time">
                       {run.timestamp ? new Date(run.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
                     </span>
-                    {isExpanded ? <ChevronDown size={13} color="var(--text-muted)" /> : <ChevronRight size={13} color="var(--text-muted)" />}
+                    {!isSelectMode && (isExpanded ? <ChevronDown size={13} color="var(--text-muted)" /> : <ChevronRight size={13} color="var(--text-muted)" />)}
                   </div>
                 </div>
 
@@ -911,7 +1013,27 @@ export default function AIChat({ projectId, onCloseChat }) {
 
                     {assistant && (
                       <div className="ai-chat__report">
-                        <span className="ai-chat__report-header">Agent Report</span>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                          <span className="ai-chat__report-header" style={{ margin: 0 }}>Agent Report</span>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (assistant._id || assistant.id) {
+                                deleteMessage(assistant._id || assistant.id);
+                              }
+                            }}
+                            title="Move report to Trash (removes from Orion context)"
+                            style={{
+                              background: 'none', border: 'none', color: 'var(--text-dark)',
+                              cursor: 'pointer', padding: '4px', borderRadius: '4px', display: 'flex',
+                              transition: 'color 0.2s'
+                            }}
+                            onMouseEnter={e => e.currentTarget.style.color = '#ef4444'}
+                            onMouseLeave={e => e.currentTarget.style.color = 'var(--text-dark)'}
+                          >
+                            <Trash2 size={12} />
+                          </button>
+                        </div>
 
                         {showLiveReport && renderLiveReport(assistant, parsedEvents)}
 

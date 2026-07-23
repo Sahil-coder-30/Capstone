@@ -121,9 +121,10 @@ ${prompt}`;
       file: activeFile || "",
     });
 
-    // 2. Retrieve last 5 messages for copilot (filtering by chatSessionKey and userId)
+    // 2. Retrieve last 5 active messages for copilot (filtering by chatSessionKey, userId, and non-trashed status)
     const history = await CopilotChatMessage.find({
       projectId: chatSessionKey,
+      deletionStatus: { $ne: "trash" },
       $or: [{ userId }, { userId: { $exists: false } }],
     })
       .sort({ timestamp: -1 })

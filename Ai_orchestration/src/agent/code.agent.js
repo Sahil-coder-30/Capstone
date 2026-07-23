@@ -25,6 +25,7 @@ import {
   executeCommand,
   getViteRuntimeErrors,
   searchCode,
+  searchInternetTool,
 } from "./tool.js";
 import { createReactAgent } from "@langchain/langgraph/prebuilt";
 import dotenv from "dotenv";
@@ -36,6 +37,7 @@ dotenv.config({ path: path.resolve(__dirname, "../../.env") });
 // Concise guidelines to keep system prompt size minimal and optimize token costs
 const codegenSkill = `
 - **Read First**: Always read the existing codebase files (like App.jsx, package.json, index.html) using read_file to understand the setup before writing code.
+- **Clean Canvas on Vite Templates**: When starting a new project from a Vite template or building on boilerplate, first clear out prewritten default files like App.jsx (or App.js/App.tsx), index.css, and App.css completely so you build on a clean canvas without leftover Vite template boilerplate, default styling, or counter formatting.
 - **Incremental Steps**: Implement features incrementally. Do not rewrite large chunks of code unless requested.
 - **Syntax & Execution**: Run commands like npm run build or tests using execute_command to verify syntax and compilation before ending the task.
 - **No Dev Server Run**: The Vite dev server is already running on port 5173 — never execute "npm run dev" or "vite".
@@ -62,6 +64,13 @@ const planningSkill = `
   2. A detailed checklist of tasks with markdown checkboxes (\`- [ ]\`).
 - **Keep todo.md Synchronized**: As you work through the tasks, you must update \`todo.md\` (using \`patch_file\` or \`update_file\`) to mark completed items as checked (\`- [x]\`).
 - **Revise If Needed**: If mid-task you discover the plan was wrong (e.g. a file doesn't exist, or the approach won't work), call submit_plan again with the corrected steps, and update \`todo.md\` accordingly before continuing to write.
+`;
+
+const internetSearchSkill = `
+- **Scoped Tool Usage**: You have access to \`search_internet\`. It costs real API credits and adds latency — treat it as a scoped tool during PLANNING before code generation, not mid-execution.
+- **When to Search**: Use \`search_internet\` ONLY when needing CURRENT versions/APIs/breaking changes of specific packages (e.g., "latest Vite config options", "React 19 hooks", "Tailwind v4 syntax"), newly released/changed tools, unfamiliar libraries, version-specific behavior, or unfamiliar error codes.
+- **When NOT to Search**: DO NOT search for general programming concepts (JS closures, CSS flexbox, React component structure), facts you already know with high confidence, code generated earlier in the session, or near-duplicate queries.
+- **Search Best Practices**: One focused query per unknown. Prefer \`searchDepth: "advanced"\` for library/API queries, set \`includeAnswer: true\` for synthesized answers during planning, set \`timeRange: "year"\` or \`"month"\` for currentness checks. Cap at 2-3 searches per planning phase.
 `;
 
 let appModelInstance = null;
@@ -232,6 +241,11 @@ function applyGuards(tools) {
         "Search for a text pattern or regex across the entire codebase WITHOUT reading full files. Highly efficient.",
       block: null,
     },
+    search_internet: {
+      description:
+        "Search the internet using Tavily. Costs API credits and adds latency. Use during PLANNING before code generation when checking latest API surfaces, package versions, or unfamiliar libraries. Do NOT use for basic JS/CSS concepts or familiar tools.",
+      block: null,
+    },
   };
 
   return tools.map((toolInstance) => {
@@ -279,9 +293,13 @@ The Vite dev server is already running on port 5173 — never run "npm run dev" 
 - **Verify claims**: Only say a command passed, a file changed, or a bug was fixed after the corresponding tool result confirms it. If verification could not run, say that briefly in the final report.
 - **Limit tool loops**: Prefer one batched create_file/update_file call for related edits and one verification command at the end. Do not repeatedly call the same tool with the same input.
 - **No Endless Search Loops**: If a file search or read fails (e.g., returns 0 matches or file not found), do not repeat the exact same search or slightly altered searches in a loop. Instead, try listing the workspace files using \`list_files\` to find the correct file names, search for broader/different keywords (like "route", "Link", "App", "menu"), or check parent/layout components. If you still cannot find the file or component after 3 distinct search/read attempts, stop and ask the user for clarification.
+- **Clean Canvas Requirement**: When starting a new project from a Vite template or initializing UI on default boilerplate, completely clear out prewritten template files (\`App.jsx\`/\`App.js\`/\`App.tsx\`, \`index.css\`, and \`App.css\`) first so you build on a clean canvas without leftover Vite starter code or default styling.
 
 === PLANNING (MANDATORY FOR NON-TRIVIAL TASKS) ===
 ${planningSkill}
+
+=== INTERNET SEARCH TOOL GUIDELINES ===
+${internetSearchSkill}
 
 === FINDING → PATCHING WORKFLOW ===
 To locate then fix something:
@@ -636,6 +654,7 @@ export const createAgentForModel = () => {
         executeCommand,
         getViteRuntimeErrors,
         searchCode,
+        searchInternetTool,
       ]),
       taskState
     );
@@ -691,13 +710,17 @@ const APP_AGENT_PROMPT = `You are Clio, an elite developer co-pilot. Your job is
 
 === CO-PILOT INSTRUCTIONS ===
 - Speak like a direct, senior engineer helping a teammate: clear, concise, no filler.
-- Use tools (read_file, search_code, update_file, patch_file) to search, inspect, edit, or patch files.
+- Use tools (read_file, search_code, update_file, patch_file, search_internet) to search, inspect, edit, patch files, or perform internet research.
 - Keep edits surgical. Prefer patch_file for changes under 20 lines.
 - Always check files first before updating them.
 - If a file doesn't exist, say so. Don't invent content.
 - Do not explain your reasoning or CSS/React details unless asked.
 - **For multi-file or multi-step fixes**: think through the file-level order of changes before touching anything (which file first, what depends on what) — you don't need a formal plan tool for this, just don't start editing before you know the full shape of the change.
 - **No Endless Loops**: If a file search or read fails (e.g., returns 0 matches or file not found), do not repeat the search in a loop. Try listing files or searching for broader/different keywords (like "route", "Link", "App", "menu") to locate them. If you cannot find the files after 3 distinct search/read attempts, stop and ask the user for clarification.
+- **Clean Canvas on New Vite Projects**: When starting a new project from a Vite template, first clear out prewritten default files like App.jsx (or App.js/App.tsx), index.css, and App.css completely so you build on a clean canvas without leftover starter boilerplate or styles.
+
+=== INTERNET SEARCH TOOL GUIDELINES ===
+${internetSearchSkill}
 
 === FINDING → PATCHING WORKFLOW ===
 To locate then fix something:
@@ -717,6 +740,7 @@ export const getAppAgent = () => {
         updateFile,
         patchFile,
         searchCode,
+        searchInternetTool,
       ]),
       prompt: APP_AGENT_PROMPT,
     });

@@ -38,6 +38,16 @@ const copilotChatMessageSchema = new mongoose.Schema(
       type: Date,
       default: Date.now,
     },
+    deletionStatus: {
+      type: String,
+      enum: ["active", "trash", "deleted"],
+      default: "active",
+      index: true,
+    },
+    deletedAt: {
+      type: Date,
+      default: null,
+    },
   },
   { timestamps: true }
 );

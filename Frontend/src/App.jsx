@@ -19,6 +19,11 @@ import SettingsPage from './features/settings/pages/SettingsPage';
 import { useSandbox } from './features/sandbox/Hooks/sandbox.hooks';
 import { useEditor } from './features/editor/Hooks/editor.hooks';
 import { useWorkspaceSync } from './features/editor/Hooks/useWorkspaceSync';
+import { resetEditorState } from './features/editor/slice/editor.slice';
+import { loadMessagesForProject } from './features/coding-agent/slice/codingAgent.slice';
+import { resetCopilot } from './features/copilot/slice/copilot.slice';
+import { clearLogs } from './features/logs/slice/logs.slice';
+import { initializeSandboxForProject } from './features/sandbox/slice/sandbox.slice';
 import {
   FolderTree, Play, AlertTriangle,
   ExternalLink, RefreshCw, Eye, Loader2, Code2, Terminal, X, Cpu, Check, Info,
@@ -228,6 +233,16 @@ export default function App() {
 
     verifySession();
   }, [dispatch]);
+
+  // Project state isolation: reset editor/copilot/logs and load project-scoped AI chat
+  useEffect(() => {
+    if (currentProjectId) {
+      dispatch(resetEditorState());
+      dispatch(loadMessagesForProject(currentProjectId));
+      dispatch(resetCopilot());
+      dispatch(clearLogs());
+    }
+  }, [currentProjectId, dispatch]);
 
   // ─── Sandbox lifecycle: load real status then auto-start if needed ───────────
   // This is the ONLY effect that drives sandbox state. It:
@@ -806,6 +821,7 @@ export default function App() {
           activeTab={dashboardTab}
           setActiveTab={setDashboardTab}
           onSelectProject={(id, title) => {
+            dispatch(initializeSandboxForProject(id));
             setCurrentProjectId(id);
             setCurrentProjectTitle(title);
           }}

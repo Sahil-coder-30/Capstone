@@ -272,10 +272,11 @@ export const initSocketIO = (server) => {
           content: message,
         });
 
-        // 2. Retrieve last 5 messages for this project and agent type, with fallback for backward compatibility
+        // 2. Retrieve last 3 active messages for this project and agent type, filtering out trashed messages
         const history = await ChatMessage.find({
           projectId,
           agentType: "codingAgent",
+          deletionStatus: { $ne: "trash" },
           $or: [{ userId: socket.user?.id }, { userId: { $exists: false } }],
         })
           .sort({ timestamp: -1 })

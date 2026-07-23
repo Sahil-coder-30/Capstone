@@ -499,16 +499,23 @@
     }
 
     .footer-form {
-      background: var(--bg-surface);
-      border-top-color: var(--border);
+      background: #ffffff !important;
+      border-top-color: #d0d7de !important;
 
       .chat-input {
-        background: var(--bg-element);
-        border-color: var(--border);
-        color: var(--text-primary);
+        background: #ffffff !important;
+        border-color: #d0d7de !important;
+        color: #0f172a !important;
 
         &::placeholder {
-          color: var(--text-muted);
+          color: #64748b !important;
+        }
+
+        &:focus {
+          background: #ffffff !important;
+          color: #0f172a !important;
+          border-color: #059669 !important;
+          box-shadow: 0 0 0 2px rgba(5, 150, 105, 0.15) !important;
         }
       }
     }

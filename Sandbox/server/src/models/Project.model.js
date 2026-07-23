@@ -17,6 +17,16 @@ const projectSchema = new mongoose.Schema({
         type: String,
         enum: ["live" , "down" , "not_started" , "building"],
         default: "not_started"
+    },
+    deletionStatus:{
+        type: String,
+        enum: ["active", "trash", "deleted"],
+        default: "active",
+        index: true
+    },
+    deletedAt:{
+        type: Date,
+        default: null
     }
 }, {timestamps : true});
 

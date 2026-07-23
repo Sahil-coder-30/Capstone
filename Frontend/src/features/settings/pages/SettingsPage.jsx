@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react';
 import { 
-  User, CreditCard, Sliders, Shield, ArrowLeft, Terminal, Layers
+  User, CreditCard, Sliders, Shield, ArrowLeft, Terminal, Layers, Trash2
 } from 'lucide-react';
 import { useSettings } from '../Hooks/settings.hooks';
 import SettingsProfilePage from './SettingsProfilePage';
 import SettingsBillingPage from './SettingsBillingPage';
 import SettingsAppearancePage from './SettingsAppearancePage';
 import SettingsSecurityPage from './SettingsSecurityPage';
+import SettingsTrashPage from './SettingsTrashPage';
 
 export default function SettingsPage({ 
   user, 
@@ -139,6 +140,21 @@ export default function SettingsPage({
               <Shield size={15} style={{ color: activeSubTab === 'security' ? 'var(--primary)' : 'inherit' }} />
               API & Security
             </button>
+
+            <button 
+              onClick={() => setActiveSubTab('trash')}
+              style={{
+                display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px', borderRadius: '8px', border: 'none',
+                backgroundColor: activeSubTab === 'trash' ? 'var(--bg-element)' : 'transparent',
+                color: activeSubTab === 'trash' ? 'var(--text-primary)' : 'var(--text-dark)',
+                fontSize: '13.5px', fontWeight: '600', cursor: 'pointer', textAlign: 'left', width: '100%', transition: 'all 0.2s'
+              }}
+              onMouseEnter={e => { if (activeSubTab !== 'trash') e.currentTarget.style.color = 'var(--text-primary)'; }}
+              onMouseLeave={e => { if (activeSubTab !== 'trash') e.currentTarget.style.color = 'var(--text-dark)'; }}
+            >
+              <Trash2 size={15} style={{ color: activeSubTab === 'trash' ? 'var(--primary)' : 'inherit' }} />
+              Trash & Recovery
+            </button>
           </nav>
         </div>
 
@@ -211,6 +227,12 @@ export default function SettingsPage({
               onDeleteApiKey={deleteApiKey}
               preferences={preferences}
               onUpdatePreferences={updatePreferences}
+            />
+          )}
+
+          {activeSubTab === 'trash' && (
+            <SettingsTrashPage 
+              onProjectRestored={() => onSyncLimits && onSyncLimits()}
             />
           )}
         </div>

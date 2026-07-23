@@ -859,6 +859,134 @@ body.is-resizing-row * {
   }
 }
 
+// ─────────────────────────────────────────────
+// Light Theme Layout Overrides
+// ─────────────────────────────────────────────
+:root.light-theme {
+  .app-container {
+    background-color: var(--surface-canvas);
+  }
+
+  .activity-bar {
+    background-color: rgba(244, 244, 246, 0.75) !important;
+    backdrop-filter: blur(24px) saturate(180%);
+    -webkit-backdrop-filter: blur(24px) saturate(180%);
+    border-right-color: rgba(208, 215, 222, 0.8);
+
+    .activity-bar-item {
+      color: var(--text-secondary);
+
+      &:hover {
+        color: var(--text-primary);
+        background-color: rgba(255, 255, 255, 0.65);
+      }
+
+      &.active {
+        color: var(--brand-primary);
+        background-color: rgba(236, 253, 245, 0.85);
+
+        .activity-bar-item-indicator {
+          background-color: var(--brand-primary);
+          box-shadow: 0 0 8px rgba(5, 150, 105, 0.3);
+        }
+      }
+    }
+  }
+
+  .panel,
+  .left-panel,
+  .right-panel {
+    background-color: rgba(244, 244, 246, 0.75) !important;
+    backdrop-filter: blur(24px) saturate(180%);
+    -webkit-backdrop-filter: blur(24px) saturate(180%);
+  }
+
+  .panel-header {
+    background-color: var(--surface-canvas);
+    border-bottom-color: var(--border-default);
+
+    .panel-title {
+      color: var(--text-primary);
+      font-weight: 600;
+    }
+  }
+
+  .tab-bar {
+    background-color: var(--surface-chrome);
+    border-bottom-color: var(--border-default);
+
+    .tab-btn {
+      color: var(--text-secondary);
+
+      &:hover {
+        color: var(--text-primary);
+        background-color: var(--border-subtle);
+      }
+
+      &.active {
+        color: var(--brand-primary);
+        border-bottom: 2px solid var(--brand-primary);
+        background-color: var(--surface-canvas); /* Tab jumps from chrome to canvas per my_custom_skill */
+        font-weight: 600;
+      }
+    }
+  }
+
+  .workspace-content {
+    background-color: var(--surface-canvas);
+  }
+
+  .editor-tabs-container {
+    background-color: var(--surface-chrome);
+    border-bottom-color: var(--border-default);
+  }
+
+  .editor-tab {
+    background-color: var(--surface-chrome);
+    color: var(--text-secondary);
+    border-right-color: var(--border-default);
+
+    &:hover {
+      background-color: var(--border-subtle);
+      color: var(--text-primary);
+    }
+
+    &.active {
+      background-color: var(--surface-canvas); /* Active tab jumps to canvas surface */
+      color: var(--brand-primary);
+      font-weight: 600;
+      border-top: 2px solid var(--brand-primary);
+      border-bottom-color: transparent;
+    }
+  }
+
+  .horizontal-collapsed-bar,
+  .vertical-collapsed-bar,
+  .collapsed-explorer-bar {
+    background-color: var(--surface-chrome);
+    border-color: var(--border-default);
+
+    .collapsed-label,
+    .collapsed-handle-icon,
+    .collapsed-chevron {
+      color: var(--text-secondary);
+    }
+
+    &:hover {
+      background-color: var(--border-subtle);
+
+      .collapsed-handle-icon,
+      .collapsed-chevron {
+        color: var(--brand-primary);
+      }
+
+      .collapsed-label {
+        color: var(--text-primary);
+      }
+    }
+  }
+}
+
 
 
 

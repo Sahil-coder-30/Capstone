@@ -63,6 +63,7 @@ This skill guides the efficient and perfect usage of the 8 available tools.
 
 ## Hard Rules of Tool Execution
 1. **Always read before editing**: Never write or update a file without first reading it to understand its structure.
-2. **One file modification per turn**: Do not attempt to modify multiple source code files in a single step.
-3. **Checklist integration**: Update `todo.md` using `update_file` (or `patch_file` if appropriate) immediately after completing any change.
-4. **Never ignore compiler warnings/errors**: Always verify that `get_vite_runtime_errors` returns clean before declaring success.
+2. **Clear boilerplate for new projects**: When starting a new project from a Vite template, clear out prewritten files (`App.jsx`/`App.js`, `index.css`, `App.css`) completely to ensure a clean canvas before building components.
+3. **One file modification per turn**: Do not attempt to modify multiple source code files in a single step.
+4. **Checklist integration**: Update `todo.md` using `update_file` (or `patch_file` if appropriate) immediately after completing any change.
+5. **Never ignore compiler warnings/errors**: Always verify that `get_vite_runtime_errors` returns clean before declaring success.

@@ -3,6 +3,7 @@ import { tool } from "@langchain/core/tools";
 import * as z from "zod";
 import { ChatMistralAI } from "@langchain/mistralai";
 import CommandSummary from "../models/CommandSummary.model.js";
+import { searchInternet } from "../services/internetSearch.service.js";
 
 // Caps how much of any single string field gets sent back into the model's
 // context. Response bodies/error data can otherwise be arbitrarily large
@@ -763,6 +764,118 @@ Always prefer this over read_file when you know what you are looking for.`,
         .boolean()
         .optional()
         .describe("If true, only returns a list of unique relative file paths containing matches (much cheaper and faster). Defaults to false."),
+    }),
+  },
+);
+
+export const searchInternetTool = tool(
+  async (args, config) => {
+    config = ensureWriter(config);
+    try {
+      config.writer(
+        `searchInternet: start - query: "${args.query}"`,
+      );
+      const resultStr = await searchInternet(args);
+      config.writer(
+        `searchInternet: success - response received`,
+      );
+      return resultStr;
+    } catch (err) {
+      const formatted = logError("searchInternet", err);
+      config.writer(
+        `searchInternet: error - details: ${JSON.stringify(formatted)}`,
+      );
+      return JSON.stringify({
+        error: true,
+        message: "Failed to search internet",
+        details: formatted,
+      });
+    }
+  },
+  {
+    name: "search_internet",
+    description:
+      "Search the internet using Tavily for up-to-date documentation, current package versions, API surfaces, breaking changes, or unfamiliar libraries. Treat as a scoped tool during PLANNING before writing code. Costs API credits — use judiciously.",
+    schema: z.object({
+      query: z
+        .string()
+        .describe("The focused search query string (e.g., 'React 19 new hooks API', 'Vite 5 config server.proxy')."),
+      searchDepth: z
+        .enum(["basic", "advanced"])
+        .optional()
+        .describe("Search depth. Use 'advanced' for technical library/API queries, 'basic' for quick checks. Defaults to 'basic'."),
+      topic: z
+        .enum(["general", "news", "finance"])
+        .optional()
+        .describe("Category of search. Defaults to 'general'."),
+      maxResults: z
+        .number()
+        .min(1)
+        .max(20)
+        .optional()
+        .describe("Number of search results to return (1-20). Defaults to 5."),
+      timeRange: z
+        .enum(["day", "week", "month", "year", "d", "w", "m", "y"])
+        .optional()
+        .describe("Time filter for results. Prefer 'year' or 'month' when checking if an API is current."),
+      startDate: z
+        .string()
+        .optional()
+        .describe("Only results after this date (YYYY-MM-DD)."),
+      endDate: z
+        .string()
+        .optional()
+        .describe("Only results before this date (YYYY-MM-DD)."),
+      includeAnswer: z
+        .union([z.boolean(), z.enum(["basic", "advanced"])])
+        .optional()
+        .describe("Whether to include an LLM-synthesized answer from results. Set true for planning."),
+      includeRawContent: z
+        .union([z.boolean(), z.enum(["markdown", "text"])])
+        .optional()
+        .describe("Include full cleaned page content instead of just snippets."),
+      chunksPerSource: z
+        .number()
+        .min(1)
+        .max(5)
+        .optional()
+        .describe("Number of content chunks per source (advanced searchDepth only)."),
+      includeDomains: z
+        .array(z.string())
+        .optional()
+        .describe("Restrict search to specific domains (e.g. ['react.dev', 'npmjs.com'])."),
+      excludeDomains: z
+        .array(z.string())
+        .optional()
+        .describe("Exclude specific domains from search results."),
+      country: z
+        .string()
+        .optional()
+        .describe("Boost results from a specific country (topic must be 'general')."),
+      includeImages: z
+        .boolean()
+        .optional()
+        .describe("Include query-related images in response."),
+      includeImageDescriptions: z
+        .boolean()
+        .optional()
+        .describe("Include descriptions for images in response."),
+      exactMatch: z
+        .boolean()
+        .optional()
+        .describe("Only return results containing the exact quoted phrase in query."),
+      includeFavicon: z
+        .boolean()
+        .optional()
+        .describe("Include favicon URL per result."),
+      includeUsage: z
+        .boolean()
+        .optional()
+        .describe("Include credit usage info in response."),
+      timeout: z
+        .number()
+        .optional()
+        .describe("Request timeout in seconds (default 60)."),
     }),
   },
 );

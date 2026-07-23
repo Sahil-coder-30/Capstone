@@ -87,7 +87,7 @@ export const listAllProjectsController = async (req, res, next) => {
             return res.status(401).json({ status: "error", message: "Unauthorized: User identification missing" });
         }
 
-        const projects = await Project.find({ user: req.user.id }).sort({ createdAt: -1 });
+        const projects = await Project.find({ user: req.user.id, deletionStatus: { $ne: "trash" } }).sort({ createdAt: -1 });
 
         // Reconcile status for each project that is "live" or "building" in parallel
         const reconciledProjects = await Promise.all(projects.map(async (project) => {
@@ -118,11 +118,15 @@ export const listAllProjectsController = async (req, res, next) => {
                 }
             } catch (err) {
                 console.warn(`[list-reconcile] K8s query failed for ${project.sandboxId}:`, err?.message);
+                return project;
             }
             return project;
         }));
 
-        res.status(200).json({ status: "success", projects: reconciledProjects });
+        res.status(200).json({
+            status: "success",
+            projects: reconciledProjects
+        });
     } catch (err) {
         next(err);
     }
@@ -286,9 +290,8 @@ export const stopSandboxController = async (req, res, next) => {
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 5. DELETE PROJECT  (hard delete — everything is removed permanently)
-//    If sandbox is live/building, tears down K8s resources and Redis key first.
-//    Then permanently deletes the Project document from MongoDB.
+// 5. DELETE PROJECT (Soft delete — moves project to Trash)
+//    Stops K8s pod if running and marks deletionStatus as "trash".
 // ─────────────────────────────────────────────────────────────────────────────
 export const deleteProjectController = async (req, res, next) => {
     try {
@@ -297,7 +300,7 @@ export const deleteProjectController = async (req, res, next) => {
 
         const { sandboxId } = project;
 
-        // If K8s resources are live or were being built, clean them up first
+        // Clean up live/building K8s resources to free cluster memory/CPU
         if (project.status === "live" || project.status === "building") {
             await Promise.allSettled([
                 deletePod(sandboxId),
@@ -306,12 +309,87 @@ export const deleteProjectController = async (req, res, next) => {
             ]);
         }
 
-        // Permanently remove the project record from the database
+        project.deletionStatus = "trash";
+        project.deletedAt = new Date();
+        project.status = "not_started";
+        await project.save();
+
+        res.status(200).json({
+            status: "success",
+            message: "Project moved to trash successfully",
+            project
+        });
+    } catch (err) {
+        next(err);
+    }
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 6. LIST TRASH PROJECTS
+// ─────────────────────────────────────────────────────────────────────────────
+export const listTrashProjectsController = async (req, res, next) => {
+    try {
+        if (!req.user || !req.user.id) {
+            return res.status(401).json({ status: "error", message: "Unauthorized" });
+        }
+
+        const trashProjects = await Project.find({
+            user: req.user.id,
+            deletionStatus: "trash"
+        }).sort({ deletedAt: -1 });
+
+        res.status(200).json({
+            status: "success",
+            projects: trashProjects
+        });
+    } catch (err) {
+        next(err);
+    }
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 7. RESTORE PROJECT FROM TRASH
+// ─────────────────────────────────────────────────────────────────────────────
+export const restoreProjectController = async (req, res, next) => {
+    try {
+        const project = await getAuthorizedProject(req, res, req.params.projectId);
+        if (!project) return;
+
+        project.deletionStatus = "active";
+        project.deletedAt = null;
+        await project.save();
+
+        res.status(200).json({
+            status: "success",
+            message: "Project restored successfully",
+            project
+        });
+    } catch (err) {
+        next(err);
+    }
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 8. PERMANENTLY DELETE PROJECT
+// ─────────────────────────────────────────────────────────────────────────────
+export const permanentlyDeleteProjectController = async (req, res, next) => {
+    try {
+        const project = await getAuthorizedProject(req, res, req.params.projectId);
+        if (!project) return;
+
+        const { sandboxId } = project;
+
+        await Promise.allSettled([
+            deletePod(sandboxId),
+            deleteService(sandboxId),
+            deleteSandboxKey(sandboxId)
+        ]);
+
         await Project.findByIdAndDelete(project._id);
 
         res.status(200).json({
             status: "success",
-            message: "Project and all associated resources deleted permanently"
+            message: "Project permanently deleted"
         });
     } catch (err) {
         next(err);

@@ -21,25 +21,28 @@ You have access to exactly 8 tools. Always invoke them using their exact snake_c
    - Call `list_files` once at the start of the task to understand the structure.
    - Call `read_file` on `package.json` to inspect dependencies.
 
-2. **Plan**:
+2. **Clean Canvas (Vite Templates)**:
+   - When starting a new project or working from a Vite boilerplate template, clear out or reset all prewritten default template files (`src/App.jsx` or `App.js`/`App.tsx`, `src/index.css`, `src/App.css`) completely so you build on a clean canvas without leftover starter boilerplate or styles.
+
+3. **Plan**:
    - Create a `todo.md` checklist using `create_file`.
    - Write exactly one line per task in the checklist using this format:
      `[ ] N. action: filename — description of why`
 
-3. **Install** (Optional):
+4. **Install** (Optional):
    - Only if a package needed for the implementation is missing from `package.json`, install it using `execute_command` (e.g., `npm install <package-name>`), one package at a time.
 
-4. **Build** (One file per turn):
+5. **Build** (One file per turn):
    - Create or edit exactly one file at a time using `create_file` or `update_file`.
    - Immediately tick off the completed item in `todo.md` by rewriting/updating it using `update_file` (changing `[ ] N.` to `[x] N.`).
    - Do not modify or start working on any subsequent files until the current checklist item is ticked off.
 
-5. **Verify**:
+6. **Verify**:
    - Once all checklist items in `todo.md` are marked `[x]`, call `get_vite_runtime_errors` to check for compilation or runtime issues.
    - If errors exist, read the failing files with `read_file`, fix them with `update_file`, and re-call `get_vite_runtime_errors`.
    - Limit verification fixes to a maximum of 3 attempts. If still failing, stop and report the exact error to the user.
 
-6. **Cleanup**:
+7. **Cleanup**:
    - Run `execute_command` with `rm todo.md` to clean up the workspace.
    - Provide a final summary of what was built and tested.
 
@@ -73,6 +76,7 @@ Choose one harmonious typography/color palette if no specific design requirement
 ---
 
 ## Hard Rules
+- Always clear out prewritten default files (`App.jsx`/`App.js`, `index.css`, `App.css`) when starting a new project from a Vite template before writing dashboard or application code.
 - Never modify or create multiple files in a single tool call.
 - Never skip updating `todo.md` before starting the next file.
 - Never add external libraries or Redux slices unless explicitly requested.

@@ -244,16 +244,23 @@ export const setCachedProjects = async (projects) => {
   }
 };
 
-/**
- * Delete a single project from the cache (called on project delete).
- * @param {string} projectId
- */
 export const deleteCachedProject = async (projectId) => {
   if (!projectId) return;
 
   try {
-    await db.projects.delete(projectId);
-    console.log(`[dbService] Deleted project from cache: ${projectId}`);
+    const project = await db.projects.get(projectId);
+    const sandboxId = project?.sandboxId;
+
+    await db.transaction('rw', db.projects, db.fileCache, db.fileLists, async () => {
+      await db.projects.delete(projectId);
+      if (sandboxId) {
+        await db.fileCache.where('sandboxId').equals(sandboxId).delete();
+        await db.fileLists.delete(sandboxId);
+      }
+    });
+
+    localStorage.removeItem(`codingAgent_messages_${projectId}`);
+    console.log(`[dbService] Deleted project and associated caches for: ${projectId}`);
   } catch (e) {
     console.error('[dbService] deleteCachedProject error:', e);
   }

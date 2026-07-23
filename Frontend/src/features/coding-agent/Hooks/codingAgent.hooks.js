@@ -660,6 +660,17 @@ export const useCodingAgent = (projectId) => {
     dispatch(clearHistory());
   }, [projectId, dispatch]);
 
+  const deleteMessage = useCallback(async (messageId) => {
+    if (!messageId) return;
+    try {
+      await fetch(`/api/ai/chats/message/${messageId}?agentType=codingAgent`, { method: 'DELETE' });
+    } catch (err) {
+      console.error('Failed to soft delete chat message:', err);
+    }
+    const updated = messagesRef.current.filter(m => (m._id || m.id) !== messageId && m.id !== messageId);
+    dispatch(setMessages(updated));
+  }, [dispatch]);
+
   return {
     messages,
     isStreaming,
@@ -668,5 +679,6 @@ export const useCodingAgent = (projectId) => {
     sendMessage,
     stopAgent,
     clearChatHistory,
+    deleteMessage,
   };
 };

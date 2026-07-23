@@ -48,6 +48,41 @@ export const deleteProjectAPI = async (projectId) => {
   return response.data;
 };
 
+export const listTrashProjectsAPI = async () => {
+  const response = await axios.get('/api/sandbox/projects/trash', { timeout: 30_000 });
+  return response.data;
+};
+
+export const restoreProjectAPI = async (projectId) => {
+  const response = await axios.patch(`/api/sandbox/project/${projectId}/restore`, {}, { timeout: 30_000 });
+  return response.data;
+};
+
+export const permanentlyDeleteProjectAPI = async (projectId) => {
+  const response = await axios.delete(`/api/sandbox/project/${projectId}/permanent`, { timeout: 120_000 });
+  return response.data;
+};
+
+export const getTrashChatsAPI = async () => {
+  const response = await axios.get('/api/ai/chats/trash', { timeout: 30_000 });
+  return response.data;
+};
+
+export const deleteSingleChatMessageAPI = async (messageId, agentType = 'codingAgent') => {
+  const response = await axios.delete(`/api/ai/chats/message/${messageId}?agentType=${agentType}`, { timeout: 30_000 });
+  return response.data;
+};
+
+export const restoreChatMessageAPI = async (messageId, agentType = 'codingAgent') => {
+  const response = await axios.patch(`/api/ai/chats/message/${messageId}/restore`, { agentType }, { timeout: 30_000 });
+  return response.data;
+};
+
+export const permanentlyDeleteChatMessageAPI = async (messageId, agentType = 'codingAgent') => {
+  const response = await axios.delete(`/api/ai/chats/message/${messageId}/permanent?agentType=${agentType}`, { timeout: 30_000 });
+  return response.data;
+};
+
 /**
  * Ping the preview URL to check if the sandbox container is fully up.
  *

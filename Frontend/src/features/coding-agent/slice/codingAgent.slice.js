@@ -9,14 +9,32 @@ const WELCOME_MSG = {
   timestamp: new Date().toISOString(),
 };
 
+const getStorageKey = (projectId) => {
+  return projectId ? `codingAgent_messages_${projectId}` : 'codingAgent_messages';
+};
+
 const codingAgentSlice = createSlice({
   name: 'codingAgent',
   initialState: {
-    messages: JSON.parse(localStorage.getItem('codingAgent_messages')) || [WELCOME_MSG],
+    activeProjectId: null,
+    messages: [WELCOME_MSG],
     isStreaming: false,
     error: null,
   },
   reducers: {
+    loadMessagesForProject(state, action) {
+      const projectId = action.payload;
+      state.activeProjectId = projectId || null;
+      const key = getStorageKey(projectId);
+      try {
+        const saved = localStorage.getItem(key);
+        state.messages = saved ? JSON.parse(saved) : [WELCOME_MSG];
+      } catch (e) {
+        state.messages = [WELCOME_MSG];
+      }
+      state.isStreaming = false;
+      state.error = null;
+    },
     addMessage(state, action) {
       state.messages.push({
         id: Math.random().toString(36).substring(7),
@@ -25,7 +43,8 @@ const codingAgentSlice = createSlice({
         text: '',
         ...action.payload,
       });
-      localStorage.setItem('codingAgent_messages', JSON.stringify(state.messages));
+      const key = getStorageKey(state.activeProjectId);
+      localStorage.setItem(key, JSON.stringify(state.messages));
     },
     updateLastMessage(state, action) {
       if (state.messages.length > 0) {
@@ -39,7 +58,8 @@ const codingAgentSlice = createSlice({
           if (streamState !== undefined) lastMsg.streamState = streamState;
         }
       }
-      localStorage.setItem('codingAgent_messages', JSON.stringify(state.messages));
+      const key = getStorageKey(state.activeProjectId);
+      localStorage.setItem(key, JSON.stringify(state.messages));
     },
     setStreaming(state, action) {
       state.isStreaming = action.payload;
@@ -49,18 +69,21 @@ const codingAgentSlice = createSlice({
     },
     setMessages(state, action) {
       state.messages = action.payload;
-      localStorage.setItem('codingAgent_messages', JSON.stringify(state.messages));
+      const key = getStorageKey(state.activeProjectId);
+      localStorage.setItem(key, JSON.stringify(state.messages));
     },
     clearHistory(state) {
       state.messages = [WELCOME_MSG];
       state.isStreaming = false;
       state.error = null;
-      localStorage.removeItem('codingAgent_messages');
+      const key = getStorageKey(state.activeProjectId);
+      localStorage.removeItem(key);
     },
   },
 });
 
 export const {
+  loadMessagesForProject,
   addMessage,
   updateLastMessage,
   setStreaming,
