@@ -6,7 +6,6 @@ import cookieParser from 'cookie-parser';
 import authRouter from '../routes/auth.routes.js';
 import profileRouter from '../routes/profile.routes.js';
 import preferencesRouter from '../routes/preferences.routes.js';
-import creditRouter from '../routes/credit.routes.js';
 import { identifyUser } from '../middleware/auth.middleware.js';
 import dotenv from 'dotenv';
 
@@ -25,15 +24,12 @@ passport.use(new GoogleStrategy({
     callbackURL: "/api/auth/google/callback",
     proxy: true
 } , (accessToken , refreshToken , profile , done) => {
-
-
     return done(null , profile);
 }))
 
 app.use("/api/auth" , authRouter);
 app.use("/api/auth/profile", identifyUser, profileRouter);
 app.use("/api/auth/preferences", identifyUser, preferencesRouter);
-app.use("/api/auth/credit", creditRouter);
 
 app.get("/healthz" , (req , res) =>{
     res.status(200).json({
@@ -46,6 +42,5 @@ app.get("/readyz" , (req , res) =>{
         message : "Server is ready to use"
     })
 })
-
 
 export default app;

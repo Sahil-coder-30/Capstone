@@ -1,209 +1,133 @@
-import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
-import { 
-  fetchSettingsAPI, 
-  updateProfileSettingsAPI, 
-  updatePreferencesAPI, 
-  fetchCreditAPI,
-  updateSubscriptionAPI,
-  generateApiKeyAPI, 
-  deleteApiKeyAPI 
-} from '../service/settings.api';
-import { getCachedPreferences, setCachedPreferences } from '../../editor/service/dbService';
+import { createSlice } from '@reduxjs/toolkit';
 
-// ─── Async Thunks ──────────────────────────────────────────────────────────
-export const fetchSettingsThunk = createAsyncThunk(
-  'settings/fetchSettings',
-  async (_, { rejectWithValue }) => {
-    try {
-      const data = await fetchSettingsAPI();
-      // Cache preferences to IndexedDB for offline access
-      if (data.settings?.preferences) {
-        await setCachedPreferences(data.settings.preferences);
-      }
-      return data.settings;
-    } catch (err) {
-      // Network failed — attempt to restore preferences from IndexedDB
-      const cachedPrefs = await getCachedPreferences();
-      if (cachedPrefs) {
-        console.warn('[settings] Network unavailable — restoring preferences from IndexedDB cache');
-        return { profile: {}, preferences: cachedPrefs };
-      }
-      return rejectWithValue(err.message || 'Failed to load settings');
+const initialState = {
+  profile: {
+    bio: 'Full Stack Software Engineer building with CodeSpace.',
+    linkedin: '',
+    github: '',
+    twitter: '',
+    website: '',
+    location: '',
+    company: '',
+    jobTitle: '',
+    skills: [],
+    experienceYears: 0
+  },
+  preferences: {
+    theme: 'dark',
+    editor: {
+      fontSize: '14px',
+      tabSize: '2',
+      autoSave: true,
+      minimap: true,
+      wordWrap: true
+    },
+    copilot: {
+      modelPreference: 'gemini-2.5-flash',
+      autoSuggest: true,
+      interactiveMode: 'detailed'
+    },
+    notifications: {
+      emailLogins: true,
+      securityAlerts: true
     }
-  }
-);
+  },
+  credit: {
+    credits: 20,
+    subscription: 'free',
+    providerCredits: [],
+    promptTokens: 0,
+    completionTokens: 0,
+    totalTokens: 0
+  },
+  packages: [],
+  transactions: [],
+  transactionsPagination: { page: 1, limit: 20, total: 0, pages: 1 },
+  transactionSummary: {},
+  analytics: {},
+  apiKeys: [],
+  loading: false,
+  error: null
+};
 
-export const fetchCreditThunk = createAsyncThunk(
-  'settings/fetchCredit',
-  async (_, { rejectWithValue }) => {
-    try {
-      const data = await fetchCreditAPI();
-      return data.credit;
-    } catch (err) {
-      return rejectWithValue(err.message || 'Failed to load credit details');
-    }
-  }
-);
-
-export const updateProfileThunk = createAsyncThunk(
-  'settings/updateProfile',
-  async (profileData, { rejectWithValue }) => {
-    try {
-      const data = await updateProfileSettingsAPI(profileData);
-      return data.profile;
-    } catch (err) {
-      return rejectWithValue(err.message || 'Failed to save profile');
-    }
-  }
-);
-
-export const updatePreferencesThunk = createAsyncThunk(
-  'settings/updatePreferences',
-  async (preferencesData, { rejectWithValue }) => {
-    try {
-      const data = await updatePreferencesAPI(preferencesData);
-      // Also persist to IndexedDB so preferences survive offline sessions
-      await setCachedPreferences(data.preferences ?? preferencesData);
-      return data.preferences ?? preferencesData;
-    } catch (err) {
-      return rejectWithValue(err.message || 'Failed to save preferences');
-    }
-  }
-);
-
-export const updateSubscriptionThunk = createAsyncThunk(
-  'settings/updateSubscription',
-  async (subscription, { dispatch, rejectWithValue }) => {
-    try {
-      const data = await updateSubscriptionAPI(subscription);
-      await dispatch(fetchCreditThunk());
-      return data.user;
-    } catch (err) {
-      return rejectWithValue(err.message || 'Failed to update subscription');
-    }
-  }
-);
-
-export const generateApiKeyThunk = createAsyncThunk(
-  'settings/generateApiKey',
-  async (keyName, { rejectWithValue }) => {
-    try {
-      const data = await generateApiKeyAPI(keyName);
-      return data.key;
-    } catch (err) {
-      return rejectWithValue(err.message || 'Failed to generate API Key');
-    }
-  }
-);
-
-export const deleteApiKeyThunk = createAsyncThunk(
-  'settings/deleteApiKey',
-  async (keyId, { rejectWithValue }) => {
-    try {
-      const data = await deleteApiKeyAPI(keyId);
-      return data.deletedId || keyId;
-    } catch (err) {
-      return rejectWithValue(err.message || 'Failed to delete API Key');
-    }
-  }
-);
-
-// ─── Slice Definition ───────────────────────────────────────────────────────
 const settingsSlice = createSlice({
   name: 'settings',
-  initialState: {
-    profile: {
-      bio: 'Full Stack Software Engineer building with CodeSpace.',
-      linkedin: '',
-      github: '',
-      twitter: '',
-      website: '',
-      location: '',
-      company: '',
-      jobTitle: '',
-      skills: [],
-      experienceYears: 0
+  initialState,
+  reducers: {
+    setSettings(state, action) {
+      if (action.payload?.profile) {
+        state.profile = { ...state.profile, ...action.payload.profile };
+      }
+      if (action.payload?.preferences) {
+        state.preferences = { ...state.preferences, ...action.payload.preferences };
+      }
+      if (action.payload?.apiKeys) {
+        state.apiKeys = action.payload.apiKeys;
+      }
+      state.loading = false;
+      state.error = null;
     },
-    preferences: {
-      theme: 'dark',
-      editor: {
-        fontSize: '14px',
-        tabSize: '2',
-        autoSave: true,
-        minimap: true,
-        wordWrap: true
-      },
-      copilot: {
-        modelPreference: 'gemini-2.5-flash',
-        autoSuggest: true,
-        interactiveMode: 'detailed'
-      },
-      notifications: {
-        emailLogins: true,
-        securityAlerts: true
+    setProfile(state, action) {
+      state.profile = { ...state.profile, ...action.payload };
+    },
+    setPreferences(state, action) {
+      state.preferences = { ...state.preferences, ...action.payload };
+    },
+    setCredit(state, action) {
+      state.credit = action.payload || initialState.credit;
+    },
+    setPackages(state, action) {
+      state.packages = action.payload || [];
+    },
+    setTransactions(state, action) {
+      state.transactions = action.payload.transactions || [];
+      state.transactionsPagination = action.payload.pagination || initialState.transactionsPagination;
+    },
+    setTransactionSummary(state, action) {
+      state.transactionSummary = action.payload || {};
+    },
+    setAnalytics(state, action) {
+      state.analytics = action.payload || {};
+    },
+    addApiKey(state, action) {
+      state.apiKeys.push(action.payload);
+    },
+    removeApiKey(state, action) {
+      state.apiKeys = state.apiKeys.filter((k) => k.id !== action.payload);
+    },
+    setSubscription(state, action) {
+      if (action.payload) {
+        state.credit.subscription = typeof action.payload === 'string' ? action.payload : action.payload.subscription;
       }
     },
-    credit: {
-      credits: 20,
-      subscription: 'free',
-      providerCredits: [],
-      promptTokens: 0,
-      completionTokens: 0,
-      totalTokens: 0
+    setSettingsLoading(state, action) {
+      state.loading = action.payload;
     },
-    apiKeys: [],
-    loading: false,
-    error: null
-  },
-  reducers: {
+    setSettingsError(state, action) {
+      state.error = action.payload;
+      state.loading = false;
+    },
     clearSettingsError(state) {
       state.error = null;
     }
-  },
-  extraReducers: (builder) => {
-    builder
-      // Fetch settings
-      .addCase(fetchSettingsThunk.pending, (state) => {
-        state.loading = true;
-        state.error = null;
-      })
-      .addCase(fetchSettingsThunk.fulfilled, (state, action) => {
-        state.loading = false;
-        state.profile = { ...state.profile, ...action.payload.profile };
-        state.preferences = { ...state.preferences, ...action.payload.preferences };
-        state.apiKeys = action.payload.apiKeys || [];
-      })
-      .addCase(fetchSettingsThunk.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.payload;
-      })
-      // Fetch credit
-      .addCase(fetchCreditThunk.fulfilled, (state, action) => {
-        state.credit = action.payload || { credits: 20, subscription: 'free', providerCredits: [], promptTokens: 0, completionTokens: 0, totalTokens: 0 };
-      })
-      .addCase(updateSubscriptionThunk.fulfilled, (state, action) => {
-        if (action.payload?.subscription) {
-          state.credit.subscription = action.payload.subscription;
-        }
-      })
-      // Update profile
-      .addCase(updateProfileThunk.fulfilled, (state, action) => {
-        state.profile = { ...state.profile, ...action.payload };
-      })
-      // Update preferences
-      .addCase(updatePreferencesThunk.fulfilled, (state, action) => {
-        state.preferences = { ...state.preferences, ...action.payload };
-      })
-      // Generate key
-      .addCase(generateApiKeyThunk.fulfilled, (state, action) => {
-        state.apiKeys.push(action.payload);
-      })
-      // Delete key
-      .addCase(deleteApiKeyThunk.fulfilled, (state, action) => {
-        state.apiKeys = state.apiKeys.filter(k => k.id !== action.payload);
-      });
   }
 });
 
-export const { clearSettingsError } = settingsSlice.actions;
+export const {
+  setSettings,
+  setProfile,
+  setPreferences,
+  setCredit,
+  setPackages,
+  setTransactions,
+  setTransactionSummary,
+  setAnalytics,
+  addApiKey,
+  removeApiKey,
+  setSubscription,
+  setSettingsLoading,
+  setSettingsError,
+  clearSettingsError
+} = settingsSlice.actions;
+
 export default settingsSlice.reducer;

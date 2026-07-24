@@ -9,9 +9,8 @@ import {
   CheckSquare2, CheckCheck
 } from 'lucide-react';
 import { parseMarkdownToReact } from '../../../components/Markdown';
-import './AIChat.scss';
 import { TakshaIcon } from '../../../components/BrandLogo';
-import { readFileAPI } from '../../editor/service/editor.api';
+import './AIChat.scss';
 
 // ─── Tool type icon colors ────────────────────────────────────────────────────
 const TOOL_TYPE_COLORS = {
@@ -29,7 +28,7 @@ const TOOL_TYPE_COLORS = {
  */
 export default function AIChat({ projectId, onCloseChat }) {
   const { sandboxId, status } = useSandbox();
-  const { messages, isStreaming, isHistoryLoading, sendMessage, stopAgent, clearChatHistory, deleteMessage } = useCodingAgent(projectId);
+  const { messages, isStreaming, isHistoryLoading, sendMessage, stopAgent, clearChatHistory, deleteMessage, deleteMessages } = useCodingAgent(projectId);
   const { files, fetchFilesList, activeFile, isModified, fetchFileContent } = useEditor();
 
   const [input, setInput] = useState('');
@@ -115,8 +114,7 @@ export default function AIChat({ projectId, onCloseChat }) {
     let content = '';
     try {
       if (sandboxId) {
-        const response = await readFileAPI(sandboxId, filePath);
-        content = response.files?.[0]?.content || '';
+        content = (await fetchFileContent(sandboxId, filePath)) || '';
       }
     } catch (err) {
       console.error("Failed to read file content for attachment:", err);
@@ -311,15 +309,18 @@ export default function AIChat({ projectId, onCloseChat }) {
   const handleDeleteSelected = async () => {
     if (selectedRuns.size === 0) return;
     // Collect all message IDs (user msg + paired assistant msg) to delete
-    const idsToDelete = new Set();
+    const idsToDelete = [];
     for (const runId of selectedRuns) {
-      idsToDelete.add(runId);
-      // Also delete the paired assistant message
       const run = runs.find(r => r.id === runId);
-      if (run?.assistant?.id) idsToDelete.add(run.assistant.id);
+      if (run) {
+        if (run.id) idsToDelete.push(run.id);
+        if (run.assistant?.id || run.assistant?._id) {
+          idsToDelete.push(run.assistant.id || run.assistant._id);
+        }
+      }
     }
-    for (const id of idsToDelete) {
-      await deleteMessage(id);
+    if (idsToDelete.length > 0) {
+      await deleteMessages(idsToDelete);
     }
     setSelectedRuns(new Set());
     setIsSelectMode(false);
@@ -1013,27 +1014,7 @@ export default function AIChat({ projectId, onCloseChat }) {
 
                     {assistant && (
                       <div className="ai-chat__report">
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-                          <span className="ai-chat__report-header" style={{ margin: 0 }}>Agent Report</span>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              if (assistant._id || assistant.id) {
-                                deleteMessage(assistant._id || assistant.id);
-                              }
-                            }}
-                            title="Move report to Trash (removes from Orion context)"
-                            style={{
-                              background: 'none', border: 'none', color: 'var(--text-dark)',
-                              cursor: 'pointer', padding: '4px', borderRadius: '4px', display: 'flex',
-                              transition: 'color 0.2s'
-                            }}
-                            onMouseEnter={e => e.currentTarget.style.color = '#ef4444'}
-                            onMouseLeave={e => e.currentTarget.style.color = 'var(--text-dark)'}
-                          >
-                            <Trash2 size={12} />
-                          </button>
-                        </div>
+                        <span className="ai-chat__report-header">Agent Report</span>
 
                         {showLiveReport && renderLiveReport(assistant, parsedEvents)}
 

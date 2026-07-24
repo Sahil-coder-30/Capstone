@@ -1,19 +1,4 @@
-import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
-import { logoutAPI } from '../service/auth.api';
-
-// ─── Async logout thunk ────────────────────────────────────────────────────────
-// Calls the backend to blacklist the JWT in Redis and clear the httpOnly cookie,
-// then clears Redux state regardless of whether the API call succeeds (the user
-// is logged out locally even if the network request fails).
-export const logoutThunk = createAsyncThunk('auth/logoutThunk', async (_, { dispatch }) => {
-  try {
-    await logoutAPI();
-  } catch {
-    // Swallow network/API errors — always clear local state
-  } finally {
-    dispatch(logout());
-  }
-});
+import { createSlice } from '@reduxjs/toolkit';
 
 const authSlice = createSlice({
   name: 'auth',
@@ -34,7 +19,7 @@ const authSlice = createSlice({
       state.user = null;
       state.isAuthenticated = false;
       state.loading = false;
-      state.error = action.payload;
+      state.error = action.payload || null;
     },
     logout(state) {
       state.user = null;
@@ -45,8 +30,11 @@ const authSlice = createSlice({
     setLoading(state, action) {
       state.loading = action.payload;
     },
+    setError(state, action) {
+      state.error = action.payload;
+    },
   },
 });
 
-export const { loginSuccess, loginFailure, logout, setLoading } = authSlice.actions;
+export const { loginSuccess, loginFailure, logout, setLoading, setError } = authSlice.actions;
 export default authSlice.reducer;

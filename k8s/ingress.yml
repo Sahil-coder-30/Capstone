@@ -39,6 +39,15 @@ spec:
                 name: ai-service
                 port:
                   number: 80
+    - http:
+        paths:
+          - pathType: Prefix
+            path: "/api/payments"
+            backend:
+              service:
+                name: payments-service
+                port:
+                  number: 80
     - host: "*.preview.localhost"
       http:
         paths:
@@ -59,4 +68,3 @@ spec:
                 name: router-service
                 port:
                   number: 80
-

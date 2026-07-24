@@ -1,0 +1,408 @@
+@import '../../../styles/tokens.scss';
+
+.login {
+  position: relative;
+  min-height: 100vh;
+  width: 100%;
+  background-color: $color-bg;
+  color: $color-text;
+  @include flex-center;
+  overflow: hidden;
+  font-family: $font-sans;
+
+  &__glow {
+    position: absolute;
+    pointer-events: none;
+    border-radius: 50%;
+    z-index: 0;
+    filter: blur(80px);
+    
+    &--center {
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 550px;
+      height: 550px;
+      background: radial-gradient(circle, rgba(255, 255, 255, 0.015) 0%, transparent 70%);
+      animation: dashPulse 6s ease-in-out infinite;
+    }
+
+    &--offset {
+      top: 25%;
+      left: 33%;
+      width: 350px;
+      height: 350px;
+      background: radial-gradient(circle, rgba(255, 255, 255, 0.01) 0%, transparent 70%);
+    }
+  }
+
+  &__back-btn {
+    position: absolute;
+    top: 24px;
+    left: 24px;
+    display: flex;
+    align-items: center;
+    gap: $space-2;
+    padding: $space-2 $space-3;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    background: rgba(24, 24, 28, 0.8);
+    font-size: 11.5px;
+    font-weight: 700;
+    color: $color-text-muted;
+    cursor: pointer;
+    text-decoration: none;
+    transition: all 0.2s;
+    z-index: 20;
+
+    &:hover {
+      background: rgba(255, 255, 255, 0.04);
+      border-color: rgba(255, 255, 255, 0.15);
+      color: #fff;
+    }
+  }
+
+  &__main {
+    position: relative;
+    z-index: 10;
+    width: 100%;
+    max-width: 440px;
+    padding: 0 $space-4;
+    @include flex-column;
+    align-items: center;
+  }
+
+  &__brand {
+    margin-bottom: $space-6;
+    text-align: center;
+    display: inline-flex;
+    align-items: center;
+    gap: $space-2;
+    color: $color-text-muted;
+  }
+
+  &__logo {
+    color: $color-text-muted;
+  }
+
+  &__logo-text {
+    font-size: 20px;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    color: $color-text;
+  }
+
+  &__card {
+    width: 100%;
+    padding: $space-8;
+    border-radius: 16px;
+    border: 1px solid rgba(255, 255, 255, 0.04);
+    background: rgba(24, 24, 28, 0.6);
+    backdrop-filter: blur(24px);
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+    @include flex-column;
+    gap: $space-6;
+  }
+
+  &__header {
+    text-align: left;
+  }
+
+  &__title {
+    font-size: 22px;
+    font-weight: 800;
+    color: #fff;
+    letter-spacing: -0.01em;
+    line-height: 1.2;
+  }
+
+  &__subtitle {
+    font-size: 12px;
+    color: $color-text-dark;
+    margin-top: $space-2;
+    line-height: 1.5;
+  }
+
+  &__actions {
+    @include flex-column;
+    gap: $space-4;
+  }
+
+  &__btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: $space-3;
+    width: 100%;
+    padding: 12px $space-4;
+    border-radius: 8px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    cursor: pointer;
+    transition: all 0.25s ease;
+    border: 1px solid transparent;
+
+    &--google {
+      background: $color-bg-element;
+      border-color: rgba(255, 255, 255, 0.05);
+      color: $color-text;
+
+      &:hover {
+        background: $color-bg-active;
+        border-color: rgba(255, 255, 255, 0.15);
+        box-shadow: 0 0 15px rgba(255, 255, 255, 0.02);
+      }
+    }
+
+    &--sso {
+      background: rgba(255, 255, 255, 0.02);
+      border-color: rgba(255, 255, 255, 0.05);
+      color: $color-text-muted;
+
+      &:hover {
+        background: rgba(255, 255, 255, 0.05);
+        border-color: rgba(255, 255, 255, 0.12);
+        color: #fff;
+      }
+    }
+  }
+
+  &__divider {
+    @include flex-center;
+    gap: $space-4;
+    padding: 0 $space-2;
+
+    &::before, &::after {
+      content: '';
+      height: 1px;
+      flex: 1;
+      background: rgba(255, 255, 255, 0.04);
+    }
+
+    span {
+      font-size: 9px;
+      font-weight: 700;
+      color: $color-text-dark;
+      letter-spacing: 0.08em;
+    }
+  }
+
+  &__access-info {
+    text-align: center;
+    font-size: 10.5px;
+    color: $color-text-dark;
+    font-family: $font-mono;
+
+    a {
+      color: $color-text-muted;
+      text-decoration: none;
+      transition: color 0.15s;
+
+      &:hover {
+        color: #fff;
+        text-decoration: underline;
+      }
+    }
+  }
+
+  // Telemetry block BEM styles
+  &__telemetry {
+    background: rgba(0, 0, 0, 0.25);
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.04);
+    padding: $space-3 $space-4;
+    overflow: hidden;
+
+    &__header {
+      @include flex-between;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.02);
+      padding-bottom: $space-2;
+      margin-bottom: $space-2;
+    }
+
+    &__stream-label {
+      font-size: 10px;
+      font-family: $font-mono;
+      color: $color-text-dark;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      @include flex-center;
+      gap: 6px;
+    }
+
+    &__dots {
+      display: flex;
+      gap: 4px;
+    }
+
+    &__dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.06);
+    }
+
+    &__logs {
+      @include flex-column;
+      gap: 4px;
+      font-family: $font-mono;
+      font-size: 11px;
+      color: $color-text-muted;
+      text-align: left;
+    }
+
+    &__line {
+      display: flex;
+      align-items: center;
+      gap: $space-2;
+
+      &--accent {
+        color: $color-text;
+        font-weight: 500;
+      }
+    }
+
+    &__arrow {
+      color: $color-text-dark;
+      
+      &--accent {
+        color: $color-text-muted;
+      }
+    }
+
+    &__indicator {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: $color-success;
+      box-shadow: 0 0 6px $color-success;
+      animation: dashPulse 1.5s infinite ease-in-out;
+    }
+  }
+
+  &__secure-badge {
+    @include flex-center;
+    gap: 6px;
+    padding: 4px 12px;
+    border-radius: 20px;
+    background: rgba(255, 255, 255, 0.01);
+    border: 1px solid rgba(255, 255, 255, 0.03);
+    margin-bottom: $space-3;
+
+    span {
+      font-size: 9px;
+      font-family: $font-mono;
+      color: $color-text-dark;
+      letter-spacing: 0.08em;
+    }
+  }
+
+  &__footer-links {
+    display: flex;
+    gap: $space-4;
+    font-size: 10px;
+    font-family: $font-mono;
+    color: $color-text-dark;
+
+    a {
+      color: inherit;
+      text-decoration: none;
+      transition: color 0.15s;
+
+      &:hover {
+        color: $color-text-muted;
+      }
+    }
+
+    span {
+      color: rgba(255, 255, 255, 0.02);
+    }
+  }
+
+  // Background corner decorative borders
+  &__corner-border {
+    position: absolute;
+    width: 96px;
+    height: 96px;
+    pointer-events: none;
+    z-index: 5;
+
+    &--top-left {
+      top: 40px;
+      left: 40px;
+      border-top: 1px solid rgba(255, 255, 255, 0.04);
+      border-left: 1px solid rgba(255, 255, 255, 0.04);
+    }
+
+    &--bottom-right {
+      bottom: 40px;
+      right: 40px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+      border-right: 1px solid rgba(255, 255, 255, 0.04);
+    }
+  }
+}
+
+// ─────────────────────────────────────────────
+// Light Mode Overrides for Login
+// ─────────────────────────────────────────────
+:root.light-theme {
+  .login {
+    background-color: var(--bg-canvas);
+    color: var(--text-primary);
+
+    &__card {
+      background: var(--bg-surface);
+      border-color: var(--border);
+      box-shadow: 0 12px 40px rgba(15, 23, 42, 0.08);
+    }
+
+    &__title {
+      color: var(--text-primary);
+    }
+
+    &__subtitle {
+      color: var(--text-secondary);
+    }
+
+    &__btn--google {
+      background: var(--bg-element);
+      border-color: var(--border);
+      color: var(--text-primary);
+
+      &:hover {
+        background: var(--bg-active);
+        border-color: var(--border-strong);
+      }
+    }
+
+    &__btn--sso {
+      background: var(--bg-surface);
+      border-color: var(--border);
+      color: var(--text-secondary);
+
+      &:hover {
+        background: var(--bg-element);
+        color: var(--text-primary);
+      }
+    }
+
+    &__telemetry {
+      background: var(--bg-overlay);
+      border-color: var(--border);
+    }
+
+    &__back-btn {
+      background: var(--bg-surface);
+      border-color: var(--border);
+      color: var(--text-primary);
+
+      &:hover {
+        background: var(--bg-element);
+        color: var(--text-primary);
+      }
+    }
+  }
+}

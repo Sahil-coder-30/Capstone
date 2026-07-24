@@ -1,0 +1,14 @@
+kind: Service
+apiVersion: v1
+metadata:
+  name: payments-service
+  labels:
+    app: payments
+spec:
+  selector:
+    app: payments
+  type: ClusterIP
+  ports:
+  - name: payments-http
+    port: 80
+    targetPort: 5051

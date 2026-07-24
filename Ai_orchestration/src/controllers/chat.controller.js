@@ -55,12 +55,12 @@ export const deleteChats = async (req, res) => {
     const now = new Date();
     if (agentType === "copilot") {
       await CopilotChatMessage.updateMany(
-        { projectId, userId, deletionStatus: { $ne: "trash" } },
+        { projectId, deletionStatus: { $ne: "trash" }, $or: [{ userId }, { userId: { $exists: false } }] },
         { $set: { deletionStatus: "trash", deletedAt: now } }
       );
     } else {
       await ChatMessage.updateMany(
-        { projectId, agentType: "codingAgent", userId, deletionStatus: { $ne: "trash" } },
+        { projectId, agentType: "codingAgent", deletionStatus: { $ne: "trash" }, $or: [{ userId }, { userId: { $exists: false } }] },
         { $set: { deletionStatus: "trash", deletedAt: now } }
       );
     }
@@ -72,29 +72,34 @@ export const deleteChats = async (req, res) => {
   }
 };
 
-// DELETE /chats/message/:messageId (Soft Delete single message/report)
+// DELETE /chats/message/:messageId (Soft Delete single or batch messages/reports)
 export const deleteSingleChatMessage = async (req, res) => {
   const { messageId } = req.params;
   const { agentType } = req.query;
 
   try {
     const now = new Date();
-    if (agentType === "copilot") {
-      await CopilotChatMessage.findByIdAndUpdate(messageId, {
-        deletionStatus: "trash",
-        deletedAt: now,
-      });
-    } else {
-      await ChatMessage.findByIdAndUpdate(messageId, {
-        deletionStatus: "trash",
-        deletedAt: now,
-      });
+    const rawIds = (messageId || "").split(",");
+    const validObjectIds = rawIds.map(id => id.trim()).filter(id => id && mongoose.Types.ObjectId.isValid(id));
+
+    if (validObjectIds.length > 0) {
+      if (agentType === "copilot") {
+        await CopilotChatMessage.updateMany(
+          { _id: { $in: validObjectIds } },
+          { $set: { deletionStatus: "trash", deletedAt: now } }
+        );
+      } else {
+        await ChatMessage.updateMany(
+          { _id: { $in: validObjectIds } },
+          { $set: { deletionStatus: "trash", deletedAt: now } }
+        );
+      }
     }
 
-    res.status(200).json({ status: "ok", message: "Message moved to trash" });
+    res.status(200).json({ status: "ok", message: "Message(s) moved to trash" });
   } catch (error) {
-    console.error("Failed to delete message:", error);
-    res.status(500).json({ status: "error", message: "Failed to delete message" });
+    console.error("Failed to delete message(s):", error);
+    res.status(500).json({ status: "error", message: "Failed to delete message(s)" });
   }
 };
 

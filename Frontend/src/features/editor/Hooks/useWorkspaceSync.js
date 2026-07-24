@@ -3,7 +3,6 @@ import { io } from 'socket.io-client';
 import { useDispatch } from 'react-redux';
 import { useSandbox } from '../../sandbox/Hooks/sandbox.hooks';
 import { useEditor } from './editor.hooks';
-import { readFileAPI } from '../service/editor.api';
 import { applyWorkspaceFileEvent, syncCachedContents } from '../slice/editor.slice';
 import {
   applyCachedFileListEvent,
@@ -17,13 +16,19 @@ export function useWorkspaceSync() {
   const { sandboxId, status } = useSandbox();
   const {
     openTabs,
-    closeFileTab
+    closeFileTab,
+    fetchFileContent
   } = useEditor();
 
   const sandboxIdRef = useRef(sandboxId);
   const openTabsRef = useRef(openTabs);
   const closeFileTabRef = useRef(closeFileTab);
+  const fetchFileContentRef = useRef(fetchFileContent);
   const contentRefreshesRef = useRef(new Map());
+
+  useEffect(() => {
+    fetchFileContentRef.current = fetchFileContent;
+  }, [fetchFileContent]);
   
   useEffect(() => {
     sandboxIdRef.current = sandboxId;
@@ -64,16 +69,7 @@ export function useWorkspaceSync() {
 
       const refresh = (async () => {
         try {
-          const readData = await readFileAPI(currentSandboxId, filePath);
-          if (readData.status === 'ok') {
-            const fileData = readData.files?.[0];
-            if (fileData && !fileData.error) {
-              const content = fileData.content ?? '';
-
-              await setCachedFile(currentSandboxId, filePath, content);
-              dispatch(syncCachedContents({ [filePath]: content }));
-            }
-          }
+          await fetchFileContentRef.current(currentSandboxId, filePath, true);
         } catch (err) {
           console.error(`[WorkspaceSync] Failed to reload changed file ${filePath}:`, err);
         } finally {

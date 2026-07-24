@@ -39,13 +39,10 @@ export const appAgentInvoke = async (req, res) => {
   }
 
   try {
-    const isMeteredPlan = req.user?.subscription === "pro" || req.user?.subscription === "max";
-    const creditCheck = isMeteredPlan
-      ? { hasCredit: true, billable: true, subscription: req.user.subscription }
-      : await checkAiCredit({
-          authToken: req.authToken,
-          company: modelInfo.provider,
-        });
+    const creditCheck = await checkAiCredit({
+      authToken: req.authToken,
+      company: modelInfo.provider,
+    });
 
     if (!creditCheck.hasCredit) {
       res.write(`event: error\ndata: ${JSON.stringify({
@@ -278,13 +275,10 @@ export const appAgentTitle = async (req, res) => {
 
   try {
     const modelInfo = getAppModelInfo();
-    const isMeteredPlan = req.user?.subscription === "pro" || req.user?.subscription === "max";
-    const creditCheck = isMeteredPlan
-      ? { hasCredit: true, billable: true, subscription: req.user.subscription }
-      : await checkAiCredit({
-          authToken: req.authToken,
-          company: modelInfo.provider,
-        });
+    const creditCheck = await checkAiCredit({
+      authToken: req.authToken,
+      company: modelInfo.provider,
+    });
 
     if (!creditCheck.hasCredit) {
       return res.status(402).json({

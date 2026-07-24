@@ -2,15 +2,24 @@ import dotenv from "dotenv";
 dotenv.config();
 import nodemailer from "nodemailer";
 
+const emailPass = process.env.EMAIL_PASS || process.env.GMAIL_APP_PASSWORD;
+
+const authConfig = emailPass
+  ? {
+      user: process.env.EMAIL_USER,
+      pass: emailPass,
+    }
+  : {
+      type: "OAuth2",
+      user: process.env.EMAIL_USER,
+      clientId: process.env.GOOGLE_CLIENT_ID,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+      refreshToken: process.env.GOOGLE_REFRESH_TOKEN,
+    };
+
 export const transporter = nodemailer.createTransport({
   service: "gmail",
-  auth: {
-    type: "OAuth2",
-    user: process.env.EMAIL_USER,
-    clientId: process.env.GOOGLE_CLIENT_ID,
-    clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-    refreshToken: process.env.GOOGLE_REFRESH_TOKEN,
-  },
+  auth: authConfig,
 });
 
 // Verify the connection configuration

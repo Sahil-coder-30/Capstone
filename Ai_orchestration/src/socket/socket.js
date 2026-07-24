@@ -264,13 +264,14 @@ export const initSocketIO = (server) => {
         });
 
         // 1. Save user message to database (using persistent MongoDB projectId)
-        await ChatMessage.create({
+        const userMsgDoc = await ChatMessage.create({
           projectId,
           userId: socket.user?.id,
           agentType: "codingAgent",
           role: "user",
           content: message,
         });
+        emitToRun(runKey, "agent:msg_created", { role: "user", id: userMsgDoc._id.toString() });
 
         // 2. Retrieve last 3 active messages for this project and agent type, filtering out trashed messages
         const history = await ChatMessage.find({
@@ -516,8 +517,9 @@ export const initSocketIO = (server) => {
         await runAgentWithModel(selectedAgent);
 
         // 3. Save assistant message to database
+        let assistantMsgDoc = null;
         if (assistantText) {
-          await ChatMessage.create({
+          assistantMsgDoc = await ChatMessage.create({
             projectId,
             userId: socket.user?.id,
             agentType: "codingAgent",
@@ -530,6 +532,7 @@ export const initSocketIO = (server) => {
               totalTokens: totalTokens || (promptTokens + completionTokens),
             },
           });
+          emitToRun(runKey, "agent:msg_created", { role: "assistant", id: assistantMsgDoc._id.toString() });
         }
 
         const totalTokensUsed = totalTokens || (promptTokens + completionTokens);
@@ -557,7 +560,7 @@ export const initSocketIO = (server) => {
           title: "Finishing",
           detail: "Saving final report",
         });
-        emitToRun(runKey, "agent:done");
+        emitToRun(runKey, "agent:done", { assistantMsgId: assistantMsgDoc?._id?.toString() });
       } catch (error) {
         if (error.code === "AGENT_STOPPED" || error.message === "AGENT_STOPPED") {
           const stoppedText = assistantText || "Stopped by user before completion.";

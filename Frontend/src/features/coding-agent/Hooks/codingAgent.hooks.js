@@ -627,7 +627,8 @@ export const useCodingAgent = (projectId) => {
           if (data.status === 'ok') {
             if (data.messages && data.messages.length > 0) {
               const mapped = data.messages.map(m => ({
-                id: m._id || Math.random().toString(36).substring(7),
+                id: m._id || m.id || Math.random().toString(36).substring(7),
+                _id: m._id,
                 role: m.role,
                 text: m.content,
                 toolLogs: m.toolLogs || [],
@@ -660,16 +661,27 @@ export const useCodingAgent = (projectId) => {
     dispatch(clearHistory());
   }, [projectId, dispatch]);
 
-  const deleteMessage = useCallback(async (messageId) => {
-    if (!messageId) return;
+  const deleteMessages = useCallback(async (messageIds) => {
+    if (!messageIds) return;
+    const idsArray = (Array.isArray(messageIds) ? messageIds : [messageIds]).filter(Boolean);
+    if (idsArray.length === 0) return;
+
+    const idsSet = new Set(idsArray.map(id => String(id)));
+
     try {
-      await fetch(`/api/ai/chats/message/${messageId}?agentType=codingAgent`, { method: 'DELETE' });
+      const idString = idsArray.join(',');
+      await fetch(`/api/ai/chats/message/${encodeURIComponent(idString)}?agentType=codingAgent`, { method: 'DELETE' });
     } catch (err) {
-      console.error('Failed to soft delete chat message:', err);
+      console.error('Failed to soft delete chat messages:', err);
     }
-    const updated = messagesRef.current.filter(m => (m._id || m.id) !== messageId && m.id !== messageId);
+
+    const updated = messagesRef.current.filter(m => !idsSet.has(String(m._id)) && !idsSet.has(String(m.id)));
     dispatch(setMessages(updated));
   }, [dispatch]);
+
+  const deleteMessage = useCallback(async (messageId) => {
+    return deleteMessages([messageId]);
+  }, [deleteMessages]);
 
   return {
     messages,
@@ -680,5 +692,6 @@ export const useCodingAgent = (projectId) => {
     stopAgent,
     clearChatHistory,
     deleteMessage,
+    deleteMessages,
   };
 };

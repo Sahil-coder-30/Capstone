@@ -73,6 +73,21 @@ build:
       sync:
         infer:
           - "src/**"
+    - image: payments
+      context: Payments
+      docker:
+        dockerfile: dockerfile
+      sync:
+        infer:
+          - "app/**"
+          - "config/**"
+          - "controllers/**"
+          - "middleware/**"
+          - "models/**"
+          - "routes/**"
+          - "services/**"
+          - "server.js"
+          - "package.json"
     
 manifests:
   rawYaml:
@@ -89,6 +104,5 @@ manifests:
     - k8s/secrets.yml
     - k8s/notification-deployment.yml
     - k8s/notification-service.yml
-        
-  
-  
+    - k8s/payments.deployment.yml
+    - k8s/payments.service.yml

@@ -1,0 +1,74 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: payments-deployment
+  labels:
+    app: payments
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: payments
+  template:
+    metadata:
+      labels:
+        app: payments
+    spec:
+      containers:
+      - name: payments-container
+        image: payments:latest
+        imagePullPolicy: IfNotPresent
+        resources:
+          requests:
+            cpu: "250m"
+            memory: "128Mi"
+          limits:
+            cpu: "500m"
+            memory: "256Mi"
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 5051
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+        readinessProbe:
+          httpGet:
+            path: /readyz
+            port: 5051
+          initialDelaySeconds: 15
+          periodSeconds: 5
+          timeoutSeconds: 5
+        ports:
+        - containerPort: 5051
+          name: payments-http
+        env:
+        - name: PORT
+          value: "5051"
+        - name: MONGO_URI
+          valueFrom:
+            secretKeyRef:
+              name: database
+              key: PAYMENT
+        - name: MQ_URL
+          valueFrom:
+            secretKeyRef:
+              name: database
+              key: MQ_URL
+        - name: JWT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: jwt
+              key: JWT_SECRET
+        - name: RAZORPAY_SECRET_ID
+          valueFrom:
+            secretKeyRef:
+              name: razorpay
+              key: RAZORPAY_SECRET_ID
+        - name: RAZORPAY_SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: razorpay
+              key: RAZORPAY_SECRET_KEY
+        - name: ADMIN_EMAILS
+          value: "sahilsharma3043@gmail.com"

@@ -9,13 +9,14 @@ import CodeEditor from './features/editor/components/CodeEditor';
 import TerminalShell from './features/editor/components/TerminalShell';
 import RuntimeLogs from './features/logs/components/RuntimeLogs';
 import Layout from './components/Layout';
-import Dashboard from './components/Dashboard';
-import LandingPage from './components/LandingPage';
-import Login from './components/Login';
+import Dashboard from './features/dashboard/components/Dashboard';
+import LandingPage from './features/auth/components/LandingPage';
+import Login from './features/auth/components/Login';
+import EntryLoader from './components/EntryLoader';
 import { TakshaIcon, TakshaAnimatedLogo } from './components/BrandLogo';
-import { loginSuccess, loginFailure, logoutThunk } from './features/auth/slice/auth.slice';
-import { fetchMeAPI } from './features/auth/service/auth.api';
-import SettingsPage from './features/settings/pages/SettingsPage';
+import { useAuth } from './features/auth/Hooks/auth.hooks';
+import SettingsPage from './features/settings/components/SettingsPage';
+import PaymentsLandingPage from './features/payments/components/PaymentsLandingPage';
 import { useSandbox } from './features/sandbox/Hooks/sandbox.hooks';
 import { useEditor } from './features/editor/Hooks/editor.hooks';
 import { useWorkspaceSync } from './features/editor/Hooks/useWorkspaceSync';
@@ -142,6 +143,7 @@ export default function App() {
   useWorkspaceSync();
 
   const dispatch = useDispatch();
+  const { verifySession, authLogout } = useAuth();
   const { isAuthenticated, loading, user } = useSelector((state) => state.auth);
   const [currentRoute, setCurrentRoute] = useState('landing'); // 'landing' | 'login'
 
@@ -218,21 +220,8 @@ export default function App() {
 
   // Session verification on mount
   useEffect(() => {
-    const verifySession = async () => {
-      try {
-        const response = await fetchMeAPI();
-        if (response.status === 'success' && response.user) {
-          dispatch(loginSuccess({ user: response.user }));
-        } else {
-          dispatch(loginFailure('Invalid session response'));
-        }
-      } catch (err) {
-        dispatch(loginFailure(err.response?.data?.message || err.message || 'Unauthorized'));
-      }
-    };
-
     verifySession();
-  }, [dispatch]);
+  }, [verifySession]);
 
   // Project state isolation: reset editor/copilot/logs and load project-scoped AI chat
   useEffect(() => {
@@ -418,6 +407,7 @@ export default function App() {
 
   return (
     <>
+      <EntryLoader />
       {currentProjectId ? (
         <div className="app-container animate-fade-in">
           <SandboxHeader 
@@ -808,14 +798,20 @@ export default function App() {
           projectsCount={2}
           onSyncLimits={() => alert('Synced sandbox limits.')}
           onLogout={() => {
-            dispatch(logoutThunk());
+            authLogout();
             window.history.pushState(null, '', window.location.pathname);
           }}
           onBackToDashboard={(tab) => {
-            setDashboardTab(tab);
-            setActiveRoute('dashboard');
+            if (tab === 'payments') {
+              setActiveRoute('payments');
+            } else {
+              setDashboardTab(tab || 'playground');
+              setActiveRoute('dashboard');
+            }
           }}
         />
+      ) : activeRoute === 'payments' ? (
+        <PaymentsLandingPage user={user} />
       ) : (
         <Dashboard
           activeTab={dashboardTab}
