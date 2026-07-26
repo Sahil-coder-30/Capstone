@@ -50,11 +50,17 @@ spec:
               name: database
               key: MQ_URL
         
-        - name:  JWT_SECRET
+        - name:  JWT_ACCESS_SECRET
           valueFrom:
             secretKeyRef:
               name: jwt
-              key: JWT_SECRET
+              key: JWT_ACCESS_SECRET
+
+        - name:  JWT_REFRESH_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: jwt
+              key: JWT_REFRESH_SECRET
 
         - name:  GOOGLE_CLIENT_ID
           valueFrom:

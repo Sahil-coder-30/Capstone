@@ -1,7 +1,7 @@
 import jwt from 'jsonwebtoken';
 
 export const identifyUser = async (req, res, next) => {
-    let token = req.cookies?.token;
+    let token = req.cookies?.accessToken || req.cookies?.token;
     
     if (!token && req.headers.authorization) {
         const [scheme, value] = req.headers.authorization.split(' ');
@@ -18,7 +18,7 @@ export const identifyUser = async (req, res, next) => {
     }
 
     try {
-        const decodedToken = jwt.verify(token, process.env.JWT_SECRET);
+        const decodedToken = jwt.verify(token, process.env.JWT_ACCESS_SECRET);
         req.user = decodedToken;
         req.user.id = decodedToken.id || decodedToken._id;
         req.authToken = token;

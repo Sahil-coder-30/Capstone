@@ -1,30 +1,79 @@
-# AI Sandbox — Cloud Code Editor & AI Orchestration Platform
+# 🚀 AI Sandbox — Platform Architecture & Master Guide
 
-An enterprise-grade, browser-based coding environment where every user gets an **isolated Kubernetes sandbox pod** containing a live React/Vite development server, an S3 workspace synchronization daemon, an interactive terminal, and an AI coding agent. 
+> An enterprise-grade, browser-based cloud IDE where every user gets an isolated Kubernetes sandbox pod containing a live React/Vite development server, an S3 workspace synchronization daemon, an interactive terminal, and an AI coding agent.
 
-Built using a **MERN + Kubernetes (K8s)** microservice architecture, the platform enables users and AI agents to write, test, preview, and deploy applications securely and in real time.
-
----
-
-## Table of Contents
-
-1. [Architecture & System Flow](#1-architecture--system-flow)
-2. [Core Microservices Directory](#2-core-microservices-directory)
-3. [Frontend Architecture & State Management](#3-frontend-architecture--state-management)
-4. [Kubernetes Infrastructure & Orchestration](#4-kubernetes-infrastructure--orchestration)
-5. [User Manual: Step-by-Step Platform Usage](#5-user-manual-step-by-step-platform-usage)
-6. [Model Context Protocol (MCP) Connectors](#6-model-context-protocol-mcp-connectors)
-7. [GitHub App Integration & Credential Security](#7-github-app-integration--credential-security)
-8. [Developer Runbook & Deployment Setup](#8-developer-runbook--deployment-setup)
-9. [API Catalog & Reference](#9-api-catalog--reference)
-10. [Configuration Matrix (Environment Variables)](#10-configuration-matrix-environment-variables)
-11. [Workspace Directory Mapping](#11-workspace-directory-mapping)
+![Version](https://img.shields.io/badge/version-1.0.0-blue)
+![Status](https://img.shields.io/badge/status-Production-brightgreen)
+![Architecture](https://img.shields.io/badge/architecture-MERN%20%2B%20Kubernetes-informational)
 
 ---
 
-## 1. Architecture & System Flow
+## 📖 Table of Contents
+- [Overview & The "Why"](#-overview--the-why)
+- [Built Features & Current State](#-built-features--current-state)
+- [Architecture & Design Patterns](#-architecture--design-patterns)
+- [Usage & Setup](#-usage--setup)
+- [Communication & Contracts](#-communication--contracts)
+- [Production Readiness](#-production-readiness)
+- [Changelog & Migration State](#-changelog--migration-state)
 
-The AI Sandbox operates as a distributed system across core services (managing authentication, AI models, and databases) and dynamic, isolated user sandbox environments in Kubernetes.
+---
+
+## 🎯 Overview & The "Why"
+
+### What this platform does
+AI Sandbox is a multi-tenant cloud IDE platform built on a MERN + Kubernetes (K8s) microservice architecture. It enables users and AI agents to write, test, preview, and deploy applications securely in real time. Each workspace runs in an isolated K8s Pod equipped with a Vite dev server, a File System API sidecar, a terminal PTY server, and a real-time S3 sync daemon.
+
+### Why this is built as a set of microservices (not a monolith)
+
+- **Bounded context separation:** Authentication, AI Orchestration, K8s Pod Lifecycle, Billing/Payments, and Routing are decoupled into independent services. No service touches another's database or internal state.
+- **Asymmetric scaling:** Compute-heavy AI LangGraph loops, fast stateless JWT auth checks, and high-concurrency WebSocket proxies scale independently according to their specific resource demands.
+- **Blast radius isolation:** A failure in an AI provider call or payment gateway does not affect active sandbox pods, file editing, or terminal sessions.
+- **Data isolation strategy:** Database-per-service (MongoDB databases for `auth`, `ai`, `sandbox`, `payment`). Redis for session caching and pod liveness. S3 for workspace persistence.
+
+### Service Inventory & Callers
+
+| Service | Bounded Context | Datastore | Sync Role | Async Role |
+|---|---|---|---|---|
+| **Auth Service** | Identity, OAuth, JWT, Users | MongoDB (`auth`), Redis | Handles `/api/auth/*` | Produces to `auth_notification_queue` |
+| **AI Orchestration** | LangGraph ReAct agent, LLM routing | MongoDB (`ai`), Redis | Handles `/api/ai/*` | Streams steps via Socket.io |
+| **Notification** | Transactional emails | None (Stateless) | Health checks only (`/healthz`, `/ready`) | Consumes `auth` & `payment` queues |
+| **Payments** | Razorpay, Credit ledger, Admin | MongoDB (`payment`) | Handles `/api/payments/*` | Produces to `payment_notification_queue` |
+| **Sandbox Server** | K8s Pod & Service lifecycle | MongoDB (`sandbox`), Redis | Handles `/api/sandbox/*` | Updates Redis TTL |
+| **Sandbox Router** | Subdomain reverse proxy | Redis | Proxies `*.preview.*` & `*.agent.*` | Websocket upgrade proxy |
+| **Agent Sidecar** | Filesystem & PTY terminal | Local Pod `/workspace` | File API (`/api/agent/*`) | Socket.io terminal & chokidar |
+| **Sync Agent** | Workspace S3 persistence | AWS S3 | None (Daemon) | File watcher sync to S3 |
+| **Template** | Seed workspace scaffold | Static Image | Init container copy | None |
+| **Frontend** | Browser SPA & IDE layout | Redux State | Calls REST APIs | Connects to Socket.io |
+
+---
+
+## 🚧 Built Features & Current State
+
+### Current state
+| Field | Value |
+|---|---|
+| **Status** | 🟢 Production |
+| **Version** | v1.0.0 |
+| **Last deployed** | 2026-07 |
+| **Owner(s)** | Sahil Sharma |
+
+### Features built (working today)
+
+- **Authentication & Identity**: Google OAuth 2.0, JWT access/refresh token rotation, user profiles, preferences — ✅ done
+- **AI Agent Brain**: LangGraph ReAct loop with multi-provider routing (Mistral Devstral, Gemini, OpenAI, Cohere, Tavily), tool-assisted file/terminal execution, chat history CRUD — ✅ done
+- **Kubernetes Sandbox Provisioning**: Dynamic multi-container pod creation, automatic service binding, UUID-based subdomain assignment — ✅ done
+- **Subdomain Routing & Terminal Proxy**: Host-header dispatch (`*.preview.localhost` → Vite :5173, `*.agent.localhost` → Agent :3000), Socket.io terminal bridge (`xterm.js` + `node-pty`) — ✅ done
+- **Real-time File Synchronization**: S3 workspace backup/restore daemon with debouncing and concurrency throttling — ✅ done
+- **Credit & Billing Engine**: Razorpay webhook integration with HMAC-SHA256 signature verification, credit buckets, transaction audit log, admin grant/reset panel — ✅ done
+- **Notification Engine**: RabbitMQ consumer rendering HTML email templates for auth and payment events via Nodemailer — ✅ done
+- **Model Context Protocol (MCP)**: Dynamic tool handshake and connector bridge for external integrations (Postgres, Slack, Jira, Figma) — ✅ done
+
+---
+
+## 🏗️ Architecture & Design Patterns
+
+### System Architecture Diagram
 
 ```
                           User (Browser UI / Terminal)
@@ -34,16 +83,16 @@ The AI Sandbox operates as a distributed system across core services (managing a
      │                     Nginx Ingress Controller                     │
      │                                                                  │
      │  /api/auth/* ─────────► auth-service                             │
-     │  /api/github/* ───────► github-service                           │
      │  /api/ai/* ───────────► ai-service                               │
      │  /api/sandbox/* ──────► sandbox-service                          │
+     │  /api/payments/* ─────► payments-service                         │
      │  *.preview.localhost ─► router-service (proxies to Vite App)     │
      │  *.agent.localhost ───► router-service (proxies to Sidecar API)  │
      └──────────────────────────────────────────────────────────────────┘
             │               │                │               │
             ▼               ▼                ▼               ▼
      ┌─────────────┐ ┌─────────────┐  ┌─────────────┐ ┌─────────────┐
-     │    Auth     │ │   GitHub    │  │     AI      │ │   Sandbox   │
+     │    Auth     │ │  Payments   │  │     AI      │ │   Sandbox   │
      │   Service   │ │   Service   │  │Orchestration│ │   Server    │
      │  (Express)  │ │  (Express)  │  │(LangGraph)  │ │(K8s Control)│
      └──────┬──────┘ └──────┬──────┘  └──────┬──────┘ └──────┬──────┘
@@ -72,273 +121,101 @@ The AI Sandbox operates as a distributed system across core services (managing a
                                                       AWS S3 Storage
 ```
 
-### Flow Cycles
-* **Initialization**: When a user logs in and starts a project, the `sandbox-service` provisions a K8s pod. The template workspace is loaded, and the `sync-agent` checks S3. If user backups exist, they are pulled down to `/workspace`, overriding the blank templates.
-* **Orchestration Loop**: The AI Agent receives prompts, creates a multi-step checklist, and utilizes custom filesystem and execution tools (File API) to build out the application. The Vite container auto-updates via HMR.
-* **Credential Ingestion**: GitHub App OAuth is completed on the `auth-service`. When git operations are run, the `agent-container` sidecar dynamically fetches a short-lived token and configures git configs outside the watched workspace.
-
----
-
-## 2. Core Microservices Directory
-
-### A. Auth Service
-* **Path**: `Auth/` | **Port**: `3000` | **Db**: MongoDB (`auth` db) + Redis
-* **Role**: Identity gateway. Handles user onboarding, credentials verification (bcrypt), JWT generation, and profile configurations.
-* **Token Storage**: Hosts the encryption code for GitHub App installation keys using `AES-256-GCM`.
-* **State Manager**: Handles active session cache and publishes notifications/events onto RabbitMQ exchanges.
-
-### B. GitHub Service
-* **Path**: `Github/` | **Port**: `3000`
-* **Role**: Integrates platform operations with the GitHub API. Provides listing, creation, and issue tracking dashboards.
-* **Authentication**: Signs internal requests to the Auth Service using short-TTL (30s) JWTs to obtain active installation tokens.
-
-### C. AI Orchestration Service
-* **Path**: `Ai_orchestration/` | **Port**: `3000`
-* **Role**: Brain of the AI Agent. Runs LangGraph ReAct loops using Mistral Devstral. Exposes LangChain tools to inspect the sandbox filesystem and execute commands.
-
-### D. Sandbox Control Server
-* **Path**: `Sandbox/server/` | **Port**: `3000` (internal)
-* **Role**: Orchestrates Kubernetes resource lifecycles. Uses the official Kubernetes Node client to build, monitor, and clean up pods and services dynamically.
-
-### E. Router Service
-* **Path**: `Sandbox/router/` | **Port**: `3000`
-* **Role**: Unified path/subdomain routing. Proxies client WebSocket and HTTP requests to the target pod's Vite server or Agent API using cached service maps.
-
-### F. S3 Sync Agent
-* **Path**: `Sandbox/sync-agent/`
-* **Role**: Runs as a daemon container inside sandbox pods. Watches `/workspace` for real-time changes and synchronizes the directory structure with AWS S3.
-
-### G. Notification Service
-* **Path**: `Notification/`
-* **Role**: Listens to RabbitMQ message streams and triggers email alerts (SMTP) for user quota limits, verification codes, and events.
-
-### H. Frontend Web App
-* **Path**: `Frontend/` | **Port**: `5173` (dev)
-* **Role**: Client Dashboard. Includes Monaco Editor integration, WebSocket-based terminal using `xterm.js`, live preview frame, and chat assistant drawer.
-
----
-
-## 3. Frontend Architecture & State Management
-
-The frontend dashboard is designed as a feature-based, highly modular Single Page Application (SPA) built on **React** and bundled via **Vite**. Global state is managed using **Redux Toolkit** with asynchronous operations handled via Redux Thunks.
-
-### Directory Structure & Modular Design
-All code lives in [Frontend/src](file:///Users/home/Desktop/Capstone/Frontend/src), partitioned into reusable features:
-* **`auth`**: Handles user login, registration, JWT session storage, and route authorization.
-* **`sandbox`**: Manages K8s sandbox lifecycle actions (starting, restarting, retrieving health statuses) and retains active sandbox preview and agent URLs.
-* **`editor`**: Mounts Monaco Editor (`@monaco-editor/react`) for code editing, maps the file explorer hierarchy recursively, and tracks open tabs.
-* **`logs`**: Streams Vite container output, allowing users to watch compilation stages in real time.
-* **`chat` & `coding-agent`**: Directs AI agent prompts. Contains the SSE reader that parses token streams from the LangGraph agent and renders active execution plans.
-* **`settings`**: Manages appearance setups, theme selections, and GitHub integration connectivity.
-
-### Redux State Store Topology
-The global Redux store configures isolated slices of state in [store.js](file:///Users/home/Desktop/Capstone/Frontend/src/store.js):
-```javascript
-export const store = configureStore({
-  reducer: {
-    sandbox: sandboxReducer,     // status ('starting'|'running'), previewUrl, agentUrl
-    editor: editorReducer,       // activeFile, openTabs, fileTree
-    codingAgent: codingAgentReducer, // currentStep, agentSteps, isThinking
-    copilot: copilotReducer,     // autocomplete states & selections
-    logs: logsReducer,           // Vite server stderr/stdout logs
-    auth: authReducer,           // activeUser, jwtToken, loginStatus
-    settings: settingsReducer,   // layout, keybindings, theme config
-  },
-});
-```
-
-### Low-Latency Terminal Bridge
-The terminal pane utilizes `@xterm/xterm` with the `@xterm/addon-fit` layout plugin to match container boundaries.
-1. When the terminal mounts, a direct connection is established over Socket.io using a reverse-proxied route `/api/terminal-proxy/socket.io?sandboxId=...`.
-2. Input events captured by `xterm.onData` emit a `terminal-input` WebSocket payload.
-3. The sandbox `node-pty` process executes commands and emits back `terminal-output`, which is written directly to the xterm viewport with minimal latency.
-
----
-
-## 4. Kubernetes Infrastructure & Orchestration
-
-### Dynamic Pod Architecture
-When a user launches a workspace, the Sandbox Server provisions a Pod containing:
-* **`init-container`**: Pulls the starter React template and seeds the shared emptyDir volume.
-* **`sandbox-container`**: Mounts `/workspace` and boots up the Vite Dev Server (port `5173`).
-* **`agent-container`**: Mounts `/workspace`, runs the File System API sidecar, and initiates the terminal PTY process.
-* **`sync-agent-container`**: Mounts `/workspace` and runs the file backup daemon.
-
-### RBAC Requirements
-The Sandbox Server relies on a ServiceAccount named `resource-manager` with cluster permissions configured in `k8s/rabc.yml`:
-```yaml
-apiVersion: rbac.authorization.k8s.io/v1
-kind: Role
-metadata:
-  name: pod-manager-role
-rules:
-  - apiGroups: [""]
-    resources: ["pods", "pods/log", "pods/exec", "services", "deployments"]
-    verbs: ["get", "list", "watch", "create", "delete"]
-```
-
----
-
-## 5. User Manual: Step-by-Step Platform Usage
-
-### Step 5.1: Signup & Session Login
-* Navigate to the dashboard. Enter your email and password.
-* The system saves your profile in MongoDB and sends a verification email via the RabbitMQ `Notification Service`.
-* Once logged in, your browser retains a secured platform JWT.
-
-### Step 5.2: Launch a Coding Sandbox
-* Click **"New Project"**.
-* The frontend hits `POST /api/sandbox/start`. The control plane schedules your pod, and the S3 Sync Agent checks for previous code backups.
-* Once the pod status reports `running`, the dashboard mounts the file explorer, boots the terminal, and renders the live preview panel.
-
-### Step 5.3: Work with Monaco Editor & Interactive Terminal
-* Select any file in the explorer to load it into the **Monaco Editor**. Edits are patched via `PATCH /api/agent/update-file`.
-* Use the terminal panel to run shell commands. Input is piped over Socket.io directly to `node-pty` in the sidecar.
-
-### Step 5.4: Prompting the AI Coding Agent
-* Open the **AI Chat** panel and enter a request.
-* The orchestrator activates the LangGraph loop: planning steps, executing file updates, and verifying compilation.
-
-### Step 5.5: Connecting GitHub & Syncing Repositories
-* Navigate to Settings → Integrations → Connect GitHub.
-* Authorize the platform's **GitHub App**.
-* The Auth Service saves the authorized `installationId`. You can now run `git` operations inside the terminal.
-
----
-
-## 6. Model Context Protocol (MCP) Connectors
-
-The platform utilizes Anthropic's **Model Context Protocol (MCP)** to allow the AI Agent to dynamically connect to and orchestrate external applications (such as Postgres, Slack, Jira, Figma, or search APIs) without modifying the core orchestrator codebase.
-
-```
-                      ┌──────────────────────────────────────┐
-                      │    AI Orchestration (MCP Client)     │
-                      └──────────┬────────────────────┬──────┘
-                                 │                    │
-                  (SSE / WS)     │                    │ (SSE / WS)
-            ┌────────────────────▼───┐            ┌───▼────────────────────┐
-            │   Sandbox Local DB     │            │ External App Connector │
-            │      MCP Server        │            │ (Slack/Jira MCP Server)│
-            └────────────────────────┘            └────────────────────────┘
-```
-
-### Dynamic Application Integration
-* **Host-to-Server Protocol**: The AI Orchestration agent acts as an **MCP Client (Host)**. On sandbox startup, it establishes connections to active MCP servers via Server-Sent Events (SSE) or WebSockets.
-* **External Application Bridges**: MCP Servers act as isolated gateways to third-party applications. By exposing standard tool protocols, they allow the AI Agent to:
-  * **Database Connectors**: Run schema queries and fetch diagnostics on sandboxed databases.
-  * **Collaboration Tools**: Send progress notifications to Slack channels or fetch task updates from Jira cards.
-  * **Design Integrations**: Fetch UI assets and color schemas from Figma layout models.
-* **Security & Isolation**: The credentials and OAuth keys for these external integrations are isolated on the specific MCP server (which is protected inside the sandbox network namespace). The LLM orchestrator never touches or holds these raw third-party access tokens.
-* **Dynamic Protocol Handshake**:
-  1. The agent calls `tools/list` to fetch the schemas of all available operations.
-  2. The tools are instantly registered inside the LangGraph ReAct loop.
-  3. The agent triggers actions by sending a JSON-RPC request `tools/call` containing the tool name and arguments.
-
----
-
-## 7. GitHub App Integration & Credential Security
-
-Our platform enforces strict credential isolation to protect user access tokens.
-
-### Dynamic Installation Tokens
-* **Security Choice**: We use a **GitHub App**. The database only stores `installationId`. Raw access tokens are never saved.
-* **Sandbox Isolation**: `.gitconfig` and `.git-credentials` are saved to the container user's home directory (`/root`), keeping them isolated from the project `/workspace`.
-* **Sync Blockers**: The S3 backup daemon filters out credential paths.
-* **LLM Leak Shields**: The `execute` endpoint sanitizes command subprocesses by deleting `GITHUB_TOKEN` from their environments and redacting token signatures from stdout/stderr.
-
----
-
-## 8. Developer Runbook & Deployment Setup
-
-### Prerequisites
-* [Docker Desktop](https://www.docker.com/) or [Minikube](https://minikube.sigs.k8s.io/).
-* [Skaffold CLI](https://skaffold.dev/).
-* [Nginx Ingress Controller](https://kubernetes.github.io/ingress-nginx/).
-
-### Launch Cluster
-Boot the stack using Skaffold:
-```bash
-skaffold dev
-```
-
-### Local Hosts File Mapping
-```text
-127.0.0.1 sandbox.localhost
-127.0.0.1 ai.localhost
-127.0.0.1 router.localhost
-127.0.0.1 *.preview.localhost
-127.0.0.1 *.agent.localhost
-```
-
----
-
-## 9. API Catalog & Reference
-
-### Auth Service APIs
-* `POST /api/auth/register`: Create user.
-* `GET /api/auth/github`: Initiate GitHub Auth.
-* `DELETE /api/auth/github`: Revoke GitHub integration.
-
-### Sandbox Control APIs
-* `POST /api/sandbox/start`: Provisions a user pod and service.
-
-### Sidecar Agent APIs
-* `GET /api/agent/list-files`: List files.
-* `PATCH /api/agent/update-file`: Update code content.
-
----
-
-## 10. Configuration Matrix (Environment Variables)
-
-| Variable Name | Purpose |
-| :--- | :--- |
-| `MONGO_URI` | Auth Service Database Connection |
-| `REDIS_URL` | Session and Event Cache |
-| `RABBITMQ_URL` | Event Message Broker |
-| `GITHUB_APP_ID` | Application ID for token creation |
-| `AWS_BUCKET_NAME` | Target S3 bucket for project code |
-
----
-
-## 11. Workspace Directory Mapping
+### Directory Structure & Mapping
 
 ```
 Capstone/
-│
-├── Ai_orchestration/                # Agent brain (LangGraph, MCP Host, tools)
-│
-└── Sandbox/
-    ├── server/                      # Sandbox Server (pod lifecycle)
-    │   └── src/
-    │       ├── app/app.js           # Express app, /start endpoint
-    │       └── kubernetes/
-    │           ├── config.js        # k8s client setup (in-cluster)
-    │           ├── pod.js           # createPod() function
-    │           └── service.js       # createService() function
-    │
-    ├── router/                      # Router (sub-domain proxy)
-    │   └── src/app.js
-    │
-    ├── Agent/                       # Agent Sidecar (file API)
-    │   └── src/app.js               # list/read/create/update file routes
-    │
-    └── template/                    # Blank React+Vite seed project
+├── Ai_orchestration/                # Agent brain (LangGraph ReAct loop, tools)
+├── Auth/                            # Identity gateway (Google OAuth, JWT)
+├── Frontend/                        # Client dashboard (Monaco, xterm.js, Redux)
+├── Notification/                    # RabbitMQ email engine
+├── Payments/                        # Razorpay & credit billing ledger
+├── Sandbox/
+│   ├── Agent/                       # Sidecar filesystem & terminal PTY API
+│   ├── router/                      # Subdomain HTTP/WS reverse proxy
+│   ├── server/                      # K8s control plane (pod lifecycle)
+│   ├── sync-agent/                  # Real-time S3 sync daemon
+│   └── template/                    # React 19 + Vite 8 starter seed
+└── k8s/                             # Kubernetes manifests & secrets
 ```
 
 ---
 
-## Key Dependencies
+## ⚙️ Usage & Setup
 
-| Package | Service | Purpose |
-| :--- | :--- | :--- |
-| `@langchain/mistralai` | AI Orchestration | Mistral Devstral LLM client |
-| `@langchain/langgraph` | AI Orchestration | ReAct agent loop |
-| `@langchain/core` | AI Orchestration | Tool definition helpers |
-| `zod` | AI Orchestration | Tool schema validation |
-| `axios` | AI Orchestration | HTTP calls to Agent Sidecar |
-| `@kubernetes/client-node` | Sandbox Server | Kubernetes API (create pods/services) |
-| `uuid` | Sandbox Server | Generate sandbox UUIDs |
-| `http-proxy-middleware` | Router | Sub-domain reverse proxy |
-| `express` | All services | HTTP server |
-| `morgan` | All services | HTTP request logging |
-| `nodemon` | All services (dev) | Hot-reload for Node.js |
+### Environment variables
+| Key | Required | Description | Example (fake) |
+|---|---|---|---|
+| `PORT` | ✅ | HTTP listen port per service | `3000` |
+| `MONGO_URI` | ✅ | MongoDB connection URI per database | `mongodb+srv://user:fake@cluster.net/db` |
+| `REDIS_URI` | ✅ | Redis connection string | `redis://default:password@host:6379` |
+| `MQ_URL` | ✅ | RabbitMQ connection URI | `amqps://user:pass@broker.cloudamqp.com/vhost` |
+| `JWT_ACCESS_SECRET` | ✅ | Shared JWT access signing key | `your-256-bit-random-secret` |
+| `GOOGLE_CLIENT_ID` | ✅ | Google OAuth client ID | `123456789.apps.googleusercontent.com` |
+| `MISTRALAI_API_KEY` | ✅ | Mistral AI API key | `fake_mistral_key_xxxx` |
+| `RAZORPAY_SECRET_ID` | ✅ | Razorpay Key ID | `rzp_test_fake_key_id` |
+| `AWS_BUCKET_NAME` | ✅ | S3 workspace storage bucket | `codespace-sync-bucket` |
+
+### Run locally
+
+```bash
+# 1. Install dependencies across microservices
+cd Auth && npm install && cd ..
+cd Ai_orchestration && npm install && cd ..
+cd Payments && npm install && cd ..
+cd Notification && npm install && cd ..
+cd Sandbox/server && npm install && cd ..
+cd Sandbox/router && npm install && cd ..
+cd Sandbox/Agent && npm install && cd ..
+cd Sandbox/sync-agent && npm install && cd ..
+cd Frontend && npm install && cd ..
+
+# 2. Setup Kubernetes dev cluster with Skaffold
+skaffold dev
+
+# 3. Access local dashboard
+# Open http://localhost:5173 or local Ingress route
+```
+
+---
+
+## 🔌 Communication & Contracts
+
+### Synchronous REST Endpoints
+- **Auth**: `/api/auth/google`, `/api/auth/getMe`, `/api/auth/refresh`, `/api/auth/logout`
+- **AI Orchestration**: `/api/ai/app-agent/invoke`, `/api/ai/app-agent/title`, `/api/ai/chats/*`
+- **Sandbox Server**: `/api/sandbox/create-project`, `/api/sandbox/projects`, `/api/sandbox/start/:id`, `/api/sandbox/stop/:id`
+- **Payments**: `/api/payments/credit`, `/api/payments/credit/packages`, `/api/payments/credit/transactions`, `/api/payments/admin/*`
+- **Agent Sidecar**: `/api/agent/files`, `/api/agent/file`, `/api/agent/update-file`, `/api/agent/execute`
+
+### Asynchronous Event Bus (RabbitMQ)
+- `auth_notification_queue`: Consumes `auth.user.loggedIn`, `auth.user.loggedOut`
+- `payment_notification_queue`: Consumes `payment.credit.topup`, `payment.subscription.changed`
+
+---
+
+## 🛡️ Production Readiness
+
+### Health & Observability
+- **Liveness Probes**: `/healthz` endpoints implemented in services (e.g. Notification, Router). TCP socket liveness probes used for core API pods.
+- **Readiness Probes**: `/ready` and `/readyz` endpoints verify datastore (MongoDB, Redis) and broker (RabbitMQ) connectivity before accepting traffic.
+- **Graceful Shutdown**: SIGTERM handlers flush in-flight operations (e.g. Sync Agent S3 upload queue) prior to pod termination.
+
+### Security Posture
+- **JWT Verification**: RS-256 / HS-256 tokens validated locally across backend services.
+- **K8s RBAC**: ServiceAccount `resource-manager` scoped to minimal pod/service verbs in `k8s/rabc.yml`.
+- **HMAC Signatures**: Razorpay webhooks verified via HMAC-SHA256 signatures before applying credit updates.
+
+---
+
+## 📝 Changelog & Migration State
+
+| Version | Date | Change Description | Migration Notes |
+|---|---|---|---|
+| `v1.0.0` | 2026-07 | Production release: MERN + K8s architecture, LangGraph AI agent, S3 sync, Razorpay billing | Initial release |
+
+---
+
+## 🤝 Ownership
+- **Maintainer(s)**: Sahil Sharma
+- **Escalation**: Open a repository issue or contact platform maintainers.

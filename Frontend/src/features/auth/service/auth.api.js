@@ -1,11 +1,11 @@
-import axios from 'axios';
+import apiClient from '../../../services/apiClient';
 
 /**
  * Fetch details of the currently logged-in user.
  * Returns the user model (name, email, photo, etc.) from Google OAuth.
  */
 export const fetchMeAPI = async () => {
-  const response = await axios.get('/api/auth/getMe');
+  const response = await apiClient.get('/api/auth/getMe');
   return response.data;
 };
 
@@ -14,6 +14,6 @@ export const fetchMeAPI = async () => {
  * Calls the backend which blacklists the JWT in Redis and clears the httpOnly cookie.
  */
 export const logoutAPI = async () => {
-  const response = await axios.post('/api/auth/logout');
+  const response = await apiClient.post('/api/auth/logout');
   return response.data;
 };

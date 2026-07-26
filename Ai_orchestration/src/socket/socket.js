@@ -159,7 +159,7 @@ export const initSocketIO = (server) => {
       const cookieHeader = socket.handshake.headers.cookie;
       let token = null;
       if (cookieHeader) {
-        const match = cookieHeader.match(/token=([^;]+)/);
+        const match = cookieHeader.match(/(?:accessToken|token)=([^;]+)/);
         if (match) token = match[1];
       }
       
@@ -172,7 +172,7 @@ export const initSocketIO = (server) => {
         return next(new Error("Authentication error: No token provided"));
       }
 
-      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      const decoded = jwt.verify(token, process.env.JWT_ACCESS_SECRET);
       socket.user = decoded;
       socket.authToken = token;
       next();

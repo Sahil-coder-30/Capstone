@@ -4,6 +4,7 @@ import {
     authGoogleCallbackController,
     authGetMeController,
     authLogoutController,
+    authGenerateAccessToken,
 } from '../controllers/auth.controller.js';
 import { identifyUser } from '../middleware/auth.middleware.js';
 
@@ -19,6 +20,9 @@ authRouter.get('/google/callback', passport.authenticate('google', {
 
 // ── Session ───────────────────────────────────────────────────────────────────
 authRouter.get('/getMe', identifyUser, authGetMeController);
+
+// ── Token Refresh ──
+authRouter.post('/refresh', authGenerateAccessToken);
 
 // ── Logout ──
 authRouter.post('/logout', identifyUser, authLogoutController);

@@ -51,17 +51,19 @@ spec:
                 name: database
                 key: AI
 
-          - name: JWT_SECRET
+          - name: JWT_ACCESS_SECRET
             valueFrom:
               secretKeyRef:
                 name: jwt
-                key: JWT_SECRET
+                key: JWT_ACCESS_SECRET
 
           - name: REDIS_URI
             valueFrom:
               secretKeyRef:
                 name: database
                 key: REDIS_URI      
+          - name: PAYMENTS_SERVICE_URL
+            value: "http://payments-service"
         livenessProbe:
           httpGet:
             path: /api/ai/healthz

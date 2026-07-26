@@ -1,5 +1,24 @@
 import { createSlice } from '@reduxjs/toolkit';
 
+// ─── Debounced localStorage save ──────────────────────────────────────────────
+// Streaming dispatches updateLastMessage on EVERY token — saving to localStorage
+// on each token blocks the main thread. Debounce so we only write after the
+// stream goes quiet for 600 ms (or immediately on addMessage / setMessages).
+const _saveTimers = {};
+const saveMessages = (key, messages, immediate = false) => {
+  if (immediate) {
+    clearTimeout(_saveTimers[key]);
+    delete _saveTimers[key];
+    try { localStorage.setItem(key, JSON.stringify(messages)); } catch { /* quota */ }
+    return;
+  }
+  clearTimeout(_saveTimers[key]);
+  _saveTimers[key] = setTimeout(() => {
+    try { localStorage.setItem(key, JSON.stringify(messages)); } catch { /* quota */ }
+    delete _saveTimers[key];
+  }, 600);
+};
+
 const WELCOME_MSG = {
   id: 'welcome',
   role: 'assistant',
@@ -43,8 +62,8 @@ const codingAgentSlice = createSlice({
         text: '',
         ...action.payload,
       });
-      const key = getStorageKey(state.activeProjectId);
-      localStorage.setItem(key, JSON.stringify(state.messages));
+      // Immediate save — a new message is a structural change, not a stream tick
+      saveMessages(getStorageKey(state.activeProjectId), state.messages, true);
     },
     updateLastMessage(state, action) {
       if (state.messages.length > 0) {
@@ -58,8 +77,8 @@ const codingAgentSlice = createSlice({
           if (streamState !== undefined) lastMsg.streamState = streamState;
         }
       }
-      const key = getStorageKey(state.activeProjectId);
-      localStorage.setItem(key, JSON.stringify(state.messages));
+      // Debounced — streaming tokens fire this hundreds of times; only flush after quiet period
+      saveMessages(getStorageKey(state.activeProjectId), state.messages, false);
     },
     setStreaming(state, action) {
       state.isStreaming = action.payload;
@@ -69,8 +88,8 @@ const codingAgentSlice = createSlice({
     },
     setMessages(state, action) {
       state.messages = action.payload;
-      const key = getStorageKey(state.activeProjectId);
-      localStorage.setItem(key, JSON.stringify(state.messages));
+      // Immediate save — setMessages is a bulk structural update, not a stream tick
+      saveMessages(getStorageKey(state.activeProjectId), state.messages, true);
     },
     clearHistory(state) {
       state.messages = [WELCOME_MSG];

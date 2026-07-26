@@ -15,7 +15,7 @@ import jwt from 'jsonwebtoken';
  */
 export const identifyAdmin = async (req, res, next) => {
     // ── Step 1: Extract Token ─────────────────────────────────────────────────
-    let token = req.cookies?.token;
+    let token = req.cookies?.accessToken || req.cookies?.token;
     if (!token && req.headers.authorization) {
         const [scheme, value] = req.headers.authorization.split(' ');
         if (scheme?.toLowerCase() === 'bearer' && value) {
@@ -33,7 +33,7 @@ export const identifyAdmin = async (req, res, next) => {
     // ── Step 2: Verify JWT ────────────────────────────────────────────────────
     let decoded;
     try {
-        decoded = jwt.verify(token, process.env.JWT_SECRET);
+        decoded = jwt.verify(token, process.env.JWT_ACCESS_SECRET);
     } catch {
         return res.status(401).json({
             status: 'error',

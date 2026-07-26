@@ -55,11 +55,11 @@ spec:
             secretKeyRef:
               name: database
               key: MQ_URL
-        - name: JWT_SECRET
+        - name: JWT_ACCESS_SECRET
           valueFrom:
             secretKeyRef:
               name: jwt
-              key: JWT_SECRET
+              key: JWT_ACCESS_SECRET
         - name: RAZORPAY_SECRET_ID
           valueFrom:
             secretKeyRef:

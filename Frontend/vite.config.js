@@ -6,9 +6,19 @@ export default defineConfig({
   plugins: [
     react()
   ],
+  css: {
+    preprocessorOptions: {
+      scss: {
+        // 'modern-compiler' causes esbuild goroutine deadlock on macOS arm64
+        // Leave unset to use the default sass API (stable)
+      }
+    }
+  },
+
   server: {
     host: '0.0.0.0',
     port: 5173,
+    strictPort: true,
     cors: {
       origin: /^https?:\/\/(?:.+\.)?localhost(?::\d+)?$/
     },
@@ -36,6 +46,7 @@ export default defineConfig({
           });
         },
         rewrite: (path) => path.replace(/^\/api\/agent-proxy/, '')
+       
       },
 
       // 2. Preview Ping
@@ -87,7 +98,7 @@ export default defineConfig({
       },
 
       // 4. General orchestration API
-      '^/api/(?!agent-proxy|preview-ping|terminal-proxy)(?:/.*)?': {
+      '/api': {
         target: 'http://localhost',
         changeOrigin: true,
         secure: false,
