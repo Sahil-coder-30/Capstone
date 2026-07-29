@@ -1,4 +1,4 @@
-import axios from 'axios';
+import apiClient from '../../../services/apiClient';
 
 /**
  * All requests use RELATIVE paths so the Vite dev server proxy
@@ -6,27 +6,27 @@ import axios from 'axios';
  */
 
 export const startSandboxAPI = async (projectId) => {
-  const response = await axios.post(`/api/sandbox/start/${projectId}`, {}, { timeout: 120_000 });
+  const response = await apiClient.post(`/api/sandbox/start/${projectId}`, {}, { timeout: 120_000 });
   return response.data;
 };
 
 export const createProjectAPI = async (title) => {
-  const response = await axios.post('/api/sandbox/create-project', { title }, { timeout: 30_000 });
+  const response = await apiClient.post('/api/sandbox/create-project', { title }, { timeout: 30_000 });
   return response.data;
 };
 
 export const listProjectsAPI = async () => {
-  const response = await axios.get('/api/sandbox/projects', { timeout: 30_000 });
+  const response = await apiClient.get('/api/sandbox/projects', { timeout: 30_000 });
   return response.data;
 };
 
 export const getProjectStatusAPI = async (projectId) => {
-  const response = await axios.get(`/api/sandbox/project/${projectId}`, { timeout: 30_000 });
+  const response = await apiClient.get(`/api/sandbox/project/${projectId}`, { timeout: 30_000 });
   return response.data;
 };
 
 export const checkSandboxHealthAPI = async (sandboxId) => {
-  const response = await axios.get(`/api/sandbox/health/${sandboxId}`, { timeout: 30_000 });
+  const response = await apiClient.get(`/api/sandbox/health/${sandboxId}`, { timeout: 30_000 });
   return response.data;
 };
 
@@ -35,7 +35,7 @@ export const checkSandboxHealthAPI = async (sandboxId) => {
  * Tears down: K8s Pod + Service + Redis key.  Status → "down".
  */
 export const stopSandboxAPI = async (projectId) => {
-  const response = await axios.post(`/api/sandbox/stop/${projectId}`, {}, { timeout: 120_000 });
+  const response = await apiClient.post(`/api/sandbox/stop/${projectId}`, {}, { timeout: 120_000 });
   return response.data;
 };
 
@@ -44,42 +44,42 @@ export const stopSandboxAPI = async (projectId) => {
  * If the sandbox was live, K8s resources are removed first.
  */
 export const deleteProjectAPI = async (projectId) => {
-  const response = await axios.delete(`/api/sandbox/project/${projectId}`, { timeout: 120_000 });
+  const response = await apiClient.delete(`/api/sandbox/project/${projectId}`, { timeout: 120_000 });
   return response.data;
 };
 
 export const listTrashProjectsAPI = async () => {
-  const response = await axios.get('/api/sandbox/projects/trash', { timeout: 30_000 });
+  const response = await apiClient.get('/api/sandbox/projects/trash', { timeout: 30_000 });
   return response.data;
 };
 
 export const restoreProjectAPI = async (projectId) => {
-  const response = await axios.patch(`/api/sandbox/project/${projectId}/restore`, {}, { timeout: 30_000 });
+  const response = await apiClient.patch(`/api/sandbox/project/${projectId}/restore`, {}, { timeout: 30_000 });
   return response.data;
 };
 
 export const permanentlyDeleteProjectAPI = async (projectId) => {
-  const response = await axios.delete(`/api/sandbox/project/${projectId}/permanent`, { timeout: 120_000 });
+  const response = await apiClient.delete(`/api/sandbox/project/${projectId}/permanent`, { timeout: 120_000 });
   return response.data;
 };
 
 export const getTrashChatsAPI = async () => {
-  const response = await axios.get('/api/ai/chats/trash', { timeout: 30_000 });
+  const response = await apiClient.get('/api/ai/chats/trash', { timeout: 30_000 });
   return response.data;
 };
 
 export const deleteSingleChatMessageAPI = async (messageId, agentType = 'codingAgent') => {
-  const response = await axios.delete(`/api/ai/chats/message/${messageId}?agentType=${agentType}`, { timeout: 30_000 });
+  const response = await apiClient.delete(`/api/ai/chats/message/${messageId}?agentType=${agentType}`, { timeout: 30_000 });
   return response.data;
 };
 
 export const restoreChatMessageAPI = async (messageId, agentType = 'codingAgent') => {
-  const response = await axios.patch(`/api/ai/chats/message/${messageId}/restore`, { agentType }, { timeout: 30_000 });
+  const response = await apiClient.patch(`/api/ai/chats/message/${messageId}/restore`, { agentType }, { timeout: 30_000 });
   return response.data;
 };
 
 export const permanentlyDeleteChatMessageAPI = async (messageId, agentType = 'codingAgent') => {
-  const response = await axios.delete(`/api/ai/chats/message/${messageId}/permanent?agentType=${agentType}`, { timeout: 30_000 });
+  const response = await apiClient.delete(`/api/ai/chats/message/${messageId}/permanent?agentType=${agentType}`, { timeout: 30_000 });
   return response.data;
 };
 

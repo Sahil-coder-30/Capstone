@@ -5,9 +5,14 @@ import { store } from './store.js'
 import './services/apiClient.js'
 import './styles/index.scss'
 import App from './App.jsx'
+import ErrorBoundary from './components/ErrorBoundary.jsx'
 
 createRoot(document.getElementById('root')).render(
-    <Provider store={store}>
-      <App />
-    </Provider>
+  <StrictMode>
+    <ErrorBoundary>
+      <Provider store={store}>
+        <App />
+      </Provider>
+    </ErrorBoundary>
+  </StrictMode>
 )

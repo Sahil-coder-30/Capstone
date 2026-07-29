@@ -1,64 +1,33 @@
-import jwt from 'jsonwebtoken';
-
 /**
- * identifyAdmin Middleware
+ * identifyAdmin Middleware — Payments Service
  *
- * Validates that the request comes from:
- *  1. A valid JWT token (same as identifyUser)
- *  2. A user whose email is in the ADMIN_EMAILS environment variable
+ * Validates that the incoming request:
+ *  1. Has a valid RS256-signed JWT (delegates to verifyToken).
+ *  2. Has role === 'admin' embedded in the JWT payload (set by Auth Service on login).
  *
- * Configure ADMIN_EMAILS as a comma-separated list in .env:
- *   ADMIN_EMAILS=sahilsharma3043@gmail.com,admin2@example.com
+ * UPGRADE from previous implementation:
+ *  - OLD: Checked ADMIN_EMAILS env var (fragile — changing ENV = instant admin bypass).
+ *  - NEW: Role is cryptographically signed into the JWT by Auth Service.
+ *         Cannot be altered without invalidating the RS256 signature.
  *
- * This middleware chains after JWT verification and must be applied AFTER
- * identifyUser (or can be used standalone as it does its own JWT decode).
+ * Usage:
+ *   import { identifyAdmin } from '../middleware/identifyAdmin.middleware.js';
+ *   router.delete('/refund/:id', identifyAdmin, adminController.refund);
  */
-export const identifyAdmin = async (req, res, next) => {
-    // ── Step 1: Extract Token ─────────────────────────────────────────────────
-    let token = req.cookies?.accessToken || req.cookies?.token;
-    if (!token && req.headers.authorization) {
-        const [scheme, value] = req.headers.authorization.split(' ');
-        if (scheme?.toLowerCase() === 'bearer' && value) {
-            token = value;
+import { verifyToken } from './verifyToken.middleware.js';
+
+export const identifyAdmin = (req, res, next) => {
+    // Step 1: Verify JWT signature and claims (same as verifyToken)
+    verifyToken(req, res, () => {
+        // Step 2: Check that the signed role claim is 'admin'
+        if (!req.user || req.user.role !== 'admin') {
+            return res.status(403).json({
+                status: 'error',
+                message: 'Forbidden: Admin access required.',
+            });
         }
-    }
 
-    if (!token) {
-        return res.status(401).json({
-            status: 'error',
-            message: 'Unauthorized: No token provided',
-        });
-    }
-
-    // ── Step 2: Verify JWT ────────────────────────────────────────────────────
-    let decoded;
-    try {
-        decoded = jwt.verify(token, process.env.JWT_ACCESS_SECRET);
-    } catch {
-        return res.status(401).json({
-            status: 'error',
-            message: 'Unauthorized: Invalid or expired token',
-        });
-    }
-
-    req.user = decoded;
-    req.user.id = decoded.id || decoded._id;
-
-    // ── Step 3: Check Admin Email List ────────────────────────────────────────
-    const adminEmails = (process.env.ADMIN_EMAILS || '')
-        .split(',')
-        .map(e => e.trim().toLowerCase())
-        .filter(Boolean);
-
-    const userEmail = (decoded.email || '').trim().toLowerCase();
-
-    if (!userEmail || !adminEmails.includes(userEmail)) {
-        return res.status(403).json({
-            status: 'error',
-            message: 'Forbidden: Admin access required',
-        });
-    }
-
-    req.isAdmin = true;
-    next();
+        req.isAdmin = true;
+        next();
+    });
 };

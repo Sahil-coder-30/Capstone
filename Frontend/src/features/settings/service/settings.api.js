@@ -1,4 +1,4 @@
-import axios from 'axios';
+import apiClient from '../../../services/apiClient';
 
 /**
  * Fetch settings payload (profile and preferences from backend).
@@ -6,8 +6,8 @@ import axios from 'axios';
 export const fetchSettingsAPI = async () => {
   try {
     const [profileRes, prefRes] = await Promise.all([
-      axios.get('/api/auth/profile', { timeout: 15_000 }),
-      axios.get('/api/auth/preferences', { timeout: 15_000 })
+      apiClient.get('/api/auth/profile', { timeout: 15_000 }),
+      apiClient.get('/api/auth/preferences', { timeout: 15_000 })
     ]);
 
     return {
@@ -63,7 +63,7 @@ export const fetchSettingsAPI = async () => {
  */
 export const updateProfileSettingsAPI = async (profileData) => {
   try {
-    const res = await axios.put('/api/auth/profile', profileData, { timeout: 15_000 });
+    const res = await apiClient.put('/api/auth/profile', profileData, { timeout: 15_000 });
     return res.data;
   } catch {
     return { status: 'success', profile: profileData };
@@ -75,7 +75,7 @@ export const updateProfileSettingsAPI = async (profileData) => {
  */
 export const fetchCreditAPI = async () => {
   try {
-    const res = await axios.get('/api/payments/credit', { timeout: 15_000 });
+    const res = await apiClient.get('/api/payments/credit', { timeout: 15_000 });
     return res.data;
   } catch {
     return {
@@ -96,7 +96,7 @@ export const fetchCreditAPI = async () => {
  * Update user subscription tier in Payments service.
  */
 export const updateSubscriptionAPI = async (subscription) => {
-  const res = await axios.patch('/api/payments/subscription', { subscription }, { timeout: 15_000 });
+  const res = await apiClient.patch('/api/payments/subscription', { subscription }, { timeout: 15_000 });
   return res.data;
 };
 
@@ -105,7 +105,7 @@ export const updateSubscriptionAPI = async (subscription) => {
  */
 export const fetchPackagesAPI = async () => {
   try {
-    const res = await axios.get('/api/payments/credit/packages', { timeout: 15_000 });
+    const res = await apiClient.get('/api/payments/credit/packages', { timeout: 15_000 });
     return res.data;
   } catch {
     return {
@@ -126,7 +126,7 @@ export const fetchPackagesAPI = async () => {
  */
 export const fetchTransactionsAPI = async (page = 1, limit = 20) => {
   try {
-    const res = await axios.get(`/api/payments/credit/transactions?page=${page}&limit=${limit}`, { timeout: 15_000 });
+    const res = await apiClient.get(`/api/payments/credit/transactions?page=${page}&limit=${limit}`, { timeout: 15_000 });
     return res.data;
   } catch {
     return {
@@ -142,7 +142,7 @@ export const fetchTransactionsAPI = async (page = 1, limit = 20) => {
  */
 export const fetchTransactionSummaryAPI = async () => {
   try {
-    const res = await axios.get('/api/payments/credit/transactions/summary', { timeout: 15_000 });
+    const res = await apiClient.get('/api/payments/credit/transactions/summary', { timeout: 15_000 });
     return res.data;
   } catch {
     return {
@@ -164,7 +164,7 @@ export const fetchTransactionSummaryAPI = async () => {
  */
 export const fetchAnalyticsAPI = async () => {
   try {
-    const res = await axios.get('/api/payments/credit/analytics', { timeout: 15_000 });
+    const res = await apiClient.get('/api/payments/credit/analytics', { timeout: 15_000 });
     return res.data;
   } catch {
     return {
@@ -179,7 +179,7 @@ export const fetchAnalyticsAPI = async () => {
  */
 export const updatePreferencesAPI = async (preferencesData) => {
   try {
-    const res = await axios.put('/api/auth/preferences', preferencesData, { timeout: 15_000 });
+    const res = await apiClient.put('/api/auth/preferences', preferencesData, { timeout: 15_000 });
     return res.data;
   } catch {
     return { status: 'success', preferences: preferencesData };
@@ -191,7 +191,7 @@ export const updatePreferencesAPI = async (preferencesData) => {
  */
 export const generateApiKeyAPI = async (keyName) => {
   try {
-    const res = await axios.post('/api/settings/keys', { name: keyName }, { timeout: 15_000 });
+    const res = await apiClient.post('/api/settings/keys', { name: keyName }, { timeout: 15_000 });
     return res.data;
   } catch {
     const randomHex = Math.random().toString(16).substring(2, 6);
@@ -212,7 +212,7 @@ export const generateApiKeyAPI = async (keyName) => {
  */
 export const deleteApiKeyAPI = async (keyId) => {
   try {
-    const res = await axios.delete(`/api/settings/keys/${keyId}`, { timeout: 15_000 });
+    const res = await apiClient.delete(`/api/settings/keys/${keyId}`, { timeout: 15_000 });
     return res.data;
   } catch {
     return { status: 'success', deletedId: keyId };

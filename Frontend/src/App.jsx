@@ -199,6 +199,14 @@ export default function App() {
     }
   }, [currentProjectId, currentProjectTitle, activeRoute, dashboardTab, isAuthenticated]);
 
+  // Redirect to standalone payments app
+  useEffect(() => {
+    if (activeRoute === 'payments') {
+      const paymentsUrl = window.location.origin.replace(/:\d+$/, ':5174');
+      window.location.href = paymentsUrl;
+    }
+  }, [activeRoute]);
+
   // Listen to popstate event (browser back/forward) to update state
   useEffect(() => {
     const handlePopState = () => {
@@ -803,7 +811,8 @@ export default function App() {
           }}
           onBackToDashboard={(tab) => {
             if (tab === 'payments') {
-              setActiveRoute('payments');
+              const paymentsUrl = window.location.origin.replace(/:\d+$/, ':5174');
+              window.location.href = paymentsUrl;
             } else {
               setDashboardTab(tab || 'playground');
               setActiveRoute('dashboard');

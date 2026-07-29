@@ -6,6 +6,7 @@ import cookieParser from 'cookie-parser';
 import authRouter from '../routes/auth.routes.js';
 import profileRouter from '../routes/profile.routes.js';
 import preferencesRouter from '../routes/preferences.routes.js';
+import jwksRouter from '../routes/jwks.route.js';
 import { identifyUser } from '../middleware/auth.middleware.js';
 import dotenv from 'dotenv';
 
@@ -30,6 +31,11 @@ passport.use(new GoogleStrategy({
 app.use("/api/auth" , authRouter);
 app.use("/api/auth/profile", identifyUser, profileRouter);
 app.use("/api/auth/preferences", identifyUser, preferencesRouter);
+
+// ── JWKS Public Key Discovery (no auth required) ───────────────────────────
+// All microservices call this once at startup to get the RSA Public Key
+// for local JWT verification (zero DB calls on their end).
+app.use("/.well-known/jwks.json", jwksRouter);
 
 app.get("/healthz" , (req , res) =>{
     res.status(200).json({

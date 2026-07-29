@@ -3,12 +3,30 @@ import axios from 'axios';
 // Ensure withCredentials is set globally for all axios requests
 axios.defaults.withCredentials = true;
 
+// ── In-Memory Token Storage (XSS-Safe) ───────────────────────────────────────
+let _accessToken = null;
+
+export const setAccessToken  = (token) => { _accessToken = token; };
+export const clearAccessToken = ()      => { _accessToken = null;  };
+export const getAccessToken  = ()       => _accessToken;
+
 /**
  * Custom Axios instance configured for automatic cookie passing and token refresh.
  */
 export const apiClient = axios.create({
   withCredentials: true,
 });
+
+// ── Request Interceptor: Inject Access Token ──────────────────────────────────
+apiClient.interceptors.request.use(
+  (config) => {
+    if (_accessToken) {
+      config.headers.Authorization = `Bearer ${_accessToken}`;
+    }
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
 
 let isRefreshing = false;
 let failedQueue = [];
@@ -36,18 +54,27 @@ const processQueue = (error, token = null) => {
 apiClient.interceptors.response.use(
   (response) => response,
   async (error) => {
-    const originalRequest = error.config;
-    const url = originalRequest?.url || '';
+    const originalRequest = error?.config;
+    if (!originalRequest) {
+      return Promise.reject(error);
+    }
 
+    const url = originalRequest.url || '';
+
+    // Only exclude endpoints that must NEVER be retried with a refreshed token:
+    //   /refresh  — would cause infinite loop
+    //   /google   — OAuth flow, not a token-protected endpoint
+    //   /logout   — already invalidating the session, no point retrying
+    // NOTE: /getMe is intentionally NOT excluded — a 401 on /getMe means
+    // the access token is missing/expired. The interceptor will transparently
+    // refresh it via the httpOnly cookie and retry /getMe automatically.
     const isAuthEndpoint =
       url.includes('/api/auth/refresh') ||
       url.includes('/api/auth/google') ||
-      url.includes('/api/auth/getMe') ||
       url.includes('/api/auth/logout');
 
     if (
-      error.response?.status === 401 &&
-      originalRequest &&
+      error?.response?.status === 401 &&
       !originalRequest._retry &&
       !isAuthEndpoint
     ) {
@@ -55,7 +82,11 @@ apiClient.interceptors.response.use(
         return new Promise((resolve, reject) => {
           failedQueue.push({ resolve, reject });
         })
-          .then(() => apiClient(originalRequest))
+          .then((token) => {
+            originalRequest.headers = originalRequest.headers || {};
+            originalRequest.headers.Authorization = `Bearer ${token}`;
+            return apiClient(originalRequest);
+          })
           .catch((err) => Promise.reject(err));
       }
 
@@ -63,11 +94,17 @@ apiClient.interceptors.response.use(
       isRefreshing = true;
 
       try {
-        await axios.post('/api/auth/refresh', {}, { withCredentials: true });
-        processQueue(null);
+        const refreshRes = await axios.post('/api/auth/refresh', {}, { withCredentials: true });
+        const newToken = refreshRes.data?.accessToken;
+        setAccessToken(newToken);
+        processQueue(null, newToken);
+
+        originalRequest.headers = originalRequest.headers || {};
+        originalRequest.headers.Authorization = `Bearer ${newToken}`;
         return apiClient(originalRequest);
       } catch (refreshError) {
         processQueue(refreshError, null);
+        clearAccessToken();
         return Promise.reject(refreshError);
       } finally {
         isRefreshing = false;

@@ -67,6 +67,16 @@ spec:
             secretKeyRef:
               name: google
               key: EMAIL_USER
+
+        - name: REDIS_URI
+          valueFrom:
+            secretKeyRef:
+              name: database
+              key: REDIS_URI
+          
+
+        - name: AUTH_JWKS_URI
+          value: "http://auth-service/.well-known/jwks.json"
            
         ports:
         - containerPort:  4000

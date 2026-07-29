@@ -1,32 +1,158 @@
-import jwt from 'jsonwebtoken';
+/**
+ * identifyUser Middleware — Payments Service
+ *
+ * Architecture: Dynamic JWKS Key Discovery from Auth Service
+ * - NO local keys or certs. Public key fetched from /.well-known/jwks.json.
+ * - Key cache: stores the raw JWK array (not a single PEM) so keys are looked
+ *   up by kid on every request. Supports key rotation overlap windows.
+ * - Blacklist check: Payments is the ONLY non-Auth service that hits Redis on
+ *   every request. Reason: financial operations cannot tolerate a logged-out
+ *   token remaining valid for up to 15 minutes (see redis.js for full rationale).
+ */
 
-export const identifyUser = async (req, res, next) => {
-    let token = req.cookies?.accessToken || req.cookies?.token;
-    
-    if (!token && req.headers.authorization) {
-        const [scheme, value] = req.headers.authorization.split(' ');
-        if (scheme?.toLowerCase() === 'bearer' && value) {
-            token = value;
-        }
+import jwt from 'jsonwebtoken';
+import { createPublicKey } from 'crypto';
+import { isTokenBlacklisted } from '../config/redis.js';
+
+const AUTH_JWKS_URI = process.env.AUTH_JWKS_URI || 'http://localhost:5000/.well-known/jwks.json';
+
+const JWT_VERIFY_OPTIONS = {
+    algorithms: ['RS256'],
+    issuer:    'auth.takshacodespace.in',
+    audience:  'takshacodespace-services',
+};
+
+// ── JWKS key cache ────────────────────────────────────────────────────────────
+// We cache the full JWK *array* (not a single derived PEM) so we can look up
+// keys by kid on each request. This is essential for key rotation:
+//
+//   During a rotation, Auth serves BOTH the old key and the new key in the
+//   JWKS array simultaneously for an overlap window. Tokens signed with the
+//   old kid still verify correctly; new tokens use the new kid. Once all
+//   in-flight tokens have expired, the old key is removed from JWKS.
+//
+//   If we only cached keys[0] we'd grab the wrong key after a rotation and
+//   reject still-valid tokens signed with the other key.
+//
+let cachedJwks     = null;   // raw JWK array from /.well-known/jwks.json
+let lastFetchedTime = 0;
+const CACHE_TTL_MS  = 24 * 60 * 60 * 1000; // 24 hours
+
+/**
+ * Fetch (or return cached) JWK array.
+ * @param {boolean} forceRefresh - bypass cache and refetch immediately
+ */
+async function fetchJwks(forceRefresh = false) {
+    const now = Date.now();
+    if (!forceRefresh && cachedJwks && (now - lastFetchedTime < CACHE_TTL_MS)) {
+        return cachedJwks;
     }
 
+    try {
+        const response = await fetch(AUTH_JWKS_URI);
+        if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+
+        const data = await response.json();
+        if (!data.keys || data.keys.length === 0) throw new Error('JWKS response contained no keys');
+
+        cachedJwks      = data.keys;
+        lastFetchedTime = now;
+        return cachedJwks;
+    } catch (err) {
+        // On fetch failure, serve stale cache if available (Auth may be briefly restarting)
+        if (cachedJwks) return cachedJwks;
+        throw new Error(`Failed to fetch JWKS from Auth Service (${AUTH_JWKS_URI}): ${err.message}`);
+    }
+}
+
+/**
+ * Resolve the correct public key PEM for the given token's kid.
+ *
+ * Flow:
+ *  1. Decode token header (no verification) to extract kid.
+ *  2. Search the cached JWKS array for a matching kid.
+ *  3. If not found → refetch JWKS once immediately (handles "new key rotated in
+ *     since our last 24h fetch" case) and search again.
+ *  4. Derive PEM from the matching JWK.
+ */
+async function resolvePublicKey(token) {
+    const header = jwt.decode(token, { complete: true })?.header;
+    if (!header?.kid) throw new Error('Token is missing the kid (key ID) header claim');
+
+    let keys = await fetchJwks();
+
+    let jwk = keys.find(k => k.kid === header.kid);
+
+    // kid not in cache → maybe a new key was just rotated in; refetch once
+    if (!jwk) {
+        keys = await fetchJwks(true); // forceRefresh
+        jwk  = keys.find(k => k.kid === header.kid);
+    }
+
+    if (!jwk) throw new Error(`No JWKS entry found for kid="${header.kid}"`);
+
+    return createPublicKey({ key: jwk, format: 'jwk' }).export({ type: 'spki', format: 'pem' });
+}
+
+// ── Middleware ────────────────────────────────────────────────────────────────
+
+export const identifyUser = async (req, res, next) => {
+    // Access tokens are never in cookies — they live in JS module memory
+    // and are always sent via Authorization: Bearer <JWT>.
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return res.status(401).json({
+            status:  'error',
+            message: 'Unauthorized: Missing Authorization header. Expected: Bearer <JWT>',
+        });
+    }
+    const token = authHeader.split(' ')[1];
     if (!token) {
         return res.status(401).json({
-            status: 'error',
-            message: 'Unauthorized: No token provided'
+            status:  'error',
+            message: 'Unauthorized: Bearer token value is empty.',
         });
     }
 
     try {
-        const decodedToken = jwt.verify(token, process.env.JWT_ACCESS_SECRET);
-        req.user = decodedToken;
-        req.user.id = decodedToken.id || decodedToken._id;
+        // ── 1. Blacklist check (Payments-only) ────────────────────────────────
+        // Payments handles financial operations — a logged-out token must not be
+        // accepted even within the 15-minute access token lifetime.
+        const blacklisted = await isTokenBlacklisted(token);
+        if (blacklisted) {
+            return res.status(401).json({
+                status:  'error',
+                message: 'Unauthorized: Token has been revoked. Please log in again.',
+            });
+        }
+
+        // ── 2. Signature verification (kid-aware) ─────────────────────────────
+        const publicKeyPem = await resolvePublicKey(token);
+        const decodedToken = jwt.verify(token, publicKeyPem, JWT_VERIFY_OPTIONS);
+
+        // ── 3. Identity claim validation ──────────────────────────────────────
+        // jwt.verify() validates the signature but NOT that specific claims exist.
+        const userId = decodedToken?.sub || decodedToken?.id || decodedToken?._id;
+        if (!decodedToken || !userId) {
+            return res.status(401).json({
+                status:  'error',
+                message: 'Unauthorized: Token payload is missing required identity claims (sub / id).',
+            });
+        }
+
+        req.user      = decodedToken;
+        req.user.id   = userId;
         req.authToken = token;
         next();
+
     } catch (error) {
+        const isExpired = error.name === 'TokenExpiredError';
         return res.status(401).json({
-            status: 'error',
-            message: 'Unauthorized: Invalid or expired token'
+            status:  'error',
+            message: isExpired
+                ? 'Unauthorized: Access token expired. Please refresh.'
+                : `Unauthorized: ${error.message}`,
+            expired: isExpired,
         });
     }
 };

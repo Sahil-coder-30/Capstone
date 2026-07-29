@@ -1,11 +1,11 @@
-import axios from 'axios';
+import apiClient from '../../../services/apiClient';
 
 /**
  * Fetch credit and token usage details from Payments service.
  */
 export const fetchCreditAPI = async () => {
   try {
-    const res = await axios.get('/api/payments/credit', { timeout: 3_000 });
+    const res = await apiClient.get('/api/payments/credit', { timeout: 3_000 });
     return res.data;
   } catch (error) {
     return {
@@ -26,7 +26,7 @@ export const fetchCreditAPI = async () => {
  * Update user subscription tier in Payments service.
  */
 export const updateSubscriptionAPI = async (subscription) => {
-  const res = await axios.patch('/api/payments/subscription', { subscription }, { timeout: 3_000 });
+  const res = await apiClient.patch('/api/payments/subscription', { subscription }, { timeout: 3_000 });
   return res.data;
 };
 
@@ -35,7 +35,7 @@ export const updateSubscriptionAPI = async (subscription) => {
  */
 export const fetchPackagesAPI = async () => {
   try {
-    const res = await axios.get('/api/payments/credit/packages', { timeout: 3_000 });
+    const res = await apiClient.get('/api/payments/credit/packages', { timeout: 3_000 });
     return res.data;
   } catch (error) {
     return {
@@ -50,7 +50,7 @@ export const fetchPackagesAPI = async () => {
  */
 export const fetchTransactionsAPI = async (page = 1, limit = 20) => {
   try {
-    const res = await axios.get(`/api/payments/credit/transactions?page=${page}&limit=${limit}`, { timeout: 3_000 });
+    const res = await apiClient.get(`/api/payments/credit/transactions?page=${page}&limit=${limit}`, { timeout: 3_000 });
     return res.data;
   } catch (error) {
     return {
@@ -66,7 +66,7 @@ export const fetchTransactionsAPI = async (page = 1, limit = 20) => {
  */
 export const fetchTransactionSummaryAPI = async () => {
   try {
-    const res = await axios.get('/api/payments/credit/transactions/summary', { timeout: 3_000 });
+    const res = await apiClient.get('/api/payments/credit/transactions/summary', { timeout: 3_000 });
     return res.data;
   } catch (error) {
     return {
@@ -88,7 +88,7 @@ export const fetchTransactionSummaryAPI = async () => {
  */
 export const fetchAnalyticsAPI = async () => {
   try {
-    const res = await axios.get('/api/payments/credit/analytics', { timeout: 3_000 });
+    const res = await apiClient.get('/api/payments/credit/analytics', { timeout: 3_000 });
     return res.data;
   } catch (error) {
     return {

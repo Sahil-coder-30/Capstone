@@ -1,5 +1,21 @@
 import jwt from 'jsonwebtoken';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import { isTokenBlacklisted } from '../config/redis.js';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+// Load Auth's own public key for self-verification
+const PUBLIC_KEY = fs.readFileSync(
+    path.join(__dirname, '../../certs/public.pem')
+);
+
+const JWT_VERIFY_OPTIONS = {
+    algorithms: ['RS256'],
+    issuer: 'auth.takshacodespace.in',
+    audience: 'takshacodespace-services',
+};
 
 export const identifyUser = async (req, res, next) => {
     try {
@@ -25,8 +41,10 @@ export const identifyUser = async (req, res, next) => {
             });
         }
 
-        const decodedToken = jwt.verify(token, process.env.JWT_ACCESS_SECRET);
+        // Verify RS256 signature using public key (no shared secret needed)
+        const decodedToken = jwt.verify(token, PUBLIC_KEY, JWT_VERIFY_OPTIONS);
         req.user = decodedToken;
+        req.user.id = decodedToken.sub || decodedToken.id;
         req.authToken = token;
         next();
     } catch (err) {

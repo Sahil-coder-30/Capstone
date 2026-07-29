@@ -50,12 +50,10 @@ spec:
               secretKeyRef:
                 name: database
                 key: AI
-
-          - name: JWT_ACCESS_SECRET
-            valueFrom:
-              secretKeyRef:
-                name: jwt
-                key: JWT_ACCESS_SECRET
+          
+          
+          - name: AUTH_JWKS_URI
+            value: "http://auth-service/.well-known/jwks.json"
 
           - name: REDIS_URI
             valueFrom:

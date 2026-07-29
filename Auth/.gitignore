@@ -1,2 +1,4 @@
 node_modules
 .env
+# RSA Private Key — NEVER commit this
+certs/private.pem

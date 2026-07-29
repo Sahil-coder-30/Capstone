@@ -39,11 +39,8 @@ spec:
                 name: database
                 key: SANDBOX
 
-          - name: JWT_ACCESS_SECRET
-            valueFrom:
-              secretKeyRef:
-                name: jwt
-                key: JWT_ACCESS_SECRET
+          - name: AUTH_JWKS_URI
+            value: "http://auth-service/.well-known/jwks.json"
 
         livenessProbe:
           httpGet:

@@ -50,11 +50,11 @@ spec:
               name: database
               key: MQ_URL
         
-        - name:  JWT_ACCESS_SECRET
+        - name:  RSA_PRIVATE_KEY
           valueFrom:
             secretKeyRef:
               name: jwt
-              key: JWT_ACCESS_SECRET
+              key: RSA_PRIVATE_KEY
 
         - name:  JWT_REFRESH_SECRET
           valueFrom:

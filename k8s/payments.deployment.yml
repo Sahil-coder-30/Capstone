@@ -55,11 +55,8 @@ spec:
             secretKeyRef:
               name: database
               key: MQ_URL
-        - name: JWT_ACCESS_SECRET
-          valueFrom:
-            secretKeyRef:
-              name: jwt
-              key: JWT_ACCESS_SECRET
+        - name: AUTH_JWKS_URI
+          value: "http://auth-service/.well-known/jwks.json"
         - name: RAZORPAY_SECRET_ID
           valueFrom:
             secretKeyRef:
@@ -72,3 +69,8 @@ spec:
               key: RAZORPAY_SECRET_KEY
         - name: ADMIN_EMAILS
           value: "sahilsharma3043@gmail.com"
+        - name: REDIS_URI
+          valueFrom:
+            secretKeyRef:
+              name: database
+              key: REDIS_URI

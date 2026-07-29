@@ -1,25 +1,13 @@
 import { sendAuthNotification } from "../config/mq.js";
 import User from "../models/user.model.js";
+import RefreshToken from "../models/refreshToken.model.js";
 import jwt from 'jsonwebtoken';
 import { blacklistToken } from "../config/redis.js";
-import { generateAccessToken, generateRefreshToken } from "../utils/generateTokens.js";
+import { issueTokenPair, setRefreshCookie, hashToken } from "../utils/generateTokens.js";
 
-
-const setAccessToken = async (accessToken , res) =>{
-    res.cookie('accessToken', accessToken, {
-        httpOnly: true,
-        maxAge: 1000 * 60 * 60 * 1
-    });
-}
-
-
-const setRefreshToken = async (refreshToken , res) =>{
-    res.cookie('refreshToken', refreshToken, {
-        httpOnly: true,
-        maxAge: 1000 * 60 * 60 * 24
-    });
-}
-
+/**
+ * Google OAuth 2.0 Callback Controller
+ */
 export const authGoogleCallbackController = async (req, res, next) => {
     try {
         const { id, displayName, emails, photos } = req.user;
@@ -43,14 +31,12 @@ export const authGoogleCallbackController = async (req, res, next) => {
             email: emails[0].value
         });
 
-        const accessToken = await generateAccessToken(user);
-        const refreshToken = await generateRefreshToken(user);
+        // Issue new token pair (access JWT + rotating opaque refresh token)
+        const { accessToken, refreshToken } = await issueTokenPair(user);
 
-        user.refreshToken = refreshToken;
-        await user.save();
+        // Attach refresh token cookie (scoped to /api/auth/refresh)
+        setRefreshCookie(res, refreshToken);
 
-        setAccessToken(accessToken, res);
-        setRefreshToken(refreshToken, res);
         res.redirect('http://localhost:5173');
 
     } catch (err) {
@@ -58,9 +44,12 @@ export const authGoogleCallbackController = async (req, res, next) => {
     }
 };
 
+/**
+ * Get Logged-in User Profile
+ */
 export const authGetMeController = async (req, res, next) => {
     try {
-        const userId = req.user.id;
+        const userId = req.user.id || req.user.sub;
         if (!userId) throw Error("User not found");
 
         const user = await User.findById(userId).select('-__v');
@@ -76,10 +65,15 @@ export const authGetMeController = async (req, res, next) => {
     }
 };
 
+/**
+ * Logout Controller — Revokes the entire refresh token family & clears cookies
+ */
 export const authLogoutController = async (req, res, next) => {
     try {
         const token = req.cookies.accessToken || req.cookies.token;
+        const rawRefreshToken = req.cookies.refreshToken;
 
+        // 1. Blacklist access token in Redis if active
         if (token) {
             const decoded = jwt.decode(token);
             if (decoded?.exp) {
@@ -90,13 +84,19 @@ export const authLogoutController = async (req, res, next) => {
             }
         }
 
-        if (req.user?.id) {
-            await User.findByIdAndUpdate(req.user.id, { $unset: { refreshToken: 1 } });
+        // 2. Revoke refresh token family in DB
+        if (rawRefreshToken) {
+            const tokenHash = hashToken(rawRefreshToken);
+            const stored = await RefreshToken.findOne({ tokenHash });
+            if (stored) {
+                await RefreshToken.deleteMany({ familyId: stored.familyId });
+            }
         }
 
-        res.clearCookie('accessToken', { httpOnly: true });
-        res.clearCookie('refreshToken', { httpOnly: true });
-        res.clearCookie('token', { httpOnly: true });
+        // 3. Clear auth cookies
+        res.clearCookie('refreshToken', { path: '/api/auth/refresh' });
+        res.clearCookie('accessToken');
+        res.clearCookie('token');
 
         res.status(200).json({
             status: 'success',
@@ -107,35 +107,68 @@ export const authLogoutController = async (req, res, next) => {
     }
 };
 
-export const authGenerateAccessToken = async (req , res , next) =>{
-    try{
-        const refreshToken = req.cookies.refreshToken;
+/**
+ * Refresh Access Token Controller — Implements Rotation + Reuse Detection Revocation
+ */
+export const authGenerateAccessToken = async (req, res, next) => {
+    try {
+        const rawRefreshToken = req.cookies.refreshToken;
 
-        if (!refreshToken) throw Error("Refresh token not found");
+        if (!rawRefreshToken) {
+            return res.status(401).json({
+                status: 'error',
+                message: 'No refresh token provided'
+            });
+        }
 
-        const decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET);
-        if (!decoded) throw Error("Invalid refresh token");
+        const tokenHash = hashToken(rawRefreshToken);
+        const stored = await RefreshToken.findOne({ tokenHash });
 
-        const user = await User.findById(decoded.id);
-        if (!user) throw Error("User not found");
+        // 1. Invalid or expired token
+        if (!stored || stored.expiresAt < new Date()) {
+            res.clearCookie('refreshToken', { path: '/api/auth/refresh' });
+            return res.status(401).json({
+                status: 'error',
+                message: 'Invalid or expired refresh token'
+            });
+        }
 
-        if (user.refreshToken !== refreshToken) throw Error("Invalid refresh token");
+        // 2. REUSE DETECTED: This token was already rotated!
+        // Someone is attempting a replay attack — revoke the ENTIRE token family.
+        if (stored.used) {
+            console.warn(`[Security Alert] Refresh token reuse detected for family ${stored.familyId}! Revoking family.`);
+            await RefreshToken.deleteMany({ familyId: stored.familyId });
+            res.clearCookie('refreshToken', { path: '/api/auth/refresh' });
+            return res.status(401).json({
+                status: 'error',
+                message: 'Token reuse detected — all sessions revoked'
+            });
+        }
 
-        const accessToken = await generateAccessToken(user);
-        const newRefreshToken = await generateRefreshToken(user);
+        // 3. Valid first use: Mark old token as used (rotated)
+        stored.used = true;
+        await stored.save();
 
-        user.refreshToken = newRefreshToken;
-        await user.save();
+        const user = await User.findById(stored.userId);
+        if (!user) {
+            return res.status(401).json({
+                status: 'error',
+                message: 'User no longer exists'
+            });
+        }
 
-        setAccessToken(accessToken, res);
-        setRefreshToken(newRefreshToken, res);
+        // 4. Issue new token pair in the SAME rotation family
+        const { accessToken, refreshToken: newRefreshToken } = await issueTokenPair(user, stored.familyId);
+
+        // 5. Attach new refresh cookie
+        setRefreshCookie(res, newRefreshToken);
 
         res.status(200).json({
             status: "success",
-            message: "Access token generated successfully",
+            message: "Access token refreshed successfully",
             accessToken
         });
-    }catch(err){
+    } catch (err) {
         next(err);
     }
-}
+};
