@@ -1,0 +1,54 @@
+.introContainer {
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+  background: #03060d;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  user-select: none;
+  transition: opacity 0.8s cubic-bezier(0.16, 1, 0.3, 1), transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+  opacity: 1;
+  transform: scale(1);
+
+  &.exiting {
+    opacity: 0;
+    transform: scale(1.04);
+    pointer-events: none;
+  }
+}
+
+.textWrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 2rem;
+}
+
+.titleScramble {
+  font-family: var(--font-sans, -apple-system, BlinkMacSystemFont, 'Inter', sans-serif) !important;
+  font-size: clamp(3.2rem, 9vw, 6.5rem) !important;
+  font-weight: 800 !important;
+  letter-spacing: -0.03em !important;
+  color: #ffffff !important;
+  margin: 0 !important;
+  line-height: 1 !important;
+  background: linear-gradient(180deg, #ffffff 40%, rgba(255, 255, 255, 0.65) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.subtitleScramble {
+  font-family: monospace !important;
+  font-size: clamp(1rem, 2.5vw, 1.5rem) !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.15em !important;
+  color: #60a5fa !important;
+  margin-top: 1.5rem !important;
+  opacity: 0.9;
+  text-transform: uppercase;
+}

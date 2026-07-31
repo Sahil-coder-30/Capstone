@@ -3,6 +3,7 @@ import jwt from "jsonwebtoken";
 import { createAgentForModel, onRateLimitEvent } from "../agent/code.agent.js";
 import ChatMessage from "../models/ChatMessage.model.js";
 import { checkAiCredit, recordAiUsage } from "../services/credit.service.js";
+import { verifyToken } from "../middleware/auth.middleware.js";
 
 const getErrorPayload = (error) => {
   return error?.response?.data || error?.cause?.response?.data || null;
@@ -154,7 +155,7 @@ export const initSocketIO = (server) => {
   });
 
   // Verify JWT on connection handshake
-  io.use((socket, next) => {
+  io.use(async (socket, next) => {
     try {
       const cookieHeader = socket.handshake.headers.cookie;
       let token = null;
@@ -172,7 +173,7 @@ export const initSocketIO = (server) => {
         return next(new Error("Authentication error: No token provided"));
       }
 
-      const decoded = jwt.verify(token, process.env.JWT_ACCESS_SECRET);
+      const decoded = await verifyToken(token);
       socket.user = decoded;
       socket.authToken = token;
       next();

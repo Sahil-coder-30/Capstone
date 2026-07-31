@@ -6,14 +6,11 @@
 
 .google-payments-container {
   min-height: 100vh;
-  height: 100vh;
   width: 100%;
-  overflow-y: auto;
   overflow-x: hidden;
   background-color: var(--bg-canvas, #07080B);
   color: var(--text-secondary, #E2E8F0);
   font-family: 'Google Sans', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-  scroll-behavior: smooth;
   display: flex;
   flex-direction: column;
 

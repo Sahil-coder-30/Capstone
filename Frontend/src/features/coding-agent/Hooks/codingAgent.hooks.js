@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { io } from 'socket.io-client';
+import { getAccessToken, authenticatedFetch } from '../../../services/apiClient';
 import { useEditor } from '../../editor/Hooks/editor.hooks';
 import {
   addMessage,
@@ -165,6 +166,7 @@ export const useCodingAgent = (projectId) => {
       transports: ['polling', 'websocket'],
       upgrade: true,
       withCredentials: true,
+      auth: { token: getAccessToken() },
       timeout: 15000,
       reconnection: true,
       reconnectionAttempts: 4,
@@ -621,7 +623,7 @@ export const useCodingAgent = (projectId) => {
       }
       setIsHistoryLoading(true);
       try {
-        const response = await fetch(`/api/ai/chats/${projectId}/codingAgent`);
+        const response = await authenticatedFetch(`/api/ai/chats/${projectId}/codingAgent`);
         if (response.ok) {
           const data = await response.json();
           if (data.status === 'ok') {
@@ -654,7 +656,7 @@ export const useCodingAgent = (projectId) => {
   const clearChatHistory = useCallback(async () => {
     if (!projectId) return;
     try {
-      await fetch(`/api/ai/chats/${projectId}/codingAgent`, { method: 'DELETE' });
+      await authenticatedFetch(`/api/ai/chats/${projectId}/codingAgent`, { method: 'DELETE' });
     } catch (err) {
       console.error('Failed to clear codingAgent chat history from DB:', err);
     }
@@ -670,7 +672,7 @@ export const useCodingAgent = (projectId) => {
 
     try {
       const idString = idsArray.join(',');
-      await fetch(`/api/ai/chats/message/${encodeURIComponent(idString)}?agentType=codingAgent`, { method: 'DELETE' });
+      await authenticatedFetch(`/api/ai/chats/message/${encodeURIComponent(idString)}?agentType=codingAgent`, { method: 'DELETE' });
     } catch (err) {
       console.error('Failed to soft delete chat messages:', err);
     }

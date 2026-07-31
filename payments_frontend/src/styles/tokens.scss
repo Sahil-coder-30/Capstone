@@ -1,20 +1,20 @@
 // =============================================================================
-// Design System Tokens & Mixins (Taksha CodeSpace Architecture)
+// Design System Tokens & Mixins — Taksha Payments (Void × Taksha Green)
 // =============================================================================
 
-// Spacing Scale (8px Grid Standard)
+// ── Spacing Scale (8px Grid) ──────────────────────────────────────────────────
 $space-1:   4px;
 $space-2:   8px;
 $space-3:   12px;
 $space-4:   16px;
 $space-5:   20px;
-$space-6:   24px;   // Standard component padding
+$space-6:   24px;
 $space-8:   32px;
 $space-10:  40px;
 $space-12:  48px;
 $space-16:  64px;
 
-// SCSS Local Variable Mappings to CSS Custom Properties
+// ── SCSS → CSS Custom Property Mappings ──────────────────────────────────────
 $color-bg:            var(--bg-canvas);
 $color-bg-sidebar:    var(--bg-surface);
 $color-bg-panel:      var(--bg-overlay);
@@ -24,26 +24,38 @@ $color-border:        var(--border);
 $color-border-strong: var(--border-strong);
 $color-border-glow:   var(--border-glow);
 
+// Brand
 $color-primary:       var(--brand-primary);
 $color-primary-hover: var(--brand-hover);
 $color-primary-glow:  var(--brand-subtle);
 $color-accent:        var(--accent-primary);
 $color-accent-hover:  var(--accent-hover);
 
+// Typography
 $color-text:          var(--text-primary);
 $color-text-muted:    var(--text-secondary);
 $color-text-subtle:   var(--text-muted);
 $color-text-dark:     var(--text-dark);
 
-$font-sans:           var(--font-sans, 'Inter', system-ui, sans-serif);
-$font-heading:        var(--font-heading, 'Outfit', 'Inter', sans-serif);
-$font-mono:           var(--font-mono, monospace);
+// Fonts
+$font-sans:    var(--font-sans);
+$font-heading: var(--font-heading);
+$font-mono:    var(--font-mono);
 
+// Card helpers
 $color-rgb-text:      var(--color-rgb-text);
 $color-bg-card:       rgba(var(--color-rgb-text), 0.03);
 $color-bg-card-hover: rgba(var(--color-rgb-text), 0.06);
 
-// Layout & Alignment Mixins
+// ── Animation Tokens ──────────────────────────────────────────────────────────
+$ease-spring:   cubic-bezier(0.16, 1, 0.3, 1);
+$ease-back-out: cubic-bezier(0.34, 1.56, 0.64, 1);
+$ease-smooth:   cubic-bezier(0.4, 0, 0.2, 1);
+$dur-fast:      0.18s;
+$dur-normal:    0.28s;
+$dur-slow:      0.48s;
+
+// ── Flexbox Mixins ────────────────────────────────────────────────────────────
 @mixin flex-center {
   display: flex;
   align-items: center;
@@ -61,6 +73,7 @@ $color-bg-card-hover: rgba(var(--color-rgb-text), 0.06);
   flex-direction: column;
 }
 
+// ── Responsive Breakpoints ────────────────────────────────────────────────────
 @mixin respond-to($bp) {
   @if $bp == 'mobile' {
     @media (max-width: 768px) { @content; }
@@ -71,26 +84,47 @@ $color-bg-card-hover: rgba(var(--color-rgb-text), 0.06);
   }
 }
 
-// Container Card Mixin
+// ── Card Mixin ────────────────────────────────────────────────────────────────
 @mixin card {
   background: var(--bg-surface);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
   border: 1px solid $color-border;
-  border-radius: 14px;
+  border-radius: 16px;
   padding: $space-6;
-  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  transition: border-color $dur-normal $ease-smooth,
+              box-shadow $dur-normal $ease-smooth,
+              transform $dur-normal $ease-smooth;
+  box-shadow: var(--shadow-card);
 
   &:hover {
-    background: var(--bg-overlay);
     border-color: $color-border-strong;
-    transform: translateY(-2px);
+    transform: translateY(-3px);
+    box-shadow: var(--shadow-card-hover);
   }
 }
 
-// Shimmer Skeleton Loader
+// ── Glass Card Mixin ──────────────────────────────────────────────────────────
+@mixin glass-card {
+  background: var(--glass-bg);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--glass-border);
+  border-radius: 16px;
+}
+
+// ── Shimmer Skeleton Loader ───────────────────────────────────────────────────
 @mixin skeleton {
   background: linear-gradient(90deg, $color-bg-card 25%, var(--bg-element) 50%, $color-bg-card 75%);
   background-size: 200% 100%;
   animation: shimmer 1.5s infinite linear;
   border-radius: 6px;
+}
+
+// ── Gradient Text Mixin ───────────────────────────────────────────────────────
+@mixin gradient-text($from, $to) {
+  background: linear-gradient(135deg, $from 0%, $to 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }

@@ -11,6 +11,22 @@ export const clearAccessToken = ()      => { _accessToken = null;  };
 export const getAccessToken  = ()       => _accessToken;
 
 /**
+ * Helper to perform native fetch requests with Authorization token and credentials attached.
+ */
+export const authenticatedFetch = (url, options = {}) => {
+  const token = getAccessToken();
+  const headers = { ...(options.headers || {}) };
+  if (token && !headers['Authorization'] && !headers['authorization']) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+  return fetch(url, {
+    ...options,
+    headers,
+    credentials: 'include',
+  });
+};
+
+/**
  * Custom Axios instance configured for automatic cookie passing and token refresh.
  */
 export const apiClient = axios.create({

@@ -31,7 +31,7 @@ const initialState = {
   billingCycle: 'monthly', // 'monthly' | 'yearly'
   activeView: 'landing', // 'landing' | 'status' | 'invoices' | 'checkout' | 'analytics'
   detailPlanId: null,
-  theme: localStorage.getItem('theme') || 'dark',
+  theme: localStorage.getItem('theme') || 'light',
 };
 
 const paymentsSlice = createSlice({

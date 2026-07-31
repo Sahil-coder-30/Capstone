@@ -1,0 +1,15 @@
+.text-block {
+  margin: 1rem 0;
+  max-width: 800px;
+  font-family: monospace;
+  font-size: clamp(18px, 4vw, 36px);
+  color: #ffffff;
+  user-select: none;
+}
+
+.char {
+  will-change: transform, opacity;
+  display: inline-block;
+  white-space: pre;
+  transition: color 0.15s ease;
+}

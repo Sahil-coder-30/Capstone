@@ -49,6 +49,28 @@ async function getPublicKeyFromJWKS() {
   }
 }
 
+export const verifyToken = async (token) => {
+  if (await isBlacklisted(token)) {
+    throw new Error("Token has been revoked");
+  }
+
+  try {
+    const publicKeyPem = await getPublicKeyFromJWKS();
+    const decodedToken = jwt.verify(token, publicKeyPem, JWT_VERIFY_OPTIONS);
+    const userId = decodedToken.sub || decodedToken.id;
+    return { ...decodedToken, id: userId };
+  } catch (err) {
+    if (process.env.JWT_ACCESS_SECRET) {
+      try {
+        const decodedToken = jwt.verify(token, process.env.JWT_ACCESS_SECRET);
+        const userId = decodedToken.sub || decodedToken.id;
+        return { ...decodedToken, id: userId };
+      } catch (_) {}
+    }
+    throw err;
+  }
+};
+
 export const identifyUser = async (req, res, next) => {
   try {
     let token = req.cookies?.accessToken || req.cookies?.token;
@@ -65,18 +87,9 @@ export const identifyUser = async (req, res, next) => {
       });
     }
 
-    if (await isBlacklisted(token)) {
-      return res.status(401).json({
-        status: "error",
-        message: "Unauthorized - Token has been revoked",
-      });
-    }
-
-    const publicKeyPem = await getPublicKeyFromJWKS();
-    const decodedToken = jwt.verify(token, publicKeyPem, JWT_VERIFY_OPTIONS);
+    const decodedToken = await verifyToken(token);
 
     req.user = decodedToken;
-    req.user.id = decodedToken.sub || decodedToken.id;
     req.authToken = token;
     next();
   } catch (err) {

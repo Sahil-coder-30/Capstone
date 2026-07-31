@@ -1,5 +1,6 @@
 import { useDispatch, useSelector } from 'react-redux';
 import { io } from 'socket.io-client';
+import { getAccessToken, authenticatedFetch } from '../../../services/apiClient';
 import { 
   addMessage, 
   updateLastMessage, 
@@ -42,10 +43,11 @@ export const useChat = () => {
     let streamError = null;
 
     // 3. Connect to the WebSocket orchestration service via Socket.io
-    const socketUrl = `${window.location.protocol}//${window.location.hostname}`;
-    const socket = io(socketUrl, {
+    const socket = io(window.location.origin, {
       path: '/api/ai/socket.io',
-      transports: ['websocket'],
+      transports: ['polling', 'websocket'],
+      withCredentials: true,
+      auth: { token: getAccessToken() },
     });
 
     socket.on('connect', () => {
@@ -174,7 +176,7 @@ export const useChat = () => {
     let toolLogs = [];
 
     try {
-      const response = await fetch('/api/ai/app-agent/invoke', {
+      const response = await authenticatedFetch('/api/ai/app-agent/invoke', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

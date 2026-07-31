@@ -1,4 +1,4 @@
-import axios from 'axios';
+import { authenticatedFetch } from '../../../services/apiClient';
 
 /**
  * Chat / AI invoke uses a relative path → routed by Vite proxy to backend.
@@ -6,7 +6,7 @@ import axios from 'axios';
  * ReadableStream directly in the browser.
  */
 export const invokeAgentAPI = async (message, projectId) => {
-  return fetch('/api/ai/invoke', {
+  return authenticatedFetch('/api/ai/invoke', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',

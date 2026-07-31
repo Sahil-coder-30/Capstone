@@ -183,7 +183,7 @@ export default function PaymentsLandingPage({ user }) {
 
               <h1 className="hero-headline">
                 Power your coding workflow with a <br />
-                <span className="animated-gradient-text">Taksha AI plan</span>
+                <span className="animated-gradient-text">Taksha AI Plan</span>
               </h1>
 
               <p className="hero-subtitle">

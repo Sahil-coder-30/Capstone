@@ -26,8 +26,8 @@ export default function ThemeToggle() {
         transition: 'all 0.2s ease',
       }}
     >
-      {isLight ? <Moon size={14} style={{ color: '#6366F1' }} /> : <Sun size={14} style={{ color: '#F59E0B' }} />}
-      <span>{isLight ? 'Dark' : 'Light'}</span>
+      {isLight ? <Sun size={14} style={{ color: '#F59E0B' }} /> : <Moon size={14} style={{ color: '#818CF8' }} />}
+      <span>{isLight ? 'Light' : 'Dark'}</span>
     </button>
   );
 }

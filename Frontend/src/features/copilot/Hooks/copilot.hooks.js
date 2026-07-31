@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useEditor } from '../../editor/Hooks/editor.hooks';
+import { authenticatedFetch } from '../../../services/apiClient';
 import {
   addMessage,
   updateLastMessage,
@@ -43,7 +44,7 @@ export const useCopilot = (projectId) => {
     let toolLogs = [];
 
     try {
-      const response = await fetch('/api/ai/app-agent/invoke', {
+      const response = await authenticatedFetch('/api/ai/app-agent/invoke', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -148,7 +149,7 @@ export const useCopilot = (projectId) => {
       try {
         const fileClean = activeFile && activeFile !== 'none' ? activeFile.replace(/^\/+/, "") : "";
         const combinedId = fileClean ? `${projectId}:${fileClean}` : projectId;
-        const response = await fetch(`/api/ai/chats/${encodeURIComponent(combinedId)}/copilot`);
+        const response = await authenticatedFetch(`/api/ai/chats/${encodeURIComponent(combinedId)}/copilot`);
         if (response.ok) {
           const data = await response.json();
           if (data.status === 'ok') {
@@ -180,7 +181,7 @@ export const useCopilot = (projectId) => {
     try {
       const fileClean = activeFile && activeFile !== 'none' ? activeFile.replace(/^\/+/, "") : "";
       const combinedId = fileClean ? `${projectId}:${fileClean}` : projectId;
-      await fetch(`/api/ai/chats/${encodeURIComponent(combinedId)}/copilot`, { method: 'DELETE' });
+      await authenticatedFetch(`/api/ai/chats/${encodeURIComponent(combinedId)}/copilot`, { method: 'DELETE' });
     } catch (err) {
       console.error('Failed to clear copilot chat history from DB:', err);
     }

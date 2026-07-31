@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { getCachedProjects, setCachedProjects, upsertCachedProject } from '../../editor/service/dbService';
+import { authenticatedFetch } from '../../../services/apiClient';
 import {
   Cpu, Plus, Loader2, Folder, AlertTriangle, LogOut,
   Code, Play, RefreshCw, X, Square, Trash2, MoreVertical,
@@ -423,7 +424,7 @@ export default function Dashboard({
     let title = `App - ${originalPrompt.substring(0, 16)}`;
     try {
       // Step 1: Synthesize Title via app-agent/title endpoint
-      const responseTitle = await fetch('/api/ai/app-agent/title', {
+      const responseTitle = await authenticatedFetch('/api/ai/app-agent/title', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: originalPrompt })
