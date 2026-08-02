@@ -19,11 +19,13 @@ const JWT_VERIFY_OPTIONS = {
 
 export const identifyUser = async (req, res, next) => {
     try {
-        let token = req.cookies?.accessToken || req.cookies?.token;
-        
-        if (!token && req.headers.authorization) {
+        let token = null;
+        if (req.headers.authorization) {
             const [scheme, value] = req.headers.authorization.split(' ');
             if (scheme?.toLowerCase() === 'bearer' && value) token = value;
+        }
+        if (!token) {
+            token = req.cookies?.accessToken || req.cookies?.token;
         }
         if (!token) {
             return res.status(401).json({

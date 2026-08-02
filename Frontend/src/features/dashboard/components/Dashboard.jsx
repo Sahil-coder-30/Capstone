@@ -7,7 +7,8 @@ import {
   Code, Play, RefreshCw, X, Square, Trash2, MoreVertical,
   Zap, Clock, CheckCircle, XCircle, Activity, Settings, Search,
   Sparkles, BookOpen, Layers, Terminal, History, Keyboard, HelpCircle,
-  ChevronLeft, ChevronRight, Mic, Paperclip
+  ChevronLeft, ChevronRight, Mic, Paperclip,
+  Moon, Sun, User, CreditCard, Crown, Zap as ZapIcon
 } from 'lucide-react';
 import './Dashboard.scss';
 import BrandLogo, { TakshaIcon } from '../../../components/BrandLogo';
@@ -173,7 +174,9 @@ export default function Dashboard({
   activeTab = 'playground', 
   setActiveTab = () => {},
   onSelectProject, 
-  onNavigateSettings 
+  onNavigateSettings,
+  onLogout,
+  onNavigatePayments,
 }) {
   const dispatch = useDispatch();
   const { user } = useSelector((state) => state.auth);
@@ -246,6 +249,11 @@ export default function Dashboard({
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [settingsTab, setSettingsTab] = useState('profile');
 
+  // Profile flyout menu
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  const profileMenuRef = useRef(null);
+  const [isDarkTheme, setIsDarkTheme] = useState(() => localStorage.getItem('theme') !== 'light');
+
   // Sidebar hover state with 2-second disappearance timer on mouse exit
   const [isSidebarHovered, setIsSidebarHovered] = useState(false);
   const sidebarHoverTimerRef = useRef(null);
@@ -283,6 +291,45 @@ export default function Dashboard({
       document.documentElement.classList.remove('light-theme');
     }
   }, []);
+
+  // Close profile menu on outside click
+  useEffect(() => {
+    if (!profileMenuOpen) return;
+    const handler = (e) => {
+      if (profileMenuRef.current && !profileMenuRef.current.contains(e.target)) {
+        setProfileMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [profileMenuOpen]);
+
+  const handleToggleTheme = () => {
+    const nextIsLight = isDarkTheme; // if currently dark, switch to light
+    if (nextIsLight) {
+      document.documentElement.classList.add('light-theme');
+      localStorage.setItem('theme', 'light');
+    } else {
+      document.documentElement.classList.remove('light-theme');
+      localStorage.setItem('theme', 'dark');
+    }
+    setIsDarkTheme(!isDarkTheme);
+  };
+
+  const handleLogout = () => {
+    setProfileMenuOpen(false);
+    if (onLogout) onLogout();
+  };
+
+  const handleUpgrade = () => {
+    setProfileMenuOpen(false);
+    if (onNavigatePayments) onNavigatePayments();
+  };
+
+  const handleNavigateSettings = () => {
+    setProfileMenuOpen(false);
+    if (onNavigateSettings) onNavigateSettings();
+  };
 
   const startSidebarResize = (e) => {
     e.preventDefault();
@@ -653,8 +700,75 @@ export default function Dashboard({
         </div>
 
         {/* User profile / Settings footer */}
-        <div className="dashboard__sidebar-footer">
-          <div className="dashboard__sidebar-profile-bar">
+        <div className="dashboard__sidebar-footer" ref={profileMenuRef}>
+          {/* Profile flyout menu */}
+          {profileMenuOpen && (
+            <div className="sidebar-profile-flyout">
+              {/* Header: avatar + name + email */}
+              <div className="sidebar-profile-flyout__header">
+                <div className={`dashboard__sidebar-avatar-ring dashboard__sidebar-avatar-ring--${subscription}`} style={{ width: 38, height: 38 }}>
+                  {userPhoto
+                    ? <img src={userPhoto} alt={userName} className="dashboard__sidebar-avatar" style={{ width: 32, height: 32 }} />
+                    : <div className="dashboard__sidebar-initials" style={{ width: 32, height: 32, fontSize: 13 }}>{userInitials}</div>
+                  }
+                </div>
+                <div className="sidebar-profile-flyout__user-info">
+                  <span className="sidebar-profile-flyout__name">{userName}</span>
+                  <span className="sidebar-profile-flyout__email">{user?.email || ''}</span>
+                </div>
+              </div>
+
+              <div className="sidebar-profile-flyout__divider" />
+
+              {/* Menu items */}
+              <button className="sidebar-profile-flyout__item" onClick={handleNavigateSettings}>
+                <User size={15} />
+                <span>My Profile</span>
+              </button>
+
+              <button className="sidebar-profile-flyout__item" onClick={handleNavigateSettings}>
+                <Settings size={15} />
+                <span>Settings</span>
+              </button>
+
+              {/* Prominent Upgrade CTA Button */}
+              <button
+                className="sidebar-profile-flyout__item sidebar-profile-flyout__item--upgrade"
+                onClick={handleUpgrade}
+              >
+                <Crown size={15} />
+                <span>{subscription === 'max' ? 'Manage Plan' : subscription === 'pro' ? 'Upgrade to Max' : 'Upgrade to Pro'}</span>
+                <span className="sidebar-profile-flyout__upgrade-badge">
+                  <Zap size={10} />
+                  <span>{subscription === 'max' ? 'MAX' : 'PRO'}</span>
+                </span>
+              </button>
+
+              <button className="sidebar-profile-flyout__item" onClick={handleUpgrade}>
+                <CreditCard size={15} />
+                <span>Billing & Plans</span>
+              </button>
+
+              <button className="sidebar-profile-flyout__item" onClick={handleToggleTheme}>
+                {isDarkTheme ? <Sun size={15} /> : <Moon size={15} />}
+                <span>{isDarkTheme ? 'Light Mode' : 'Dark Mode'}</span>
+              </button>
+
+              <div className="sidebar-profile-flyout__divider" />
+
+              <button className="sidebar-profile-flyout__item sidebar-profile-flyout__item--logout" onClick={handleLogout}>
+                <LogOut size={15} />
+                <span>Logout</span>
+              </button>
+            </div>
+          )}
+
+          {/* Clickable profile bar trigger */}
+          <button
+            className={`dashboard__sidebar-profile-bar dashboard__sidebar-profile-bar--clickable ${profileMenuOpen ? 'is-open' : ''}`}
+            onClick={() => setProfileMenuOpen(v => !v)}
+            title="Account menu"
+          >
             <div className="dashboard__sidebar-profile-details">
               <div className={`dashboard__sidebar-avatar-ring dashboard__sidebar-avatar-ring--${subscription}`}>
                 {userPhoto
@@ -669,29 +783,7 @@ export default function Dashboard({
                 </span>
               </div>
             </div>
-          </div>
-
-          <button 
-            onClick={onNavigateSettings} 
-            className={`dashboard__sidebar-item ${activeTab === 'settings' ? 'dashboard__sidebar-item--active' : ''}`}
-            title={isSidebarCollapsed ? "Settings" : undefined}
-            style={{ 
-              width: 'auto',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: isSidebarCollapsed ? 'center' : 'flex-start',
-              gap: '8px',
-              padding: isSidebarCollapsed ? '9px 12px' : '9px 12px',
-              cursor: 'pointer',
-              background: 'transparent',
-              border: '1px solid transparent',
-              fontSize: '13.5px',
-              fontWeight: '500',
-              transition: 'all 0.2s',
-            }}
-          >
-            <Settings size={16} style={{ flexShrink: 0 }} />
-            <span className="sidebar-label">Settings</span>
+            <ChevronRight size={14} className={`sidebar-profile-chevron sidebar-label ${profileMenuOpen ? 'is-open' : ''}`} />
           </button>
         </div>
 

@@ -831,6 +831,14 @@ export default function App() {
             setCurrentProjectTitle(title);
           }}
           onNavigateSettings={() => setActiveRoute('settings')}
+          onLogout={() => {
+            authLogout();
+            window.history.pushState(null, '', window.location.pathname);
+          }}
+          onNavigatePayments={() => {
+            const paymentsUrl = window.location.origin.replace(/:\d+$/, ':5174');
+            window.location.href = paymentsUrl;
+          }}
         />
       )}
       {currentProjectId && <AppAgentFloat projectId={currentProjectId} />}

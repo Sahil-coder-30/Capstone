@@ -32,12 +32,13 @@ export const authGoogleCallbackController = async (req, res, next) => {
         });
 
         // Issue new token pair (access JWT + rotating opaque refresh token)
-        const { accessToken, refreshToken } = await issueTokenPair(user);
+        const { refreshToken } = await issueTokenPair(user);
 
-        // Attach refresh token cookie (scoped to /api/auth/refresh)
+        // Attach refresh token cookie (scoped strictly to /api/auth/refresh)
         setRefreshCookie(res, refreshToken);
 
-        res.redirect('http://localhost:5173');
+        const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173';
+        res.redirect(clientUrl);
 
     } catch (err) {
         next(err);
@@ -58,7 +59,8 @@ export const authGetMeController = async (req, res, next) => {
         res.status(200).json({
             status: "success",
             message: "User found successfully",
-            user
+            user,
+            accessToken: req.authToken || null
         });
     } catch (err) {
         next(err);
@@ -70,7 +72,7 @@ export const authGetMeController = async (req, res, next) => {
  */
 export const authLogoutController = async (req, res, next) => {
     try {
-        const token = req.cookies.accessToken || req.cookies.token;
+        const token = req.cookies.accessToken || req.cookies.token || (req.headers.authorization?.startsWith('Bearer ') ? req.headers.authorization.split(' ')[1] : null);
         const rawRefreshToken = req.cookies.refreshToken;
 
         // 1. Blacklist access token in Redis if active
@@ -95,8 +97,6 @@ export const authLogoutController = async (req, res, next) => {
 
         // 3. Clear auth cookies
         res.clearCookie('refreshToken', { path: '/api/auth/refresh' });
-        res.clearCookie('accessToken');
-        res.clearCookie('token');
 
         res.status(200).json({
             status: 'success',
@@ -160,7 +160,7 @@ export const authGenerateAccessToken = async (req, res, next) => {
         // 4. Issue new token pair in the SAME rotation family
         const { accessToken, refreshToken: newRefreshToken } = await issueTokenPair(user, stored.familyId);
 
-        // 5. Attach new refresh cookie
+        // 5. Attach new refresh cookie (access token returned only in JSON response)
         setRefreshCookie(res, newRefreshToken);
 
         res.status(200).json({

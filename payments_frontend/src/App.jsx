@@ -48,9 +48,10 @@ export default function App() {
     const verifySession = async () => {
       try {
         const res = await api.get('/api/auth/getMe', { baseURL: '' });
-        // If this call succeeds, the interceptor already got and stored a new
-        // access token in memory. Store user data from response.
         if (res.data?.user) {
+          if (res.data?.accessToken) {
+            setAccessToken(res.data.accessToken);
+          }
           setUser(res.data.user);
         }
       } catch (err) {

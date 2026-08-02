@@ -96,6 +96,7 @@ export const setRefreshCookie = (res, rawRefreshToken) => {
     });
 };
 
+
 // Backward compatibility wrappers
 export const generateAccessToken = async (user) => signAccessToken(user);
 export const generateRefreshToken = async (user) => {
