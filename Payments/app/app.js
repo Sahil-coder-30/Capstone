@@ -1,6 +1,8 @@
 import express from 'express';
 import cookieParser from 'cookie-parser';
 import morgan from 'morgan';
+import { createExpressErrorHandler } from 'faultkit/express';
+import { logger, NotFoundError } from 'faultkit';
 import creditRouter from '../routes/credit.routes.js';
 import adminRouter from '../routes/admin.routes.js';
 import paymentRouter from '../routes/payments.routes.js';
@@ -38,24 +40,18 @@ app.get('/readyz', (_req, res) => {
 });
 
 // ── 404 Handler ───────────────────────────────────────────────────────────────
-app.use((_req, res) => {
-    res.status(404).json({ status: 'error', message: 'Route not found' });
+app.use((req, _res, next) => {
+    next(new NotFoundError(`Route ${req.method} ${req.path} not found`));
 });
 
-// ── Global Error Handler ──────────────────────────────────────────────────────
-// Must have 4 parameters — Express identifies this as an error-handling middleware
-// eslint-disable-next-line no-unused-vars
-app.use((err, _req, res, _next) => {
-    const statusCode = err.statusCode || err.status || 500;
-    const message = err.message || 'Internal server error';
-
-    console.error(`[Payments Error] ${statusCode} — ${message}`, err.stack || '');
-
-    res.status(statusCode).json({
-        status: 'error',
-        message,
-        ...(process.env.NODE_ENV === 'development' && { stack: err.stack }),
-    });
-});
+// ── Global Error Handler (FaultKit) ──────────────────────────────────────────
+// Framework-agnostic, OpenAPI-compliant error response contract:
+// { success: false, error: { code, message, details, requestId } }
+app.use(createExpressErrorHandler({
+    logger,
+    genericServerErrorMessage: 'An unexpected error occurred in Payments service.',
+    includeStackInLog: process.env.NODE_ENV !== 'production',
+    includeRequestId: true,
+}));
 
 export default app;

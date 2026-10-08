@@ -477,6 +477,47 @@ export const updateSubscriptionController = async (req, res, next) => {
             { upsert: true, returnDocument: 'after', setDefaultsOnInsert: true, runValidators: true }
         );
 
+        // ── Keep Account and Subscription models strictly in sync ───────────
+        const windowCfg = getWindowConfig(normalizedSub);
+        const periodEnd = new Date();
+        periodEnd.setMonth(periodEnd.getMonth() + 1);
+
+        await Account.findOneAndUpdate(
+            { $or: [{ user_id: accountObjId }, { _id: accountObjId }] },
+            {
+                _id: accountObjId,
+                user_id: accountObjId,
+                subscription_status: normalizedSub,
+                subscription_expiry: normalizedSub === 'free' ? null : periodEnd,
+                windowCreditsTotal: windowCfg.windowCredits,
+                windowCreditsRemaining: windowCfg.windowCredits,
+                windowExhaustedAt: null,
+                windowRefillAt: null,
+                is_active: true,
+            },
+            { upsert: true }
+        ).catch(() => {});
+
+        let sub = await Subscription.findOne({ accountId: accountObjId });
+        if (!sub) sub = new Subscription({ accountId: accountObjId });
+        sub.activeTier = normalizedSub;
+        sub.status = normalizedSub === 'free' ? 'FREE' : 'ACTIVE';
+        if (normalizedSub !== 'free') {
+            sub.activeSlot = {
+                packageId: `${normalizedSub}_regular`,
+                tier: normalizedSub,
+                planId: `${normalizedSub}_manual`,
+                validFrom: new Date(),
+                validUntil: periodEnd,
+                paidAmountPaise: 0,
+                carriedDays: 0,
+                queuedAt: new Date(),
+            };
+        } else {
+            sub.activeSlot = null;
+        }
+        await sub.save().catch(() => {});
+
         if (previousTier !== normalizedSub) {
             await Transaction.create({
                 accountId: accountObjId,

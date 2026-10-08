@@ -114,11 +114,72 @@ api.interceptors.response.use(
         // Refresh token also expired or revoked → session truly ended
         processPendingQueue(refreshError, null);
         clearAccessToken();
+        localStorage.removeItem('auth_token');
+
+        const authErrorData = refreshError?.response?.data?.error;
+        if (authErrorData) {
+          refreshError.code = authErrorData.code || 'UNAUTHORIZED';
+          refreshError.message = authErrorData.message || 'Session expired. Please log in again.';
+          refreshError.details = authErrorData.details || null;
+          refreshError.requestId = authErrorData.requestId || null;
+        }
 
         return Promise.reject(refreshError);
       } finally {
         _isRefreshing = false;
       }
+    }
+
+    // ── FaultKit OpenAPI Error Parsing (Recipe 7) ───────────────────────────
+    // Guaranteed schema: { success: false, error: { code, message, details, requestId }, requestId }
+    const errorData = error?.response?.data?.error;
+    const responseData = error?.response?.data;
+    const statusCode = error?.response?.status;
+    const headerRequestId = error?.response?.headers?.['x-request-id'] || responseData?.requestId;
+
+    if (errorData) {
+      // 1. Enrich Error instance with FaultKit attributes
+      error.code      = errorData.code || 'UNKNOWN_ERROR';
+      error.message   = errorData.message || 'An error occurred';
+      error.details   = errorData.details || null;
+      error.requestId = errorData.requestId || headerRequestId || null;
+      error.status    = statusCode;
+
+      // 2. Auth Session Expiry Redirection
+      if (errorData.code === 'UNAUTHORIZED' || errorData.code === 'TOKEN_EXPIRED') {
+        clearAccessToken();
+        localStorage.removeItem('auth_token');
+        if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/login')) {
+          console.warn('[FaultKit] Session expired or unauthorized, redirecting to login');
+        }
+      }
+
+      // 3. Observability & Support Tracing (User quotes ID; searched in Grafana Loki)
+      if (error.requestId) {
+        console.error(`[FaultKit] Support Reference ID: ${error.requestId} (Code: ${error.code})`);
+      }
+
+      // 4. Global Event Dispatch for UI Toasts & Notifications
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(
+          new CustomEvent('faultkit:error', {
+            detail: {
+              code:      error.code,
+              message:   error.message,
+              details:   error.details,
+              requestId: error.requestId,
+              status:    statusCode,
+            },
+          })
+        );
+      }
+    } else {
+      // Non-FaultKit fallback (e.g. network failure, gateway timeout)
+      error.code      = error.code || 'NETWORK_ERROR';
+      error.message   = responseData?.message || error.message || 'Network or connection error. Please try again.';
+      error.details   = null;
+      error.requestId = headerRequestId || null;
+      error.status    = statusCode;
     }
 
     return Promise.reject(error);

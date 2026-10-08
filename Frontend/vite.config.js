@@ -25,15 +25,55 @@ export default defineConfig({
       'react-redux',
       '@reduxjs/toolkit',
       'axios',
-      'lucide-react',
       'gsap',
       '@gsap/react',
       '@monaco-editor/react',
       '@xterm/xterm',
       '@xterm/addon-fit',
       'socket.io-client',
-      'dexie'
+      'dexie',
+      'lucide-react'
     ]
+  },
+
+  build: {
+    target: 'esnext',
+    cssCodeSplit: true,
+    sourcemap: false,
+    chunkSizeWarningLimit: 1200,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes('node_modules')) {
+            if (id.includes('@monaco-editor') || id.includes('monaco-editor')) {
+              return 'vendor-monaco';
+            }
+            if (id.includes('@xterm')) {
+              return 'vendor-terminal';
+            }
+            if (id.includes('gsap') || id.includes('@gsap')) {
+              return 'vendor-gsap';
+            }
+            if (id.includes('dexie')) {
+              return 'vendor-dexie';
+            }
+            if (id.includes('socket.io-client')) {
+              return 'vendor-socket';
+            }
+            if (id.includes('lucide-react')) {
+              return 'vendor-icons';
+            }
+            if (id.includes('react') || id.includes('redux')) {
+              return 'vendor-react-core';
+            }
+            return 'vendor-misc';
+          }
+        },
+        chunkFileNames: 'assets/[name]-[hash].js',
+        entryFileNames: 'assets/[name]-[hash].js',
+        assetFileNames: 'assets/[name]-[hash].[ext]'
+      }
+    }
   },
 
   server: {

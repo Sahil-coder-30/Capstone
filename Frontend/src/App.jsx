@@ -1,24 +1,32 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, lazy, Suspense } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import './App.scss';
 import SandboxHeader from './features/sandbox/components/SandboxHeader';
-import AIChat from './features/coding-agent/components/AIChat';
-import AppAgentFloat from './features/copilot/components/AppAgentFloat';
-import FileExplorer from './features/editor/components/FileExplorer';
-import CodeEditor from './features/editor/components/CodeEditor';
-import TerminalShell from './features/editor/components/TerminalShell';
-import RuntimeLogs from './features/logs/components/RuntimeLogs';
 import Layout from './components/Layout';
-import Dashboard from './features/dashboard/components/Dashboard';
-import LandingPage from './features/auth/components/LandingPage';
-import Login from './features/auth/components/Login';
 import EntryLoader from './components/EntryLoader';
 import { TakshaIcon, TakshaAnimatedLogo } from './components/BrandLogo';
 import { useAuth } from './features/auth/Hooks/auth.hooks';
-import SettingsPage from './features/settings/components/SettingsPage';
-import PaymentsLandingPage from './features/payments/components/PaymentsLandingPage';
 import { useSandbox } from './features/sandbox/Hooks/sandbox.hooks';
 import { useEditor } from './features/editor/Hooks/editor.hooks';
+import {
+  EditorSkeleton,
+  TerminalSkeleton,
+  ChatSkeleton,
+  PageSkeleton
+} from './components/LazyFallback';
+
+// ── Lazy-loaded domain components to eliminate monolithic bundle bloat ──
+const AIChat = lazy(() => import('./features/coding-agent/components/AIChat'));
+const AppAgentFloat = lazy(() => import('./features/copilot/components/AppAgentFloat'));
+const FileExplorer = lazy(() => import('./features/editor/components/FileExplorer'));
+const CodeEditor = lazy(() => import('./features/editor/components/CodeEditor'));
+const TerminalShell = lazy(() => import('./features/editor/components/TerminalShell'));
+const RuntimeLogs = lazy(() => import('./features/logs/components/RuntimeLogs'));
+const Dashboard = lazy(() => import('./features/dashboard/components/Dashboard'));
+const LandingPage = lazy(() => import('./features/auth/components/LandingPage'));
+const Login = lazy(() => import('./features/auth/components/Login'));
+const SettingsPage = lazy(() => import('./features/settings/components/SettingsPage'));
+const PaymentsLandingPage = lazy(() => import('./features/payments/components/PaymentsLandingPage'));
 import { useWorkspaceSync } from './features/editor/Hooks/useWorkspaceSync';
 import { resetEditorState } from './features/editor/slice/editor.slice';
 import { loadMessagesForProject } from './features/coding-agent/slice/codingAgent.slice';
@@ -231,6 +239,44 @@ export default function App() {
     verifySession();
   }, [verifySession]);
 
+  // ── Background Prefetching for Instant Navigation ────────────
+  // Once the primary screen (Landing or Dashboard) is loaded,
+  // silently prefetch heavy IDE chunks during idle cycles so the user feels zero lag.
+  useEffect(() => {
+    let cancelId;
+    const idlePrefetch = () => {
+      // Warm up Monaco, Terminal, Dexie, Chat in browser cache
+      import('./features/editor/components/CodeEditor');
+      import('./features/editor/components/TerminalShell');
+      import('./features/editor/components/FileExplorer');
+      import('./features/coding-agent/components/AIChat');
+      import('./features/copilot/components/AppAgentFloat');
+      if (isAuthenticated) {
+        import('./features/settings/components/SettingsPage');
+      } else {
+        import('./features/dashboard/components/Dashboard');
+      }
+    };
+
+    if (typeof window !== 'undefined') {
+      if ('requestIdleCallback' in window) {
+        cancelId = window.requestIdleCallback(idlePrefetch, { timeout: 3000 });
+      } else {
+        cancelId = setTimeout(idlePrefetch, 1500);
+      }
+    }
+
+    return () => {
+      if (cancelId) {
+        if ('cancelIdleCallback' in window) {
+          window.cancelIdleCallback(cancelId);
+        } else {
+          clearTimeout(cancelId);
+        }
+      }
+    };
+  }, [isAuthenticated]);
+
   // Project state isolation: reset editor/copilot/logs and load project-scoped AI chat
   useEffect(() => {
     if (currentProjectId) {
@@ -370,9 +416,17 @@ export default function App() {
 
   if (!isAuthenticated) {
     if (currentRoute === 'login') {
-      return <Login onBackToHome={() => setCurrentRoute('landing')} />;
+      return (
+        <Suspense fallback={<PageSkeleton title="Taksha Codespace • Authentication" />}>
+          <Login onBackToHome={() => setCurrentRoute('landing')} />
+        </Suspense>
+      );
     }
-    return <LandingPage onNavigateToLogin={() => setCurrentRoute('login')} />;
+    return (
+      <Suspense fallback={<PageSkeleton title="Taksha Codespace • Cloud IDE" />}>
+        <LandingPage onNavigateToLogin={() => setCurrentRoute('login')} />
+      </Suspense>
+    );
   }
 
   const statusBar = (
@@ -463,7 +517,9 @@ export default function App() {
             leftPanel={
               <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
                 <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
-                  <AIChat projectId={currentProjectId} onCloseChat={() => setIsChatOpen(false)} />
+                  <Suspense fallback={<ChatSkeleton />}>
+                    <AIChat projectId={currentProjectId} onCloseChat={() => setIsChatOpen(false)} />
+                  </Suspense>
                 </div>
               </div>
             }
@@ -514,7 +570,9 @@ export default function App() {
                             </button>
                           </div>
                           <div style={{ flex: 1, overflow: 'hidden' }}>
-                            <FileExplorer />
+                            <Suspense fallback={<div style={{ padding: '16px', color: 'var(--text-muted)', fontSize: '11px', fontFamily: 'var(--font-mono)' }}>Loading tree…</div>}>
+                              <FileExplorer />
+                            </Suspense>
                           </div>
                         </div>
                       ) : (
@@ -535,7 +593,9 @@ export default function App() {
                       
                       {/* Right: Code Editor */}
                       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-                        <CodeEditor />
+                        <Suspense fallback={<EditorSkeleton />}>
+                          <CodeEditor />
+                        </Suspense>
                       </div>
                     </div>
                   ) : (
@@ -754,8 +814,16 @@ export default function App() {
                   </button>
                 </div>
                 <div style={{ flex: 1, overflow: 'hidden', height: '100%' }}>
-                  {bottomTab === 'terminal' && <TerminalShell />}
-                  {bottomTab === 'logs' && <RuntimeLogs />}
+                  {bottomTab === 'terminal' && (
+                    <Suspense fallback={<TerminalSkeleton />}>
+                      <TerminalShell />
+                    </Suspense>
+                  )}
+                  {bottomTab === 'logs' && (
+                    <Suspense fallback={<div style={{ padding: '16px', color: 'var(--text-muted)', fontSize: '11px', fontFamily: 'var(--font-mono)' }}>Connecting to logs…</div>}>
+                      <RuntimeLogs />
+                    </Suspense>
+                  )}
                   {bottomTab === 'problems' && (
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--text-dark)', backgroundColor: 'var(--bg-panel)' }}>
                       <Check size={20} color="var(--success)" style={{ marginBottom: '6px' }} />
@@ -798,50 +866,60 @@ export default function App() {
           {statusBar}
         </div>
       ) : activeRoute === 'settings' ? (
-        <SettingsPage 
-          user={user}
-          userName={user?.name || 'Developer'}
-          userInitials={(user?.name || 'Developer').split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase() || 'U'}
-          userPhoto={user?.photo}
-          projectsCount={2}
-          onSyncLimits={() => alert('Synced sandbox limits.')}
-          onLogout={() => {
-            authLogout();
-            window.history.pushState(null, '', window.location.pathname);
-          }}
-          onBackToDashboard={(tab) => {
-            if (tab === 'payments') {
+        <Suspense fallback={<PageSkeleton title="Taksha Settings" />}>
+          <SettingsPage 
+            user={user}
+            userName={user?.name || 'Developer'}
+            userInitials={(user?.name || 'Developer').split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase() || 'U'}
+            userPhoto={user?.photo}
+            projectsCount={2}
+            onSyncLimits={() => alert('Synced sandbox limits.')}
+            onLogout={() => {
+              authLogout();
+              window.history.pushState(null, '', window.location.pathname);
+            }}
+            onBackToDashboard={(tab) => {
+              if (tab === 'payments') {
+                const paymentsUrl = window.location.origin.replace(/:\d+$/, ':5174');
+                window.location.href = paymentsUrl;
+              } else {
+                setDashboardTab(tab || 'playground');
+                setActiveRoute('dashboard');
+              }
+            }}
+          />
+        </Suspense>
+      ) : activeRoute === 'payments' ? (
+        <Suspense fallback={<PageSkeleton title="Taksha Billing & Plans" />}>
+          <PaymentsLandingPage user={user} />
+        </Suspense>
+      ) : (
+        <Suspense fallback={<PageSkeleton title="Initializing Dashboard…" />}>
+          <Dashboard
+            activeTab={dashboardTab}
+            setActiveTab={setDashboardTab}
+            onSelectProject={(id, title) => {
+              dispatch(initializeSandboxForProject(id));
+              setCurrentProjectId(id);
+              setCurrentProjectTitle(title);
+            }}
+            onNavigateSettings={() => setActiveRoute('settings')}
+            onLogout={() => {
+              authLogout();
+              window.history.pushState(null, '', window.location.pathname);
+            }}
+            onNavigatePayments={() => {
               const paymentsUrl = window.location.origin.replace(/:\d+$/, ':5174');
               window.location.href = paymentsUrl;
-            } else {
-              setDashboardTab(tab || 'playground');
-              setActiveRoute('dashboard');
-            }
-          }}
-        />
-      ) : activeRoute === 'payments' ? (
-        <PaymentsLandingPage user={user} />
-      ) : (
-        <Dashboard
-          activeTab={dashboardTab}
-          setActiveTab={setDashboardTab}
-          onSelectProject={(id, title) => {
-            dispatch(initializeSandboxForProject(id));
-            setCurrentProjectId(id);
-            setCurrentProjectTitle(title);
-          }}
-          onNavigateSettings={() => setActiveRoute('settings')}
-          onLogout={() => {
-            authLogout();
-            window.history.pushState(null, '', window.location.pathname);
-          }}
-          onNavigatePayments={() => {
-            const paymentsUrl = window.location.origin.replace(/:\d+$/, ':5174');
-            window.location.href = paymentsUrl;
-          }}
-        />
+            }}
+          />
+        </Suspense>
       )}
-      {currentProjectId && <AppAgentFloat projectId={currentProjectId} />}
+      {currentProjectId && (
+        <Suspense fallback={null}>
+          <AppAgentFloat projectId={currentProjectId} />
+        </Suspense>
+      )}
     </>
   );
 }

@@ -181,7 +181,9 @@ export default function CheckoutModal({ user: propUser }) {
               setStatus('success');
             } catch (fallbackErr) {
               setStatus('failed');
-              setErrorMsg(err.message || 'Payment confirmation failed on server');
+              const refId = err?.requestId || fallbackErr?.requestId;
+              const supportMsg = refId ? ` (Ref: ${refId})` : '';
+              setErrorMsg((err?.message || fallbackErr?.message || 'Payment confirmation failed on server') + supportMsg);
             }
           }
         },

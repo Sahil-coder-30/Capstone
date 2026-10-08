@@ -89,7 +89,7 @@ function sortSlots(slots) {
 /** Sync the Credit model's subscription tier (best-effort, non-fatal) */
 export async function syncCreditTier(accountObjId, tier, periodStart, periodEnd, amountPaise, session) {
     try {
-        const credit = await Credit.findOne({ userId: accountObjId }).session(session);
+        const credit = await Credit.findOne({ $or: [{ userId: accountObjId }, { accountId: accountObjId }] }).session(session);
         if (!credit) return;
         credit.subscription = tier;
         if (periodStart) credit.billing.currentPeriodStart = periodStart;
@@ -99,27 +99,6 @@ export async function syncCreditTier(accountObjId, tier, periodStart, periodEnd,
     } catch (err) {
         // Non-fatal: Credit doc may live in another service
         console.warn(`[subscription.service] Could not sync Credit tier for ${accountObjId}: ${err.message}`);
-    }
-
-    // ── Reset Account window credits to the new tier's allocation ─────────────
-    // This ensures a Pro/Max user immediately sees the correct 150/200 credit
-    // window rather than the old tier's cap. Non-fatal and outside the session
-    // to avoid locking the Account document inside the subscription session.
-    try {
-        const windowCfg = getWindowConfig(tier);
-        await Account.findOneAndUpdate(
-            { $or: [{ _id: accountObjId }, { user_id: accountObjId }] },
-            {
-                subscription_status:    tier,
-                windowCreditsTotal:     windowCfg.windowCredits,
-                windowCreditsRemaining: windowCfg.windowCredits,
-                windowExhaustedAt:      null,
-                windowRefillAt:         null,
-            }
-        );
-        console.log(`[subscription.service] Window reset for accountId=${accountObjId} → ${tier} (${windowCfg.windowCredits} credits)`);
-    } catch (err) {
-        console.warn(`[subscription.service] Could not reset Account window for ${accountObjId}: ${err.message}`);
     }
 }
 
@@ -325,6 +304,7 @@ export async function processSubscriptionPayment({
         );
 
         // ── Auto-provision & sync Account document ────────────────────────────
+        const windowCfg = getWindowConfig(sub.activeTier);
         await Account.findOneAndUpdate(
             { $or: [{ user_id: accountObjId }, { _id: accountObjId }] },
             {
@@ -332,13 +312,16 @@ export async function processSubscriptionPayment({
                 user_id: accountObjId,
                 subscription_status: sub.activeTier,
                 subscription_expiry: sub.activeSlot?.validUntil || null,
+                windowCreditsTotal: windowCfg.windowCredits,
+                windowCreditsRemaining: windowCfg.windowCredits,
+                windowExhaustedAt: null,
+                windowRefillAt: null,
                 is_active: true,
             },
             { upsert: true, session }
-        ).catch(() => {});
+        );
 
         await session.commitTransaction();
-
 
         console.log(
             `[subscription.service] ✓ ${transactionType} | accountId=${accountId} | ` +
@@ -360,7 +343,9 @@ export async function processSubscriptionPayment({
         };
 
     } catch (err) {
-        await session.abortTransaction();
+        if (session.inTransaction()) {
+            await session.abortTransaction().catch(() => {});
+        }
 
         // Duplicate key = race condition between two webhook deliveries
         if (err.code === 11000 && err.message?.includes('paymentId')) {

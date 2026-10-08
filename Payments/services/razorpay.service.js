@@ -20,6 +20,12 @@ import { getPackageById } from '../config/packages.config.js';
 import { processSubscriptionPayment } from './subscription.service.js';
 import { notifyPaymentEvent } from './payment.service.js';
 
+import {
+    BadRequestError,
+    InternalServerError,
+    logger,
+} from 'faultkit';
+
 let _razorpayInstance = null;
 
 /**
@@ -28,11 +34,12 @@ let _razorpayInstance = null;
  */
 export function getRazorpayClient() {
     if (!_razorpayInstance) {
-        const key_id = (process.env.RAZORPAY_KEY_ID || '').trim();
-        const key_secret = (process.env.RAZORPAY_KEY_SECRET || '').trim();
+        const key_id = (process.env.RAZORPAY_KEY_ID || process.env.RAZORPAY_SECRET_ID || '').trim();
+        const key_secret = (process.env.RAZORPAY_KEY_SECRET || process.env.RAZORPAY_SECRET_KEY || '').trim();
 
         if (!key_id || !key_secret) {
-            throw new Error('[Razorpay SDK] RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET must be configured in environment variables');
+            logger.error('[Razorpay SDK] Missing credentials. RAZORPAY_KEY_ID / RAZORPAY_SECRET_ID and RAZORPAY_KEY_SECRET / RAZORPAY_SECRET_KEY must be configured.');
+            throw new InternalServerError('Razorpay payment gateway credentials are not configured on the server');
         }
 
         _razorpayInstance = new Razorpay({
@@ -73,93 +80,119 @@ export async function createOrder({ amountPaise, currency = 'INR', receipt, note
  *  5. RabbitMQ invoice notification
  *
  * Verification order (no webhook needed):
- *   a. HMAC signature check via validatePaymentVerification (fast, cryptographic).
+ *   a. HMAC signature check via validatePaymentVerification (if orderId & signature provided).
  *   b. fetchPayment(paymentId) — mandatory server-side confirmation against Razorpay's API.
- *      Both must pass. This replaces the webhook as the authoritative payment truth source.
+ *      Auto-captures authorized payments if necessary.
  *
  * @param {Object} params
  * @param {string} params.accountId - User account ID (Account._id = Auth user_id)
  * @param {string} params.packageId - Package ID ('pro_regular' / 'pro' or 'max_regular' / 'max')
- * @param {string} params.orderId   - Razorpay order ID (e.g. order_9A33XWu170gUtm)
+ * @param {string} [params.orderId]   - Razorpay order ID (e.g. order_9A33XWu170gUtm)
  * @param {string} params.paymentId - Razorpay payment ID (e.g. pay_9A33XWu170gUtm)
- * @param {string} params.signature - Razorpay HMAC-SHA256 signature
+ * @param {string} [params.signature] - Razorpay HMAC-SHA256 signature
  * @param {Object} [params.user={}] - User details for notification (email, username)
  * @returns {Promise<Object>} Verification & persistence result
  */
 export async function verifyPaymentSignature({
     accountId,
     packageId,
-    orderId,
+    orderId = null,
     paymentId,
-    signature,
+    signature = null,
     user = {},
 }) {
-    const secret = (process.env.RAZORPAY_KEY_SECRET || '').trim();
-    if (!secret) {
-        throw new Error('[Razorpay SDK] RAZORPAY_KEY_SECRET is required to verify signatures');
-    }
+    const secret = (process.env.RAZORPAY_KEY_SECRET || process.env.RAZORPAY_SECRET_KEY || '').trim();
 
     if (!paymentId) {
-        throw new Error('paymentId is required for payment verification');
-    }
-    if (!orderId) {
-        throw new Error('orderId is required for payment verification');
-    }
-    if (!signature) {
-        throw new Error('signature is required for payment verification');
+        throw new BadRequestError('paymentId is required for payment verification');
     }
 
     const pkg = getPackageById(packageId);
     if (!pkg) {
-        throw new Error(`Unknown packageId: ${packageId}. Available plans: Pro (₹499) and Max (₹999)`);
+        throw new BadRequestError(`Unknown packageId: ${packageId}. Available plans: Pro (₹499) and Max (₹999)`);
     }
 
-    // ── Step 1: HMAC signature check (cryptographic fast path) ───────────────
-    let signatureValid = false;
-    try {
-        signatureValid = validatePaymentVerification(
-            { order_id: orderId, payment_id: paymentId },
-            signature,
-            secret
-        );
-    } catch (sigErr) {
-        console.warn('[Razorpay SDK] validatePaymentVerification threw error:', sigErr.message);
+    // ── Step 1: HMAC signature check (if client-side order checkout was used) ──
+    if (orderId && signature) {
+        if (!secret) {
+            throw new InternalServerError('RAZORPAY_KEY_SECRET is required to verify signatures');
+        }
+
+        let signatureValid = false;
+        try {
+            signatureValid = validatePaymentVerification(
+                { order_id: orderId, payment_id: paymentId },
+                signature,
+                secret
+            );
+        } catch (sigErr) {
+            logger.warn({ err: sigErr }, '[Razorpay SDK] validatePaymentVerification threw warning');
+        }
+
+        if (!signatureValid) {
+            logger.error({ paymentId, orderId }, '[Razorpay SDK] HMAC signature check failed');
+            throw new BadRequestError('Payment verification failed: Invalid cryptographic signature');
+        }
+    } else {
+        logger.info({ paymentId }, '[Razorpay SDK] orderId or signature not provided; proceeding with direct server-side verification');
     }
 
-    if (!signatureValid) {
-        console.error('[Razorpay SDK] HMAC signature check failed for paymentId:', paymentId);
-        throw new Error('Payment verification failed: Invalid cryptographic signature');
-    }
-
-    // ── Step 2: Confirm payment status with Razorpay's API (mandatory) ───────
-    // This is the server-side source of truth that replaces the webhook.
-    // A valid HMAC proves the client payload wasn't tampered with, but we still
-    // confirm the payment was actually captured on Razorpay's end before any DB write.
+    // ── Step 2: Confirm payment status with Razorpay's API (mandatory source of truth) ─
     let razorpayPayment;
+    const client = getRazorpayClient();
     try {
-        razorpayPayment = await fetchPayment(paymentId);
+        razorpayPayment = await client.payments.fetch(paymentId);
     } catch (fetchErr) {
-        console.error('[Razorpay SDK] fetchPayment failed:', fetchErr.message);
-        throw new Error(`Could not confirm payment with Razorpay: ${fetchErr.message}`);
+        logger.error({ err: fetchErr, paymentId }, '[Razorpay SDK] fetchPayment failed');
+        throw new BadRequestError(`Could not confirm payment with Razorpay: ${fetchErr.message}`);
+    }
+
+    // If payment is authorized but not yet captured, auto-capture it server-side
+    if (razorpayPayment.status === 'authorized') {
+        try {
+            logger.info({ paymentId, amount: razorpayPayment.amount }, '[Razorpay SDK] Auto-capturing authorized payment');
+            razorpayPayment = await client.payments.capture(
+                paymentId,
+                razorpayPayment.amount,
+                razorpayPayment.currency || 'INR'
+            );
+        } catch (captureErr) {
+            logger.error({ err: captureErr, paymentId }, '[Razorpay SDK] Auto-capture failed');
+            throw new InternalServerError(`Failed to capture authorized payment: ${captureErr.message}`);
+        }
     }
 
     const capturedStatuses = ['captured', 'authorized'];
     if (!razorpayPayment || !capturedStatuses.includes(razorpayPayment.status)) {
         const actualStatus = razorpayPayment?.status || 'unknown';
-        console.error(`[Razorpay SDK] Payment ${paymentId} is not captured. Status: ${actualStatus}`);
-        throw new Error(`Payment is not in a captured state. Current status: ${actualStatus}`);
+        logger.error({ paymentId, status: actualStatus }, '[Razorpay SDK] Payment is not in a captured state');
+        throw new BadRequestError(`Payment is not in a captured state. Current status: ${actualStatus}`);
     }
 
-    console.log(`[Razorpay SDK] Payment ${paymentId} confirmed on Razorpay: status=${razorpayPayment.status}, amount=${razorpayPayment.amount}`);
+    // Verify paid amount matches the package price (prevent underpayment)
+    if (razorpayPayment.amount < pkg.priceINRPaise) {
+        logger.error({
+            paidAmount: razorpayPayment.amount,
+            expectedAmount: pkg.priceINRPaise,
+            paymentId,
+        }, '[Razorpay SDK] Paid amount is less than expected package price');
+        throw new BadRequestError(`Paid amount (₹${razorpayPayment.amount / 100}) does not match package price (₹${pkg.priceINR})`);
+    }
+
+    logger.info({
+        paymentId,
+        status: razorpayPayment.status,
+        amount: razorpayPayment.amount,
+    }, '[Razorpay SDK] Payment confirmed on Razorpay server');
 
     // ── Step 3: Atomic DB write — Subscription, Transaction, Credit, Account ─
     const result = await processSubscriptionPayment({
         accountId,
         packageId: pkg.id,
         paymentId,
-        orderId,
+        orderId: orderId || razorpayPayment.order_id || `direct_${paymentId}`,
         signature,
-        amountPaise: razorpayPayment.amount, // use Razorpay's confirmed amount, not client-sent
+        amountPaise: razorpayPayment.amount, // use Razorpay's confirmed amount
     });
 
     // ── Step 4: Dispatch invoice receipt email via RabbitMQ ──────────────────

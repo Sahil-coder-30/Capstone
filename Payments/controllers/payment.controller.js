@@ -15,6 +15,11 @@
 
 import razorpayService from '../services/razorpay.service.js';
 import { getPackageById } from '../config/packages.config.js';
+import {
+    BadRequestError,
+    UnauthorizedError,
+    logger,
+} from 'faultkit';
 
 // ─── POST /api/payments/order ─────────────────────────────────────────────────
 
@@ -24,25 +29,22 @@ import { getPackageById } from '../config/packages.config.js';
  * Body: { packageId: string }
  * Auth: identifyUser (JWT required)
  */
-export async function createOrderController(req, res) {
+export async function createOrderController(req, res, next) {
     try {
         const accountId = req.accountId || req.user?.id || req.user?._id || 'guest_account';
         const { packageId } = req.body;
 
         if (!packageId) {
-            return res.status(400).json({ status: 'error', message: 'packageId is required' });
+            throw new BadRequestError('packageId is required');
         }
 
         const pkg = getPackageById(packageId);
         if (!pkg) {
-            return res.status(400).json({ status: 'error', message: `Unknown packageId: ${packageId}` });
+            throw new BadRequestError(`Unknown packageId: ${packageId}`);
         }
 
         if (pkg.priceINR === 0) {
-            return res.status(400).json({
-                status:  'error',
-                message: 'Free plan does not require a payment. It is activated automatically.',
-            });
+            throw new BadRequestError('Free plan does not require a payment. It is activated automatically.');
         }
 
         // Generate receipt ID (max 40 chars)
@@ -61,21 +63,22 @@ export async function createOrderController(req, res) {
             },
         });
 
+        const activeKeyId = (process.env.RAZORPAY_KEY_ID || process.env.RAZORPAY_SECRET_ID || '').trim();
+
         return res.status(201).json({
             status: 'success',
             data: {
                 orderId:  order.id,
                 amount:   order.amount,
                 currency: order.currency,
-                keyId:    (process.env.RAZORPAY_KEY_ID || '').trim(),
+                keyId:    activeKeyId,
                 package:  pkg,
             },
         });
 
     } catch (err) {
-        const errorDetail = err?.error?.description || err?.message || 'Failed to create payment order.';
-        console.error('[createOrderController] Error creating order via Razorpay SDK:', errorDetail, err);
-        return res.status(500).json({ status: 'error', message: errorDetail });
+        logger.error({ err }, '[createOrderController] Error creating order via Razorpay SDK');
+        next(err);
     }
 }
 
@@ -84,46 +87,40 @@ export async function createOrderController(req, res) {
 /**
  * Verify client-side checkout payment and activate subscription.
  *
- * Flow (no webhook needed):
- *   1. Validate required fields.
+ * Flow:
+ *   1. Validate required fields (paymentId, packageId).
  *   2. razorpayService.verifyPaymentSignature() does:
  *        a. HMAC signature check (if orderId + signature provided).
- *        b. fetchPayment(paymentId) — confirms status === 'captured' on Razorpay's servers.
+ *        b. fetchPayment(paymentId) — confirms status === 'captured'/'authorized' on Razorpay's servers.
  *        c. processSubscriptionPayment() — atomic DB write (idempotent).
  *        d. notifyPaymentEvent() — invoice email via RabbitMQ.
  *   3. Return result to frontend.
  *
- * Body: { paymentId, orderId, signature, packageId }
+ * Body: { paymentId, orderId?, signature?, packageId }
  * Auth: identifyUser (JWT required)
  */
-export async function verifyPaymentController(req, res) {
+export async function verifyPaymentController(req, res, next) {
     try {
         const accountId = req.accountId || req.user?.id || req.user?._id;
         if (!accountId) {
-            return res.status(401).json({ status: 'error', message: 'Unauthorized: Account ID missing from session' });
+            throw new UnauthorizedError('Unauthorized: Account ID missing from session');
         }
 
         const { paymentId, orderId, signature, packageId } = req.body;
 
         if (!paymentId) {
-            return res.status(400).json({ status: 'error', message: 'paymentId is required for payment verification' });
-        }
-        if (!orderId) {
-            return res.status(400).json({ status: 'error', message: 'orderId is required for payment verification' });
-        }
-        if (!signature) {
-            return res.status(400).json({ status: 'error', message: 'signature is required for payment verification' });
+            throw new BadRequestError('paymentId is required for payment verification');
         }
         if (!packageId) {
-            return res.status(400).json({ status: 'error', message: 'packageId is required for payment verification' });
+            throw new BadRequestError('packageId is required for payment verification');
         }
 
         const result = await razorpayService.verifyPaymentSignature({
             accountId,
             packageId,
-            orderId,
+            orderId: orderId || null,
             paymentId,
-            signature,
+            signature: signature || null,
             user: req.user,
         });
 
@@ -134,7 +131,7 @@ export async function verifyPaymentController(req, res) {
         });
 
     } catch (err) {
-        console.error('[verifyPaymentController] Error verifying payment:', err.message, err);
-        return res.status(500).json({ status: 'error', message: err.message || 'Payment verification failed' });
+        logger.error({ err }, '[verifyPaymentController] Error verifying payment');
+        next(err);
     }
 }

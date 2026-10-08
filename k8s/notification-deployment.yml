@@ -68,6 +68,12 @@ spec:
               name: google
               key: EMAIL_USER
 
+        - name:  GMAIL_APP_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: google
+              key: GMAIL_APP_PASSWORD
+
         - name: REDIS_URI
           valueFrom:
             secretKeyRef:
