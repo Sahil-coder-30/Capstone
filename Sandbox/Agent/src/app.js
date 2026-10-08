@@ -1257,7 +1257,8 @@ app.post("/api/agent/exec", (req, res) => {
 
   const BASE_WORKSPACE = "/workspace";
   const MAX_OUTPUT_SIZE = 1048576; // 1MB limit per stream
-  const COMMAND_TIMEOUT = 30000; // 30 seconds
+  const isLongRunning = /npm\s+(install|ci|run\s+build|test)|npx/i.test(command);
+  const COMMAND_TIMEOUT = isLongRunning ? 120000 : 30000; // 120s for installs/builds, 30s for standard commands
   let safeTargetDir = BASE_WORKSPACE;
 
   // ─── VALIDATION: Directory Path Traversal Protection ────────────────────

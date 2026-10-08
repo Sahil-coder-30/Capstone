@@ -20,6 +20,7 @@
     "ogl": "^1.0.11",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
+    "react-razorpay": "^3.0.1",
     "react-redux": "^9.3.0",
     "react-router-dom": "^6.30.4"
   },
@@ -27,12 +28,13 @@
     "@eslint/js": "^10.0.1",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
-    "@vitejs/plugin-react": "^6.0.3",
+    "@vitejs/plugin-react": "^6.0.5",
     "eslint": "^10.6.0",
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.3",
     "globals": "^17.7.0",
-    "sass-embedded": "^1.100.0",
-    "vite": "^8.1.1"
+    "sass": "^1.101.0",
+    "sass-embedded": "^1.101.0",
+    "vite": "^8.2.1"
   }
 }

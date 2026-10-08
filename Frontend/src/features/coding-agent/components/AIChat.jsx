@@ -6,7 +6,7 @@ import {
   Send, ChevronDown, ChevronRight, Check, Trash2, Cpu,
   CheckCircle2, AlertCircle, Loader2,
   X, Activity, FileCode, ArrowRight, Paperclip, Square,
-  CheckSquare2, CheckCheck
+  CheckSquare2, CheckCheck, RotateCcw, Sparkles
 } from 'lucide-react';
 import { parseMarkdownToReact } from '../../../components/Markdown';
 import { TakshaIcon } from '../../../components/BrandLogo';
@@ -28,7 +28,7 @@ const TOOL_TYPE_COLORS = {
  */
 export default function AIChat({ projectId, onCloseChat }) {
   const { sandboxId, status } = useSandbox();
-  const { messages, isStreaming, isHistoryLoading, sendMessage, stopAgent, clearChatHistory, deleteMessage, deleteMessages } = useCodingAgent(projectId);
+  const { messages, isStreaming, isHistoryLoading, planReview, approvePlan, rejectPlan, sendMessage, stopAgent, clearChatHistory, deleteMessage, deleteMessages } = useCodingAgent(projectId);
   const { files, fetchFilesList, activeFile, isModified, fetchFileContent } = useEditor();
 
   const [input, setInput] = useState('');
@@ -54,6 +54,12 @@ export default function AIChat({ projectId, onCloseChat }) {
   const [suggestionTriggerIdx, setSuggestionTriggerIdx] = useState(-1);
   const [isFilePickerOpen, setIsFilePickerOpen] = useState(false);
 
+  // ─── Plan Review UI State ───────────────────────────────────────────────────
+  const [isReplanOpen, setIsReplanOpen] = useState(false);
+  const [replanFeedback, setReplanFeedback] = useState('');
+  const [expandedPlanSteps, setExpandedPlanSteps] = useState({});
+  const [isSubmittingReview, setIsSubmittingReview] = useState(false);
+
   const suggestionsContainerRef = useRef(null);
 
   const handleFileClick = (filePath) => {
@@ -62,6 +68,57 @@ export default function AIChat({ projectId, onCloseChat }) {
       fetchFileContent(sandboxId, normalizedPath);
     }
   };
+
+  const togglePlanStep = (stepId) => {
+    setExpandedPlanSteps((prev) => ({
+      ...prev,
+      [stepId]: prev[stepId] === undefined ? false : !prev[stepId],
+    }));
+  };
+
+  const handleApprovePlan = async () => {
+    if (isSubmittingReview) return;
+    setIsSubmittingReview(true);
+    try {
+      await approvePlan();
+    } finally {
+      setIsSubmittingReview(false);
+    }
+  };
+
+  const handleRejectPlan = async () => {
+    if (isSubmittingReview) return;
+    setIsSubmittingReview(true);
+    try {
+      await rejectPlan(replanFeedback.trim());
+      setIsReplanOpen(false);
+      setReplanFeedback('');
+    } finally {
+      setIsSubmittingReview(false);
+    }
+  };
+
+  // Keyboard shortcut: Cmd/Ctrl + Enter to approve plan, Escape to cancel replan
+  useEffect(() => {
+    if (!planReview) {
+      setIsReplanOpen(false);
+      setReplanFeedback('');
+      setIsSubmittingReview(false);
+      return;
+    }
+
+    const handleKeyDown = (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+        e.preventDefault();
+        handleApprovePlan();
+      } else if (e.key === 'Escape' && isReplanOpen) {
+        setIsReplanOpen(false);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [planReview, isReplanOpen, replanFeedback, isSubmittingReview]);
 
   // Auto-scroll active suggestion into view inside the dropdown list
   useEffect(() => {
@@ -1014,13 +1071,20 @@ export default function AIChat({ projectId, onCloseChat }) {
 
                     {assistant && (
                       <div className="ai-chat__report">
-                        <span className="ai-chat__report-header">Agent Report</span>
-
                         {showLiveReport && renderLiveReport(assistant, parsedEvents)}
 
                         {assistant.text ? (
-                          <div className={showLiveReport ? 'ai-chat__report-output' : undefined}>
-                            {parseMarkdownToReact(assistant.text, { copiedCodeIdx, copyToClipboard })}
+                          <div className="ai-chat__report-card">
+                            <div className="ai-chat__report-card-header">
+                              <div className="ai-chat__report-card-title">
+                                <Cpu size={13} color="var(--brand-primary)" />
+                                <span>Agent Response</span>
+                              </div>
+                              <span className="ai-chat__report-card-badge">REPORT</span>
+                            </div>
+                            <div className="ai-chat__report-card-body">
+                              {parseMarkdownToReact(assistant.text, { copiedCodeIdx, copyToClipboard })}
+                            </div>
                           </div>
                         ) : (() => {
                           if (!showLiveReport && assistant.status === 'running' && !isStreaming) {
@@ -1032,7 +1096,6 @@ export default function AIChat({ projectId, onCloseChat }) {
                           }
                           return null;
                         })()}
-
 
                         {assistant.error && (
                           <div className="ai-chat__error-block">Error: {assistant.error}</div>
@@ -1053,6 +1116,190 @@ export default function AIChat({ projectId, onCloseChat }) {
           </div>
         )}
       </div>
+
+      {/* ─── Plan Review Gate Overlay ───────────────────────────────────────── */}
+      {planReview && (
+        <div className="ai-chat__plan-review animate-fade-in">
+          <div className="ai-chat__plan-review-header">
+            <div className="ai-chat__plan-review-title">
+              <div className="ai-chat__plan-review-icon-glow">
+                <CheckSquare2 size={16} color="var(--brand-primary, #10b981)" />
+              </div>
+              <div className="ai-chat__plan-review-heading">
+                <div className="ai-chat__plan-review-main-title">
+                  <span>Plan Review Required</span>
+                  {planReview.taskSubType && (
+                    <span className="ai-chat__plan-review-badge">
+                      {planReview.taskSubType.replace(/_/g, ' ').toUpperCase()}
+                    </span>
+                  )}
+                </div>
+                <span className="ai-chat__plan-review-subtitle">
+                  Review implementation steps before Orion begins writing code
+                </span>
+              </div>
+            </div>
+            <div className="ai-chat__plan-review-meta">
+              <span className="ai-chat__plan-review-count">
+                {planReview.plan?.totalSteps || (planReview.plan?.steps || []).length} Steps Proposed
+              </span>
+            </div>
+          </div>
+
+          {planReview.plan?.summary && (
+            <div className="ai-chat__plan-review-summary">
+              <Sparkles size={13} className="ai-chat__plan-review-summary-icon" />
+              <span>{planReview.plan.summary}</span>
+            </div>
+          )}
+
+          <div className="ai-chat__plan-review-steps">
+            {(planReview.plan?.steps || []).map((step, idx) => {
+              const isExpanded = expandedPlanSteps[step.id] !== false; // Default expanded
+              const actionType = (step.action || (step.title?.toLowerCase().includes('create') ? 'create' : 'modify')).toLowerCase();
+              const risk = (step.riskLevel || 'medium').toLowerCase();
+
+              return (
+                <div key={step.id || idx} className={`ai-chat__plan-step ${isExpanded ? 'ai-chat__plan-step--expanded' : ''}`}>
+                  <div
+                    className="ai-chat__plan-step-header"
+                    onClick={() => togglePlanStep(step.id)}
+                    role="button"
+                    tabIndex={0}
+                  >
+                    <div className="ai-chat__plan-step-left">
+                      <button type="button" className="ai-chat__plan-step-chevron">
+                        {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                      </button>
+                      <span className="ai-chat__plan-step-num">Step {step.id || idx + 1}</span>
+                      <span className={`ai-chat__plan-step-action ai-chat__plan-step-action--${actionType}`}>
+                        {actionType.toUpperCase()}
+                      </span>
+                      <span className="ai-chat__plan-step-title">{step.title}</span>
+                    </div>
+
+                    <span className={`ai-chat__plan-step-risk ai-chat__plan-step-risk--${risk}`}>
+                      {risk.toUpperCase()}
+                    </span>
+                  </div>
+
+                  {isExpanded && (
+                    <div className="ai-chat__plan-step-body animate-fade-in">
+                      {step.description && (
+                        <div className="ai-chat__plan-step-desc">{step.description}</div>
+                      )}
+
+                      {step.activeFiles?.length > 0 && (
+                        <div className="ai-chat__plan-step-files-wrapper">
+                          <span className="ai-chat__plan-step-section-label">Target Files:</span>
+                          <div className="ai-chat__plan-step-files">
+                            {step.activeFiles.map((f) => (
+                              <span
+                                key={f}
+                                className="ai-chat__plan-step-file"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleFileClick(f);
+                                }}
+                                title="Click to view file"
+                              >
+                                <FileCode size={11} /> {f}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {step.acceptanceCriteria?.length > 0 && (
+                        <div className="ai-chat__plan-step-criteria-wrapper">
+                          <span className="ai-chat__plan-step-section-label">Acceptance Criteria:</span>
+                          <ul className="ai-chat__plan-step-criteria">
+                            {step.acceptanceCriteria.map((c, cIdx) => (
+                              <li key={cIdx}>
+                                <CheckCircle2 size={12} className="ai-chat__plan-criteria-icon" />
+                                <span>{c}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Inline Re-plan feedback drawer */}
+          {isReplanOpen && (
+            <div className="ai-chat__plan-replan-drawer animate-slide-down">
+              <div className="ai-chat__plan-replan-header">
+                <span className="ai-chat__plan-replan-title">What would you like to change in this plan?</span>
+              </div>
+              <textarea
+                className="ai-chat__plan-replan-textarea"
+                placeholder="e.g. Use Tailwind CSS instead of SCSS modules, don't modify Navbar.jsx, add error handling..."
+                value={replanFeedback}
+                onChange={(e) => setReplanFeedback(e.target.value)}
+                rows={3}
+                autoFocus
+              />
+              <div className="ai-chat__plan-replan-actions">
+                <button
+                  type="button"
+                  className="ai-chat__plan-replan-cancel-btn"
+                  onClick={() => setIsReplanOpen(false)}
+                  disabled={isSubmittingReview}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="ai-chat__plan-replan-submit-btn"
+                  onClick={handleRejectPlan}
+                  disabled={isSubmittingReview || !replanFeedback.trim()}
+                >
+                  {isSubmittingReview ? (
+                    <Loader2 size={13} className="animate-spin" />
+                  ) : (
+                    <RotateCcw size={13} />
+                  )}
+                  <span>Submit Re-plan</span>
+                </button>
+              </div>
+            </div>
+          )}
+
+          <div className="ai-chat__plan-review-actions">
+            <button
+              type="button"
+              className="ai-chat__plan-approve-btn"
+              onClick={handleApprovePlan}
+              disabled={isSubmittingReview}
+            >
+              {isSubmittingReview ? (
+                <Loader2 size={14} className="animate-spin" />
+              ) : (
+                <Check size={15} />
+              )}
+              <span>Approve & Execute</span>
+              <kbd className="ai-chat__plan-kbd">⌘↵</kbd>
+            </button>
+
+            {!isReplanOpen && (
+              <button
+                type="button"
+                className="ai-chat__plan-reject-btn"
+                onClick={() => setIsReplanOpen(true)}
+                disabled={isSubmittingReview}
+              >
+                <RotateCcw size={14} />
+                <span>Request Changes</span>
+              </button>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* ─── Input Footer ────────────────────────────────────────────────────── */}
       <div className="ai-chat__footer">

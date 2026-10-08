@@ -31,6 +31,7 @@ export const authenticatedFetch = (url, options = {}) => {
  */
 export const apiClient = axios.create({
   withCredentials: true,
+  timeout: 8000,
 });
 
 // ── Request Interceptor: Inject Access Token ──────────────────────────────────
@@ -110,7 +111,7 @@ apiClient.interceptors.response.use(
       isRefreshing = true;
 
       try {
-        const refreshRes = await axios.post('/api/auth/refresh', {}, { withCredentials: true });
+        const refreshRes = await axios.post('/api/auth/refresh', {}, { withCredentials: true, timeout: 6000 });
         const newToken = refreshRes.data?.accessToken;
         setAccessToken(newToken);
         processQueue(null, newToken);

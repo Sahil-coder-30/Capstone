@@ -6,45 +6,59 @@ import mongoose from 'mongoose';
  * Every credit operation (purchase, deduction, admin grant, subscription change,
  * refund, reset) writes a permanent record here.
  *
- * The `paymentId` field carries a UNIQUE index — this is the primary idempotency
- * guard that prevents double-crediting on Razorpay webhook retries.
+ * The `razorpay.paymentId` field carries a UNIQUE SPARSE index — this is the primary
+ * idempotency guard that prevents double-crediting on Razorpay webhook retries.
  *
  * NEVER delete or mutate documents in this collection.
  */
 const TransactionSchema = new mongoose.Schema(
     {
-        userId: {
+        accountId: {
             type: mongoose.Schema.Types.ObjectId,
             required: true,
             index: true,
         },
-
+        // Optional legacy field support
+        userId: {
+            type: mongoose.Schema.Types.ObjectId,
+            index: true,
+        },
+        razorpay: {
+            orderId: {
+                type: String,
+            },
+            paymentId: {
+                type: String,
+            },
+            signature: { type: String },
+        },
+        subscription: {
+            subscriptionId: {
+                type: mongoose.Schema.Types.ObjectId,
+            },
+            plan: {
+                type: String,
+            },
+            billingCycle: {
+                type: String,
+            },
+        },
         // External payment aggregator order/payment refs (for Razorpay etc.)
-        orderId: {
-            type: String,
-            default: null,
-            index: true,
-        },
-        paymentId: {
-            type: String,
-            default: null,
-            // Unique sparse index: allows multiple null values but prevents duplicate
-            // non-null payment IDs (idempotency guard against webhook retries)
-            sparse: true,
-            unique: true,
-            index: true,
-        },
-
         type: {
             type: String,
             enum: [
-                'CREDIT_PURCHASE',       // User bought credits via payment aggregator
-                'SUBSCRIPTION_CHANGE',   // Tier upgrade / downgrade
-                'USAGE_DEDUCTION',       // AI token usage deducted (metered billing)
-                'ADMIN_GRANT',           // Manual credit grant by admin (support / promo)
-                'PROMO_GRANT',           // Automated promotional credit grant
-                'REFUND',                // Payment refunded, credits revoked
-                'RESET',                 // Admin reset provider bucket to default
+                'CREDIT_PURCHASE',         // User bought credits via payment aggregator
+                'SUBSCRIPTION_ACTIVATION', // Subscription plan activated / upgraded
+                'SUBSCRIPTION_EXTENSION',  // Same plan re-purchased (validity +30 days)
+                'SUBSCRIPTION_QUEUED',     // Lower tier plan queued in reservedSlots
+                'SUBSCRIPTION_PROMOTED',   // Slot promoted from reserved to active on expiry
+                'SUBSCRIPTION_EXPIRED',    // Plan expired, reverted to Free
+                'SUBSCRIPTION_CHANGE',     // Tier upgrade / downgrade (legacy)
+                'USAGE_DEDUCTION',         // AI token usage deducted (metered billing)
+                'ADMIN_GRANT',             // Manual credit grant by admin (support / promo)
+                'PROMO_GRANT',             // Automated promotional credit grant
+                'REFUND',                  // Payment refunded, credits revoked
+                'RESET',                   // Admin reset provider bucket to default
             ],
             required: true,
         },
@@ -81,12 +95,6 @@ const TransactionSchema = new mongoose.Schema(
             required: true,
         },
 
-        aggregator: {
-            type: String,
-            enum: ['RAZORPAY', 'INTERNAL', 'ADMIN'],
-            default: 'INTERNAL',
-        },
-
         // Free-form metadata: packageId, from/to subscription tier, admin note, etc.
         metadata: {
             type: mongoose.Schema.Types.Mixed,
@@ -101,17 +109,19 @@ const TransactionSchema = new mongoose.Schema(
     },
     {
         timestamps: true,
-
-        // Never allow updates to this collection (enforced at application layer)
-        // Documents are append-only
     }
 );
 
-// Compound index: fast paginated history queries per user sorted by time
+// Compound indexes: fast paginated history queries per account sorted by time
+TransactionSchema.index({ accountId: 1, createdAt: -1 });
 TransactionSchema.index({ userId: 1, createdAt: -1 });
 
 // Index for reconciliation: find PENDING transactions older than N minutes
 TransactionSchema.index({ status: 1, createdAt: 1 });
+
+// IDEMPOTENCY GUARD: prevents double-crediting on Razorpay webhook retries.
+// sparse = only indexes documents where razorpay.paymentId exists (not null).
+TransactionSchema.index({ 'razorpay.paymentId': 1 }, { unique: true, sparse: true });
 
 const Transaction = mongoose.model('transaction', TransactionSchema);
 export default Transaction;

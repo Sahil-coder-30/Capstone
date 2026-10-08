@@ -13,7 +13,7 @@ const CATEGORIES = [
     features: [
       { title: 'Daily Token Bucket Cap',                      free: '50,000 / day',    pro: 'Uncapped',             max: 'Truly Unlimited' },
       { title: 'Monthly Token Quota',                         free: '1,500,000',        pro: '5,000,000',            max: 'Unlimited (No Throttle)' },
-      { title: 'Provider Credits (Gemini, Mistral, OpenAI)',  free: '20 per company',   pro: 'Metered Billed',       max: 'Uncapped Priority' },
+      { title: 'AI Credit Window (5-Hour Slot)',  free: '20 credits',       pro: '150 credits',          max: '200 credits' },
       { title: 'Context Window Extension',                    free: 'Standard (8K)',    pro: 'Expanded (32K)',       max: 'Full Context (128K+)' },
     ],
   },

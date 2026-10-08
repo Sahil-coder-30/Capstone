@@ -1,15 +1,17 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { io } from 'socket.io-client';
-import { getAccessToken, authenticatedFetch } from '../../../services/apiClient';
+import { authenticatedFetch } from '../../../services/apiClient';
 import { useEditor } from '../../editor/Hooks/editor.hooks';
 import {
   addMessage,
   updateLastMessage,
+  updateMessageId,
   setStreaming,
   setError,
   setMessages,
   clearHistory,
+  setPlanReview,
 } from '../slice/codingAgent.slice';
 
 const createActivityEntry = ({ kind, title, detail, status = 'running' }) => ({
@@ -96,7 +98,7 @@ const summarizeToolOutput = (toolName, output) => {
 export const useCodingAgent = (projectId) => {
   const dispatch = useDispatch();
   const [isHistoryLoading, setIsHistoryLoading] = useState(true);
-  const { messages, isStreaming, error } = useSelector((state) => state.codingAgent);
+  const { messages, isStreaming, error, planReview } = useSelector((state) => state.codingAgent);
   const { sandboxId } = useSelector((state) => state.sandbox);
   const { fetchFilesList } = useEditor();
   const activeSocketRef = useRef(null);
@@ -160,239 +162,174 @@ export const useCodingAgent = (projectId) => {
       publishAssistant({ status: messageStatus, ...extra });
     };
 
-    // 3. Connect to Socket.io orchestration service
-    const socket = io(window.location.origin, {
-      path: '/api/ai/socket.io',
-      transports: ['polling', 'websocket'],
-      upgrade: true,
-      withCredentials: true,
-      auth: { token: getAccessToken() },
-      timeout: 15000,
-      reconnection: true,
-      reconnectionAttempts: 4,
-      reconnectionDelay: 1500,
-    });
-    activeSocketRef.current = socket;
+    // 3. Connect to AI Orchestration service via SSE
+    (async () => {
+      try {
+        pushActivity({
+          kind: 'connected',
+          title: 'Connected',
+          detail: 'Dispatching task to Orion',
+        });
 
-    const connectTimeout = window.setTimeout(() => {
-      if (!socket.connected) {
-        const errMsg = 'Timed out connecting to the AI Orchestration service';
+        const response = await authenticatedFetch('/api/ai/code-agent/invoke', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            message: text,
+            projectId,
+            sandboxId,
+            attachments: actualAttachments,
+          }),
+        });
+
+        if (!response.ok) {
+          const errData = await response.json().catch(() => ({}));
+          throw new Error(errData.message || `HTTP error ${response.status}: ${response.statusText}`);
+        }
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder('utf-8');
+        let buffer = '';
+
+        while (true) {
+          const { value, done } = await reader.read();
+          if (done) break;
+
+          buffer += decoder.decode(value, { stream: true });
+          const blocks = buffer.split('\n\n');
+          buffer = blocks.pop(); // Keep incomplete block in buffer
+
+          for (const block of blocks) {
+            if (!block.trim() || block.startsWith(':')) continue;
+
+            const eventMatch = block.match(/^event:\s*(.+)$/m);
+            const dataMatch = block.match(/^data:\s*([\s\S]+)$/m);
+
+            const event = eventMatch ? eventMatch[1].trim() : 'message';
+            const rawData = dataMatch ? dataMatch[1].trim() : '';
+            let payload = {};
+            if (rawData) {
+              try { payload = JSON.parse(rawData); } catch (_) { payload = rawData; }
+            }
+
+            if (event === 'agent:msg_created') {
+              if (payload.role && payload.id) {
+                dispatch(updateMessageId({ role: payload.role, realId: payload.id }));
+              }
+            } else if (event === 'agent:thinking') {
+              if (!hasReportToken) {
+                hasReportToken = true;
+                pushActivity({
+                  kind: 'report',
+                  title: 'Streaming report',
+                  detail: 'Writing the final agent report',
+                });
+              }
+              assistantText += (typeof payload === 'string' ? payload : rawData);
+              publishAssistant();
+            } else if (event === 'agent:model') {
+              const modelLabel = payload.label || payload.modelId || 'Mistral Large';
+              const providerText = payload.provider ? ` (${payload.provider})` : '';
+              toolLogs = [...toolLogs, `model: using ${modelLabel}${providerText}`].filter(Boolean);
+              pushActivity({
+                kind: 'model',
+                title: 'Model selected',
+                detail: `${modelLabel}${providerText}`,
+              });
+            } else if (event === 'agent:plan_review') {
+              dispatch(setPlanReview(payload));
+              dispatch(setStreaming(false));
+              pushActivity({
+                kind: 'plan_review',
+                title: 'Plan review required',
+                detail: `${payload?.plan?.totalSteps || 0} steps proposed`,
+                status: 'paused',
+              });
+            } else if (event === 'agent:status') {
+              pushActivity({
+                kind: payload.phase || 'status',
+                title: payload.title || 'Working',
+                detail: payload.detail || 'Orion is processing the task',
+                status: payload.status || 'running',
+              });
+            } else if (event === 'agent:tool_start') {
+              const { toolName, input } = payload;
+              let inputStr = stringifyPreview(input);
+              if (inputStr.length > 150) inputStr = inputStr.substring(0, 150) + '...';
+              toolLogs = [...toolLogs, `${toolName}: starting with input (${inputStr})`].filter(Boolean);
+              pushActivity({
+                kind: 'tool',
+                title: toolName || 'Tool started',
+                detail: summarizeToolInput(toolName, input),
+              });
+            } else if (event === 'agent:tool_log') {
+              const { toolName, message, level = 'info' } = payload;
+              const logLine = message || `${toolName || 'tool'}: ${level}`;
+              toolLogs = [...toolLogs, logLine].filter(Boolean);
+              pushActivity({
+                kind: 'tool',
+                title: toolName || 'Tool activity',
+                detail: stringifyPreview(logLine, 140),
+                status: level === 'error' ? 'error' : level === 'success' ? 'success' : 'running',
+              });
+            } else if (event === 'agent:tool_end') {
+              const { toolName, output } = payload;
+              let outputStr = stringifyPreview(output);
+              toolLogs = [...toolLogs, `${toolName}: finished (${outputStr})`].filter(Boolean);
+              pushActivity({
+                kind: 'tool',
+                title: `${toolName || 'Tool'} complete`,
+                detail: summarizeToolOutput(toolName, output),
+                status: 'success',
+              });
+            } else if (event === 'agent:done') {
+              dispatch(setPlanReview(null));
+              pushActivity({
+                kind: 'done',
+                title: 'Run complete',
+                detail: 'Workspace sync requested',
+                status: 'success',
+              }, 'completed');
+              dispatch(setStreaming(false));
+              fetchFilesList(sandboxId, { forceNetwork: true });
+              actualOnComplete?.();
+            } else if (event === 'agent:stopped') {
+              if (payload.text) assistantText = payload.text;
+              pushActivity({
+                kind: 'stopped',
+                title: 'Stopped',
+                detail: payload.message || 'Orion stopped the current task',
+                status: 'success',
+              }, 'completed');
+              dispatch(setStreaming(false));
+              if (sandboxId) fetchFilesList(sandboxId, { forceNetwork: true });
+              actualOnComplete?.();
+            } else if (event === 'agent:error') {
+              const errMsg = payload.message || 'Error running agent';
+              pushActivity({
+                kind: 'error',
+                title: 'Agent error',
+                detail: payload.code ? `${errMsg} (${payload.code})` : errMsg,
+                status: 'error',
+              }, 'error', { error: errMsg });
+              dispatch(setError(errMsg));
+              dispatch(setStreaming(false));
+            }
+          }
+        }
+      } catch (err) {
+        console.error('[CodingAgent] SSE connection error:', err);
+        const errMsg = err.message || 'Failed to connect to the AI Orchestration service';
         pushActivity({
           kind: 'error',
-          title: 'Connection timed out',
+          title: 'Connection failed',
           detail: errMsg,
           status: 'error',
         }, 'error', { error: errMsg });
         dispatch(setError(errMsg));
         dispatch(setStreaming(false));
-        if (activeSocketRef.current === socket) activeSocketRef.current = null;
-        socket.disconnect();
       }
-    }, 20000);
-
-    socket.on('connect', () => {
-      window.clearTimeout(connectTimeout);
-      console.log('[CodingAgent] Socket.io connected to AI orchestrator');
-      pushActivity({
-        kind: 'connected',
-        title: 'Connected',
-        detail: 'Dispatching task to Orion',
-      });
-      socket.emit('agent:invoke', { 
-        message: text, 
-        projectId, 
-        sandboxId, 
-        attachments: actualAttachments 
-      });
-    });
-
-    socket.on('agent:active_run', ({ active, run } = {}) => {
-      if (!active || !run) return;
-      assistantText = run.assistantText || '';
-      toolLogs = run.toolLogs || [];
-      streamState = createRecoveredStreamState(run);
-      pushActivity({
-        kind: 'reconnected',
-        title: 'Run already active',
-        detail: 'Reattached to the current Orion task',
-      });
-      dispatch(setStreaming(true));
-      dispatch(setError(null));
-    });
-
-    // 4. Stream LLM tokens
-    socket.on('agent:thinking', (token) => {
-      if (!hasReportToken) {
-        hasReportToken = true;
-        pushActivity({
-          kind: 'report',
-          title: 'Streaming report',
-          detail: 'Writing the final agent report',
-        });
-      }
-      assistantText += token;
-      publishAssistant();
-    });
-
-    socket.on('agent:model', (modelInfo = {}) => {
-      const modelLabel = modelInfo.label || modelInfo.modelId || 'Codestral';
-      const providerText = modelInfo.provider ? ` (${modelInfo.provider})` : '';
-      const fallbackText = modelInfo.fallback && modelInfo.fallbackFrom
-        ? ` after ${modelInfo.fallbackFrom} was rate-limited`
-        : '';
-      toolLogs = [...toolLogs, `model: using ${modelLabel}${providerText}${fallbackText}`].filter(Boolean);
-      pushActivity({
-        kind: 'model',
-        title: 'Model selected',
-        detail: `${modelLabel}${providerText}${fallbackText}`,
-      });
-    });
-
-    socket.on('agent:status', (statusInfo = {}) => {
-      pushActivity({
-        kind: statusInfo.phase || 'status',
-        title: statusInfo.title || 'Working',
-        detail: statusInfo.detail || 'Orion is processing the task',
-        status: statusInfo.status || 'running',
-      });
-    });
-
-    // 5. Tool start
-    socket.on('agent:tool_start', ({ toolName, input }) => {
-      let inputStr = stringifyPreview(input);
-      if (inputStr.length > 150) inputStr = inputStr.substring(0, 150) + '...';
-      toolLogs = [...toolLogs, `${toolName}: starting with input (${inputStr})`].filter(Boolean);
-      pushActivity({
-        kind: 'tool',
-        title: toolName || 'Tool started',
-        detail: summarizeToolInput(toolName, input),
-      });
-    });
-
-    socket.on('agent:tool_log', ({ toolName, message, level = 'info' } = {}) => {
-      const logLine = message || `${toolName || 'tool'}: ${level}`;
-      toolLogs = [...toolLogs, logLine].filter(Boolean);
-      pushActivity({
-        kind: 'tool',
-        title: toolName || 'Tool activity',
-        detail: stringifyPreview(logLine, 140),
-        status: level === 'error' ? 'error' : level === 'success' ? 'success' : 'running',
-      });
-    });
-
-    // 6. Tool end
-    socket.on('agent:tool_end', ({ toolName, output }) => {
-      let outputStr = '';
-      if (output) {
-        try {
-          const parsed = typeof output === 'string' ? JSON.parse(output) : output;
-          if (parsed && typeof parsed === 'object') {
-            outputStr = parsed.error || parsed.output || JSON.stringify(parsed);
-          } else {
-            outputStr = String(output);
-          }
-        } catch {
-          outputStr = String(output);
-        }
-      }
-      if (outputStr.length > 150) outputStr = outputStr.substring(0, 150) + '...';
-      toolLogs = [...toolLogs, `${toolName}: finished (${outputStr})`].filter(Boolean);
-      pushActivity({
-        kind: 'tool',
-        title: `${toolName || 'Tool'} complete`,
-        detail: summarizeToolOutput(toolName, output),
-        status: 'success',
-      });
-
-      // Workspace changes are streamed by the sandbox watcher. Avoid refetching
-      // the whole file tree after every tool log, especially during command runs.
-    });
-
-    // 7. Stream done
-    socket.on('agent:done', () => {
-      window.clearTimeout(connectTimeout);
-      pushActivity({
-        kind: 'done',
-        title: 'Run complete',
-        detail: 'Workspace sync requested',
-        status: 'success',
-      }, 'completed');
-      dispatch(setStreaming(false));
-      if (activeSocketRef.current === socket) activeSocketRef.current = null;
-      socket.disconnect();
-      fetchFilesList(sandboxId, { forceNetwork: true });
-      actualOnComplete?.();
-    });
-
-    socket.on('agent:stopped', ({ message, text: stoppedText } = {}) => {
-      window.clearTimeout(connectTimeout);
-      if (stoppedText) assistantText = stoppedText;
-      pushActivity({
-        kind: 'stopped',
-        title: 'Stopped',
-        detail: message || 'Orion stopped the current task',
-        status: 'success',
-      }, 'completed');
-      dispatch(setStreaming(false));
-      if (activeSocketRef.current === socket) activeSocketRef.current = null;
-      socket.disconnect();
-      if (sandboxId) fetchFilesList(sandboxId, { forceNetwork: true });
-      actualOnComplete?.();
-    });
-
-    // 8. Stream error
-    socket.on('agent:error', ({ message, code }) => {
-      window.clearTimeout(connectTimeout);
-      const errMsg = message || 'Error running agent';
-      pushActivity({
-        kind: 'error',
-        title: 'Agent error',
-        detail: code ? `${errMsg} (${code})` : errMsg,
-        status: 'error',
-      }, 'error', { error: errMsg });
-      dispatch(setError(errMsg));
-      dispatch(setStreaming(false));
-      if (activeSocketRef.current === socket) activeSocketRef.current = null;
-      socket.disconnect();
-    });
-
-    // 9. Connection error
-    socket.on('connect_error', (err) => {
-      window.clearTimeout(connectTimeout);
-      console.error('[CodingAgent] Socket.io connection error:', err);
-      const errMsg = 'Failed to connect to the AI Orchestration service';
-      pushActivity({
-        kind: 'error',
-        title: 'Connection failed',
-        detail: errMsg,
-        status: 'error',
-      }, 'error', { error: errMsg });
-      dispatch(setError(errMsg));
-      dispatch(setStreaming(false));
-      if (activeSocketRef.current === socket) activeSocketRef.current = null;
-      socket.disconnect();
-    });
-
-    // 10. Safety net: if the socket closes for ANY reason before agent:done fires
-    //     (network drop, server restart, timeout), force-complete the message so the
-    //     thinking animation never stays frozen indefinitely.
-    socket.on('disconnect', (reason) => {
-      window.clearTimeout(connectTimeout);
-      if (reason === 'io client disconnect') return; // intentional — already handled above
-      console.warn('[CodingAgent] Socket disconnected unexpectedly:', reason);
-      const lostMessage = 'Connection lost before agent finished.';
-      pushActivity({
-        kind: assistantText ? 'done' : 'error',
-        title: assistantText ? 'Stream closed' : 'Stream interrupted',
-        detail: assistantText ? 'Final text was received before disconnect' : lostMessage,
-        status: assistantText ? 'success' : 'error',
-      }, assistantText ? 'completed' : 'error', {
-        text: assistantText || '',
-        error: assistantText ? undefined : lostMessage,
-      });
-      dispatch(setStreaming(false));
-      if (activeSocketRef.current === socket) activeSocketRef.current = null;
-    });
+    })();
   }, [projectId, sandboxId, dispatch, fetchFilesList]);
 
   useEffect(() => {
@@ -401,8 +338,8 @@ export const useCodingAgent = (projectId) => {
 
     const socket = io(window.location.origin, {
       path: '/api/ai/socket.io',
-      transports: ['polling', 'websocket'],
-      upgrade: true,
+      transports: ['polling'],
+      upgrade: false,
       withCredentials: true,
       timeout: 15000,
       reconnection: true,
@@ -606,11 +543,18 @@ export const useCodingAgent = (projectId) => {
     };
   }, [projectId, sandboxId, isHistoryLoading, dispatch, fetchFilesList]);
 
-  const stopAgent = useCallback(() => {
-    const socket = activeSocketRef.current;
-    if (!socket || !socket.connected) return;
-    socket.emit('agent:stop', { projectId });
-  }, [projectId]);
+  const stopAgent = useCallback(async () => {
+    if (!projectId) return;
+    try {
+      await authenticatedFetch('/api/ai/code-agent/stop', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ projectId, sandboxId }),
+      });
+    } catch (err) {
+      console.error('[CodingAgent] Failed to send stop request:', err);
+    }
+  }, [projectId, sandboxId]);
 
   // Auto-load chat history from MongoDB when projectId changes
   useEffect(() => {
@@ -671,8 +615,11 @@ export const useCodingAgent = (projectId) => {
     const idsSet = new Set(idsArray.map(id => String(id)));
 
     try {
-      const idString = idsArray.join(',');
-      await authenticatedFetch(`/api/ai/chats/message/${encodeURIComponent(idString)}?agentType=codingAgent`, { method: 'DELETE' });
+      await authenticatedFetch('/api/ai/chats/message/batch-delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: idsArray, agentType: 'codingAgent' }),
+      });
     } catch (err) {
       console.error('Failed to soft delete chat messages:', err);
     }
@@ -685,13 +632,52 @@ export const useCodingAgent = (projectId) => {
     return deleteMessages([messageId]);
   }, [deleteMessages]);
 
+  const approvePlan = useCallback(async () => {
+    if (!sandboxId || !projectId) return;
+    dispatch(setPlanReview(null));
+    dispatch(setStreaming(true));
+    if (activeSocketRef.current?.connected) {
+      activeSocketRef.current.emit('agent:plan_approve', { projectId, sandboxId });
+    }
+    try {
+      await authenticatedFetch('/api/ai/code-agent/plan-approve', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ projectId, sandboxId }),
+      });
+    } catch (err) {
+      console.error('[CodingAgent] Failed to approve plan:', err);
+    }
+  }, [projectId, sandboxId, dispatch]);
+
+  const rejectPlan = useCallback(async (feedback = '') => {
+    if (!sandboxId || !projectId) return;
+    dispatch(setPlanReview(null));
+    dispatch(setStreaming(true));
+    if (activeSocketRef.current?.connected) {
+      activeSocketRef.current.emit('agent:plan_reject', { projectId, sandboxId, feedback });
+    }
+    try {
+      await authenticatedFetch('/api/ai/code-agent/plan-reject', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ projectId, sandboxId, feedback }),
+      });
+    } catch (err) {
+      console.error('[CodingAgent] Failed to reject plan:', err);
+    }
+  }, [projectId, sandboxId, dispatch]);
+
   return {
     messages,
     isStreaming,
     isHistoryLoading,
     error,
+    planReview,
     sendMessage,
     stopAgent,
+    approvePlan,
+    rejectPlan,
     clearChatHistory,
     deleteMessage,
     deleteMessages,

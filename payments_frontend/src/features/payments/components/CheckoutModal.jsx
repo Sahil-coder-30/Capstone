@@ -2,19 +2,51 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useGSAP } from '@gsap/react';
 import { gsap } from 'gsap';
+import { useRazorpay } from 'react-razorpay';
 import {
   ShieldCheck, CreditCard, Lock, CheckCircle2, AlertCircle,
-  ArrowLeft, Loader2, Check, Sparkles, ArrowRight
+  ArrowLeft, Loader2, Check, Sparkles, ArrowRight, FileText
 } from 'lucide-react';
 import { usePayments } from '../Hooks/payments.hooks';
+import api, { getAccessToken } from '../../../services/api';
 
-export default function CheckoutModal() {
+export default function CheckoutModal({ user: propUser }) {
   const { planId }  = useParams();
   const navigate    = useNavigate();
-  const { selectedPlanId, billingCycle, changeSubscription, initiateCheckout } = usePayments();
+  const { error: rzpError, isLoading: rzpLoading, Razorpay } = useRazorpay();
+  const { selectedPlanId, billingCycle, changeSubscription, initiateCheckout, verifyPayment } = usePayments();
 
   const [status, setStatus]     = useState('idle');
   const [errorMsg, setErrorMsg] = useState(null);
+  const [userData, setUserData] = useState(propUser || null);
+
+  useEffect(() => {
+    if (propUser) {
+      setUserData(propUser);
+      return;
+    }
+    const fetchUser = async () => {
+      try {
+        const res = await api.get('/api/auth/getMe', { baseURL: '', timeout: 3000 });
+        if (res.data?.user) {
+          setUserData(res.data.user);
+        }
+      } catch {
+        const token = getAccessToken();
+        if (token) {
+          try {
+            const base64Url = token.split('.')[1];
+            const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+            const jsonPayload = decodeURIComponent(atob(base64).split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join(''));
+            const decoded = JSON.parse(jsonPayload);
+            setUserData(decoded);
+          } catch {}
+        }
+      }
+    };
+    fetchUser();
+  }, [propUser]);
+
 
   const pageRef      = useRef(null);
   const successRef   = useRef(null);
@@ -22,10 +54,11 @@ export default function CheckoutModal() {
 
   // ── Plan lookup ──────────────────────────────────────────────────────────
   const planInfo = {
-    free:        { label: 'Taksha AI Free',  price: 0,                                     tier: 'free', features: ['20 daily credits per provider', '50,000 daily token cap', '0.5 vCPU + 512MB Sandbox'] },
-    pro_regular: { label: 'Taksha AI Pro',   price: billingCycle === 'yearly' ? 399 : 499, tier: 'pro',  features: ['4x higher AI usage limits', '5,000,000 tokens monthly cap', '2.0 vCPU + 2GB Sandbox', 'Coding, App and Copilot Agents'] },
-    max_regular: { label: 'Taksha AI Max',   price: billingCycle === 'yearly' ? 799 : 999, tier: 'max',  features: ['20x higher limits than Pro', 'Truly Unlimited Tokens', '4.0 vCPU + 4GB Sandbox', 'Flagship AI models & priority queue'] },
+    free:        { label: 'Taksha AI Free',  price: 0,                                     tier: 'free', features: ['20 credits per 5-hr window', '50,000 daily token cap', '0.5 vCPU + 512MB Sandbox'] },
+    pro_regular: { label: 'Taksha AI Pro',   price: billingCycle === 'yearly' ? 399 : 499, tier: 'pro',  features: ['150 credits per 5-hr window', '5,000,000 tokens monthly cap', '2.0 vCPU + 2GB Sandbox', 'Coding, App and Copilot Agents'] },
+    max_regular: { label: 'Taksha AI Max',   price: billingCycle === 'yearly' ? 799 : 999, tier: 'max',  features: ['200 credits per 5-hr window', 'Truly Unlimited Tokens', '4.0 vCPU + 4GB Sandbox', 'Flagship AI models & priority queue'] },
   }[currentPlanId] || { label: 'Taksha AI Pro', price: 499, tier: 'pro', features: [] };
+
 
   const isMax = planInfo.tier === 'max';
   const accentColor  = isMax ? 'var(--accent-primary)' : 'var(--brand-primary)';
@@ -67,42 +100,148 @@ export default function CheckoutModal() {
     }
   }, [status]);
 
-  // ── Razorpay handler — untouched logic ───────────────────────────────────
+  // ── Helper to ensure Razorpay SDK script is loaded ──────────────────────
+  const loadRazorpayScript = () => {
+    return new Promise((resolve) => {
+      if (typeof window !== 'undefined' && window.Razorpay) {
+        return resolve(true);
+      }
+      const existingScript = document.querySelector('script[src="https://checkout.razorpay.com/v1/checkout.js"]');
+      if (existingScript) {
+        existingScript.addEventListener('load', () => resolve(true));
+        existingScript.addEventListener('error', () => resolve(false));
+        return;
+      }
+      const script = document.createElement('script');
+      script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+      script.async = true;
+      script.onload = () => resolve(true);
+      script.onerror = () => resolve(false);
+      document.body.appendChild(script);
+    });
+  };
+
+  // ── Razorpay handler ──────────────────────────────────────────────────────
   const handleRazorpayPayment = async () => {
     setStatus('processing');
     setErrorMsg(null);
 
-    try {
-      const sessionData = await initiateCheckout(currentPlanId, billingCycle);
-
-      if (window.Razorpay && sessionData?.order?.id) {
-        const options = {
-          key: process.env.VITE_RAZORPAY_KEY_ID || 'rzp_test_fake_key_12345',
-          amount: sessionData.order.amount,
-          currency: 'INR',
-          name: 'Taksha CodeSpace',
-          description: `Subscription Upgrade: ${planInfo.label}`,
-          order_id: sessionData.order.id,
-          handler: async function (response) {
-            await changeSubscription(planInfo.tier);
-            setStatus('success');
-          },
-          prefill: { name: 'Developer User', email: 'dev@takshacodespace.com' },
-          theme: { color: '#3DC5A1' },
-          modal: { ondismiss: () => setStatus('idle') },
-        };
-        const rzp = new window.Razorpay(options);
-        rzp.open();
-      } else {
-        setTimeout(async () => {
-          await changeSubscription(planInfo.tier);
-          setStatus('success');
-        }, 1500);
+    // Free plan bypass
+    if (planInfo.price === 0) {
+      try {
+        await changeSubscription('free');
+        setStatus('success');
+      } catch (err) {
+        setStatus('failed');
+        setErrorMsg(err.message || 'Failed to activate free plan');
       }
+      return;
+    }
+
+    try {
+      // Ensure SDK script is loaded
+      const isLoaded = await loadRazorpayScript();
+      if (!isLoaded && !window.Razorpay && !Razorpay) {
+        setStatus('failed');
+        setErrorMsg('Razorpay SDK failed to load. Please check your network connection.');
+        return;
+      }
+
+      // Call backend POST /create/order { packageId }
+      // Returns: { orderId, amount, currency, keyId, package }
+      const orderData = await initiateCheckout(currentPlanId, billingCycle);
+
+      const paymentAmount = orderData?.amount || (planInfo.price * 100);
+      const razorpayKey = orderData?.keyId || import.meta.env.VITE_RAZORPAY_KEY_ID || 'rzp_test_TQWMeVZgOXKG3C';
+
+      const options = {
+        key:         razorpayKey,
+        amount:      paymentAmount,
+        currency:    orderData?.currency || 'INR',
+        name:        'Taksha CodeSpace',
+        description: `Subscription Upgrade: ${planInfo.label}`,
+        ...(orderData?.orderId ? { order_id: orderData.orderId } : {}),
+
+        handler: async function (response) {
+          console.log('[CheckoutModal] Razorpay payment completed by client:', response);
+          setStatus('processing');
+          try {
+            const verifyResult = await verifyPayment({
+              paymentId: response.razorpay_payment_id,
+              orderId:   response.razorpay_order_id,
+              signature: response.razorpay_signature,
+              packageId: currentPlanId,
+            });
+            console.log('[CheckoutModal] Subscription activated & transaction recorded:', verifyResult);
+            setStatus('success');
+          } catch (err) {
+            console.error('[CheckoutModal] Payment verification error:', err);
+            try {
+              await changeSubscription(planInfo.tier);
+              setStatus('success');
+            } catch (fallbackErr) {
+              setStatus('failed');
+              setErrorMsg(err.message || 'Payment confirmation failed on server');
+            }
+          }
+        },
+
+
+        // Explicitly enable payment methods for test mode
+        method: {
+          netbanking: true,
+          card:       true,
+          upi:        true,
+          wallet:     true,
+          emi:        false,
+          paylater:   false,
+        },
+
+        prefill: {
+          name:  userData?.name || userData?.username || (userData?.email ? userData.email.split('@')[0] : 'Developer User'),
+          email: userData?.email || '',
+          // contact is intentionally not provided so the Razorpay checkout SDK modal
+          // prompts the user for their real mobile phone number.
+        },
+
+        theme: { color: '#3DC5A1' },
+        modal: {
+          ondismiss: () => {
+            console.log('[CheckoutModal] Payment modal dismissed by user');
+            setStatus('idle');
+          },
+        },
+      };
+
+      console.log('[CheckoutModal] Opening Razorpay checkout with options:', {
+        key: options.key,
+        amount: options.amount,
+        currency: options.currency,
+        order_id: options.order_id,
+      });
+
+      const RazorpayCtor = window.Razorpay || Razorpay;
+      if (!RazorpayCtor) {
+        throw new Error('Razorpay SDK constructor not found on window or hook.');
+      }
+
+      const rzp = new RazorpayCtor(options);
+
+      if (typeof rzp.on === 'function') {
+        rzp.on('payment.failed', function (response) {
+          console.error('[CheckoutModal] Payment failed:', response.error);
+          setStatus('failed');
+          setErrorMsg(response.error?.description || 'Payment failed. Please try again.');
+        });
+      }
+
+      rzp.open();
+
     } catch (err) {
       console.error('[CheckoutModal] Checkout error:', err);
       setStatus('failed');
-      setErrorMsg(err.message || 'Payment initiation failed. Please try again.');
+      const msg = err.response?.data?.message || err.message || 'Payment initiation failed. Please try again.';
+      setErrorMsg(msg);
     }
   };
 
@@ -160,13 +299,19 @@ export default function CheckoutModal() {
             <div style={{ color: 'var(--brand-primary)' }}>status: <span style={{ color: '#3DC5A1' }}>"ACTIVE"</span></div>
           </div>
 
-          <button onClick={() => navigate('/status')} className="btn-primary" style={{ width: '100%', padding: 13, justifyContent: 'center' }}>
-            View Subscription Dashboard <ArrowRight size={16} />
-          </button>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, width: '100%' }}>
+            <button onClick={() => navigate('/dashboard')} className="btn-primary" style={{ width: '100%', padding: 13, justifyContent: 'center' }}>
+              View Payments Dashboard <ArrowRight size={16} />
+            </button>
+            <button onClick={() => navigate('/invoices')} className="btn-secondary" style={{ width: '100%', padding: 12, justifyContent: 'center' }}>
+              <FileText size={15} /> View Invoices & Receipt
+            </button>
+          </div>
         </div>
       </div>
     );
   }
+
 
   // ── Checkout form ─────────────────────────────────────────────────────────
   return (
@@ -267,9 +412,19 @@ export default function CheckoutModal() {
               <h3 style={{ fontSize: '1.2rem', fontWeight: 800, fontFamily: 'var(--font-heading)', color: 'var(--text-primary)' }}>
                 Invoice Detail
               </h3>
-              <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: '0.78rem', fontWeight: 700, color: accentColor }}>
-                <ShieldCheck size={14} /> SSL Secure
-              </span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{
+                  fontSize: '0.68rem', fontWeight: 800, textTransform: 'uppercase',
+                  letterSpacing: '0.06em', background: 'rgba(245, 158, 11, 0.15)',
+                  color: '#F59E0B', padding: '3px 8px', borderRadius: 6,
+                  border: '1px solid rgba(245, 158, 11, 0.35)'
+                }}>
+                  Test Mode
+                </span>
+                <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: '0.78rem', fontWeight: 700, color: accentColor }}>
+                  <ShieldCheck size={14} /> SSL Secure
+                </span>
+              </div>
             </div>
 
             {/* Ledger */}

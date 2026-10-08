@@ -3,11 +3,16 @@ import cookieParser from 'cookie-parser';
 import morgan from 'morgan';
 import creditRouter from '../routes/credit.routes.js';
 import adminRouter from '../routes/admin.routes.js';
+import paymentRouter from '../routes/payments.routes.js';
 
 const app = express();
 
 // ── Core Middleware ───────────────────────────────────────────────────────────
-app.use(express.json());
+app.use(express.json({
+    verify: (req, _res, buf) => {
+        req.rawBody = buf;
+    }
+}));
 app.use(cookieParser());
 app.use(morgan('dev'));
 
@@ -20,6 +25,8 @@ app.use('/api/payments/credit', creditRouter);
 // Admin-only: user management, grant/reset credits, full transaction audit
 // /api/payments/admin/*
 app.use('/api/payments/admin', adminRouter);
+
+app.use('/api/payments', paymentRouter);
 
 // ── Health Probes ─────────────────────────────────────────────────────────────
 app.get('/healthz', (_req, res) => {

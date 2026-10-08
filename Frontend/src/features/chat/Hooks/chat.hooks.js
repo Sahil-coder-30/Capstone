@@ -1,6 +1,5 @@
 import { useDispatch, useSelector } from 'react-redux';
-import { io } from 'socket.io-client';
-import { getAccessToken, authenticatedFetch } from '../../../services/apiClient';
+import { authenticatedFetch } from '../../../services/apiClient';
 import { 
   addMessage, 
   updateLastMessage, 
@@ -42,117 +41,115 @@ export const useChat = () => {
     let toolLogs = [];
     let streamError = null;
 
-    // 3. Connect to the WebSocket orchestration service via Socket.io
-    const socket = io(window.location.origin, {
-      path: '/api/ai/socket.io',
-      transports: ['polling', 'websocket'],
-      withCredentials: true,
-      auth: { token: getAccessToken() },
-    });
+    // 3. Connect to AI Orchestration service via SSE
+    (async () => {
+      try {
+        const response = await authenticatedFetch('/api/ai/code-agent/invoke', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message: text, projectId: sandboxId }),
+        });
 
-    socket.on('connect', () => {
-      console.log('Socket.io connected to AI orchestrator');
-      // Emit trigger event
-      socket.emit('agent:invoke', { message: text, projectId: sandboxId });
-    });
-
-    // 4. Stream LLM thinking/tokens
-    socket.on('agent:thinking', (token) => {
-      assistantText += token;
-      dispatch(updateLastMessage({
-        text: assistantText,
-        toolLogs,
-        status: 'running',
-      }));
-    });
-
-    // 5. Stream Tool execution starts
-    socket.on('agent:tool_start', ({ toolName, input }) => {
-      let inputStr = '';
-      if (input) {
-        try {
-          inputStr = typeof input === 'string' ? input : JSON.stringify(input);
-        } catch (_) {
-          inputStr = String(input);
+        if (!response.ok) {
+          const errData = await response.json().catch(() => ({}));
+          throw new Error(errData.message || `HTTP error ${response.status}: ${response.statusText}`);
         }
-      }
-      if (inputStr.length > 150) {
-        inputStr = inputStr.substring(0, 150) + '...';
-      }
-      toolLogs = [...toolLogs, `${toolName}: starting with input (${inputStr})`].filter(Boolean);
-      dispatch(updateLastMessage({
-        text: assistantText,
-        toolLogs,
-        status: 'running',
-      }));
-    });
 
-    // 6. Stream Tool execution outputs/finishes
-    socket.on('agent:tool_end', ({ toolName, output }) => {
-      let outputStr = '';
-      if (output) {
-        try {
-          const parsed = typeof output === 'string' ? JSON.parse(output) : output;
-          if (parsed && typeof parsed === 'object') {
-            outputStr = parsed.error || parsed.output || JSON.stringify(parsed);
-          } else {
-            outputStr = String(output);
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder('utf-8');
+        let buffer = '';
+
+        while (true) {
+          const { value, done } = await reader.read();
+          if (done) break;
+
+          buffer += decoder.decode(value, { stream: true });
+          const blocks = buffer.split('\n\n');
+          buffer = blocks.pop();
+
+          for (const block of blocks) {
+            if (!block.trim() || block.startsWith(':')) continue;
+
+            const eventMatch = block.match(/^event:\s*(.+)$/m);
+            const dataMatch = block.match(/^data:\s*([\s\S]+)$/m);
+
+            const event = eventMatch ? eventMatch[1].trim() : 'message';
+            const rawData = dataMatch ? dataMatch[1].trim() : '';
+            let payload = {};
+            if (rawData) {
+              try { payload = JSON.parse(rawData); } catch (_) { payload = rawData; }
+            }
+
+            if (event === 'agent:thinking') {
+              assistantText += (typeof payload === 'string' ? payload : rawData);
+              dispatch(updateLastMessage({
+                text: assistantText,
+                toolLogs,
+                status: 'running',
+              }));
+            } else if (event === 'agent:tool_start') {
+              const { toolName, input } = payload;
+              let inputStr = '';
+              if (input) {
+                try { inputStr = typeof input === 'string' ? input : JSON.stringify(input); } catch (_) { inputStr = String(input); }
+              }
+              if (inputStr.length > 150) inputStr = inputStr.substring(0, 150) + '...';
+              toolLogs = [...toolLogs, `${toolName}: starting with input (${inputStr})`].filter(Boolean);
+              dispatch(updateLastMessage({
+                text: assistantText,
+                toolLogs,
+                status: 'running',
+              }));
+            } else if (event === 'agent:tool_end') {
+              const { toolName, output } = payload;
+              let outputStr = '';
+              if (output) {
+                try {
+                  const parsed = typeof output === 'string' ? JSON.parse(output) : output;
+                  outputStr = parsed && typeof parsed === 'object' ? (parsed.error || parsed.output || JSON.stringify(parsed)) : String(output);
+                } catch (_) { outputStr = String(output); }
+              }
+              if (outputStr.length > 150) outputStr = outputStr.substring(0, 150) + '...';
+              toolLogs = [...toolLogs, `${toolName}: finished (${outputStr})`].filter(Boolean);
+              dispatch(updateLastMessage({
+                text: assistantText,
+                toolLogs,
+                status: 'running',
+              }));
+            } else if (event === 'agent:done' || event === 'agent:stopped') {
+              dispatch(updateLastMessage({
+                text: assistantText,
+                toolLogs,
+                status: 'completed',
+              }));
+              dispatch(setStreaming(false));
+              onComplete?.();
+            } else if (event === 'agent:error') {
+              streamError = payload.message || 'Error running agent';
+              dispatch(updateLastMessage({
+                text: assistantText,
+                toolLogs,
+                status: 'error',
+                error: streamError,
+              }));
+              dispatch(setError(streamError));
+              dispatch(setStreaming(false));
+            }
           }
-        } catch (_) {
-          outputStr = String(output);
         }
+      } catch (err) {
+        console.error('SSE connection error:', err);
+        streamError = err.message || 'Failed to connect to the AI Orchestration service';
+        dispatch(updateLastMessage({
+          text: assistantText,
+          toolLogs,
+          status: 'error',
+          error: streamError,
+        }));
+        dispatch(setError(streamError));
+        dispatch(setStreaming(false));
       }
-      if (outputStr.length > 150) {
-        outputStr = outputStr.substring(0, 150) + '...';
-      }
-      toolLogs = [...toolLogs, `${toolName}: finished (${outputStr})`].filter(Boolean);
-      dispatch(updateLastMessage({
-        text: assistantText,
-        toolLogs,
-        status: 'running',
-      }));
-    });
-
-    // 7. Stream finished successfully
-    socket.on('agent:done', () => {
-      dispatch(updateLastMessage({
-        text: assistantText,
-        toolLogs,
-        status: 'completed',
-      }));
-      dispatch(setStreaming(false));
-      socket.disconnect();
-      onComplete?.();
-    });
-
-    // 8. Stream failed with error
-    socket.on('agent:error', ({ message }) => {
-      streamError = message || 'Error running agent';
-      dispatch(updateLastMessage({
-        text: assistantText,
-        toolLogs,
-        status: 'error',
-        error: streamError,
-      }));
-      dispatch(setError(streamError));
-      dispatch(setStreaming(false));
-      socket.disconnect();
-    });
-
-    // 9. Connection errors
-    socket.on('connect_error', (err) => {
-      console.error('Socket.io connection error:', err);
-      streamError = 'Failed to connect to the AI Orchestration service';
-      dispatch(updateLastMessage({
-        text: assistantText,
-        toolLogs,
-        status: 'error',
-        error: streamError,
-      }));
-      dispatch(setError(streamError));
-      dispatch(setStreaming(false));
-      socket.disconnect();
-    });
+    })();
   };
 
   const sendAppAgentMessage = async (text, activeFile, onComplete) => {
@@ -268,7 +265,14 @@ export const useChat = () => {
     }
   };
 
-  const clearChatHistory = () => {
+  const clearChatHistory = async () => {
+    if (projectId) {
+      try {
+        await authenticatedFetch(`/api/ai/chats/${projectId}/codingAgent`, { method: 'DELETE' });
+      } catch (err) {
+        console.error('Failed to delete chat history from DB:', err);
+      }
+    }
     dispatch(clearHistory());
   };
 

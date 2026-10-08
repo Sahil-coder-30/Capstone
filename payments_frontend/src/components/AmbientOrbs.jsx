@@ -187,21 +187,26 @@ export default function AmbientOrbs({ style = {}, opacity = 1, showMeteors = tru
       ctx.fill();
       ctx.globalCompositeOperation = 'source-over';
 
-      // Render Small Glowing Twinkling Stars
+      // Render Small Glowing Twinkling Stars (Fast multi-arc glow instead of expensive shadowBlur)
       stars.forEach((star) => {
         star.phase += star.twinkleSpeed;
         const alpha = Math.max(0.05, star.baseAlpha + Math.sin(star.phase) * 0.25);
         const starX = star.x + parallaxX * star.depth;
         const starY = star.y + parallaxY * star.depth;
 
+        // Outer soft glow halo
+        ctx.beginPath();
+        ctx.arc(starX, starY, star.size * 2.2, 0, Math.PI * 2);
+        ctx.fillStyle = star.color;
+        ctx.globalAlpha = alpha * 0.25;
+        ctx.fill();
+
+        // Sharp core star
         ctx.beginPath();
         ctx.arc(starX, starY, star.size, 0, Math.PI * 2);
         ctx.fillStyle = star.color;
         ctx.globalAlpha = alpha;
-        ctx.shadowColor = star.color;
-        ctx.shadowBlur = star.size * 3;
         ctx.fill();
-        ctx.shadowBlur = 0;
         ctx.globalAlpha = 1;
       });
 
@@ -238,14 +243,19 @@ export default function AmbientOrbs({ style = {}, opacity = 1, showMeteors = tru
           ctx.lineCap = 'round';
           ctx.stroke();
 
-          // Draw Glowing Star Head Flare
+          // Draw Glowing Star Head Flare (Lightweight multi-arc)
+          const glowColor = currentlyLight ? `rgba(9, 105, 218, ${m.alpha * 0.3})` : `rgba(61, 197, 161, ${m.alpha * 0.3})`;
+          const coreColor = currentlyLight ? `rgba(9, 105, 218, ${m.alpha})` : `rgba(255, 255, 255, ${m.alpha})`;
+
+          ctx.beginPath();
+          ctx.arc(headX, headY, m.lineWidth * 2.8, 0, Math.PI * 2);
+          ctx.fillStyle = glowColor;
+          ctx.fill();
+
           ctx.beginPath();
           ctx.arc(headX, headY, m.lineWidth * 1.3, 0, Math.PI * 2);
-          ctx.fillStyle = currentlyLight ? `rgba(9, 105, 218, ${m.alpha})` : `rgba(255, 255, 255, ${m.alpha})`;
-          ctx.shadowColor = currentlyLight ? '#0969DA' : '#3DC5A1';
-          ctx.shadowBlur = 10;
+          ctx.fillStyle = coreColor;
           ctx.fill();
-          ctx.shadowBlur = 0;
         }
       }
 

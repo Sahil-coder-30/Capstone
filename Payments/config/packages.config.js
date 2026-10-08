@@ -1,126 +1,69 @@
 /**
- * Subscription Packages Configuration
+ * Subscription Packages Configuration — Payments Service
  *
- * Defines all purchasable subscription plans available to users.
- * Each package includes:
- *  - Pricing in INR (paise for Razorpay)
- *  - The subscription tier it maps to
- *  - Cost breakdown and margin analysis
- *  - Feature highlights for display on the pricing page
- *
- * Razorpay amounts must be in PAISE (smallest currency unit).
- * 1 INR = 100 paise
- *
- * Pre-calculating fees here avoids floating-point arithmetic at checkout time.
+ * Streamlined to the 2 primary plans:
+ *   1. Pro Plan  (₹499 / month)
+ *   2. Max Plan  (₹999 / month)
+ *   + Default Free Plan (₹0)
  */
 
 export const PACKAGES = [
     {
         id: 'free',
-        label: 'Free',
+        label: 'Taksha AI Free',
         tier: 'free',
+        tierPriority: 0,
+        planIdEnvKey: 'PLAN_ID_FREE',
         pricingModel: 'free',
         priceINR: 0,
-        priceINRPaise: 0,           // For Razorpay: amount in paise
-        razorpayFeeINR: 0,
-        totalCostINR: 34.99,        // Your actual cost per free user/month
-        marginINR: -34.99,          // Loss-leader / user acquisition cost
+        priceINRPaise: 0,
         description: 'Start building with AI. No credit card required.',
         highlights: [
             '20 AI credits per provider',
             'Coding agent + Copilot',
             '50,000 tokens/day limit',
+            '0.5 vCPU + 512MB Sandbox',
             'Community support',
         ],
         badge: null,
         popular: false,
     },
-
-    {
-        id: 'pro_early_access',
-        label: 'Pro',
-        tier: 'pro',
-        pricingModel: 'early_access',
-        priceINR: 299,
-        priceINRPaise: 29900,
-        razorpayFeeINR: 7.06,       // 2.36% of ₹299
-        totalCostINR: 228.52,
-        marginINR: 70.48,           // ₹299 - ₹228.52
-        description: 'Early access pricing. Full AI power for power users.',
-        highlights: [
-            'Unlimited AI credits',
-            'All coding agents + App agent',
-            '5M tokens/month',
-            'Advanced models',
-            'Email support',
-        ],
-        badge: 'Early Access',
-        popular: true,
-    },
-
     {
         id: 'pro_regular',
-        label: 'Pro',
+        label: 'Taksha AI Pro',
         tier: 'pro',
+        tierPriority: 1,
+        planIdEnvKey: 'PLAN_ID_PRO',
         pricingModel: 'regular',
         priceINR: 499,
         priceINRPaise: 49900,
-        razorpayFeeINR: 11.78,      // 2.36% of ₹499
-        totalCostINR: 233.24,
-        marginINR: 265.76,          // ₹499 - ₹233.24
-        description: 'Full AI access. Unlimited credits, all agents.',
+        description: 'Full AI power for active developers.',
         highlights: [
-            'Unlimited AI credits',
-            'All coding agents + App agent',
-            '5M tokens/month',
-            'Advanced models',
+            '4x higher AI usage limits',
+            '5,000,000 tokens monthly cap',
+            '2.0 vCPU + 2GB Sandbox',
+            'All coding & app agents',
             'Priority email support',
         ],
-        badge: null,
-        popular: false,
+        badge: 'Popular',
+        popular: true,
     },
-
-    {
-        id: 'max_early_access',
-        label: 'Max',
-        tier: 'max',
-        pricingModel: 'early_access',
-        priceINR: 999,
-        priceINRPaise: 99900,
-        razorpayFeeINR: 23.58,      // 2.36% of ₹999
-        totalCostINR: 699.76,
-        marginINR: 299.24,          // ₹999 - ₹699.76
-        description: 'Early access pricing. Maximum AI power, zero limits.',
-        highlights: [
-            'Unlimited AI credits',
-            'All agents — full access',
-            'Unlimited tokens',
-            'Priority queue processing',
-            'All models (including flagship)',
-            'Dedicated support',
-        ],
-        badge: 'Early Access',
-        popular: false,
-    },
-
     {
         id: 'max_regular',
-        label: 'Max',
+        label: 'Taksha AI Max',
         tier: 'max',
+        tierPriority: 2,
+        planIdEnvKey: 'PLAN_ID_MAX',
         pricingModel: 'regular',
-        priceINR: 1499,
-        priceINRPaise: 149900,
-        razorpayFeeINR: 35.38,      // 2.36% of ₹1499
-        totalCostINR: 711.56,
-        marginINR: 787.44,          // ₹1499 - ₹711.56
-        description: 'Maximum AI power. Highest limits, all models, priority queue.',
+        priceINR: 999,
+        priceINRPaise: 99900,
+        description: 'Maximum AI power, zero limits, flagship models.',
         highlights: [
-            'Unlimited AI credits',
-            'All agents — full access',
-            'Unlimited tokens',
+            'Unlimited AI tokens',
             'Priority queue processing',
-            'All models (including flagship)',
-            'Dedicated support',
+            '4.0 vCPU + 4GB Sandbox',
+            'All flagship AI models',
+            'Dedicated 24/7 support',
         ],
         badge: 'Best Value',
         popular: false,
@@ -128,8 +71,7 @@ export const PACKAGES = [
 ];
 
 /**
- * Returns all packages (for public pricing page)
- * Strips internal cost fields from public response
+ * Returns clean packages for public pricing view.
  */
 export const getPublicPackages = () => PACKAGES.map(pkg => ({
     id: pkg.id,
@@ -143,15 +85,28 @@ export const getPublicPackages = () => PACKAGES.map(pkg => ({
     popular: pkg.popular,
 }));
 
-/**
- * Returns all packages including internal cost & margin data (admin only)
- */
 export const getAdminPackages = () => PACKAGES;
 
 /**
- * Find a package by ID
- * @param {string} packageId
+ * Find a package by ID or tier (supports 'pro', 'pro_regular', 'max', 'max_regular', 'free').
  */
-export const getPackageById = (packageId) => PACKAGES.find(pkg => pkg.id === packageId) || null;
+export const getPackageById = (packageId) => {
+    if (!packageId) return null;
+    const normalized = String(packageId).trim().toLowerCase();
+    
+    // Direct match by ID
+    let match = PACKAGES.find(pkg => pkg.id === normalized);
+    if (match) return match;
+
+    // Match by tier
+    match = PACKAGES.find(pkg => pkg.tier === normalized);
+    if (match) return match;
+
+    // Legacy aliases
+    if (normalized.startsWith('pro')) return PACKAGES.find(pkg => pkg.tier === 'pro');
+    if (normalized.startsWith('max')) return PACKAGES.find(pkg => pkg.tier === 'max');
+
+    return null;
+};
 
 export default PACKAGES;

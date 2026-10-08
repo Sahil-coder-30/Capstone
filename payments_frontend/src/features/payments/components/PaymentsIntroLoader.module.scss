@@ -1,54 +1,195 @@
-.introContainer {
+// =============================================================================
+// PaymentsIntroLoader.module.scss — Specular Text-Clipped Entry
+// =============================================================================
+
+.entryLoader {
   position: fixed;
   inset: 0;
-  z-index: 99999;
-  background: #03060d;
+  width: 100vw;
+  height: 100vh;
+  z-index: 999999;
+  background-color: #090C15;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  cursor: pointer;
+  overflow: hidden;
   user-select: none;
-  transition: opacity 0.8s cubic-bezier(0.16, 1, 0.3, 1), transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
-  opacity: 1;
-  transform: scale(1);
+  cursor: pointer;
+  perspective: 1200px;
+  box-sizing: border-box;
+  will-change: opacity, transform;
+  transition: opacity 0.65s cubic-bezier(0.16, 1, 0.3, 1),
+              transform 0.65s cubic-bezier(0.16, 1, 0.3, 1);
+}
 
-  &.exiting {
-    opacity: 0;
-    transform: scale(1.04);
-    pointer-events: none;
+// Deep Specular Atmospheric Halo
+.ambientCenterGlow {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 800px;
+  height: 440px;
+  max-width: 100vw;
+  background: radial-gradient(
+    ellipse at center,
+    rgba(61, 197, 161, 0.11) 0%,
+    rgba(27, 110, 243, 0.06) 45%,
+    transparent 70%
+  );
+  filter: blur(85px);
+  pointer-events: none;
+  z-index: 1;
+}
+
+// Center Visual Stage
+.stage {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  width: 100%;
+  max-width: 900px;
+  padding: 0 24px;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+// Monumental Typography — Specular Sweep EXCLUSIVELY inside text glyphs
+.titleText {
+  margin: 0;
+  padding: 8px 12px;
+  font-family: 'Outfit', 'Inter', -apple-system, sans-serif;
+  font-size: clamp(3.2rem, 7.2vw, 5.6rem);
+  font-weight: 900;
+  font-style: italic;
+  letter-spacing: -0.025em;
+  line-height: 1.1;
+  text-align: center;
+  white-space: nowrap;
+  user-select: none;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  box-sizing: border-box;
+
+  // Specular Liquid Metallic Gradient — White core + Taksha green glow + cyan accent
+  background: linear-gradient(
+    108deg,
+    #64748B 0%,
+    #CBD5E1 22%,
+    #F1F5F9 42%,
+    #FFFFFF 48%,
+    #3DC5A1 51%,
+    #00DFD8 53%,
+    #FFFFFF 56%,
+    #CBD5E1 72%,
+    #64748B 100%
+  );
+  background-size: 270% 100%;
+  background-position: 190% 0;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  color: transparent;
+
+  filter: drop-shadow(0 14px 40px rgba(0, 0, 0, 0.85));
+  will-change: transform, opacity, background-position;
+}
+
+// High-Precision Laser Alignment Beam
+.divider {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: min(440px, 80vw);
+  transform-origin: center center;
+  box-sizing: border-box;
+  will-change: transform, opacity;
+}
+
+.dividerLineLeft {
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, transparent 0%, rgba(61, 197, 161, 0.6) 80%, rgba(27, 110, 243, 0.8) 100%);
+}
+
+.dividerLineRight {
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, rgba(27, 110, 243, 0.8) 0%, rgba(61, 197, 161, 0.6) 20%, transparent 100%);
+}
+
+.dividerCoreDot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #3DC5A1;
+  box-shadow: 0 0 6px #3DC5A1, 0 0 14px rgba(61, 197, 161, 0.7);
+  flex-shrink: 0;
+}
+
+// Razorpay Row
+.razorpayRow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  will-change: transform, opacity;
+}
+
+.poweredText {
+  font-family: 'Inter', -apple-system, sans-serif;
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: #8C97B8;
+  letter-spacing: 0.04em;
+}
+
+.razorpayBrand {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+
+  .razorpayBolt {
+    display: block;
+    flex-shrink: 0;
+  }
+
+  .razorpayName {
+    font-family: 'Inter', -apple-system, sans-serif;
+    font-size: 0.88rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    color: #F0F2F8;
+    text-transform: lowercase;
   }
 }
 
-.textWrapper {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-  padding: 2rem;
-}
+// Mobile
+@media (max-width: 600px) {
+  .stage {
+    gap: 14px;
+    padding: 0 16px;
+  }
 
-.titleScramble {
-  font-family: var(--font-sans, -apple-system, BlinkMacSystemFont, 'Inter', sans-serif) !important;
-  font-size: clamp(3.2rem, 9vw, 6.5rem) !important;
-  font-weight: 800 !important;
-  letter-spacing: -0.03em !important;
-  color: #ffffff !important;
-  margin: 0 !important;
-  line-height: 1 !important;
-  background: linear-gradient(180deg, #ffffff 40%, rgba(255, 255, 255, 0.65) 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-}
+  .titleText {
+    font-size: clamp(2.4rem, 9.5vw, 3.8rem);
+  }
 
-.subtitleScramble {
-  font-family: monospace !important;
-  font-size: clamp(1rem, 2.5vw, 1.5rem) !important;
-  font-weight: 500 !important;
-  letter-spacing: 0.15em !important;
-  color: #60a5fa !important;
-  margin-top: 1.5rem !important;
-  opacity: 0.9;
-  text-transform: uppercase;
+  .divider {
+    width: min(300px, 85vw);
+  }
+
+  .poweredText {
+    font-size: 0.72rem;
+  }
+
+  .razorpayBrand .razorpayName {
+    font-size: 0.82rem;
+  }
 }

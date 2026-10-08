@@ -1,5 +1,9 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import dns from 'node:dns'
+
+// Ensure predictable IP resolution without hanging on macOS loopback interfaces
+dns.setDefaultResultOrder('verbatim')
 
 // https://vite.dev/config/
 export default defineConfig({
@@ -9,14 +13,34 @@ export default defineConfig({
   css: {
     preprocessorOptions: {
       scss: {
-        // 'modern-compiler' causes esbuild goroutine deadlock on macOS arm64
-        // Leave unset to use the default sass API (stable)
+        api: 'modern-compiler'
       }
     }
   },
 
+  optimizeDeps: {
+    include: [
+      'react',
+      'react-dom',
+      'react-redux',
+      '@reduxjs/toolkit',
+      'axios',
+      'lucide-react',
+      'gsap',
+      '@gsap/react',
+      '@monaco-editor/react',
+      '@xterm/xterm',
+      '@xterm/addon-fit',
+      'socket.io-client',
+      'dexie'
+    ]
+  },
+
   server: {
-    host: '0.0.0.0',
+    warmup: {
+      clientFiles: ['./src/main.jsx', './src/App.jsx']
+    },
+    host: 'localhost',
     port: 5173,
     strictPort: true,
     cors: {

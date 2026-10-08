@@ -25,7 +25,7 @@ Output Tokens: $0.300 per 1,000,000 tokens  ➜  $0.000000300 / token  ➜  ₹0
 
 $$\text{Input Cost} = 45,000 \times ₹0.00000630 = ₹0.28350$$
 $$\text{Output Cost} = 12,000 \times ₹0.00002520 = ₹0.30240$$
-$$\mathbf{Total\ Cost\ Per\ Coding\ Task} = ₹0.28350 + ₹0.30240 = \mathbf{₹0.58590}\ \text{(\approx 58.6\ paise)}$$
+$$\mathbf{Total\ Cost\ Per\ Coding\ Task} = ₹0.28350 + ₹0.30240 = \mathbf{₹0.58590}\ \text{(\approx 58.6\ paise)}$$ 
 
 ---
 

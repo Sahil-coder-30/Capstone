@@ -35,6 +35,11 @@ export const SUBSCRIPTION_TIERS = {
         dailyTokenCap: 50_000,      // Hard token cap per day
         monthlyTokenCap: null,      // null = governed by creditsPerProvider
 
+        // 5-hour credit window
+        windowCredits: 20,          // Credits granted per 5-hour window (cross-provider pool)
+        windowHours: 5,             // Window duration in hours
+        creditLowerLimit: 5,        // Min credits required to allow a query
+
         // Rate limits
         requestsPerMinute: 10,
         requestsPerDay: 100,
@@ -81,6 +86,11 @@ export const SUBSCRIPTION_TIERS = {
         creditsPerProvider: null,   // Unlimited — metered billing
         dailyTokenCap: null,        // No hard cap
         monthlyTokenCap: 5_000_000, // 5M tokens/month soft ceiling
+
+        // 5-hour credit window
+        windowCredits: 150,         // Credits granted per 5-hour window
+        windowHours: 5,
+        creditLowerLimit: 5,
 
         // Rate limits
         requestsPerMinute: 60,
@@ -129,6 +139,11 @@ export const SUBSCRIPTION_TIERS = {
         dailyTokenCap: null,        // No cap
         monthlyTokenCap: null,      // Truly unlimited
 
+        // 5-hour credit window
+        windowCredits: 200,         // Credits granted per 5-hour window
+        windowHours: 5,
+        creditLowerLimit: 5,
+
         // Rate limits
         requestsPerMinute: 120,
         requestsPerDay: 10_000,
@@ -166,6 +181,20 @@ export const isMeteredTier = (tierId) => {
  */
 export const hasDailyTokenCap = (tierId) => {
     return getTierConfig(tierId).dailyTokenCap !== null;
+};
+
+/**
+ * Returns the window credit config for a given tier.
+ * @param {'free'|'pro'|'max'} tierId
+ * @returns {{ windowCredits: number, windowHours: number, creditLowerLimit: number }}
+ */
+export const getWindowConfig = (tierId) => {
+    const tier = getTierConfig(tierId);
+    return {
+        windowCredits:    tier.windowCredits    ?? 20,
+        windowHours:      tier.windowHours      ?? 5,
+        creditLowerLimit: tier.creditLowerLimit ?? 5,
+    };
 };
 
 export default SUBSCRIPTION_TIERS;

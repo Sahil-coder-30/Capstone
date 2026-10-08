@@ -292,6 +292,7 @@ const getSummaryModel = () => {
       apiKey: mistralApiKey,
       maxRetries: 6,
       timeout: 180_000, // 3 minutes
+      tags: ["tool_summary_internal"],
     });
   }
   return summaryModelInstance;
@@ -331,9 +332,10 @@ Please provide a concise one-sentence summary of the work that was accomplished 
         let completionTokens = 0;
         let totalTokens = 0;
 
-        const summaryResponse = await getSummaryModel().invoke([
-          { role: "user", content: prompt }
-        ]);
+        const summaryResponse = await getSummaryModel().invoke(
+          [{ role: "user", content: prompt }],
+          { tags: ["tool_summary_internal"] }
+        );
         summary = summaryResponse.content?.trim() || "Executed command successfully";
 
         // Capture token usage from summarization model run

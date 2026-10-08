@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Routes, Route, useNavigate } from 'react-router-dom';
-import axios from 'axios';
 import Header from './components/Header';
 import PaymentsLandingPage from './features/payments/components/PaymentsLandingPage';
-import SubscriptionDashboard from './features/payments/components/SubscriptionDashboard';
+import PaymentsDashboard from './features/payments/components/PaymentsDashboard';
+import AIRequestsView from './features/payments/components/AIRequestsView';
 import InvoicesView from './features/payments/components/InvoicesView';
 import CheckoutModal from './features/payments/components/CheckoutModal';
 import PlanDetailPage from './features/payments/components/PlanDetailPage';
@@ -14,15 +14,25 @@ import { usePayments } from './features/payments/Hooks/payments.hooks';
 import api, { setAccessToken } from './services/api';
 import './styles/index.scss';
 
-// Main auth service URL — payments app redirects here if session is dead
-const MAIN_APP_LOGIN_URL = import.meta.env.VITE_MAIN_APP_URL || 'http://localhost:5173';
-
 export default function App() {
   const { theme } = usePayments();
   const [user, setUser] = useState(null);
   const [authChecked, setAuthChecked] = useState(false);
-  const [showIntro, setShowIntro] = useState(() => !sessionStorage.getItem('payments_session_id'));
   const navigate = useNavigate();
+  const isForcePlay = new URLSearchParams(window.location.search).get('forceLoader') === 'true';
+  const [showIntro, setShowIntro] = useState(() => {
+    if (isForcePlay) return true;
+    return !sessionStorage.getItem('taksha_payments_intro_v10_clip');
+  });
+
+  const handleIntroComplete = () => {
+    setShowIntro(false);
+    if (window.location.search.includes('forceLoader')) {
+      const url = new URL(window.location.href);
+      url.searchParams.delete('forceLoader');
+      window.history.replaceState({}, '', url.pathname + (url.search ? url.search : ''));
+    }
+  };
 
   // ── Theme boot on load before paint ────────────────────────────────────────
   useEffect(() => {
@@ -35,34 +45,31 @@ export default function App() {
   }, []);
 
   // ── Session Verification on App Boot ───────────────────────────────────────
-  // Flow:
-  //  1. Call GET /api/auth/getMe (no token in memory on fresh load → 401)
-  //  2. api.js response interceptor catches 401
-  //  3. Interceptor fires POST /api/auth/refresh → browser sends httpOnly cookie
-  //  4. Auth service returns new accessToken in JSON body
-  //  5. Interceptor stores token in memory (_accessToken) and retries /getMe
-  //  6. /getMe returns user data → setUser() called
-  //  If refresh token is dead/missing:
-  //  → Interceptor propagates error → catch block → redirect to main app login
   useEffect(() => {
+    let isMounted = true;
+
     const verifySession = async () => {
       try {
-        const res = await api.get('/api/auth/getMe', { baseURL: '' });
-        if (res.data?.user) {
+        const res = await api.get('/api/auth/getMe', { baseURL: '', timeout: 3000 });
+        if (isMounted && res.data?.user) {
           if (res.data?.accessToken) {
             setAccessToken(res.data.accessToken);
           }
           setUser(res.data.user);
         }
       } catch (err) {
-        // Refresh token is dead or missing → redirect to main app to log in
-        window.location.href = MAIN_APP_LOGIN_URL;
+        if (isMounted) {
+          setUser(null);
+        }
       } finally {
-        setAuthChecked(true);
+        if (isMounted) {
+          setAuthChecked(true);
+        }
       }
     };
 
     verifySession();
+    return () => { isMounted = false; };
   }, []);
 
   // ── Legacy URL search param redirect ───────────────────────────────────────
@@ -72,56 +79,39 @@ export default function App() {
 
     if (route === 'invoices') {
       navigate('/invoices', { replace: true });
-    } else if (route === 'status') {
-      navigate('/status', { replace: true });
+    } else if (route === 'status' || route === 'dashboard') {
+      navigate('/dashboard', { replace: true });
+    } else if (route === 'requests' || route === 'logs') {
+      navigate('/requests', { replace: true });
     } else if (route === 'checkout') {
       navigate('/checkout/pro_regular', { replace: true });
     }
   }, [navigate]);
 
-  // ── Wait for auth check before rendering protected content ─────────────────
-  if (!authChecked) {
-    return (
-      <div style={{
-        minHeight: '100vh', background: 'var(--bg-canvas)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        flexDirection: 'column', gap: 16,
-      }}>
-        {/* Animated loading state */}
-        <div style={{
-          width: 48, height: 48, borderRadius: '50%',
-          border: '2px solid var(--border)',
-          borderTopColor: 'var(--brand-primary)',
-          animation: 'spin 0.8s linear infinite',
-        }} />
-        <p style={{ color: 'var(--text-muted)', fontSize: '0.88rem', fontWeight: 500 }}>
-          Verifying session…
-        </p>
-        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-      </div>
-    );
-  }
-
   return (
     <div className="payments-app-wrapper" style={{ minHeight: '100vh', background: 'var(--bg-canvas)', position: 'relative' }}>
-      {showIntro && <PaymentsIntroLoader onComplete={() => setShowIntro(false)} />}
-      {/* Space ambient background from main frontend application */}
+      {showIntro && (
+        <PaymentsIntroLoader
+          forcePlay={isForcePlay}
+          onComplete={handleIntroComplete}
+        />
+      )}
+      {/* Space ambient background */}
       <AmbientOrbs showMeteors={true} opacity={1} />
-      <div style={{ position: 'relative', zIndex: 1 }}>
+      <div id="payments-main-content" style={{ position: 'relative', zIndex: 1 }}>
         <Header user={user} />
         <Routes>
-          {/* Existing routes — untouched */}
-          <Route path="/"                element={<PaymentsLandingPage user={user} />} />
-          <Route path="/status"          element={<SubscriptionDashboard />} />
-          <Route path="/invoices"        element={<InvoicesView />} />
-          <Route path="/checkout/:planId" element={<CheckoutModal />} />
+          <Route path="/"                 element={<PaymentsLandingPage user={user} />} />
+          <Route path="/dashboard"        element={<PaymentsDashboard />} />
+          <Route path="/status"           element={<PaymentsDashboard />} />
+          <Route path="/requests"         element={<AIRequestsView />} />
+          <Route path="/invoices"         element={<InvoicesView />} />
+          <Route path="/checkout/:planId" element={<CheckoutModal user={user} />} />
 
-          {/* New UI routes */}
-          <Route path="/plans/:planId"   element={<PlanDetailPage />} />
-          <Route path="/compare"         element={<CompareTablePage />} />
+          <Route path="/plans/:planId"    element={<PlanDetailPage />} />
+          <Route path="/compare"          element={<CompareTablePage />} />
         </Routes>
       </div>
     </div>
   );
 }
-

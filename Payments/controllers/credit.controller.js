@@ -1,8 +1,11 @@
 import mongoose from 'mongoose';
 import Credit, { AGENT_TYPES, CREDIT_COMPANIES, SUBSCRIPTION_TIERS } from '../models/credit.model.js';
 import Transaction from '../models/transaction.model.js';
+import UsageEvent from '../models/usage-event.model.js';
+import Account from '../models/account.model.js';
+import { Subscription } from '../models/subscription.model.js';
 import { getPublicPackages } from '../config/packages.config.js';
-import { getTierConfig } from '../config/subscription.config.js';
+import { getTierConfig, getWindowConfig } from '../config/subscription.config.js';
 
 // ── Constants ────────────────────────────────────────────────────────────────
 const FREE_CREDITS_PER_COMPANY = 20;
@@ -54,12 +57,55 @@ const normalizeSubscription = (subscription) => {
 
 const ensureCreditDocument = async (userId, tokenSubscription) => {
     validateObjectId(userId);
-    let credit = await Credit.findOne({ userId });
+    const accountObjId = new mongoose.Types.ObjectId(userId);
+
+    // ── Guarantee Account exists in MongoDB for this user ─────────────────
+    await Account.findOneAndUpdate(
+        { $or: [{ user_id: accountObjId }, { _id: accountObjId }] },
+        {
+            $setOnInsert: {
+                _id: accountObjId,
+                user_id: accountObjId,
+                subscription_status: tokenSubscription || 'free',
+                is_active: true,
+            }
+        },
+        { upsert: true, returnDocument: 'after', setDefaultsOnInsert: true }
+    ).catch(() => {});
+
+    let credit = await Credit.findOne({
+        $or: [{ userId: accountObjId }, { accountId: accountObjId }],
+    });
+
+    // ── Resolve true active tier across Subscription, Account, and claims ───
+    const [activeSub, activeAccount] = await Promise.all([
+        Subscription.findOne({ $or: [{ accountId: accountObjId }, { userId: accountObjId }] }).lean().catch(() => null),
+        Account.findOne({ $or: [{ user_id: accountObjId }, { _id: accountObjId }] }).lean().catch(() => null),
+    ]);
+
+    const trueActiveTier = activeSub?.activeTier || activeAccount?.subscription_status || normalizeSubscription(tokenSubscription) || 'free';
 
     if (!credit) {
-        const initialSubscription = normalizeSubscription(tokenSubscription) || 'free';
-        credit = await Credit.create({ userId, subscription: initialSubscription });
+        credit = await Credit.create({
+            userId: accountObjId,
+            accountId: accountObjId,
+            subscription: trueActiveTier,
+        });
+    } else {
+        let changed = false;
+        if (!credit.accountId) {
+            credit.accountId = accountObjId;
+            changed = true;
+        }
+        if (credit.subscription !== trueActiveTier) {
+            credit.subscription = trueActiveTier;
+            changed = true;
+        }
+        if (changed) {
+            await credit.save().catch(() => {});
+        }
     }
+
 
     // Hydrate billing defaults
     if (!credit.billing) credit.billing = {};
@@ -92,18 +138,29 @@ const ensureCreditDocument = async (userId, tokenSubscription) => {
     return credit;
 };
 
-const serializeCredit = (credit) => {
+const serializeCredit = (credit, account) => {
     const legacyCredits = credit.providerCredits.reduce((sum, bucket) => {
         if (bucket.company === 'unknown') return sum;
         return sum + Number(bucket.creditsRemaining || 0);
     }, 0);
 
-    const tierConfig = getTierConfig(credit.subscription);
+    const tierConfig    = getTierConfig(credit.subscription);
+    const windowCfg     = getWindowConfig(credit.subscription);
+
+    // Use live Account window balance if available, otherwise fall back to config total
+    const windowCreditsTotal     = account?.windowCreditsTotal     ?? windowCfg.windowCredits;
+    const windowCreditsRemaining = account?.windowCreditsRemaining ?? windowCfg.windowCredits;
+    const windowRefillAt         = account?.windowRefillAt         ?? null;
+    const windowExhaustedAt      = account?.windowExhaustedAt      ?? null;
 
     return {
         ...credit.toObject(),
         credits: legacyCredits,
-        freeCreditsPerCompany: FREE_CREDITS_PER_COMPANY,
+        windowCreditsTotal,
+        windowCreditsRemaining,
+        windowRefillAt,
+        windowExhaustedAt,
+        canQuery: windowCreditsRemaining >= windowCfg.creditLowerLimit,
         tokensPerCredit: TOKENS_PER_CREDIT,
         tierConfig: {
             id: tierConfig.id,
@@ -113,6 +170,9 @@ const serializeCredit = (credit) => {
             monthlyTokenCap: tierConfig.monthlyTokenCap,
             requestsPerMinute: tierConfig.requestsPerMinute,
             features: tierConfig.features,
+            windowCredits: windowCfg.windowCredits,
+            windowHours: windowCfg.windowHours,
+            creditLowerLimit: windowCfg.creditLowerLimit,
         },
         billingRate: {
             centsPer1kTokens: BILLING_CENTS_PER_1K_TOKENS,
@@ -121,25 +181,29 @@ const serializeCredit = (credit) => {
     };
 };
 
-// ── Controllers ───────────────────────────────────────────────────────────────
+// ── Controllers ──────────────────────────────────────────────────────────────
 
 /**
  * GET /api/payments/credit
- * Returns the full credit document for the logged-in user,
- * including provider buckets, token totals, billing, and tier config.
+ * Returns the current credit balance, usage stats, and billing config for the user.
  */
 export const getCreditController = async (req, res, next) => {
     try {
-        const userId = req.user?.id || req.user?._id;
-        if (!userId) {
-            return res.status(400).json({ status: 'error', message: 'User ID is missing from session' });
+        const accountId = req.accountId || req.user?.id || req.user?._id;
+        if (!accountId) {
+            return res.status(400).json({ status: 'error', message: 'Account ID is missing from session' });
         }
 
-        const credit = await ensureCreditDocument(userId);
+        const [credit, account] = await Promise.all([
+            ensureCreditDocument(accountId, req.user?.subscription),
+            Account.findOne({
+                $or: [{ _id: new mongoose.Types.ObjectId(accountId) }, { user_id: new mongoose.Types.ObjectId(accountId) }],
+            }).lean(),
+        ]);
 
         res.status(200).json({
             status: 'success',
-            credit: serializeCredit(credit),
+            credit: serializeCredit(credit, account),
         });
     } catch (err) {
         next(err);
@@ -147,37 +211,53 @@ export const getCreditController = async (req, res, next) => {
 };
 
 /**
- * GET /api/payments/credit/check?company=google
- * Checks if the user has sufficient credit for the given AI provider.
- * Used by Ai_orchestration before forwarding a prompt.
+ * GET /api/payments/credit/check
+ * Pre-flight check: can this user make an AI query right now?
+ * Returns { canQuery, creditsRemaining, windowCreditsTotal, nextRefillAt, timeUntilRefillMs }.
+ * Called by AI Orchestration before forwarding a prompt, and by the frontend to gate the Send button.
  */
 export const checkCreditController = async (req, res, next) => {
     try {
-        const userId = req.user?.id || req.user?._id;
-        if (!userId) {
-            return res.status(400).json({ status: 'error', message: 'User ID is missing from session' });
+        const accountId = req.accountId || req.user?.id || req.user?._id;
+        if (!accountId) {
+            return res.status(400).json({ status: 'error', message: 'Account ID is missing from session' });
         }
 
-        const company = normalizeCompany(req.query.company || req.query.provider);
-        const credit = await ensureCreditDocument(userId);
-        const subscription = credit.subscription || 'free';
-        const bucket = credit.ensureProviderBucket(company);
-        const isMeteredPlan = subscription === 'pro' || subscription === 'max';
+        const accountObjId = new mongoose.Types.ObjectId(accountId);
 
-        // Metered plan users always have access (billed per usage)
-        // Free plan users need remaining credits
-        const hasCredit = isMeteredPlan || bucket.creditsRemaining > 0;
+        // Fetch Account (window gate) and Credit (tier + analytics) in parallel
+        const [account, credit] = await Promise.all([
+            Account.findOne({ $or: [{ _id: accountObjId }, { user_id: accountObjId }] }).lean(),
+            ensureCreditDocument(accountId),
+        ]);
 
-        await credit.save();
+        const subscription = credit?.subscription || 'free';
+        const windowCfg    = getWindowConfig(subscription);
 
-        res.status(200).json({
+        // Hydrate window fields if missing (account existed before this feature)
+        let windowCreditsRemaining = account?.windowCreditsRemaining ?? windowCfg.windowCredits;
+        let windowCreditsTotal     = account?.windowCreditsTotal     ?? windowCfg.windowCredits;
+        let windowRefillAt         = account?.windowRefillAt         ?? null;
+        let windowExhaustedAt      = account?.windowExhaustedAt      ?? null;
+
+        const canQuery = windowCreditsRemaining >= windowCfg.creditLowerLimit;
+
+        const now               = Date.now();
+        const timeUntilRefillMs = windowRefillAt
+            ? Math.max(0, new Date(windowRefillAt).getTime() - now)
+            : null;
+
+        return res.status(200).json({
             status: 'success',
-            hasCredit,
+            canQuery,
+            hasCredit: canQuery,
             subscription,
-            company,
-            credits: bucket.creditsRemaining,
-            providerCredits: credit.providerCredits,
-            billable: isMeteredPlan,
+            creditsRemaining:    windowCreditsRemaining,
+            windowCreditsTotal,
+            creditLowerLimit:    windowCfg.creditLowerLimit,
+            nextRefillAt:        windowRefillAt,
+            windowExhaustedAt,
+            timeUntilRefillMs,
         });
     } catch (err) {
         next(err);
@@ -186,11 +266,8 @@ export const checkCreditController = async (req, res, next) => {
 
 /**
  * POST /api/payments/credit/update
- * Records AI token usage and deducts credits (free tier) or billable cents (pro/max).
+ * Records AI token usage, deducts credits, and creates standalone UsageEvent & Transaction records.
  * Called by Ai_orchestration after each successful AI response.
- *
- * Body: { userId?, company, promptTokens, completionTokens, totalTokens?,
- *          modelId?, agentType?, projectId?, requestId? }
  */
 export const updateCreditController = async (req, res, next) => {
     try {
@@ -202,23 +279,20 @@ export const updateCreditController = async (req, res, next) => {
             agentType = 'unknown',
             projectId = '',
             requestId = '',
+            chatId,
             promptTokens = 0,
             completionTokens = 0,
             totalTokens: totalTokensInput,
         } = req.body;
 
-        const userId = bodyUserId || req.user?.id || req.user?._id;
+        const accountId = bodyUserId || req.accountId || req.user?.id || req.user?._id;
 
-        if (!userId) {
-            return res.status(400).json({ status: 'error', message: 'User ID is required for credit updates' });
+        if (!accountId) {
+            return res.status(400).json({ status: 'error', message: 'Account ID is required for credit updates' });
         }
 
-        validateObjectId(userId);
-
-        // Prevent one user from updating another's credits
-        if (req.user?.id && String(req.user.id) !== String(userId)) {
-            return res.status(403).json({ status: 'error', message: 'Cannot update credit usage for another user' });
-        }
+        validateObjectId(accountId);
+        const accountObjId = new mongoose.Types.ObjectId(accountId);
 
         const normalizedCompany = normalizeCompany(company || provider);
         const normalizedAgentType = validateAgentType(agentType);
@@ -235,31 +309,32 @@ export const updateCreditController = async (req, res, next) => {
             });
         }
 
-        const credit = await ensureCreditDocument(userId);
+        const credit = await ensureCreditDocument(accountObjId);
         const subscription = credit.subscription || 'free';
         const bucket = credit.ensureProviderBucket(normalizedCompany);
 
-        const creditsDeducted = subscription === 'free' ? calculateCredits(totalTokenCount) : 0;
-        const billableCents = subscription === 'free' ? 0 : calculateBillableCents(totalTokenCount);
+        const creditsDeducted = calculateCredits(totalTokenCount);
+        const billableCents   = subscription === 'free' ? 0 : calculateBillableCents(totalTokenCount);
 
+        // ── Deduct from per-provider bucket (analytics + legacy free metering) ──
         if (subscription === 'free') {
             bucket.creditsRemaining = Math.max(0, Number(bucket.creditsRemaining || 0) - creditsDeducted);
         } else {
             bucket.billableTokens += totalTokenCount;
-            bucket.billableCents += billableCents;
+            bucket.billableCents  += billableCents;
             credit.billing.unbilledCents += billableCents;
             credit.billing.lifetimeCents += billableCents;
         }
 
-        bucket.promptTokens += promptTokenCount;
+        bucket.promptTokens     += promptTokenCount;
         bucket.completionTokens += completionTokenCount;
-        bucket.totalTokens += totalTokenCount;
-        bucket.requestCount += 1;
-        bucket.lastUsedAt = new Date();
+        bucket.totalTokens      += totalTokenCount;
+        bucket.requestCount     += 1;
+        bucket.lastUsedAt        = new Date();
 
-        credit.promptTokens += promptTokenCount;
+        credit.promptTokens     += promptTokenCount;
         credit.completionTokens += completionTokenCount;
-        credit.totalTokens += totalTokenCount;
+        credit.totalTokens      += totalTokenCount;
 
         credit.usageEvents.push({
             company: normalizedCompany,
@@ -268,9 +343,9 @@ export const updateCreditController = async (req, res, next) => {
             projectId,
             requestId,
             subscription,
-            promptTokens: promptTokenCount,
+            promptTokens:     promptTokenCount,
             completionTokens: completionTokenCount,
-            totalTokens: totalTokenCount,
+            totalTokens:      totalTokenCount,
             creditsDeducted,
             billableCents,
         });
@@ -278,16 +353,66 @@ export const updateCreditController = async (req, res, next) => {
         credit.trimUsageEvents();
         await credit.save();
 
-        // Write lightweight usage ledger entry (skip if 0 tokens — no-op calls)
+        // ── Decrement window balance on Account (atomic, non-blocking) ────────
+        const windowCfg   = getWindowConfig(subscription);
+        const LOWER_LIMIT = windowCfg.creditLowerLimit;
+        const WINDOW_MS   = windowCfg.windowHours * 60 * 60 * 1000;
+        const now         = new Date();
+
+        // Fetch current window state
+        const account = await Account.findOne({ $or: [{ _id: accountObjId }, { user_id: accountObjId }] });
+        if (account) {
+            // Hydrate missing window fields (accounts created before this feature)
+            if (account.windowCreditsRemaining === undefined || account.windowCreditsRemaining === null) {
+                account.windowCreditsRemaining = windowCfg.windowCredits;
+                account.windowCreditsTotal     = windowCfg.windowCredits;
+            }
+            const prevRemaining = account.windowCreditsRemaining;
+            account.windowCreditsRemaining = Math.max(0, prevRemaining - creditsDeducted);
+
+            // Stamp exhaustion timestamps the moment we cross the lower limit
+            if (prevRemaining >= LOWER_LIMIT && account.windowCreditsRemaining < LOWER_LIMIT) {
+                account.windowExhaustedAt = now;
+                account.windowRefillAt    = new Date(now.getTime() + WINDOW_MS);
+                console.log(
+                    `[credit.controller] Window exhausted for account=${accountObjId}, ` +
+                    `refillAt=${account.windowRefillAt.toISOString()}`
+                );
+            }
+            await account.save();
+        }
+
+        // ── Create document in standalone UsageEvent collection for AI request explorer ──
+        const validChatId = chatId && mongoose.Types.ObjectId.isValid(chatId)
+            ? new mongoose.Types.ObjectId(chatId)
+            : (normalizedAgentType === 'codingAgent' || normalizedAgentType === 'appAgent' ? new mongoose.Types.ObjectId() : undefined);
+
+        await UsageEvent.create({
+            accountId: accountObjId,
+            company: normalizedCompany,
+            modelId,
+            agentType: normalizedAgentType,
+            projectId,
+            requestId: requestId || `req_${Date.now().toString(36)}`,
+            chatId: validChatId,
+            promptTokens: promptTokenCount,
+            completionTokens: completionTokenCount,
+            totalTokens: totalTokenCount,
+            creditsDeducted,
+            creditSource: 'main',
+            billableCents,
+        });
+
+        // ── Write lightweight usage ledger entry (skip if 0 tokens — no-op calls) ──
         if (totalTokenCount > 0) {
             await Transaction.create({
-                userId,
+                accountId: accountObjId,
+                userId: accountObjId,
                 type: 'USAGE_DEDUCTION',
                 amountPaise: Math.round(billableCents),
                 creditsDelta: -creditsDeducted,
                 tokensConsumed: totalTokenCount,
                 status: 'SUCCESS',
-                aggregator: 'INTERNAL',
                 description: `AI usage: ${totalTokenCount} tokens via ${normalizedCompany} (${normalizedAgentType})`,
                 metadata: {
                     company: normalizedCompany,
@@ -307,7 +432,7 @@ export const updateCreditController = async (req, res, next) => {
             message: subscription === 'free'
                 ? 'Credits and token usage updated successfully'
                 : 'Billable token usage recorded successfully',
-            credit: serializeCredit(credit),
+            credit: serializeCredit(credit, account?.toObject ? account.toObject() : account),
             usage: {
                 company: normalizedCompany,
                 subscription,
@@ -324,17 +449,14 @@ export const updateCreditController = async (req, res, next) => {
 /**
  * PATCH /api/payments/subscription
  * Upgrades or downgrades the user's subscription tier.
- * Writes an immutable SUBSCRIPTION_CHANGE ledger entry.
- *
- * Body: { subscription: 'free' | 'pro' | 'max' }
  */
 export const updateSubscriptionController = async (req, res, next) => {
     try {
-        const userId = req.user?.id || req.user?._id;
+        const accountId = req.accountId || req.user?.id || req.user?._id;
         const { subscription } = req.body;
 
-        if (!userId) {
-            return res.status(400).json({ status: 'error', message: 'User ID is missing from session' });
+        if (!accountId) {
+            return res.status(400).json({ status: 'error', message: 'Account ID is missing from session' });
         }
 
         const normalizedSub = normalizeSubscription(subscription);
@@ -345,24 +467,24 @@ export const updateSubscriptionController = async (req, res, next) => {
             });
         }
 
-        const existingCredit = await Credit.findOne({ userId });
+        const accountObjId = new mongoose.Types.ObjectId(accountId);
+        const existingCredit = await Credit.findOne({ $or: [{ userId: accountObjId }, { accountId: accountObjId }] });
         const previousTier = existingCredit?.subscription || 'free';
 
         const credit = await Credit.findOneAndUpdate(
-            { userId },
-            { subscription: normalizedSub },
+            { $or: [{ userId: accountObjId }, { accountId: accountObjId }] },
+            { subscription: normalizedSub, accountId: accountObjId },
             { upsert: true, returnDocument: 'after', setDefaultsOnInsert: true, runValidators: true }
         );
 
-        // Write ledger entry for tier change
         if (previousTier !== normalizedSub) {
             await Transaction.create({
-                userId,
+                accountId: accountObjId,
+                userId: accountObjId,
                 type: 'SUBSCRIPTION_CHANGE',
                 amountPaise: 0,
                 creditsDelta: 0,
                 status: 'SUCCESS',
-                aggregator: 'INTERNAL',
                 description: `Subscription changed: ${previousTier} → ${normalizedSub}`,
                 metadata: { from: previousTier, to: normalizedSub },
             });
@@ -381,21 +503,23 @@ export const updateSubscriptionController = async (req, res, next) => {
 };
 
 /**
- * GET /api/payments/transactions
- * Returns paginated transaction history for the logged-in user.
- *
- * Query params: page (default:1), limit (default:20, max:50), type
+ * GET /api/payments/credit/transactions
+ * Returns paginated transaction history matching accountId.
  */
 export const getTransactionsController = async (req, res, next) => {
     try {
-        const userId = req.user?.id || req.user?._id;
-        if (!userId) {
-            return res.status(400).json({ status: 'error', message: 'User ID is missing from session' });
+        const accountId = req.accountId || req.user?.id || req.user?._id;
+        if (!accountId) {
+            return res.status(400).json({ status: 'error', message: 'Account ID is missing from session' });
         }
 
+        const accountObjId = new mongoose.Types.ObjectId(accountId);
         const page = Math.max(1, parseInt(req.query.page, 10) || 1);
-        const limit = Math.min(50, Math.max(1, parseInt(req.query.limit, 10) || 20));
-        const query = { userId };
+        const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 20));
+        
+        const query = {
+            $or: [{ accountId: accountObjId }, { userId: accountObjId }],
+        };
         if (req.query.type) query.type = req.query.type;
 
         const [transactions, total] = await Promise.all([
@@ -409,7 +533,7 @@ export const getTransactionsController = async (req, res, next) => {
 
         res.status(200).json({
             status: 'success',
-            pagination: { page, limit, total, pages: Math.ceil(total / limit) },
+            pagination: { page, limit, total, pages: Math.ceil(total / limit) || 1 },
             transactions,
         });
     } catch (err) {
@@ -418,19 +542,27 @@ export const getTransactionsController = async (req, res, next) => {
 };
 
 /**
- * GET /api/payments/transactions/summary
- * Returns aggregated spending stats for the logged-in user.
+ * GET /api/payments/credit/transactions/summary
+ * Returns aggregated spending totals & real financial metrics.
  */
 export const getTransactionSummaryController = async (req, res, next) => {
     try {
-        const userId = req.user?.id || req.user?._id;
-        if (!userId) {
-            return res.status(400).json({ status: 'error', message: 'User ID is missing from session' });
+        const accountId = req.accountId || req.user?.id || req.user?._id;
+        if (!accountId) {
+            return res.status(400).json({ status: 'error', message: 'Account ID is missing from session' });
         }
+
+        const accountObjId = new mongoose.Types.ObjectId(accountId);
 
         const [purchaseSummary, usageSummary, credit] = await Promise.all([
             Transaction.aggregate([
-                { $match: { userId: new mongoose.Types.ObjectId(userId), type: 'CREDIT_PURCHASE', status: 'SUCCESS' } },
+                {
+                    $match: {
+                        $or: [{ accountId: accountObjId }, { userId: accountObjId }],
+                        status: 'SUCCESS',
+                        amountPaise: { $gt: 0 },
+                    }
+                },
                 {
                     $group: {
                         _id: null,
@@ -440,7 +572,12 @@ export const getTransactionSummaryController = async (req, res, next) => {
                 },
             ]),
             Transaction.aggregate([
-                { $match: { userId: new mongoose.Types.ObjectId(userId), type: 'USAGE_DEDUCTION' } },
+                {
+                    $match: {
+                        $or: [{ accountId: accountObjId }, { userId: accountObjId }],
+                        type: 'USAGE_DEDUCTION',
+                    }
+                },
                 {
                     $group: {
                         _id: null,
@@ -450,7 +587,7 @@ export const getTransactionSummaryController = async (req, res, next) => {
                     },
                 },
             ]),
-            Credit.findOne({ userId }).lean(),
+            Credit.findOne({ $or: [{ userId: accountObjId }, { accountId: accountObjId }] }).lean(),
         ]);
 
         const purchase = purchaseSummary[0] || { totalSpentINR: 0, totalTransactions: 0 };
@@ -461,9 +598,9 @@ export const getTransactionSummaryController = async (req, res, next) => {
             summary: {
                 totalSpentINR: purchase.totalSpentINR,
                 totalPurchases: purchase.totalTransactions,
-                totalTokensConsumed: usage.totalTokensConsumed,
+                totalTokensConsumed: usage.totalTokensConsumed || credit?.totalTokens || 0,
                 totalAIRequests: usage.totalRequests,
-                totalBillableINR: usage.totalBillablePaise / 100,
+                totalBillableINR: (usage.totalBillablePaise || 0) / 100,
                 currentSubscription: credit?.subscription || 'free',
                 currentPeriodStart: credit?.billing?.currentPeriodStart,
                 currentPeriodEnd: credit?.billing?.currentPeriodEnd,
@@ -475,26 +612,25 @@ export const getTransactionSummaryController = async (req, res, next) => {
 };
 
 /**
- * GET /api/payments/analytics
+ * GET /api/payments/credit/analytics
  * Returns aggregated token usage broken down by provider and time window.
- * Data is sourced from usageEvents in the Credit document.
  */
 export const getAnalyticsController = async (req, res, next) => {
     try {
-        const userId = req.user?.id || req.user?._id;
-        if (!userId) {
-            return res.status(400).json({ status: 'error', message: 'User ID is missing from session' });
+        const accountId = req.accountId || req.user?.id || req.user?._id;
+        if (!accountId) {
+            return res.status(400).json({ status: 'error', message: 'Account ID is missing from session' });
         }
 
-        const credit = await Credit.findOne({ userId });
+        const accountObjId = new mongoose.Types.ObjectId(accountId);
+        const credit = await Credit.findOne({ $or: [{ userId: accountObjId }, { accountId: accountObjId }] });
         if (!credit) {
             return res.status(200).json({
                 status: 'success',
-                analytics: { byProvider: [], recentEvents: [] },
+                analytics: { byProvider: [], recentEvents: [], totals: { promptTokens: 0, completionTokens: 0, totalTokens: 0 } },
             });
         }
 
-        // Aggregate by provider
         const byProvider = credit.providerCredits
             .filter(b => b.company !== 'unknown')
             .map(b => ({
@@ -509,17 +645,16 @@ export const getAnalyticsController = async (req, res, next) => {
                 lastUsedAt: b.lastUsedAt,
             }));
 
-        // Last 30 usage events (most recent first)
         const recentEvents = [...credit.usageEvents]
             .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
             .slice(0, 30);
 
-        // Agent type breakdown
         const byAgent = {};
         credit.usageEvents.forEach(e => {
-            if (!byAgent[e.agentType]) byAgent[e.agentType] = { totalTokens: 0, requestCount: 0 };
-            byAgent[e.agentType].totalTokens += e.totalTokens;
-            byAgent[e.agentType].requestCount += 1;
+            const agentKey = e.agentType || 'unknown';
+            if (!byAgent[agentKey]) byAgent[agentKey] = { totalTokens: 0, requestCount: 0 };
+            byAgent[agentKey].totalTokens += e.totalTokens;
+            byAgent[agentKey].requestCount += 1;
         });
 
         res.status(200).json({
@@ -541,7 +676,7 @@ export const getAnalyticsController = async (req, res, next) => {
 };
 
 /**
- * GET /api/payments/packages
+ * GET /api/payments/credit/packages
  * Returns all available subscription packages (public — no auth required).
  */
 export const getPackagesController = async (req, res, next) => {

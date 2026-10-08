@@ -7,12 +7,16 @@
  *   up by kid on every request. Supports key rotation overlap windows.
  * - Blacklist check: Payments is the ONLY non-Auth service that hits Redis on
  *   every request. Reason: financial operations cannot tolerate a logged-out
- *   token remaining valid for up to 15 minutes (see redis.js for full rationale).
+ *   token remaining valid for up to 15 minutes.
+ * - Auto-provision Account: Ensures an Account document is immediately created/hydrated
+ *   in MongoDB for any existing or new user on their first authenticated request.
  */
 
 import jwt from 'jsonwebtoken';
+import mongoose from 'mongoose';
 import { createPublicKey } from 'crypto';
 import { isTokenBlacklisted } from '../config/redis.js';
+import Account from '../models/account.model.js';
 
 const AUTH_JWKS_URI = process.env.AUTH_JWKS_URI || 'http://localhost:5000/.well-known/jwks.json';
 
@@ -23,18 +27,7 @@ const JWT_VERIFY_OPTIONS = {
 };
 
 // ── JWKS key cache ────────────────────────────────────────────────────────────
-// We cache the full JWK *array* (not a single derived PEM) so we can look up
-// keys by kid on each request. This is essential for key rotation:
-//
-//   During a rotation, Auth serves BOTH the old key and the new key in the
-//   JWKS array simultaneously for an overlap window. Tokens signed with the
-//   old kid still verify correctly; new tokens use the new kid. Once all
-//   in-flight tokens have expired, the old key is removed from JWKS.
-//
-//   If we only cached keys[0] we'd grab the wrong key after a rotation and
-//   reject still-valid tokens signed with the other key.
-//
-let cachedJwks     = null;   // raw JWK array from /.well-known/jwks.json
+let cachedJwks     = null;
 let lastFetchedTime = 0;
 const CACHE_TTL_MS  = 24 * 60 * 60 * 1000; // 24 hours
 
@@ -59,7 +52,6 @@ async function fetchJwks(forceRefresh = false) {
         lastFetchedTime = now;
         return cachedJwks;
     } catch (err) {
-        // On fetch failure, serve stale cache if available (Auth may be briefly restarting)
         if (cachedJwks) return cachedJwks;
         throw new Error(`Failed to fetch JWKS from Auth Service (${AUTH_JWKS_URI}): ${err.message}`);
     }
@@ -67,23 +59,14 @@ async function fetchJwks(forceRefresh = false) {
 
 /**
  * Resolve the correct public key PEM for the given token's kid.
- *
- * Flow:
- *  1. Decode token header (no verification) to extract kid.
- *  2. Search the cached JWKS array for a matching kid.
- *  3. If not found → refetch JWKS once immediately (handles "new key rotated in
- *     since our last 24h fetch" case) and search again.
- *  4. Derive PEM from the matching JWK.
  */
 async function resolvePublicKey(token) {
     const header = jwt.decode(token, { complete: true })?.header;
     if (!header?.kid) throw new Error('Token is missing the kid (key ID) header claim');
 
     let keys = await fetchJwks();
-
     let jwk = keys.find(k => k.kid === header.kid);
 
-    // kid not in cache → maybe a new key was just rotated in; refetch once
     if (!jwk) {
         keys = await fetchJwks(true); // forceRefresh
         jwk  = keys.find(k => k.kid === header.kid);
@@ -94,11 +77,47 @@ async function resolvePublicKey(token) {
     return createPublicKey({ key: jwk, format: 'jwk' }).export({ type: 'spki', format: 'pem' });
 }
 
+/**
+ * Ensure an Account document exists for the user in MongoDB.
+ * Auto-creates the Account document if this is the user's first time interacting with Payments.
+ * Sets Account._id = user_id to maintain 1:1 identity consistency across all collections.
+ */
+export async function ensureAccount(userId, initialStatus = 'free') {
+    if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
+        return null;
+    }
+    const userObjId = new mongoose.Types.ObjectId(userId);
+
+    try {
+        let account = await Account.findOne({
+            $or: [{ user_id: userObjId }, { _id: userObjId }],
+        });
+
+        if (!account) {
+            account = await Account.create({
+                _id: userObjId,
+                user_id: userObjId,
+                subscription_status: initialStatus,
+                is_active: true,
+            });
+            console.log(`[Payments Account] Auto-provisioned new Account document for user_id=${userObjId}`);
+        }
+
+        return account;
+    } catch (err) {
+        if (err.code === 11000) {
+            return await Account.findOne({
+                $or: [{ user_id: userObjId }, { _id: userObjId }],
+            });
+        }
+        console.warn(`[Payments Account] ensureAccount error for ${userId}: ${err.message}`);
+        return null;
+    }
+}
+
 // ── Middleware ────────────────────────────────────────────────────────────────
 
 export const identifyUser = async (req, res, next) => {
-    // Access tokens are never in cookies — they live in JS module memory
-    // and are always sent via Authorization: Bearer <JWT>.
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
         return res.status(401).json({
@@ -116,8 +135,6 @@ export const identifyUser = async (req, res, next) => {
 
     try {
         // ── 1. Blacklist check (Payments-only) ────────────────────────────────
-        // Payments handles financial operations — a logged-out token must not be
-        // accepted even within the 15-minute access token lifetime.
         const blacklisted = await isTokenBlacklisted(token);
         if (blacklisted) {
             return res.status(401).json({
@@ -131,7 +148,6 @@ export const identifyUser = async (req, res, next) => {
         const decodedToken = jwt.verify(token, publicKeyPem, JWT_VERIFY_OPTIONS);
 
         // ── 3. Identity claim validation ──────────────────────────────────────
-        // jwt.verify() validates the signature but NOT that specific claims exist.
         const userId = decodedToken?.sub || decodedToken?.id || decodedToken?._id;
         if (!decodedToken || !userId) {
             return res.status(401).json({
@@ -140,8 +156,13 @@ export const identifyUser = async (req, res, next) => {
             });
         }
 
+        // ── 4. Auto-Provision / Hydrate Account Document in MongoDB ───────────
+        const account = await ensureAccount(userId, decodedToken?.subscription || 'free');
+
         req.user      = decodedToken;
         req.user.id   = userId;
+        req.account   = account;
+        req.accountId = account ? account._id.toString() : userId;
         req.authToken = token;
         next();
 

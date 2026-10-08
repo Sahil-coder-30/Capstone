@@ -242,14 +242,21 @@ const CursorGrid = ({
       return [e.clientX - rect.left, e.clientY - rect.top];
     };
 
+    let moveTicking = false;
     const onPointerMove = e => {
-      const rect = canvas.getBoundingClientRect();
-      const x = e.clientX - rect.left;
-      const y = e.clientY - rect.top;
-      if (x >= -50 && x <= rect.width + 50 && y >= -50 && y <= rect.height + 50) {
-        energize(x, y);
-        wake();
-      }
+      if (!isVisibleRef.current) return;
+      if (moveTicking) return;
+      moveTicking = true;
+      requestAnimationFrame(() => {
+        moveTicking = false;
+        const rect = canvas.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        if (x >= -50 && x <= rect.width + 50 && y >= -50 && y <= rect.height + 50) {
+          energize(x, y);
+          wake();
+        }
+      });
     };
 
     const onPointerDown = e => {

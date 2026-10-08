@@ -10,7 +10,6 @@ import {
 import { usePayments } from '../Hooks/payments.hooks';
 import PlanCard from './PlanCard';
 import FeatureComparisonTable from './FeatureComparisonTable';
-import AmbientOrbs from '../../../components/AmbientOrbs';
 import CardSwap, { Card } from '../../../components/reactbits/CardSwap';
 import GradientText from '../../../components/reactbits/GradientText';
 import ShinyText from '../../../components/reactbits/ShinyText';
@@ -202,7 +201,7 @@ const PLANS = [
     bannerImg: freePlanBanner,
     description: 'Essential sandbox and AI model credits for developers getting started.',
     highlights: [
-      '20 AI credits per provider daily',
+      '20 AI credits per 5-hr window',
       '50,000 daily token limit',
       '0.5 vCPU + 512 MB RAM container',
       'Coding Agent + Copilot',
@@ -215,7 +214,7 @@ const PLANS = [
     bannerImg: proPlanBanner,
     description: 'Full AI power with high-performance isolated sandbox containers.',
     highlights: [
-      '4x higher usage limits in Taksha AI',
+      '150 AI credits per 5-hr window',
       '5,000,000 tokens per month cap',
       '2.0 vCPU + 2 GB RAM dedicated container',
       'Coding Agent + Copilot + App Agent',
@@ -228,12 +227,13 @@ const PLANS = [
     bannerImg: maxPlanBanner,
     description: 'Uncapped tokens, flagship LLMs, and priority worker execution queue.',
     highlights: [
-      'Up to 20x higher usage limits than Pro',
+      '200 AI credits per 5-hr window',
       'Truly Unlimited Tokens — zero throttling',
       '4.0 vCPU + 4 GB RAM container allocation',
       'All Agents + Flagship LLM models',
       'Dedicated 24/7 technical manager',
     ],
+
   },
 ];
 
@@ -410,9 +410,6 @@ export default function PaymentsLandingPage({ user }) {
 
   return (
     <div ref={pageRef} style={{ minHeight: '100vh', background: 'var(--bg-canvas)', overflowX: 'hidden', position: 'relative' }}>
-      {/* ── Main Frontend Landing Page Ambient Orbs Background Animation ── */}
-      <AmbientOrbs opacity={0.9} showMeteors={true} />
-
       {/* ── Full-Page Clean Container ── */}
       <div className="landing-glass-container">
         {/* Ambient Glow */}

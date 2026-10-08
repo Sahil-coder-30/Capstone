@@ -36,7 +36,7 @@ const PLAN_DATA = {
         icon: <Zap size={20} />,
         title: 'Core AI Agents',
         desc: 'The Taksha Coding Agent and Inline Copilot are fully available. Get intelligent completions, refactor suggestions, and debugging help.',
-        detail: '20 credits/day per provider · Standard context window',
+        detail: '20 credits per 5-hr window · Standard context window',
       },
       {
         icon: <ShieldCheck size={20} />,
@@ -50,7 +50,7 @@ const PLAN_DATA = {
       above: 'pro_regular',
     },
     faqs: [
-      { q: 'Is the Free tier truly free?', a: 'Yes — no credit card required. You get 20 AI credits per provider daily and 50,000 tokens/day at zero cost.' },
+      { q: 'Is the Free tier truly free?', a: 'Yes — no credit card required. You get 20 AI credits per 5-hour window refilled automatically when exhausted.' },
       { q: 'Can I upgrade from Free to Pro?', a: 'Absolutely. You can upgrade at any time and your upgrade takes effect instantly via the Checkout page.' },
     ],
   },

@@ -3,9 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import { useGSAP } from '@gsap/react';
 import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
-import { ShieldCheck, ArrowUpRight, CheckCircle2, RefreshCw, Zap } from 'lucide-react';
+import {
+  ShieldCheck, ArrowUpRight, CheckCircle2, RefreshCw, Zap,
+  Calendar, Layers, Clock, Sparkles, Check
+} from 'lucide-react';
 import { usePayments } from '../Hooks/payments.hooks';
-import { priceCounter } from '../../../utils/animations';
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -29,23 +31,42 @@ function RingGauge({ percent, color, size = 64 }) {
 }
 
 export default function SubscriptionDashboard() {
-  const { credit, loadCredit } = usePayments();
+  const { subscription, credit, loadSubscription, loadCredit } = usePayments();
   const navigate = useNavigate();
   const pageRef  = useRef(null);
 
-  useEffect(() => { loadCredit(); }, [loadCredit]);
+  useEffect(() => {
+    loadSubscription();
+    loadCredit();
+  }, [loadSubscription, loadCredit]);
 
-  const currentTier = credit?.subscription || 'free';
+  const currentTier = subscription?.activeTier || credit?.subscription || 'free';
+  const activeSlot  = subscription?.activeSlot || null;
+  const reservedSlots = subscription?.reservedSlots || [];
+
   const isMax = currentTier === 'max';
   const isPro = currentTier === 'pro';
   const accentColor = isMax ? 'var(--accent-primary)' : isPro ? 'var(--brand-primary)' : 'var(--text-muted)';
 
-  const providerCredits = credit?.providerCredits?.length > 0 ? credit.providerCredits : [
-    { company: 'Google Gemini', creditsRemaining: 18, creditsGranted: 20, totalTokens: 12500 },
-    { company: 'Mistral',       creditsRemaining: 16, creditsGranted: 20, totalTokens: 8200 },
-    { company: 'OpenAI',        creditsRemaining: 20, creditsGranted: 20, totalTokens: 5400 },
-    { company: 'Cohere',        creditsRemaining: 14, creditsGranted: 20, totalTokens: 1100 },
+  const windowCreditsTotal = credit?.windowCreditsTotal || credit?.tierConfig?.windowCredits || (isMax ? 200 : isPro ? 150 : 20);
+  const windowCreditsRemaining = credit?.windowCreditsRemaining !== undefined && credit?.windowCreditsRemaining !== null
+    ? credit.windowCreditsRemaining
+    : windowCreditsTotal;
+
+  const mistralBucket = credit?.providerCredits?.find(p => p.company?.toLowerCase() === 'mistral') || {
+    company: 'Mistral',
+    totalTokens: credit?.totalTokens || 0,
+  };
+
+  const providerCredits = [
+    {
+      company: 'Mistral AI',
+      creditsRemaining: windowCreditsRemaining,
+      creditsGranted: windowCreditsTotal,
+      totalTokens: mistralBucket.totalTokens || credit?.totalTokens || 0,
+    },
   ];
+
 
   useGSAP(() => {
     gsap.fromTo('#status-banner',
@@ -77,7 +98,7 @@ export default function SubscriptionDashboard() {
           background: `linear-gradient(135deg, rgba(${isMax ? '27,110,243' : '61,197,161'},0.06) 0%, var(--bg-surface) 100%)`,
           border: `1px solid ${accentColor}33`,
           borderRadius: 18, padding: '28px 32px',
-          marginBottom: 40,
+          marginBottom: 32,
           display: 'flex', justifyContent: 'space-between', alignItems: 'center',
           boxShadow: 'var(--shadow-card)',
           flexWrap: 'wrap', gap: 20,
@@ -100,9 +121,25 @@ export default function SubscriptionDashboard() {
           }}>
             Taksha AI {currentTier} Plan
           </h2>
-          <p style={{ fontSize: '0.86rem', color: 'var(--text-muted)', marginTop: 5 }}>
-            Authority: Payment Service LEDGER DB · Resets daily at midnight UTC
-          </p>
+          
+          <div style={{ display: 'flex', gap: 16, alignItems: 'center', marginTop: 8, flexWrap: 'wrap' }}>
+            {activeSlot ? (
+              <>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: '0.86rem', color: 'var(--text-secondary)' }}>
+                  <Calendar size={14} style={{ color: accentColor }} />
+                  Expires: <strong>{new Date(activeSlot.validUntil).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</strong>
+                </span>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: '0.86rem', color: 'var(--text-secondary)' }}>
+                  <Clock size={14} style={{ color: accentColor }} />
+                  Remaining: <strong style={{ color: accentColor }}>{activeSlot.daysRemaining ?? '—'} days</strong>
+                </span>
+              </>
+            ) : (
+              <span style={{ fontSize: '0.86rem', color: 'var(--text-muted)' }}>
+                Unlimited free tier · Zero credit card required
+              </span>
+            )}
+          </div>
         </div>
 
         <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
@@ -115,19 +152,79 @@ export default function SubscriptionDashboard() {
         </div>
       </div>
 
+      {/* ── Reserved Plan Queue (if user has preserved / queued days) ─────── */}
+      {reservedSlots.length > 0 && (
+        <div style={{
+          background: 'var(--bg-surface)',
+          border: '1px solid rgba(245, 158, 11, 0.3)',
+          borderRadius: 16,
+          padding: '20px 24px',
+          marginBottom: 36,
+          boxShadow: 'var(--shadow-card)',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+            <Layers size={18} style={{ color: 'var(--amber-primary)' }} />
+            <h4 style={{ fontSize: '0.96rem', fontWeight: 800, color: 'var(--text-primary)' }}>
+              Preserved Plan Queue (Zero Day-Waste Active)
+            </h4>
+          </div>
+          <p style={{ fontSize: '0.84rem', color: 'var(--text-muted)', marginBottom: 14 }}>
+            The following plan slots are safely preserved and will <strong>automatically activate</strong> the moment your current tier expires:
+          </p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {reservedSlots.map((slot, idx) => (
+              <div
+                key={idx}
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  padding: '12px 18px',
+                  borderRadius: 10,
+                  background: 'var(--bg-element)',
+                  border: '1px solid var(--border)',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <span style={{
+                    padding: '4px 10px',
+                    borderRadius: 6,
+                    fontSize: '0.72rem',
+                    fontWeight: 800,
+                    textTransform: 'uppercase',
+                    background: 'rgba(245, 158, 11, 0.15)',
+                    color: 'var(--amber-primary)',
+                    border: '1px solid rgba(245, 158, 11, 0.35)',
+                  }}>
+                    {slot.tier} Plan
+                  </span>
+                  <span style={{ fontSize: '0.84rem', color: 'var(--text-secondary)' }}>
+                    Preserved Validity: <strong>{slot.daysRemaining ?? 30} days</strong>
+                  </span>
+                </div>
+                <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                  Auto-promotes on {activeSlot?.validUntil ? new Date(activeSlot.validUntil).toLocaleDateString() : 'expiry'}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* ── Provider Token Cards ────────────────────────────────────────── */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 10 }}>
         <h3 style={{ fontSize: '1.1rem', fontWeight: 800, fontFamily: 'var(--font-heading)', color: 'var(--text-primary)' }}>
-          AI Provider Token Buckets
+          AI Provider Credit Window (5-Hour Slot)
         </h3>
-        <button onClick={() => loadCredit()} className="btn-secondary" style={{ padding: '6px 14px', fontSize: '0.82rem' }}>
+        <button onClick={() => { loadSubscription(); loadCredit(); }} className="btn-secondary" style={{ padding: '6px 14px', fontSize: '0.82rem' }}>
           <RefreshCw size={14} /> Refresh
         </button>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 18, marginBottom: 40 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 18, marginBottom: 40 }}>
         {providerCredits.map((prov, i) => {
-          const pct = Math.round((prov.creditsRemaining / (prov.creditsGranted || 20)) * 100);
+          const totalGranted = prov.creditsGranted || windowCreditsTotal;
+          const pct = Math.min(100, Math.max(0, Math.round((prov.creditsRemaining / totalGranted) * 100)));
           const gaugeColor = pct > 60 ? 'var(--brand-primary)' : pct > 30 ? 'var(--amber-primary)' : 'var(--red-primary)';
 
           return (
@@ -144,11 +241,11 @@ export default function SubscriptionDashboard() {
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
                 <div>
-                  <p style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-primary)', textTransform: 'capitalize' }}>
+                  <p style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-primary)' }}>
                     {prov.company}
                   </p>
                   <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: 2 }}>
-                    AI Provider
+                    Active AI Model Provider
                   </p>
                 </div>
                 {/* Ring gauge */}
@@ -171,9 +268,10 @@ export default function SubscriptionDashboard() {
                   {prov.creditsRemaining}
                 </span>
                 <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                  /{prov.creditsGranted || 20} credits
+                  /{totalGranted} credits
                 </span>
               </div>
+
 
               <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
                 Tokens consumed:{' '}
@@ -199,8 +297,8 @@ export default function SubscriptionDashboard() {
         <CheckCircle2 size={22} style={{ color: 'var(--brand-primary)', flexShrink: 0 }} />
         <p style={{ fontSize: '0.87rem', color: 'var(--text-muted)', lineHeight: 1.6 }}>
           <strong style={{ color: 'var(--text-secondary)' }}>Isolated Payment Ledger Active:</strong>{' '}
-          Subscription state and token balances are maintained exclusively inside the Payments Microservice database.
-          The Auth service stores no payment or subscription records.
+          Subscription queue state, plan validities, and token balances are maintained exclusively inside the Payments Microservice database.
+          The Auth service stores no payment or billing records.
         </p>
       </div>
     </div>

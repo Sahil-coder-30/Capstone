@@ -158,12 +158,17 @@ const CreditSchema = new mongoose.Schema({
         unique: true,
         index: true
     },
+    accountId: {
+        type: mongoose.Schema.Types.ObjectId,
+        index: true
+    },
     subscription: {
         type: String,
         enum: SUBSCRIPTION_TIERS,
         default: 'free',
         index: true
     },
+
     providerCredits: {
         type: [ProviderCreditSchema],
         default: buildDefaultProviderCredits

@@ -1,11 +1,6 @@
 @use './tokens' as *;
 
 // =============================================================================
-// Google Fonts — Inter (body) + Outfit (heading) + JetBrains Mono (code)
-// =============================================================================
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Outfit:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap');
-
-// =============================================================================
 // Theme Tokens — Void Black × Taksha Green × Plasma Blue
 // =============================================================================
 
@@ -138,6 +133,7 @@
 
 html {
   -webkit-text-size-adjust: 100%;
+  overflow-x: hidden;
 }
 
 body {

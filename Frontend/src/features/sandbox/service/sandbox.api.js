@@ -69,7 +69,8 @@ export const getTrashChatsAPI = async () => {
 };
 
 export const deleteSingleChatMessageAPI = async (messageId, agentType = 'codingAgent') => {
-  const response = await apiClient.delete(`/api/ai/chats/message/${messageId}?agentType=${agentType}`, { timeout: 30_000 });
+  const ids = Array.isArray(messageId) ? messageId : String(messageId).split(',');
+  const response = await apiClient.post('/api/ai/chats/message/batch-delete', { ids, agentType }, { timeout: 30_000 });
   return response.data;
 };
 

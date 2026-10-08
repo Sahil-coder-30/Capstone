@@ -9,8 +9,8 @@ const SCRAMBLE_POOL = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz01234
 const SWEEP_LEFT = 62;
 const SWEEP_RIGHT = 162;
 const SWEEP_DIST = SWEEP_RIGHT - SWEEP_LEFT;
-const SWEEP_DUR = 1.15;
-const SCRAMBLE_MS = 700;
+const SWEEP_DUR = 0.9;
+const SCRAMBLE_MS = 520;
 
 export default function TakshaLogoAnimation({ 
   className = '', 
@@ -171,11 +171,7 @@ export default function TakshaLogoAnimation({
       return;
     }
 
-    const tl = gsap.timeline({
-      onComplete: () => {
-        if (onComplete) onComplete();
-      }
-    });
+    const tl = gsap.timeline();
 
     const boxTrace = scope.querySelector('.box-trace');
     const boxFill = scope.querySelector('.box-fill');
@@ -188,33 +184,33 @@ export default function TakshaLogoAnimation({
     const letterElements = scope.querySelectorAll('.letter-slot');
     const letterX = [75, 89, 103, 117, 131, 145];
 
-    // Phase 1 — Icon Blueprint Trace & Construct (0s → 2.0s)
-    tl.to(boxTrace, { strokeDashoffset: 0, duration: 1.12, ease: 'power2.inOut' }, 0);
-    tl.to(boxFill, { opacity: 1, duration: 0.44, ease: 'power2.out' }, 0.72);
-    tl.to(gls, { strokeDashoffset: 0, duration: 0.26, stagger: 0.09, ease: 'power1.out' }, 0.88);
-    tl.to(sigPath, { strokeDashoffset: 0, duration: 0.74, ease: 'power2.inOut' }, 1.26);
+    // Phase 1 — Icon Blueprint Trace & Construct (0s → 1.25s)
+    tl.to(boxTrace, { strokeDashoffset: 0, duration: 0.85, ease: 'power2.inOut' }, 0);
+    tl.to(boxFill, { opacity: 1, duration: 0.35, ease: 'power2.out' }, 0.55);
+    tl.to(gls, { strokeDashoffset: 0, duration: 0.22, stagger: 0.06, ease: 'power1.out' }, 0.65);
+    tl.to(sigPath, { strokeDashoffset: 0, duration: 0.55, ease: 'power2.inOut' }, 0.85);
 
     // Nodes pop in
     tl.to(nds, {
-      scale: 1, opacity: 1, duration: 0.35, stagger: 0.065,
-      ease: 'back.out(2.5)', transformOrigin: 'center', transformBox: 'fill-box'
-    }, 1.65);
+      scale: 1, opacity: 1, duration: 0.28, stagger: 0.05,
+      ease: 'back.out(2.2)', transformOrigin: 'center', transformBox: 'fill-box'
+    }, 1.05);
 
     tl.to([nodeA, nodeB], {
-      scale: 1, opacity: 1, duration: 0.35, ease: 'back.out(2)',
+      scale: 1, opacity: 1, duration: 0.28, ease: 'back.out(2)',
       transformOrigin: 'center', transformBox: 'fill-box'
-    }, 1.88);
+    }, 1.25);
 
-    // Phase 1.5 — Initial V Line Shine Sweep (2.0s)
-    tl.set(sigPathShine, { opacity: 1 }, 2.0);
-    tl.to(sigPathShine, { strokeDashoffset: -44, duration: 0.85, ease: 'power2.inOut' }, 2.0);
-    tl.set(sigPathShine, { opacity: 0 }, 2.85);
+    // Phase 1.5 — Initial V Line Shine Sweep (1.35s)
+    tl.set(sigPathShine, { opacity: 1 }, 1.35);
+    tl.to(sigPathShine, { strokeDashoffset: -44, duration: 0.65, ease: 'power2.inOut' }, 1.35);
+    tl.set(sigPathShine, { opacity: 0 }, 2.0);
 
-    // Phase 2 — "Studio" Wordmark Fade In (2.28s)
-    tl.to(gWordmark, { opacity: 1, duration: 0.52, ease: 'power2.out' }, 2.28);
+    // Phase 2 — "Studio" Wordmark Fade In (1.5s)
+    tl.to(gWordmark, { opacity: 1, duration: 0.42, ease: 'power2.out' }, 1.5);
 
-    // Phase 3 — Metallic Scan Sweep + Cipher Scramble (3.28s → 4.43s)
-    tl.set(gSweep, { opacity: 1, x: 0 }, 3.28);
+    // Phase 3 — Metallic Scan Sweep + Cipher Scramble (2.0s → 2.9s)
+    tl.set(gSweep, { opacity: 1, x: 0 }, 2.0);
     tl.to(gSweep, {
       x: SWEEP_DIST,
       duration: SWEEP_DUR,
@@ -231,18 +227,23 @@ export default function TakshaLogoAnimation({
           }
         });
       }
-    }, 3.28);
-    tl.set(gSweep, { opacity: 0 }, 3.28 + SWEEP_DUR + 0.02);
+    }, 2.0);
+    tl.set(gSweep, { opacity: 0 }, 2.0 + SWEEP_DUR + 0.02);
 
-    // Phase 4 — Metallic Text Sheen Sweep (5.1s)
-    tl.set(gSheen, { opacity: 1 }, 5.1);
-    tl.to(gSheenMove, { x: 172, duration: 0.88, ease: 'power2.inOut' }, 5.1);
-    tl.to(gSheen, { opacity: 0, duration: 0.14 }, 5.98);
+    // Phase 4 — Metallic Text Sheen Sweep (2.95s)
+    tl.set(gSheen, { opacity: 1 }, 2.95);
+    tl.to(gSheenMove, { x: 172, duration: 0.65, ease: 'power2.inOut' }, 2.95);
+    tl.to(gSheen, { opacity: 0, duration: 0.12 }, 3.55);
 
-    // Phase 5 — CODESPACE Submark Fade In (5.35s)
-    tl.to(codespace, { opacity: 1, duration: 0.52, ease: 'power2.out' }, 5.35);
+    // Phase 5 — CODESPACE Submark Fade In (3.05s)
+    tl.to(codespace, { opacity: 1, duration: 0.45, ease: 'power2.out' }, 3.05);
 
-    // Phase 6 — Periodic V Line Shine Loop (Starts at 6.0s, repeats every 4s)
+    // Phase 6 — Notify Completion when fully resolved at 3.5s
+    tl.call(() => {
+      if (onComplete) onComplete();
+    }, [], 3.5);
+
+    // Periodic V Line Shine Loop for static display
     tl.add(() => {
       gsap.to(sigPathShine, {
         strokeDashoffset: -44,
@@ -253,7 +254,7 @@ export default function TakshaLogoAnimation({
         onStart: () => gsap.set(sigPathShine, { opacity: 1 }),
         onRepeat: () => gsap.set(sigPathShine, { opacity: 1, strokeDashoffset: 14 })
       });
-    }, 6.0);
+    }, 3.6);
 
     masterTLRef.current = tl;
   }, [cancelAllScrambles, resetSVG, scrambleLetter, ids.lgMetalText, onComplete]);

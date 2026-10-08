@@ -1,6 +1,46 @@
 import { Server } from "socket.io";
 import jwt from "jsonwebtoken";
 import { createAgentForModel, onRateLimitEvent } from "../agent/code.agent.js";
+
+const STREAMABLE_NODES = new Set(["general", "coder", "debugger", "finalizer"]);
+
+function extractChunkText(content) {
+  if (!content) return "";
+  if (typeof content === "string") return content;
+  if (Array.isArray(content)) {
+    return content
+      .map((item) => {
+        if (typeof item === "string") return item;
+        if (item && typeof item === "object") {
+          return item.text || item.content || "";
+        }
+        return "";
+      })
+      .join("");
+  }
+  if (typeof content === "object") {
+    return content.text || content.content || "";
+  }
+  return String(content);
+}
+
+function shouldStreamChunk(event) {
+  if (
+    event.tags?.includes("tool_summary_internal") ||
+    event.metadata?.tags?.includes("tool_summary_internal") ||
+    event.name?.includes("tool_summary_internal")
+  ) {
+    return false;
+  }
+  const nodeName = event.metadata?.langgraph_node;
+  if (nodeName) {
+    return STREAMABLE_NODES.has(nodeName);
+  }
+  const name = event.name || "";
+  if (name.includes("Summary") || name.includes("tool") || name.includes("Tool")) return false;
+  return true;
+}
+
 import ChatMessage from "../models/ChatMessage.model.js";
 import { checkAiCredit, recordAiUsage } from "../services/credit.service.js";
 import { verifyToken } from "../middleware/auth.middleware.js";
@@ -306,43 +346,57 @@ export const initSocketIO = (server) => {
           };
         });
 
-        const runAgentWithModel = async ({ agent: agentInstance, model }, retryOf = null, retryReason = null) => {
+        const isMeteredPlan = socket.user?.subscription === "pro" || socket.user?.subscription === "max";
+        const creditCheck = isMeteredPlan
+          ? { hasCredit: true, billable: true, subscription: socket.user.subscription }
+          : await checkAiCredit({
+              authToken: socket.authToken,
+              company: "mistral",
+            });
+
+        if (!creditCheck.hasCredit) {
+          const error = new Error(`Insufficient credits. Free users receive 20 credits per model company. Please upgrade to Pro to continue.`);
+          error.code = "INSUFFICIENT_CREDITS";
+          error.company = "mistral";
+          throw error;
+        }
+
+        const initialPayload = {
+          messages: formattedHistory,
+          task: message,
+          plan: null,
+          planApproved: false,
+          planRevisions: null,
+          currentStep: 0,
+          routingHistory: null,
+          attemptedFixes: null,
+          criticPass: false,
+          criticFeedback: "",
+          buildLog: null,
+          testResults: null,
+          flaggedFiles: [],
+          retryCount: 0,
+          escalated: false,
+          diffSummary: null,
+          taskStatus: "routing",
+        };
+
+        const threadId = `${sandboxId || projectId}:${Date.now()}`;
+        activeRun.threadId = threadId;
+        activeRun.planReviewPending = false;
+
+        const runAgentWithModel = async (agentInstance, inputPayload = initialPayload) => {
           if (abortController.signal.aborted) {
             const error = new Error("AGENT_STOPPED");
             error.code = "AGENT_STOPPED";
             throw error;
           }
 
-          const isMeteredPlan = socket.user?.subscription === "pro" || socket.user?.subscription === "max";
-          const creditCheck = isMeteredPlan
-            ? { hasCredit: true, billable: true, subscription: socket.user.subscription }
-            : await checkAiCredit({
-                authToken: socket.authToken,
-                company: model.provider,
-              });
-
-          if (!creditCheck.hasCredit) {
-            const error = new Error(`Insufficient ${model.provider} credits. Free users receive 20 credits per model company. Please upgrade to Pro to continue.`);
-            error.code = "INSUFFICIENT_CREDITS";
-            error.company = model.provider;
-            throw error;
-          }
-
+          const model = agentInstance.model;
           effectiveModelForUsage = model;
+          activeRun.model = model;
+          emitToRun(runKey, "agent:model", model);
 
-          const modelEvent = {
-            requestedModel: "mistralLarge",
-            modelId: model.id,
-            label: model.label,
-            provider: model.provider,
-            fallback: false,
-            fallbackFrom: null,
-          };
-
-          const modelLog = `model: using ${model.label} (${model.provider})`;
-          toolLogs.push(modelLog);
-          activeRun.toolLogs = toolLogs;
-          emitToRun(runKey, "agent:model", modelEvent);
           emitToRun(runKey, "agent:status", {
             phase: "model",
             title: "Model ready",
@@ -380,13 +434,14 @@ export const initSocketIO = (server) => {
 
           try {
             const eventStream = await agentInstance.streamEvents(
-              {
-                messages: formattedHistory,
-              },
+              inputPayload,
               {
                 version: "v2",
                 signal: abortController.signal,
-                configurable: { projectId: sandboxId || projectId }, // Use sandboxId (UUID) for K8s service routing
+                configurable: {
+                  thread_id: activeRun.threadId,
+                  projectId: sandboxId || projectId,
+                },
                 recursionLimit: 100,
                 writer: (msg) => {
                   console.log(`[Agent Project ${projectId}]: ${msg}`);
@@ -408,7 +463,63 @@ export const initSocketIO = (server) => {
 
               const eventType = event.event;
 
-              if (eventType === "on_chat_model_start") {
+              if (eventType === "on_chain_end") {
+                const situation = event.data?.output?.currentSituation;
+                const nodeName = event.name;
+                const plan = event.data?.output?.plan;
+                const outputMessages = event.data?.output?.messages;
+
+                if (Array.isArray(outputMessages) && outputMessages.length > 0) {
+                  const lastAiMsg = [...outputMessages].reverse().find(
+                    (m) => m._getType?.() === "ai" || m.role === "assistant" || m.constructor?.name === "AIMessage"
+                  );
+                  if (lastAiMsg?.content && typeof lastAiMsg.content === "string") {
+                    activeRun.lastAIMessageText = lastAiMsg.content;
+                  }
+                }
+
+                if (plan && (nodeName === "planner" || !nodeName)) {
+                  activeRun.planReviewPending = true;
+                  activeRun.plan = plan;
+                  emitToRun(runKey, "agent:plan_review", {
+                    plan,
+                    taskSubType: event.data?.output?.taskSubType,
+                    threadId: activeRun.threadId,
+                  });
+                }
+
+                if (situation) {
+                  emitToRun(runKey, "agent:status", {
+                    phase: nodeName || "working",
+                    title: `Team Node: ${nodeName || "Manager"}`,
+                    detail: situation,
+                  });
+                  emitToRun(runKey, "agent:situation_update", {
+                    node: nodeName,
+                    situation,
+                  });
+                }
+              }
+
+              else if (eventType === "on_interrupt") {
+                const interruptData = event.data?.value;
+                if (interruptData?.type === "plan_review") {
+                  activeRun.planReviewPending = true;
+                  emitToRun(runKey, "agent:plan_review", {
+                    plan: interruptData.plan,
+                    taskSubType: interruptData.taskSubType,
+                    interruptId: event.run_id,
+                    threadId: activeRun.threadId,
+                  });
+                  emitToRun(runKey, "agent:status", {
+                    phase: "plan_review",
+                    title: "Plan ready for review",
+                    detail: `${interruptData.plan?.totalSteps || "?"} steps — approve or reject in the UI`,
+                  });
+                }
+              }
+
+              else if (eventType === "on_chat_model_start") {
                 emitToRun(runKey, "agent:status", {
                   phase: "thinking",
                   title: "Thinking",
@@ -418,11 +529,14 @@ export const initSocketIO = (server) => {
 
               // 1. Stream LLM thinking/tokens
               else if (eventType === "on_chat_model_stream") {
-                const content = event.data?.chunk?.content;
-                if (content) {
-                  assistantText += content;
-                  activeRun.assistantText = assistantText;
-                  emitToRun(runKey, "agent:thinking", content);
+                if (shouldStreamChunk(event)) {
+                  const rawChunk = event.data?.chunk?.content;
+                  const textChunk = extractChunkText(rawChunk);
+                  if (textChunk) {
+                    assistantText += textChunk;
+                    activeRun.assistantText = assistantText;
+                    emitToRun(runKey, "agent:thinking", textChunk);
+                  }
                 }
               }
 
@@ -514,18 +628,15 @@ export const initSocketIO = (server) => {
           }
         };
 
-        const selectedAgent = createAgentForModel();
-        await runAgentWithModel(selectedAgent);
-
-        // 3. Save assistant message to database
-        let assistantMsgDoc = null;
-        if (assistantText) {
+        const completeRun = async () => {
+          let assistantMsgDoc = null;
+          const effectiveAssistantText = activeRun.lastAIMessageText || assistantText || activeRun.status?.detail || "Task completed.";
           assistantMsgDoc = await ChatMessage.create({
             projectId,
             userId: socket.user?.id,
             agentType: "codingAgent",
             role: "assistant",
-            content: assistantText,
+            content: effectiveAssistantText,
             toolLogs,
             tokenUsage: {
               promptTokens,
@@ -534,34 +645,53 @@ export const initSocketIO = (server) => {
             },
           });
           emitToRun(runKey, "agent:msg_created", { role: "assistant", id: assistantMsgDoc._id.toString() });
-        }
 
-        const totalTokensUsed = totalTokens || (promptTokens + completionTokens);
-        if (totalTokensUsed > 0 && effectiveModelForUsage) {
-          try {
-            await recordAiUsage({
-              authToken: socket.authToken,
-              userId: socket.user?.id,
-              company: effectiveModelForUsage.provider,
-              modelId: effectiveModelForUsage.id,
-              agentType: "codingAgent",
-              projectId,
-              promptTokens,
-              completionTokens,
-              totalTokens: totalTokensUsed,
-            });
-          } catch (usageErr) {
-            console.error("Failed to record coding agent credit usage:", usageErr.message);
+          const totalTokensUsed = totalTokens || (promptTokens + completionTokens);
+          if (totalTokensUsed > 0 && effectiveModelForUsage) {
+            try {
+              await recordAiUsage({
+                authToken: socket.authToken,
+                userId: socket.user?.id,
+                company: effectiveModelForUsage.provider,
+                modelId: effectiveModelForUsage.id,
+                agentType: "codingAgent",
+                projectId,
+                promptTokens,
+                completionTokens,
+                totalTokens: totalTokensUsed,
+              });
+            } catch (usageErr) {
+              console.error("Failed to record coding agent credit usage:", usageErr.message);
+            }
           }
+
+          emitToRun(runKey, "agent:status", {
+            phase: "done",
+            title: "Finishing",
+            detail: "Saving final report",
+          });
+          emitToRun(runKey, "agent:done", { assistantMsgId: assistantMsgDoc?._id?.toString() });
+        };
+
+        const selectedAgent = createAgentForModel();
+        activeRun.selectedAgent = selectedAgent;
+        activeRun.runAgentWithModel = runAgentWithModel;
+        activeRun.completeRun = completeRun;
+
+        await runAgentWithModel(selectedAgent, initialPayload);
+
+        if (activeRun.planReviewPending) {
+          // Graph paused at plan review — DO NOT emit agent:done or delete activeRun
+          emitToRun(runKey, "agent:status", {
+            phase: "plan_review",
+            title: "Plan Review Required",
+            detail: "Review implementation steps before Orion begins execution",
+            status: "paused",
+          });
+          return;
         }
 
-        // 4. Send completion done signal
-        emitToRun(runKey, "agent:status", {
-          phase: "done",
-          title: "Finishing",
-          detail: "Saving final report",
-        });
-        emitToRun(runKey, "agent:done", { assistantMsgId: assistantMsgDoc?._id?.toString() });
+        await completeRun();
       } catch (error) {
         if (error.code === "AGENT_STOPPED" || error.message === "AGENT_STOPPED") {
           const stoppedText = assistantText || "Stopped by user before completion.";
@@ -691,9 +821,11 @@ export const initSocketIO = (server) => {
         emitToRun(runKey, "agent:error", { message: messageText, code, company: error.company });
       } finally {
         if (statusHeartbeat) clearInterval(statusHeartbeat);
-        activeAgentRuns.delete(runKey);
-        if (socket.data.activeAgentRunKey === runKey) {
-          delete socket.data.activeAgentRunKey;
+        if (!activeRun?.planReviewPending) {
+          activeAgentRuns.delete(runKey);
+          if (socket.data.activeAgentRunKey === runKey) {
+            delete socket.data.activeAgentRunKey;
+          }
         }
       }
     });
@@ -717,6 +849,64 @@ export const initSocketIO = (server) => {
         detail: "Cancelling the active agent stream",
       });
       activeRun.abortController.abort();
+    });
+
+    socket.on("agent:plan_approve", async ({ projectId, sandboxId } = {}) => {
+      const runKey = socket.data.activeAgentRunKey || getRunKey(socket, projectId || sandboxId);
+      const activeRun = activeAgentRuns.get(runKey);
+      if (!activeRun || !activeRun.selectedAgent || !activeRun.runAgentWithModel) return;
+
+      activeRun.planReviewPending = false;
+      emitToRun(runKey, "agent:status", {
+        phase: "coder",
+        title: "Plan Approved",
+        detail: "Executing plan steps",
+        status: "running",
+      });
+
+      try {
+        await activeRun.runAgentWithModel(activeRun.selectedAgent, null);
+        if (activeRun.planReviewPending) return;
+
+        if (activeRun.completeRun) {
+          await activeRun.completeRun();
+        }
+      } catch (err) {
+        console.error("[Socket PlanApprove] Execution failed:", err);
+        emitToRun(runKey, "agent:error", { message: err.message });
+      } finally {
+        if (!activeRun.planReviewPending) {
+          activeAgentRuns.delete(runKey);
+          if (socket.data.activeAgentRunKey === runKey) {
+            delete socket.data.activeAgentRunKey;
+          }
+        }
+      }
+    });
+
+    socket.on("agent:plan_reject", async ({ projectId, sandboxId, feedback } = {}) => {
+      const runKey = socket.data.activeAgentRunKey || getRunKey(socket, projectId || sandboxId);
+      const activeRun = activeAgentRuns.get(runKey);
+      if (!activeRun || !activeRun.selectedAgent || !activeRun.runAgentWithModel) return;
+
+      activeRun.planReviewPending = false;
+      emitToRun(runKey, "agent:status", {
+        phase: "planner",
+        title: "Revising Plan",
+        detail: feedback ? `Revising with feedback: "${feedback}"` : "Revising implementation plan",
+        status: "running",
+      });
+
+      try {
+        await activeRun.runAgentWithModel(activeRun.selectedAgent, {
+          criticFeedback: feedback || "User requested plan changes.",
+          planApproved: false,
+          plan: null,
+        });
+      } catch (err) {
+        console.error("[Socket PlanReject] Revision failed:", err);
+        emitToRun(runKey, "agent:error", { message: err.message });
+      }
     });
 
     socket.on("disconnect", () => {

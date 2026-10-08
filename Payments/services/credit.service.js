@@ -1,154 +1,19 @@
 /**
- * Credit Service — Atomic Credit Allocation Functions
+ * Credit Service — Admin Credit Management
  *
- * This service handles ALL write operations that affect the user's credit balance.
- * It enforces the double-entry ledger pattern: every balance mutation is accompanied
- * by an immutable Transaction document.
+ * Handles admin-only write operations that affect user credit balances.
+ * Each mutation writes an immutable Transaction document (double-entry ledger).
  *
- * The `allocatePurchasedCredits` function is your Razorpay webhook integration point.
- * When you set up Razorpay, call this from your `payment.captured` / `order.paid`
- * webhook handler after HMAC-SHA256 signature verification.
+ * NOTE: Subscription payment processing is handled by subscription.service.js,
+ * not here. This file only covers admin grants, resets, and manual operations.
  */
 
 import mongoose from 'mongoose';
 import Credit, { CREDIT_COMPANIES } from '../models/credit.model.js';
 import Transaction from '../models/transaction.model.js';
-import { getPackageById } from '../config/packages.config.js';
-import { getTierConfig } from '../config/subscription.config.js';
 
 const FREE_CREDITS_PER_COMPANY = 20;
 
-/**
- * Allocate Purchased Credits (Razorpay Webhook Integration Point)
- *
- * Call this from your webhook handler after:
- *  1. Verifying HMAC-SHA256 signature
- *  2. Confirming event is `payment.captured` or `order.paid`
- *
- * This function is IDEMPOTENT: if paymentId was already processed,
- * it returns { status: 'already_credited' } without any DB mutation.
- *
- * @param {Object} params
- * @param {string} params.userId         - MongoDB ObjectId string of the user
- * @param {string} params.packageId      - Package id from packages.config.js (e.g. 'pro_regular')
- * @param {string} params.paymentId      - Razorpay payment_id (unique per transaction)
- * @param {string} params.orderId        - Razorpay order_id
- * @param {number} params.amountPaise    - Amount paid in paise (Razorpay unit)
- * @param {string} [params.aggregator]   - Payment aggregator name (default: 'RAZORPAY')
- *
- * @returns {{ status: 'success'|'already_credited', creditsGranted?: number }}
- */
-export async function allocatePurchasedCredits({
-    userId,
-    packageId,
-    paymentId,
-    orderId,
-    amountPaise,
-    aggregator = 'RAZORPAY',
-}) {
-    if (!userId || !paymentId || !packageId) {
-        throw new Error('[credit.service] userId, paymentId, and packageId are required');
-    }
-
-    // ── Idempotency Check ──────────────────────────────────────────────────────
-    // The unique index on Transaction.paymentId prevents duplicate DB inserts.
-    // This explicit check gives us an early return without touching a DB session.
-    const existing = await Transaction.findOne({ paymentId });
-    if (existing) {
-        console.log(`[Credit Service] Payment ${paymentId} already processed. Skipping.`);
-        return { status: 'already_credited' };
-    }
-
-    const pkg = getPackageById(packageId);
-    if (!pkg) {
-        throw new Error(`[credit.service] Unknown packageId: ${packageId}`);
-    }
-
-    const newTier = pkg.tier;
-    const amountINR = amountPaise / 100;
-
-    // ── Atomic DB Session Transaction ─────────────────────────────────────────
-    const session = await mongoose.startSession();
-    session.startTransaction();
-
-    try {
-        // 1. Find or create the user's Credit document
-        let credit = await Credit.findOne({ userId }).session(session);
-        if (!credit) {
-            credit = new Credit({ userId, subscription: newTier });
-        }
-
-        const previousTier = credit.subscription;
-
-        // 2. Upgrade subscription tier
-        credit.subscription = newTier;
-
-        // 3. For free→pro/max upgrades, reset billing period
-        if (newTier !== 'free') {
-            const now = new Date();
-            const periodEnd = new Date(now);
-            periodEnd.setMonth(periodEnd.getMonth() + 1);
-            credit.billing.currentPeriodStart = now;
-            credit.billing.currentPeriodEnd = periodEnd;
-            credit.billing.unbilledCents = 0;   // Reset unbilled counter on new subscription
-        }
-
-        // 4. For free tier purchases (credit top-ups), refill provider buckets
-        if (newTier === 'free') {
-            CREDIT_COMPANIES
-                .filter(c => c !== 'unknown')
-                .forEach(company => {
-                    const bucket = credit.providerCredits.find(b => b.company === company);
-                    if (bucket) {
-                        bucket.creditsGranted += FREE_CREDITS_PER_COMPANY;
-                        bucket.creditsRemaining += FREE_CREDITS_PER_COMPANY;
-                    }
-                });
-        }
-
-        // 5. Update lifetime billing total
-        credit.billing.lifetimeCents = (credit.billing.lifetimeCents || 0) + (amountPaise / 100 * 100);
-
-        await credit.save({ session });
-
-        // 6. Write immutable Transaction ledger entry
-        await Transaction.create(
-            [{
-                userId,
-                orderId,
-                paymentId,
-                type: 'CREDIT_PURCHASE',
-                amountPaise,
-                currency: 'INR',
-                creditsDelta: 0,        // Subscription tiers don't have a fixed credit delta
-                status: 'SUCCESS',
-                aggregator,
-                description: `Subscribed to ${pkg.label} plan (${pkg.pricingModel})`,
-                metadata: {
-                    packageId,
-                    packageLabel: pkg.label,
-                    pricingModel: pkg.pricingModel,
-                    priceINR: amountINR,
-                    previousTier,
-                    newTier,
-                },
-            }],
-            { session }
-        );
-
-        await session.commitTransaction();
-
-        console.log(`[Credit Service] ✓ User ${userId} subscribed to ${pkg.label} (${pkg.id}). Payment: ${paymentId}`);
-        return { status: 'success', newTier, packageId };
-
-    } catch (err) {
-        await session.abortTransaction();
-        console.error(`[Credit Service] ✗ Credit allocation failed for payment ${paymentId}:`, err.message);
-        throw err;
-    } finally {
-        session.endSession();
-    }
-}
 
 /**
  * Admin: Manually grant credits to a user

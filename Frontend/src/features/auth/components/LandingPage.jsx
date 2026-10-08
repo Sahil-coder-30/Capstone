@@ -526,12 +526,42 @@ export default function LandingPage({ onNavigateToLogin }) {
 
   const expanded = !isScrolled || (isHovered && !isScrolling);
 
-  useEffect(() => {
-    if (!showLoader) {
-      if (headerRef.current)    gsap.fromTo(headerRef.current,   { y: -50, opacity: 0 }, { y: 0, opacity: 1, duration: 0.7,  ease: 'power3.out' });
-      if (heroInnerRef.current) gsap.fromTo(heroInnerRef.current, { y: 32,  opacity: 0 }, { y: 0, opacity: 1, duration: 0.95, ease: 'power3.out', delay: 0.1 });
+  const hasRevealedRef = useRef(false);
+
+  const revealLandingContent = useCallback(() => {
+    if (hasRevealedRef.current) return;
+    hasRevealedRef.current = true;
+
+    if (headerRef.current) {
+      gsap.to(headerRef.current, {
+        y: 0,
+        opacity: 1,
+        duration: 0.75,
+        ease: 'power3.out',
+        overwrite: 'auto',
+      });
     }
-  }, [showLoader]);
+    if (heroInnerRef.current) {
+      gsap.to(heroInnerRef.current, {
+        y: 0,
+        opacity: 1,
+        duration: 0.95,
+        ease: 'power3.out',
+        delay: 0.08,
+        overwrite: 'auto',
+      });
+    }
+  }, []);
+
+  // Pre-hide header and hero on initial mount if loader is active to prevent flash of content
+  useEffect(() => {
+    if (showLoader) {
+      if (headerRef.current) gsap.set(headerRef.current, { y: -40, opacity: 0 });
+      if (heroInnerRef.current) gsap.set(heroInnerRef.current, { y: 32, opacity: 0 });
+    } else {
+      revealLandingContent();
+    }
+  }, [showLoader, revealLandingContent]);
 
   const handleScrollTo = useCallback((e, id) => {
     if (e?.preventDefault) e.preventDefault();
@@ -579,6 +609,7 @@ export default function LandingPage({ onNavigateToLogin }) {
     <div ref={landingRef} className="lp">
       {showLoader && (
         <EntryLoader 
+          onExitStart={revealLandingContent}
           onComplete={() => {
             try {
               sessionStorage.setItem('taksha_session_loader_v1', 'true');

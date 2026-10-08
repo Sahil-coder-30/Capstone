@@ -1,12 +1,15 @@
 FROM node:20-bullseye
 
+# Install build dependencies for native modules (node-pty)
+# 'make', 'g++', and 'python3' are required for node-gyp to compile C++ code
 RUN apt-get update && apt-get install -y \
-    build-essential \
     python3 \
     make \
+    g++ \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
+
 
 COPY package*.json ./
 
@@ -16,6 +19,6 @@ COPY . .
 
 EXPOSE 3000
 
-RUN mkdir -p /workspace
+RUN mkdir /workspace
 
-CMD ["npm", "run", "dev"]
+CMD ["node", "server.js"]

@@ -1,0 +1,3126 @@
+openapi: 3.1.0
+info:
+  title: Taksha Cloud & AI Orchestration Platform API
+  version: 1.0.0
+  description: |
+    Exhaustive production-grade OpenAPI 3.1.0 specification for the **Taksha** microservices ecosystem:
+    - **Auth Service**: Google OAuth 2.0, RS256 JWT lifecycle, JWKS public key discovery, rotating refresh token reuse detection, user profiles, and UI preferences.
+    - **Payments & Credits Service**: Razorpay order management, payment signature verification, credit deduction, subscription plan queuing, transaction audit logs, and admin controls.
+    - **AI Orchestration Service**: LangGraph multi-agent orchestration, SSE real-time token/node streaming, human-in-the-loop plan review, chat persistence, and soft-delete lifecycle.
+    - **Sandbox Orchestration**: Kubernetes ephemeral Pod/Service lifecycle, persistent projects, S3 project synchronization, and 5-project quota enforcement.
+    - **Sandbox In-Container Agent**: High-performance sandbox daemon executing bash commands, file system batch operations, unified diff patching, and ripgrep code searches.
+    - **Sandbox Dynamic Router**: Subdomain-based reverse proxy routing with Redis TTL session extension.
+    - **Notification Service**: Health probes and RabbitMQ AMQP event consumer specifications.
+
+    ### Frontend Error Handling & UI/UX Integration Guide
+    Every API endpoint documents complete HTTP status codes (`400`, `401`, `402`, `403`, `404`, `408`, `409`, `413`, `422`, `429`, `500`, `502`, `503`, `504`) with standardized machine-readable `code` fields:
+    - `401 TOKEN_EXPIRED`: Trigger silent token refresh via `/api/auth/refresh`.
+    - `401 TOKEN_REUSE_DETECTED`: Replay attack alert — flush tokens and redirect user immediately to login.
+    - `402 INSUFFICIENT_CREDITS`: Prompt the Credit Top-up / Upgrade to Pro modal with provider-specific bucket info.
+    - `403 FORBIDDEN`: Show permission toast or "Max Project Limit Reached" dialog.
+    - `409 PATCH_CONFLICT`: Prompt Monaco Editor 3-way merge / reload workspace from disk.
+    - `429 RATE_LIMIT_EXCEEDED`: Display countdown retry banner based on `retryAfter`.
+    - `502/503/504 GATEWAY_TIMEOUT / SERVICE_UNAVAILABLE`: Display resilient reconnecting states for Kubernetes pod startup and upstream AI providers.
+    - `SSE Error Frames`: Streaming endpoints emit `event: error` data payloads adhering to `#/components/schemas/SSEStreamErrorFrame`.
+  contact:
+    name: Taksha Platform Engineering
+    url: https://github.com/Sahil-coder-30/Capstone
+servers:
+  - url: http://localhost/api
+    description: Local Kubernetes Ingress Controller (via Minikube/Docker Desktop)
+  - url: https://api.taksha.dev/api
+    description: Production EKS Cluster Ingress Gateway
+  - url: http://{sandboxId}.agent.localhost/api/agent
+    description: Sandbox Container Agent Daemon (Subdomain Routing)
+    variables:
+      sandboxId:
+        default: default-sandbox
+        description: Unique UUID assigned to the active user sandbox pod
+
+tags:
+  - name: Auth
+    description: User authentication, Google OAuth2, RS256 token refresh, and JWKS discovery
+  - name: Profile & Preferences
+    description: User developer profile and IDE/Copilot preference management
+  - name: Payments - Checkout
+    description: Razorpay order generation and client-side signature confirmation
+  - name: Payments - Credit & Subscription
+    description: Credit balance queries, deduction, plan queueing, and transaction history
+  - name: Payments - Admin
+    description: Administrative credit overrides, resets, and global transaction audits
+  - name: AI Orchestration
+    description: Autonomous LangGraph coding agents, App planning agent, and Human-in-the-loop approvals
+  - name: AI Chat History
+    description: Chat sessions, soft deletion, trash recovery, and message management
+  - name: Sandbox Orchestration
+    description: Ephemeral Kubernetes Pod & Service orchestration and project state management
+  - name: Sandbox Agent
+    description: In-container file management, unified diff patching, ripgrep search, and bash execution
+  - name: Router & Infrastructure
+    description: Subdomain reverse proxy health and routing telemetry
+
+paths:
+  # ═══════════════════════════════════════════════════════════════════════════
+  # AUTH SERVICE
+  # ═══════════════════════════════════════════════════════════════════════════
+  /.well-known/jwks.json:
+    get:
+      tags: [Auth]
+      summary: JWKS Public Key Discovery
+      description: |
+        Returns the JSON Web Key Set (RFC 7517) containing the Auth service's RSA Public Key (`auth-rsa-v1`).
+        Microservices (`Payments`, `AI Orchestration`, `Sandbox`) fetch and cache this key locally to verify incoming RS256 JWTs with zero DB roundtrips.
+      responses:
+        '200':
+          description: JWKS public key payload
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                example: "public, max-age=86400"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JWKSResponse'
+        '500':
+          description: Server configuration failure (RSA key missing)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardErrorResponse'
+
+  /auth/healthz:
+    get:
+      tags: [Auth]
+      summary: Auth Service Liveness Probe
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardHealthResponse'
+        '503':
+          description: Service unhealthy (process or Redis unresponsive)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServiceUnavailableErrorResponse'
+
+  /auth/readyz:
+    get:
+      tags: [Auth]
+      summary: Auth Service Readiness Probe
+      responses:
+        '200':
+          description: Service is ready
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardHealthResponse'
+        '503':
+          description: Database or dependency not ready
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServiceUnavailableErrorResponse'
+
+  /auth/google:
+    get:
+      tags: [Auth]
+      summary: Initiate Google OAuth 2.0
+      description: Redirects user to Google OAuth consent screen requesting `profile` and `email` scopes.
+      responses:
+        '302':
+          description: Redirect to accounts.google.com
+        '500':
+          description: OAuth configuration error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardErrorResponse'
+
+  /auth/google/callback:
+    get:
+      tags: [Auth]
+      summary: Google OAuth Callback
+      description: Handles Google OAuth redirect, provisions/syncs user in MongoDB, issues an RS256 access token, sets an HTTP-only refresh token cookie, and redirects to frontend client.
+      responses:
+        '302':
+          description: Redirect to CLIENT_URL with authenticated cookies
+        '400':
+          description: Invalid authorization code or state mismatch
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+        '401':
+          description: Google token exchange rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedErrorResponse'
+        '500':
+          description: Internal token generation or database error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardErrorResponse'
+
+  /auth/getMe:
+    get:
+      tags: [Auth]
+      summary: Get Authenticated User Profile & Session
+      security:
+        - BearerAuth: []
+        - CookieAuth: []
+      responses:
+        '200':
+          description: Authenticated user payload resolved
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, message, user]
+                properties:
+                  status: { type: string, example: success }
+                  message: { type: string, example: User found successfully }
+                  user: { $ref: '#/components/schemas/User' }
+                  accessToken: { type: string, nullable: true }
+        '401':
+          description: Access token missing, expired, or invalid. Frontend should initiate silent refresh.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedErrorResponse'
+        '404':
+          description: User record no longer exists in database
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFoundErrorResponse'
+        '500':
+          description: Server error resolving user session
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardErrorResponse'
+
+  /auth/refresh:
+    post:
+      tags: [Auth]
+      summary: Rotate Refresh Token & Issue New Access Token
+      description: |
+        Consumes the HTTP-only rotating refresh token cookie.
+        Implements **Reuse Detection**: If an already-rotated token is presented, the entire token family is immediately revoked to thwart replay attacks.
+      parameters:
+        - name: refreshToken
+          in: cookie
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Token refreshed successfully
+          headers:
+            Set-Cookie:
+              schema:
+                type: string
+                example: "refreshToken=abc...; Path=/api/auth/refresh; HttpOnly; SameSite=Lax"
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, message, accessToken]
+                properties:
+                  status: { type: string, example: success }
+                  message: { type: string, example: Access token refreshed successfully }
+                  accessToken: { type: string, example: "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9..." }
+        '400':
+          description: Malformed request or missing cookie header
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+        '401':
+          description: |
+            Refresh token expired, invalid, or **REUSE DETECTED**.
+            If `code` is `TOKEN_REUSE_DETECTED`, the frontend must immediately purge all local state and force redirect to `/login`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenSecurityErrorResponse'
+        '404':
+          description: User associated with token family was deleted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFoundErrorResponse'
+        '500':
+          description: Internal token rotation failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardErrorResponse'
+
+  /auth/logout:
+    post:
+      tags: [Auth]
+      summary: Terminate Session & Revoke Token Family
+      security:
+        - BearerAuth: []
+        - CookieAuth: []
+      description: Blacklists the active access token in Redis and purges the refresh token family from MongoDB.
+      responses:
+        '200':
+          description: Logged out successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardSuccessResponse'
+        '401':
+          description: Missing or unparseable authorization header
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedErrorResponse'
+        '500':
+          description: Redis cache or database revocation failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardErrorResponse'
+
+  /auth/profile:
+    get:
+      tags: [Profile & Preferences]
+      summary: Fetch Developer Profile
+      security:
+        - BearerAuth: []
+        - CookieAuth: []
+      responses:
+        '200':
+          description: Profile retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, profile]
+                properties:
+                  status: { type: string, example: success }
+                  message: { type: string }
+                  profile: { $ref: '#/components/schemas/Profile' }
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedErrorResponse'
+        '404':
+          description: Profile record not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFoundErrorResponse'
+        '500':
+          description: Database error fetching profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardErrorResponse'
+    put:
+      tags: [Profile & Preferences]
+      summary: Update Developer Profile
+      security:
+        - BearerAuth: []
+        - CookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                bio: { type: string, example: "Full Stack Engineer building with AI agents." }
+                github: { type: string, example: "https://github.com/octocat" }
+                linkedin: { type: string, example: "https://linkedin.com/in/octocat" }
+                twitter: { type: string, example: "https://twitter.com/octocat" }
+                website: { type: string, example: "https://octocat.dev" }
+                company: { type: string, example: "Acme Corp" }
+                jobTitle: { type: string, example: "Staff Engineer" }
+                skills:
+                  type: array
+                  items: { type: string }
+                  example: ["React", "Node.js", "LangGraph", "Docker"]
+                experienceYears: { type: integer, minimum: 0, example: 5 }
+      responses:
+        '200':
+          description: Profile updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, profile]
+                properties:
+                  status: { type: string, example: success }
+                  message: { type: string }
+                  profile: { $ref: '#/components/schemas/Profile' }
+        '400':
+          description: Validation error (e.g. invalid URL format or negative experience years)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedErrorResponse'
+        '500':
+          description: Database update failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardErrorResponse'
+
+  /auth/preferences:
+    get:
+      tags: [Profile & Preferences]
+      summary: Fetch User IDE Preferences
+      security:
+        - BearerAuth: []
+        - CookieAuth: []
+      responses:
+        '200':
+          description: Preferences retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, preferences]
+                properties:
+                  status: { type: string, example: success }
+                  preferences: { $ref: '#/components/schemas/Preferences' }
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedErrorResponse'
+        '404':
+          description: Preferences not initialized for user
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFoundErrorResponse'
+        '500':
+          description: Database error fetching preferences
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardErrorResponse'
+    put:
+      tags: [Profile & Preferences]
+      summary: Update User IDE Preferences
+      security:
+        - BearerAuth: []
+        - CookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Preferences'
+      responses:
+        '200':
+          description: Preferences updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, preferences]
+                properties:
+                  status: { type: string, example: success }
+                  preferences: { $ref: '#/components/schemas/Preferences' }
+        '400':
+          description: Invalid preference schema or unsupported theme/model enum
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedErrorResponse'
+        '500':
+          description: Database error updating preferences
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardErrorResponse'
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # PAYMENTS SERVICE
+  # ═══════════════════════════════════════════════════════════════════════════
+  /payments/credit/packages:
+    get:
+      tags: [Payments - Credit & Subscription]
+      summary: Get Public Subscription Packages
+      description: Returns active pricing tiers and credit top-up packages for public display on the pricing page.
+      responses:
+        '200':
+          description: Package catalog list
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, data]
+                properties:
+                  status: { type: string, example: success }
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/Package' }
+        '500':
+          description: Failed to retrieve package catalog
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardErrorResponse'
+
+  /payments/credit:
+    get:
+      tags: [Payments - Credit & Subscription]
+      summary: Fetch Credit Balance & Provider Buckets
+      security:
+        - BearerAuth: []
+        - CookieAuth: []
+      description: Returns current credit balance, active subscription tier, and per-provider quotas (Mistral, Google, OpenAI, Anthropic, Groq).
+      responses:
+        '200':
+          description: Credit balance details
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, credit]
+                properties:
+                  status: { type: string, example: success }
+                  credit: { $ref: '#/components/schemas/Credit' }
+        '401':
+          description: Account ID not resolved from token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedErrorResponse'
+        '404':
+          description: Credit record not initialized for user
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFoundErrorResponse'
+        '500':
+          description: Internal error fetching credit balance
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardErrorResponse'
+
+  /payments/credit/check:
+    get:
+      tags: [Payments - Credit & Subscription]
+      summary: Verify Credit Availability (Pre-flight Gate)
+      security:
+        - BearerAuth: []
+        - CookieAuth: []
+      description: High-throughput check called by AI Orchestration before initiating an LLM agent run.
+      parameters:
+        - name: company
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [mistral, google, openai, anthropic, groq]
+            default: mistral
+        - name: tier
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [free, pro, enterprise]
+      responses:
+        '200':
+          description: Credit availability status
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, hasCredit, creditsRemaining]
+                properties:
+                  status: { type: string, example: success }
+                  hasCredit: { type: boolean, example: true }
+                  creditsRemaining: { type: number, example: 18.5 }
+                  isMetered: { type: boolean, example: false }
+        '400':
+          description: Invalid provider company or tier requested
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedErrorResponse'
+        '402':
+          description: Insufficient AI credits. Frontend should open Credit Top-up / Upgrade Modal.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InsufficientCreditsErrorResponse'
+        '500':
+          description: Internal error evaluating credits
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardErrorResponse'
+
+  /payments/credit/update:
+    post:
+      tags: [Payments - Credit & Subscription]
+      summary: Deduct Credits & Record Token Usage
+      security:
+        - BearerAuth: []
+        - CookieAuth: []
+      description: Called after AI execution to record prompt/completion tokens, burn credits, and update financial ledger.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [company, promptTokens, completionTokens]
+              properties:
+                userId: { type: string, description: "Account ObjectId override (if called from internal service)" }
+                company: { type: string, enum: [mistral, google, openai, anthropic, groq] }
+                modelId: { type: string, example: "mistral-large-latest" }
+                agentType: { type: string, enum: [codingAgent, copilot, general, unknown], default: unknown }
+                projectId: { type: string, example: "67cb1a2934..." }
+                requestId: { type: string, example: "req_98127391823" }
+                promptTokens: { type: integer, minimum: 0, example: 450 }
+                completionTokens: { type: integer, minimum: 0, example: 820 }
+                totalTokens: { type: integer, minimum: 0, example: 1270 }
+      responses:
+        '200':
+          description: Usage recorded and credits updated
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, creditsDeducted, remainingCredits]
+                properties:
+                  status: { type: string, example: success }
+                  creditsDeducted: { type: number, example: 1.27 }
+                  remainingCredits: { type: number, example: 17.23 }
+        '400':
+          description: Validation error (e.g. negative token count or unknown provider)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedErrorResponse'
+        '402':
+          description: Insufficient credits to burn usage
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InsufficientCreditsErrorResponse'
+        '500':
+          description: Ledger mutation failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardErrorResponse'
+
+  /payments/credit/subscription:
+    patch:
+      tags: [Payments - Credit & Subscription]
+      summary: Direct Tier Modification
+      security:
+        - BearerAuth: []
+        - CookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [subscription]
+              properties:
+                subscription:
+                  type: string
+                  enum: [free, pro, enterprise]
+      responses:
+        '200':
+          description: Subscription updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardSuccessResponse'
+        '400':
+          description: Invalid subscription tier
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedErrorResponse'
+        '403':
+          description: Forbidden - Direct tier override requires elevated rights
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ForbiddenErrorResponse'
+        '500':
+          description: Database update error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardErrorResponse'
+
+  /payments/credit/transactions:
+    get:
+      tags: [Payments - Credit & Subscription]
+      summary: Paginated Transaction Ledger
+      security:
+        - BearerAuth: []
+        - CookieAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, default: 1 }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 20 }
+      responses:
+        '200':
+          description: Paginated transaction list
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, transactions]
+                properties:
+                  status: { type: string, example: success }
+                  transactions:
+                    type: array
+                    items: { $ref: '#/components/schemas/Transaction' }
+        '400':
+          description: Invalid pagination parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedErrorResponse'
+        '500':
+          description: Ledger query failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardErrorResponse'
+
+  /payments/credit/transactions/summary:
+    get:
+      tags: [Payments - Credit & Subscription]
+      summary: Financial & Credit Spending Summary
+      security:
+        - BearerAuth: []
+        - CookieAuth: []
+      responses:
+        '200':
+          description: Aggregated transaction statistics
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, summary]
+                properties:
+                  status: { type: string, example: success }
+                  summary:
+                    type: object
+                    required: [totalPurchasedPaise, totalCreditsBurned, activeTier]
+                    properties:
+                      totalPurchasedPaise: { type: integer, example: 99900 }
+                      totalCreditsBurned: { type: number, example: 124.5 }
+                      activeTier: { type: string, example: pro }
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedErrorResponse'
+        '500':
+          description: Aggregation query failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardErrorResponse'
+
+  /payments/credit/analytics:
+    get:
+      tags: [Payments - Credit & Subscription]
+      summary: Token Consumption Analytics
+      security:
+        - BearerAuth: []
+        - CookieAuth: []
+      parameters:
+        - name: days
+          in: query
+          schema: { type: integer, default: 30 }
+      responses:
+        '200':
+          description: Daily token and cost breakdown
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, analytics]
+                properties:
+                  status: { type: string, example: success }
+                  analytics:
+                    type: array
+                    items:
+                      type: object
+                      required: [date, tokens, credits]
+                      properties:
+                        date: { type: string, format: date }
+                        tokens: { type: integer }
+                        credits: { type: number }
+        '400':
+          description: Invalid days parameter (e.g. negative or exceeding 365)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedErrorResponse'
+        '500':
+          description: Analytics processing failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardErrorResponse'
+
+  /payments/create/order:
+    post:
+      tags: [Payments - Checkout]
+      summary: Create Razorpay Order
+      security:
+        - BearerAuth: []
+        - CookieAuth: []
+      description: Generates an official Razorpay order with currency INR and a tamper-proof receipt ID.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [packageId]
+              properties:
+                packageId:
+                  type: string
+                  example: "pkg_pro_monthly"
+      responses:
+        '201':
+          description: Razorpay order created
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, data]
+                properties:
+                  status: { type: string, example: success }
+                  data:
+                    type: object
+                    required: [orderId, amount, currency, keyId, package]
+                    properties:
+                      orderId: { type: string, example: "order_Qk8s92Jd8" }
+                      amount: { type: integer, example: 99900, description: "Amount in paise (₹999.00)" }
+                      currency: { type: string, example: "INR" }
+                      keyId: { type: string, example: "rzp_test_..." }
+                      package: { $ref: '#/components/schemas/Package' }
+        '400':
+          description: Invalid packageId or missing body parameter
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedErrorResponse'
+        '404':
+          description: Package ID not found in active catalog
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFoundErrorResponse'
+        '500':
+          description: Internal order creation failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardErrorResponse'
+        '503':
+          description: Razorpay gateway API unreachable or timed out
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServiceUnavailableErrorResponse'
+
+  /payments/verify:
+    post:
+      tags: [Payments - Checkout]
+      summary: Verify Payment Signature & Activate Plan
+      security:
+        - BearerAuth: []
+        - CookieAuth: []
+      description: |
+        Called client-side after Razorpay checkout finishes.
+        Verifies HMAC-SHA256 signature, validates capture status directly via Razorpay API, updates MongoDB subscription queues, and dispatches invoice email via RabbitMQ.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [paymentId, orderId, signature, packageId]
+              properties:
+                paymentId: { type: string, example: "pay_Kla98273hjs" }
+                orderId: { type: string, example: "order_Qk8s92Jd8" }
+                signature: { type: string, example: "9b8e2f89d87192a..." }
+                packageId: { type: string, example: "pkg_pro_monthly" }
+      responses:
+        '200':
+          description: Payment confirmed and plan activated
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, message, data]
+                properties:
+                  status: { type: string, example: success }
+                  message: { type: string, example: "Payment verified and subscription activated successfully" }
+                  data:
+                    type: object
+                    required: [transactionId, activeTier, validUntil]
+                    properties:
+                      transactionId: { type: string }
+                      activeTier: { type: string, example: "pro" }
+                      validUntil: { type: string, format: date-time }
+        '400':
+          description: Signature verification failed or missing required fields
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedErrorResponse'
+        '404':
+          description: Order not found in database
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFoundErrorResponse'
+        '409':
+          description: Payment already verified (idempotent request detected)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConflictErrorResponse'
+        '500':
+          description: Credit allocation or subscription queue update failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardErrorResponse'
+
+  /payments/dashboard/overview:
+    get:
+      tags: [Payments - Credit & Subscription]
+      summary: Consolidated Payments & Billing Dashboard
+      security:
+        - BearerAuth: []
+        - CookieAuth: []
+      description: Returns the single consolidated boot payload for the payment frontend (active tier, reserved plan queues, days remaining, 30d analytics, recent transactions).
+      responses:
+        '200':
+          description: Dashboard boot payload
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, data]
+                properties:
+                  status: { type: string, example: success }
+                  data:
+                    type: object
+                    required: [activeTier, daysRemaining, balance, recentTransactions]
+                    properties:
+                      activeTier: { type: string, example: pro }
+                      daysRemaining: { type: integer, example: 27 }
+                      balance: { type: number, example: 500.0 }
+                      recentTransactions:
+                        type: array
+                        items: { $ref: '#/components/schemas/Transaction' }
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedErrorResponse'
+        '500':
+          description: Dashboard overview query failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardErrorResponse'
+
+  /payments/subscription:
+    get:
+      tags: [Payments - Credit & Subscription]
+      summary: Active Subscription & Reserved Queue Slots
+      security:
+        - BearerAuth: []
+        - CookieAuth: []
+      description: Returns active plan status and queued stacks (lazy expiry activation).
+      responses:
+        '200':
+          description: Plan queue payload
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, data]
+                properties:
+                  status: { type: string, example: success }
+                  data:
+                    type: object
+                    required: [activeTier, activePlanId, daysRemaining, reservedSlots]
+                    properties:
+                      activeTier: { type: string, example: "pro" }
+                      activePlanId: { type: string, example: "plan_pro_monthly" }
+                      daysRemaining: { type: integer, example: 24 }
+                      reservedSlots:
+                        type: array
+                        items: { type: object }
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedErrorResponse'
+        '500':
+          description: Subscription retrieval failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardErrorResponse'
+
+  /payments/transactions:
+    get:
+      tags: [Payments - Credit & Subscription]
+      summary: Filterable Invoices & Audit History
+      security:
+        - BearerAuth: []
+        - CookieAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, default: 1 }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 20 }
+        - name: status
+          in: query
+          schema: { type: string, enum: [success, failed, pending] }
+        - name: startDate
+          in: query
+          schema: { type: string, format: date }
+        - name: endDate
+          in: query
+          schema: { type: string, format: date }
+      responses:
+        '200':
+          description: Paginated transaction list
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, data]
+                properties:
+                  status: { type: string, example: success }
+                  data:
+                    type: object
+                    required: [transactions, total, pages]
+                    properties:
+                      transactions:
+                        type: array
+                        items: { $ref: '#/components/schemas/Transaction' }
+                      total: { type: integer }
+                      pages: { type: integer }
+        '400':
+          description: Invalid filter dates or status enum
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedErrorResponse'
+        '500':
+          description: Database query failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardErrorResponse'
+
+  /payments/transactions/{id}:
+    get:
+      tags: [Payments - Credit & Subscription]
+      summary: Single Invoice Receipt
+      security:
+        - BearerAuth: []
+        - CookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Transaction receipt record
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, data]
+                properties:
+                  status: { type: string, example: success }
+                  data: { $ref: '#/components/schemas/Transaction' }
+        '400':
+          description: Malformed transaction ID
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedErrorResponse'
+        '404':
+          description: Transaction not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFoundErrorResponse'
+        '500':
+          description: Failed to retrieve transaction
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardErrorResponse'
+
+  /payments/usage-events:
+    get:
+      tags: [Payments - Credit & Subscription]
+      summary: Granular AI Invocation Logs
+      security:
+        - BearerAuth: []
+        - CookieAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, default: 1 }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 20 }
+        - name: company
+          in: query
+          schema: { type: string, enum: [mistral, google, openai, anthropic, groq] }
+        - name: agentType
+          in: query
+          schema: { type: string }
+      responses:
+        '200':
+          description: Detailed AI execution logs
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, data]
+                properties:
+                  status: { type: string, example: success }
+                  data:
+                    type: object
+                    required: [events]
+                    properties:
+                      events:
+                        type: array
+                        items: { $ref: '#/components/schemas/UsageEvent' }
+        '400':
+          description: Invalid filter parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedErrorResponse'
+        '500':
+          description: Usage events query failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardErrorResponse'
+
+  /payments/admin/users:
+    get:
+      tags: [Payments - Admin]
+      summary: List Platform Users & Credit Quotas
+      security:
+        - AdminAuth: []
+      parameters:
+        - name: search
+          in: query
+          schema: { type: string }
+      responses:
+        '200':
+          description: User credit balances
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, users]
+                properties:
+                  status: { type: string, example: success }
+                  users:
+                    type: array
+                    items: { type: object }
+        '401':
+          description: Missing bearer token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedErrorResponse'
+        '403':
+          description: Forbidden - Admin claim missing from JWT
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ForbiddenErrorResponse'
+        '500':
+          description: Admin user directory query failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardErrorResponse'
+
+  /payments/admin/grant:
+    post:
+      tags: [Payments - Admin]
+      summary: Manually Grant Credits to User
+      security:
+        - AdminAuth: []
+      description: Writes an immutable ADMIN_GRANT ledger entry and increments provider credit balance.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [userId, creditsToGrant]
+              properties:
+                userId: { type: string, example: "67cb1a2934..." }
+                company: { type: string, default: "all", example: "mistral" }
+                creditsToGrant: { type: number, minimum: 0.1, example: 50 }
+                note: { type: string, example: "Customer support compensation" }
+      responses:
+        '200':
+          description: Credits granted successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardSuccessResponse'
+        '400':
+          description: Invalid payload or negative credits amount
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedErrorResponse'
+        '403':
+          description: Forbidden - Admin authorization required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ForbiddenErrorResponse'
+        '404':
+          description: Target user not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFoundErrorResponse'
+        '500':
+          description: Credit allocation transaction failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardErrorResponse'
+
+  /payments/admin/reset:
+    post:
+      tags: [Payments - Admin]
+      summary: Reset User Credits to Factory Defaults
+      security:
+        - AdminAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [userId]
+              properties:
+                userId: { type: string, example: "67cb1a2934..." }
+                note: { type: string, example: "Monthly abuse reset" }
+      responses:
+        '200':
+          description: Credits reset
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardSuccessResponse'
+        '400':
+          description: Missing or invalid userId
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedErrorResponse'
+        '403':
+          description: Forbidden - Admin role required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ForbiddenErrorResponse'
+        '404':
+          description: Target user not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFoundErrorResponse'
+        '500':
+          description: Credit reset execution failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardErrorResponse'
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # AI ORCHESTRATION SERVICE
+  # ═══════════════════════════════════════════════════════════════════════════
+  /ai/app-agent/invoke:
+    post:
+      tags: [AI Orchestration]
+      summary: Invoke Application Planner Agent (SSE Stream)
+      security:
+        - BearerAuth: []
+        - CookieAuth: []
+      description: |
+        Streams reasoning, project blueprints, and architectural breakdowns via **Server-Sent Events (SSE)**.
+        - **Content-Type**: `text/event-stream`.
+        - **In-Stream Events**:
+          - `event: message` or `event: agent:token` (Chunk data payload)
+          - `event: agent:thinking` (Reasoning progress steps)
+          - `event: error`: Emitted if token quota is burned out or provider fails mid-stream.
+            Payload schema matches `#/components/schemas/SSEStreamErrorFrame`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [userPrompt]
+              properties:
+                userPrompt: { type: string, example: "Build a real-time markdown editor with syntax highlighting" }
+                message: { type: string, description: "Alias for userPrompt" }
+                projectId: { type: string, example: "67cb1a2934..." }
+                sessionId: { type: string, example: "67cb1a2934..." }
+                sandboxId: { type: string, example: "123e4567-e89b-12d3-a456-426614174000" }
+                workspacePath: { type: string, example: "/workspace" }
+                activeFile: { type: string, example: "src/App.jsx" }
+                activeFileContent: { type: string }
+      responses:
+        '200':
+          description: Server-Sent Events stream established
+          content:
+            text/event-stream:
+              schema:
+                type: string
+                example: |
+                  : heartbeat
+
+                  event: agent:thinking
+                  data: {"content": "Analyzing application requirements and creating Vite scaffolding..."}
+
+                  event: agent:token
+                  data: {"token": "Here is the architectural plan for your editor..."}
+
+                  event: error
+                  data: {"message": "Insufficient mistral credits. Free users receive 20 credits per model company.", "code": "INSUFFICIENT_CREDITS", "company": "mistral"}
+        '400':
+          description: Missing prompt or malformed input before SSE connection
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+        '401':
+          description: Unauthorized - Invalid user context
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedErrorResponse'
+        '402':
+          description: Insufficient AI credits (Pre-flight check rejected before SSE stream starts)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InsufficientCreditsErrorResponse'
+        '404':
+          description: Project or sandbox container not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFoundErrorResponse'
+        '429':
+          description: Concurrent agent invocation limit reached
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RateLimitErrorResponse'
+        '500':
+          description: LangGraph graph instantiation or agent execution crash
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardErrorResponse'
+        '503':
+          description: AI provider not configured or provider API outage
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServiceUnavailableErrorResponse'
+
+  /ai/app-agent/title:
+    post:
+      tags: [AI Orchestration]
+      summary: Generate Short Chat Summary Title
+      security:
+        - BearerAuth: []
+        - CookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [message]
+              properties:
+                message: { type: string, example: "How do I configure Vite with TailwindCSS?" }
+                userPrompt: { type: string, description: "Alias for message" }
+      responses:
+        '200':
+          description: Concise 3-6 word title generated
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [title]
+                properties:
+                  title: { type: string, example: "Vite Tailwind Setup" }
+        '400':
+          description: Missing message or userPrompt parameter
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedErrorResponse'
+        '402':
+          description: Insufficient AI credits to generate session title
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InsufficientCreditsErrorResponse'
+        '500':
+          description: LLM title generation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardErrorResponse'
+        '503':
+          description: AI provider not configured or API key missing
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServiceUnavailableErrorResponse'
+
+  /ai/code-agent/invoke:
+    post:
+      tags: [AI Orchestration]
+      summary: Invoke LangGraph Autonomous Coding Agent (SSE Stream)
+      security:
+        - BearerAuth: []
+        - CookieAuth: []
+      description: |
+        Triggers the 4-stage LangGraph state graph (General -> Coder -> Debugger -> Finalizer).
+        Streams execution node milestones, tool calls, terminal outputs, and human-in-the-loop plan proposals over SSE.
+        - **Content-Type**: `text/event-stream`.
+        - If credit check fails or provider is unavailable mid-stream, an `event: error` frame is emitted matching `#/components/schemas/SSEStreamErrorFrame`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [message, projectId]
+              properties:
+                message: { type: string, example: "Fix the CORS error in src/server.js and restart the dev server" }
+                projectId: { type: string, example: "67cb1a2934..." }
+                sandboxId: { type: string, example: "123e4567-e89b-12d3-a456-426614174000" }
+                modelName: { type: string, default: "mistralLarge" }
+                attachments:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      path: { type: string }
+                      content: { type: string }
+      responses:
+        '200':
+          description: Realtime LangGraph execution events stream
+          content:
+            text/event-stream:
+              schema:
+                type: string
+        '400':
+          description: Missing prompt or projectId before connection
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedErrorResponse'
+        '402':
+          description: Insufficient AI credits to start coding agent run
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InsufficientCreditsErrorResponse'
+        '404':
+          description: Project or target sandbox container not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFoundErrorResponse'
+        '409':
+          description: Active agent run already in progress on this project
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConflictErrorResponse'
+        '429':
+          description: Concurrency limit exceeded on agent runs
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RateLimitErrorResponse'
+        '500':
+          description: Agent runtime execution error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardErrorResponse'
+        '503':
+          description: AI provider unreachable or model context window failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServiceUnavailableErrorResponse'
+
+  /ai/code-agent/stop:
+    post:
+      tags: [AI Orchestration]
+      summary: Abort Active Agent Execution
+      security:
+        - BearerAuth: []
+        - CookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [projectId]
+              properties:
+                projectId: { type: string, example: "67cb1a2934..." }
+      responses:
+        '200':
+          description: Agent execution stopped successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardSuccessResponse'
+        '400':
+          description: Missing projectId parameter
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedErrorResponse'
+        '404':
+          description: Project not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFoundErrorResponse'
+        '500':
+          description: Failed to terminate active agent execution thread
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardErrorResponse'
+
+  /ai/code-agent/plan-approve:
+    post:
+      tags: [AI Orchestration]
+      summary: Human-in-the-Loop Plan Approval
+      security:
+        - BearerAuth: []
+        - CookieAuth: []
+      description: Unblocks the paused LangGraph agent to proceed with code mutations after user approves proposed execution plan.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [projectId]
+              properties:
+                projectId: { type: string }
+                sandboxId: { type: string }
+      responses:
+        '200':
+          description: Plan approved; agent resumed execution
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardSuccessResponse'
+        '400':
+          description: No plan review interrupt pending for this run
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedErrorResponse'
+        '404':
+          description: Run ID or project not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFoundErrorResponse'
+        '409':
+          description: Plan decision already registered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConflictErrorResponse'
+        '500':
+          description: Failed to resume graph state execution
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardErrorResponse'
+
+  /ai/code-agent/plan-reject:
+    post:
+      tags: [AI Orchestration]
+      summary: Human-in-the-Loop Plan Rejection
+      security:
+        - BearerAuth: []
+        - CookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [projectId, feedback]
+              properties:
+                projectId: { type: string }
+                sandboxId: { type: string }
+                feedback: { type: string, example: "Do not install lodash; use native JavaScript functions." }
+      responses:
+        '200':
+          description: Plan rejected; agent directed to revise and replan
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardSuccessResponse'
+        '400':
+          description: No plan review interrupt pending or missing rejection feedback
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedErrorResponse'
+        '404':
+          description: Run ID or project not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFoundErrorResponse'
+        '409':
+          description: Plan decision already concluded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConflictErrorResponse'
+        '500':
+          description: Failed to generate revision from human feedback
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardErrorResponse'
+
+  /ai/chats/{projectId}/{agentType}:
+    get:
+      tags: [AI Chat History]
+      summary: Fetch Chat History for Project
+      security:
+        - BearerAuth: []
+        - CookieAuth: []
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema: { type: string }
+        - name: agentType
+          in: path
+          required: true
+          schema: { type: string, enum: [codingAgent, copilot] }
+      responses:
+        '200':
+          description: Ordered chat message history
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, messages]
+                properties:
+                  status: { type: string, example: ok }
+                  messages:
+                    type: array
+                    items: { $ref: '#/components/schemas/ChatMessage' }
+        '400':
+          description: Invalid agentType enum parameter
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedErrorResponse'
+        '403':
+          description: Forbidden - Project belongs to another user
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ForbiddenErrorResponse'
+        '404':
+          description: Project not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFoundErrorResponse'
+        '500':
+          description: Chat history retrieval failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardErrorResponse'
+    delete:
+      tags: [AI Chat History]
+      summary: Soft-Delete All Messages in Chat Thread
+      security:
+        - BearerAuth: []
+        - CookieAuth: []
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema: { type: string }
+        - name: agentType
+          in: path
+          required: true
+          schema: { type: string, enum: [codingAgent, copilot] }
+      responses:
+        '200':
+          description: Chat history moved to trash
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardSuccessResponse'
+        '400':
+          description: Invalid agentType
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ForbiddenErrorResponse'
+        '404':
+          description: Project not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFoundErrorResponse'
+        '500':
+          description: Database soft-delete failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardErrorResponse'
+
+  /ai/chats/trash:
+    get:
+      tags: [AI Chat History]
+      summary: Fetch Soft-Deleted Chats
+      security:
+        - BearerAuth: []
+        - CookieAuth: []
+      responses:
+        '200':
+          description: Trashed chat threads
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, messages]
+                properties:
+                  status: { type: string, example: ok }
+                  messages:
+                    type: array
+                    items: { $ref: '#/components/schemas/ChatMessage' }
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedErrorResponse'
+        '500':
+          description: Database trash query failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardErrorResponse'
+
+  /ai/chats/message/{messageId}:
+    delete:
+      tags: [AI Chat History]
+      summary: Soft-Delete Single Chat Message
+      security:
+        - BearerAuth: []
+        - CookieAuth: []
+      parameters:
+        - name: messageId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Message moved to trash
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardSuccessResponse'
+        '400':
+          description: Malformed messageId
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedErrorResponse'
+        '403':
+          description: Forbidden - Message belongs to another user
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ForbiddenErrorResponse'
+        '404':
+          description: Message not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFoundErrorResponse'
+        '500':
+          description: Message deletion error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardErrorResponse'
+
+  /ai/chats/message/{messageId}/restore:
+    patch:
+      tags: [AI Chat History]
+      summary: Restore Message from Trash
+      security:
+        - BearerAuth: []
+        - CookieAuth: []
+      parameters:
+        - name: messageId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Message restored successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardSuccessResponse'
+        '400':
+          description: Malformed messageId
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ForbiddenErrorResponse'
+        '404':
+          description: Message not found in trash
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFoundErrorResponse'
+        '500':
+          description: Message restoration failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardErrorResponse'
+
+  /ai/chats/message/{messageId}/permanent:
+    delete:
+      tags: [AI Chat History]
+      summary: Permanently Purge Message
+      security:
+        - BearerAuth: []
+        - CookieAuth: []
+      parameters:
+        - name: messageId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Message permanently removed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardSuccessResponse'
+        '400':
+          description: Malformed messageId
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ForbiddenErrorResponse'
+        '404':
+          description: Message not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFoundErrorResponse'
+        '500':
+          description: Permanent deletion failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardErrorResponse'
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # SANDBOX SERVICE
+  # ═══════════════════════════════════════════════════════════════════════════
+  /sandbox/create-project:
+    post:
+      tags: [Sandbox Orchestration]
+      summary: Create Project Record
+      security:
+        - BearerAuth: []
+        - CookieAuth: []
+      description: |
+        Allocates a new UUID sandboxId and registers the project in MongoDB with initial status `not_started`.
+        Enforces a hard quota of **5 active projects** per user account.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title]
+              properties:
+                title: { type: string, example: "My Vite React App" }
+      responses:
+        '201':
+          description: Project created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, message, sandboxId, project]
+                properties:
+                  status: { type: string, example: success }
+                  message: { type: string, example: "Project created successfully" }
+                  sandboxId: { type: string, example: "123e4567-e89b-12d3-a456-426614174000" }
+                  project: { $ref: '#/components/schemas/Project' }
+        '400':
+          description: |
+            Validation error: Title is required and must be non-empty, OR user has hit the **5-project ceiling** (`You can only create up to 5 projects`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+        '401':
+          description: Unauthorized - User identification missing
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedErrorResponse'
+        '403':
+          description: Project creation quota reached
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ForbiddenErrorResponse'
+        '500':
+          description: Database or pod provisioning error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardErrorResponse'
+        '503':
+          description: Kubernetes API server unreachable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServiceUnavailableErrorResponse'
+
+  /sandbox/projects:
+    get:
+      tags: [Sandbox Orchestration]
+      summary: List All User Projects
+      security:
+        - BearerAuth: []
+        - CookieAuth: []
+      description: Returns all active projects belonging to the user with reconciled live Kubernetes pod status.
+      responses:
+        '200':
+          description: User projects list
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, projects]
+                properties:
+                  status: { type: string, example: success }
+                  projects:
+                    type: array
+                    items: { $ref: '#/components/schemas/Project' }
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedErrorResponse'
+        '500':
+          description: Database project query failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardErrorResponse'
+
+  /sandbox/project/{projectId}:
+    get:
+      tags: [Sandbox Orchestration]
+      summary: Get Single Project & Pod Telemetry
+      security:
+        - BearerAuth: []
+        - CookieAuth: []
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Project details and live sandbox URLs
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, project]
+                properties:
+                  status: { type: string, example: success }
+                  project: { $ref: '#/components/schemas/Project' }
+                  podStatus: { type: string, example: "Running" }
+                  previewUrl: { type: string, example: "http://123e4567-e89b-12d3-a456-426614174000.preview.localhost" }
+                  agentUrl: { type: string, example: "http://123e4567-e89b-12d3-a456-426614174000.agent.localhost" }
+        '400':
+          description: Invalid project ID format
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedErrorResponse'
+        '403':
+          description: Forbidden - User not authorized to view this project
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ForbiddenErrorResponse'
+        '404':
+          description: Project not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFoundErrorResponse'
+        '500':
+          description: Error resolving project state
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardErrorResponse'
+    delete:
+      tags: [Sandbox Orchestration]
+      summary: Soft-Delete Project
+      security:
+        - BearerAuth: []
+        - CookieAuth: []
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Project moved to trash
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardSuccessResponse'
+        '400':
+          description: Invalid project ID format
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedErrorResponse'
+        '403':
+          description: Forbidden - User does not own this project
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ForbiddenErrorResponse'
+        '404':
+          description: Project not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFoundErrorResponse'
+        '500':
+          description: Database deletion error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardErrorResponse'
+
+  /sandbox/start/{projectId}:
+    post:
+      tags: [Sandbox Orchestration]
+      summary: Start Kubernetes Pod for Project
+      security:
+        - BearerAuth: []
+        - CookieAuth: []
+      description: Deploys a dedicated Kubernetes Pod and Service for the project, mounts local workspace, and spins up the sidecar sync agent to restore S3 assets.
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Pod created or already running
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, sandboxId, previewUrl, agentUrl]
+                properties:
+                  status: { type: string, example: success }
+                  sandboxId: { type: string }
+                  previewUrl: { type: string, example: "http://123e4567-e89b-12d3-a456-426614174000.preview.localhost" }
+                  agentUrl: { type: string, example: "http://123e4567-e89b-12d3-a456-426614174000.agent.localhost" }
+        '400':
+          description: Invalid projectId format
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ForbiddenErrorResponse'
+        '404':
+          description: Project not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFoundErrorResponse'
+        '409':
+          description: Sandbox container already in running state
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConflictErrorResponse'
+        '500':
+          description: Kubernetes Pod deployment or S3 sync pull error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardErrorResponse'
+        '504':
+          description: Pod startup readiness probe timed out (>60s)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GatewayTimeoutErrorResponse'
+
+  /sandbox/stop/{projectId}:
+    post:
+      tags: [Sandbox Orchestration]
+      summary: Gracefully Stop Sandbox Pod
+      security:
+        - BearerAuth: []
+        - CookieAuth: []
+      description: Triggers final S3 sync, terminates the Kubernetes Pod and Service, and removes the Redis TTL heartbeat key.
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Sandbox stopped successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardSuccessResponse'
+        '400':
+          description: Invalid projectId format
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ForbiddenErrorResponse'
+        '404':
+          description: Project not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFoundErrorResponse'
+        '500':
+          description: Final S3 sync push failure or Kubernetes Pod termination error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardErrorResponse'
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # SANDBOX CONTAINER AGENT DAEMON (In-Container API)
+  # ═══════════════════════════════════════════════════════════════════════════
+  /agent/list-files:
+    get:
+      tags: [Sandbox Agent]
+      summary: Recursively List Workspace Directory
+      description: Traverses `/workspace` and returns all relative file paths, automatically ignoring `node_modules` and `.git`.
+      responses:
+        '200':
+          description: File tree resolved
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, files]
+                properties:
+                  status: { type: string, example: ok }
+                  files:
+                    type: array
+                    items: { type: string }
+                    example: ["src/App.jsx", "src/main.jsx", "package.json", "index.html"]
+        '400':
+          description: Path traversal security violation detected (`..`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+        '404':
+          description: Workspace directory does not exist
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFoundErrorResponse'
+        '500':
+          description: Filesystem traversal I/O error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardErrorResponse'
+
+  /agent/read-file:
+    get:
+      tags: [Sandbox Agent]
+      summary: Read Multiple Workspace Files
+      description: Reads text contents of one or more files in batch.
+      parameters:
+        - name: files
+          in: query
+          required: true
+          description: Comma-separated list of relative file paths
+          schema:
+            type: string
+            example: "src/App.jsx,package.json"
+      responses:
+        '200':
+          description: File contents retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, files]
+                properties:
+                  status: { type: string, example: ok }
+                  files:
+                    type: array
+                    items:
+                      type: object
+                      required: [file, content]
+                      properties:
+                        file: { type: string }
+                        content: { type: string }
+                        error: { type: string, nullable: true }
+        '400':
+          description: Missing files query parameter or path traversal attempt
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+        '404':
+          description: One or more requested files not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFoundErrorResponse'
+        '413':
+          description: File size exceeds maximum readable buffer limit (>10MB)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardErrorResponse'
+        '500':
+          description: Filesystem read failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardErrorResponse'
+
+  /agent/update-file:
+    patch:
+      tags: [Sandbox Agent]
+      summary: Batch Overwrite Workspace Files
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [updates]
+              properties:
+                updates:
+                  type: array
+                  items:
+                    type: object
+                    required: [file, content]
+                    properties:
+                      file: { type: string, example: "src/App.jsx" }
+                      content: { type: string, example: "import React from 'react';..." }
+      responses:
+        '200':
+          description: Files updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, results]
+                properties:
+                  status: { type: string, example: ok }
+                  results:
+                    type: array
+                    items:
+                      type: object
+                      required: [file, status]
+                      properties:
+                        file: { type: string }
+                        status: { type: string, example: "updated" }
+                        error: { type: string, nullable: true }
+        '400':
+          description: Missing updates array or invalid payload
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+        '404':
+          description: Target file not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFoundErrorResponse'
+        '409':
+          description: |
+            Patch conflict / Hunk mismatch: Target file modified concurrently in IDE Monaco editor.
+            Frontend should trigger a 3-way merge resolution dialog.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConflictErrorResponse'
+        '422':
+          description: Malformed unified diff syntax
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+        '500':
+          description: Filesystem write error or disk quota exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardErrorResponse'
+
+  /agent/create-file:
+    post:
+      tags: [Sandbox Agent]
+      summary: Batch Create Workspace Files & Directories
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [files]
+              properties:
+                files:
+                  type: array
+                  items:
+                    type: object
+                    required: [file, content]
+                    properties:
+                      file: { type: string, example: "src/components/Header.jsx" }
+                      content: { type: string, example: "export default function Header() {}" }
+      responses:
+        '201':
+          description: Files created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, results]
+                properties:
+                  status: { type: string, example: ok }
+                  results:
+                    type: array
+                    items:
+                      type: object
+                      required: [file, status]
+                      properties:
+                        file: { type: string }
+                        status: { type: string, example: "created" }
+                        error: { type: string, nullable: true }
+        '400':
+          description: Missing files array or invalid relative file path
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+        '409':
+          description: Target file already exists and overwrite flag was false
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConflictErrorResponse'
+        '500':
+          description: Filesystem creation error or disk full
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardErrorResponse'
+
+  /agent/delete-file:
+    delete:
+      tags: [Sandbox Agent]
+      summary: Delete Files or Directories
+      parameters:
+        - name: file
+          in: query
+          schema: { type: string }
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                files:
+                  type: array
+                  items: { type: string }
+      responses:
+        '200':
+          description: Files/directories purged
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, results]
+                properties:
+                  status: { type: string, example: ok }
+                  results:
+                    type: array
+                    items:
+                      type: object
+                      required: [file, status]
+                      properties:
+                        file: { type: string }
+                        status: { type: string, example: "deleted" }
+        '400':
+          description: Missing file/files parameter or path traversal attempt
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+        '403':
+          description: Forbidden - Attempted to delete protected root or configuration directory
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ForbiddenErrorResponse'
+        '404':
+          description: File or directory does not exist
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFoundErrorResponse'
+        '500':
+          description: Filesystem unlink failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardErrorResponse'
+
+  /agent/search-code:
+    get:
+      tags: [Sandbox Agent]
+      summary: High-Speed Regex Code Search
+      description: Fast in-memory / ripgrep text and regex search across workspace files with surrounding context lines.
+      parameters:
+        - name: pattern
+          in: query
+          required: true
+          schema: { type: string, example: "useState" }
+        - name: isRegex
+          in: query
+          schema: { type: boolean, default: false }
+        - name: caseSensitive
+          in: query
+          schema: { type: boolean, default: false }
+        - name: contextLines
+          in: query
+          schema: { type: integer, default: 2, minimum: 0, maximum: 5 }
+        - name: maxResults
+          in: query
+          schema: { type: integer, default: 20, maximum: 50 }
+      responses:
+        '200':
+          description: Match occurrences with line numbers and file paths
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, matches]
+                properties:
+                  status: { type: string, example: ok }
+                  matches:
+                    type: array
+                    items:
+                      type: object
+                      required: [file, line, content]
+                      properties:
+                        file: { type: string }
+                        line: { type: integer }
+                        content: { type: string }
+                        contextBefore: { type: array, items: { type: string } }
+                        contextAfter: { type: array, items: { type: string } }
+        '400':
+          description: Invalid regex syntax or missing pattern parameter
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+        '500':
+          description: Ripgrep process execution error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardErrorResponse'
+
+  /agent/exec:
+    post:
+      tags: [Sandbox Agent]
+      summary: Execute Bash Command in Sandbox
+      description: Spawns a shell process inside `/workspace`. Has a 30s timeout (120s for npm install/build) and 1MB stdout/stderr buffer protection.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [command]
+              properties:
+                command: { type: string, example: "npm install lucide-react" }
+                subDir: { type: string, example: "src" }
+      responses:
+        '200':
+          description: Command execution completed (check `timedOut` and `error` fields for process status)
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, success, stdout, stderr, timedOut]
+                properties:
+                  status: { type: string, example: ok }
+                  success: { type: boolean, example: true }
+                  stdout: { type: string, example: "added 1 package in 1.4s" }
+                  stderr: { type: string }
+                  error: { type: string, nullable: true }
+                  timedOut: { type: boolean, example: false }
+        '400':
+          description: Missing command parameter
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+        '408':
+          description: Execution timeout reached (>30s for generic bash, >120s for npm build)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GatewayTimeoutErrorResponse'
+        '500':
+          description: Process spawning or container shell crash
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardErrorResponse'
+
+  /agent/vite-runtime-errors:
+    get:
+      tags: [Sandbox Agent]
+      summary: Fetch Vite Dev Server Runtime Logs
+      description: Returns captured runtime compiler and browser crash errors for consumption by the Debugger Agent.
+      responses:
+        '200':
+          description: Runtime error logs
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, errors]
+                properties:
+                  status: { type: string, example: ok }
+                  errors:
+                    type: array
+                    items: { type: string }
+        '500':
+          description: Internal log buffer read error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardErrorResponse'
+
+# ═══════════════════════════════════════════════════════════════════════════
+# REUSABLE DATA COMPONENTS & SCHEMAS
+# ═══════════════════════════════════════════════════════════════════════════
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: RS256 JWT issued by Auth Service. Verified via JWKS public key (`auth-rsa-v1`).
+    CookieAuth:
+      type: apiKey
+      in: cookie
+      name: accessToken
+      description: Access token stored in HTTP cookie.
+    AdminAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: "RS256 JWT containing verified `role: admin` claim."
+
+  schemas:
+    StandardSuccessResponse:
+      type: object
+      required: [status, message]
+      properties:
+        status: { type: string, example: success }
+        message: { type: string, example: Action completed successfully }
+
+    StandardHealthResponse:
+      type: object
+      required: [status, message]
+      properties:
+        status: { type: string, example: ok }
+        message: { type: string, example: Server is healthy }
+
+    StandardErrorResponse:
+      type: object
+      required: [status, message]
+      properties:
+        status: { type: string, example: error }
+        message: { type: string, example: "An unexpected error occurred" }
+        code: { type: string, example: "INTERNAL_ERROR" }
+        timestamp: { type: string, format: date-time }
+
+    ValidationErrorResponse:
+      type: object
+      required: [status, message]
+      properties:
+        status: { type: string, example: error }
+        code: { type: string, example: "VALIDATION_ERROR" }
+        message: { type: string, example: "Invalid request payload or parameters" }
+        errors:
+          type: array
+          items:
+            type: object
+            required: [field, message]
+            properties:
+              field: { type: string, example: "experienceYears" }
+              message: { type: string, example: "Must be a non-negative number" }
+
+    UnauthorizedErrorResponse:
+      type: object
+      required: [status, message]
+      properties:
+        status: { type: string, example: error }
+        code:
+          type: string
+          enum: [UNAUTHORIZED, TOKEN_EXPIRED, TOKEN_INVALID, NO_TOKEN_PROVIDED]
+          example: TOKEN_EXPIRED
+        message: { type: string, example: "Unauthorized: Token missing, invalid, or expired" }
+
+    TokenSecurityErrorResponse:
+      type: object
+      required: [status, message, code]
+      properties:
+        status: { type: string, example: error }
+        code:
+          type: string
+          enum: [TOKEN_REUSE_DETECTED, SESSION_REVOKED]
+          example: TOKEN_REUSE_DETECTED
+        message: { type: string, example: "Token reuse detected — all sessions revoked" }
+
+    ForbiddenErrorResponse:
+      type: object
+      required: [status, message]
+      properties:
+        status: { type: string, example: error }
+        code:
+          type: string
+          enum: [FORBIDDEN, ADMIN_REQUIRED, CROSS_TENANT_ACCESS_DENIED, PROJECT_LIMIT_REACHED]
+          example: FORBIDDEN
+        message: { type: string, example: "You are not authorized to perform this action" }
+
+    NotFoundErrorResponse:
+      type: object
+      required: [status, message]
+      properties:
+        status: { type: string, example: error }
+        code: { type: string, example: "NOT_FOUND" }
+        message: { type: string, example: "The requested resource could not be found" }
+
+    InsufficientCreditsErrorResponse:
+      type: object
+      required: [status, code, message]
+      properties:
+        status: { type: string, example: error }
+        code: { type: string, example: "INSUFFICIENT_CREDITS" }
+        message: { type: string, example: "Insufficient mistral credits. Free users receive 20 credits per model company." }
+        company:
+          type: string
+          enum: [mistral, google, openai, anthropic, groq]
+          example: "mistral"
+        creditsRemaining: { type: number, example: 0.0 }
+        upgradeUrl: { type: string, example: "/pricing" }
+
+    ConflictErrorResponse:
+      type: object
+      required: [status, message]
+      properties:
+        status: { type: string, example: error }
+        code:
+          type: string
+          enum: [CONFLICT, PATCH_CONFLICT, RUN_ALREADY_ACTIVE, IDEMPOTENCY_CONFLICT, SANDBOX_ALREADY_RUNNING]
+          example: PATCH_CONFLICT
+        message: { type: string, example: "Resource conflict: target state modified concurrently" }
+        details:
+          type: object
+          properties:
+            hunkMismatch: { type: boolean, example: true }
+            activeRunId: { type: string }
+
+    RateLimitErrorResponse:
+      type: object
+      required: [status, message]
+      properties:
+        status: { type: string, example: error }
+        code: { type: string, example: "RATE_LIMIT_EXCEEDED" }
+        message: { type: string, example: "Too many requests. Please wait before retrying." }
+        retryAfter: { type: integer, example: 60, description: "Seconds until rate limit window resets" }
+
+    ServiceUnavailableErrorResponse:
+      type: object
+      required: [status, message]
+      properties:
+        status: { type: string, example: error }
+        code:
+          type: string
+          enum: [SERVICE_UNAVAILABLE, AI_PROVIDER_DOWN, AI_PROVIDER_NOT_CONFIGURED, K8S_UNREACHABLE]
+          example: AI_PROVIDER_DOWN
+        message: { type: string, example: "Upstream dependency is temporarily unavailable" }
+        retryable: { type: boolean, example: true }
+
+    GatewayTimeoutErrorResponse:
+      type: object
+      required: [status, message]
+      properties:
+        status: { type: string, example: error }
+        code:
+          type: string
+          enum: [GATEWAY_TIMEOUT, POD_STARTUP_TIMEOUT, EXEC_TIMEOUT]
+          example: POD_STARTUP_TIMEOUT
+        message: { type: string, example: "Target pod or command timed out" }
+        retryable: { type: boolean, example: true }
+
+    SSEStreamErrorFrame:
+      type: object
+      required: [message]
+      properties:
+        message: { type: string, example: "Insufficient mistral credits." }
+        code:
+          type: string
+          enum: [INSUFFICIENT_CREDITS, AI_PROVIDER_NOT_CONFIGURED, CREDIT_CHECK_FAILED, AGENT_EXECUTION_ERROR]
+          example: INSUFFICIENT_CREDITS
+        company:
+          type: string
+          enum: [mistral, google, openai, anthropic, groq]
+          example: "mistral"
+
+    JWKSResponse:
+      type: object
+      required: [keys]
+      properties:
+        keys:
+          type: array
+          items:
+            type: object
+            required: [kty, use, alg, kid, n, e]
+            properties:
+              kty: { type: string, example: RSA }
+              use: { type: string, example: sig }
+              alg: { type: string, example: RS256 }
+              kid: { type: string, example: auth-rsa-v1 }
+              n: { type: string, description: "RSA Public Modulus" }
+              e: { type: string, example: AQAB }
+
+    User:
+      type: object
+      required: [_id, email, name]
+      properties:
+        _id: { type: string, example: "67cb1a2934128912..." }
+        googleId: { type: string, example: "1098237192837..." }
+        name: { type: string, example: "Sahil Kumar" }
+        email: { type: string, format: email, example: "sahil@example.com" }
+        photo: { type: string, format: uri, example: "https://lh3.googleusercontent.com/..." }
+        createdAt: { type: string, format: date-time }
+
+    Profile:
+      type: object
+      properties:
+        userId: { type: string }
+        bio: { type: string }
+        github: { type: string }
+        linkedin: { type: string }
+        twitter: { type: string }
+        website: { type: string }
+        company: { type: string }
+        jobTitle: { type: string }
+        skills: { type: array, items: { type: string } }
+        experienceYears: { type: integer }
+
+    Preferences:
+      type: object
+      properties:
+        theme: { type: string, enum: [dark, light, system], default: dark }
+        editor:
+          type: object
+          properties:
+            fontSize: { type: string, default: "14px" }
+            tabSize: { type: string, default: "2" }
+            autoSave: { type: boolean, default: true }
+            minimap: { type: boolean, default: true }
+            wordWrap: { type: boolean, default: true }
+        copilot:
+          type: object
+          properties:
+            modelPreference: { type: string, default: "gemini-2.5-flash" }
+            autoSuggest: { type: boolean, default: true }
+            interactiveMode: { type: string, enum: [concise, detailed], default: detailed }
+
+    Credit:
+      type: object
+      properties:
+        userId: { type: string }
+        subscription: { type: string, enum: [free, pro, enterprise] }
+        totalTokens: { type: integer, example: 54200 }
+        promptTokens: { type: integer, example: 21000 }
+        completionTokens: { type: integer, example: 33200 }
+        providers:
+          type: object
+          additionalProperties:
+            type: object
+            properties:
+              creditsRemaining: { type: number, example: 18.2 }
+              billableTokens: { type: integer }
+              billableCents: { type: integer }
+
+    Package:
+      type: object
+      properties:
+        id: { type: string, example: "pkg_pro_monthly" }
+        name: { type: string, example: "Pro Developer Monthly" }
+        priceINR: { type: integer, example: 999 }
+        priceINRPaise: { type: integer, example: 99900 }
+        tier: { type: string, example: "pro" }
+        durationDays: { type: integer, example: 30 }
+        features: { type: array, items: { type: string } }
+
+    Transaction:
+      type: object
+      properties:
+        _id: { type: string }
+        accountId: { type: string }
+        orderId: { type: string }
+        paymentId: { type: string }
+        amountPaise: { type: integer, example: 99900 }
+        currency: { type: string, example: INR }
+        status: { type: string, enum: [success, failed, pending] }
+        packageId: { type: string }
+        createdAt: { type: string, format: date-time }
+
+    UsageEvent:
+      type: object
+      properties:
+        company: { type: string, example: mistral }
+        modelId: { type: string, example: "mistral-large-latest" }
+        promptTokens: { type: integer, example: 300 }
+        completionTokens: { type: integer, example: 600 }
+        totalTokens: { type: integer, example: 900 }
+        timestamp: { type: string, format: date-time }
+
+    ChatMessage:
+      type: object
+      properties:
+        _id: { type: string }
+        projectId: { type: string }
+        agentType: { type: string, enum: [codingAgent, copilot] }
+        role: { type: string, enum: [user, assistant, system] }
+        content: { type: string }
+        deletionStatus: { type: string, enum: [active, trash] }
+        timestamp: { type: string, format: date-time }
+
+    Project:
+      type: object
+      properties:
+        _id: { type: string }
+        user: { type: string }
+        title: { type: string, example: "Vite React App" }
+        sandboxId: { type: string, example: "123e4567-e89b-12d3-a456-426614174000" }
+        status: { type: string, enum: [not_started, building, live, stopped] }
+        deletionStatus: { type: string, enum: [active, trash] }
+        createdAt: { type: string, format: date-time }

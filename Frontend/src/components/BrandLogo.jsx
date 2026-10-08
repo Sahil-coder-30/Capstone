@@ -63,7 +63,7 @@ export function TakshaIcon({ size = 32, variant = 'primary' }) {
   );
 }
 
-export default function BrandLogo({ height = 32, variant, animated = true, style = {}, ...props }) {
+export default function BrandLogo({ height = 32, variant, animated = false, style = {}, ...props }) {
   const [isDocLight, setIsDocLight] = React.useState(
     typeof document !== 'undefined' && document.documentElement.classList.contains('light-theme')
   );

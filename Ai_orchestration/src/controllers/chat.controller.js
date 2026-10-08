@@ -1,5 +1,6 @@
 import ChatMessage from "../models/ChatMessage.model.js";
 import CopilotChatMessage from "../models/CopilotChatMessage.model.js";
+import mongoose from "mongoose";
 
 // GET /chats/:projectId/:agentType
 export const getChats = async (req, res) => {
@@ -72,25 +73,39 @@ export const deleteChats = async (req, res) => {
   }
 };
 
-// DELETE /chats/message/:messageId (Soft Delete single or batch messages/reports)
+// DELETE /chats/message/:messageId or POST /chats/message/batch-delete
 export const deleteSingleChatMessage = async (req, res) => {
-  const { messageId } = req.params;
-  const { agentType } = req.query;
+  const messageIdInput = req.params?.messageId || req.body?.messageId || req.body?.ids;
+  const agentType = req.query?.agentType || req.body?.agentType || "codingAgent";
+  const userId = req.user?.id;
 
   try {
     const now = new Date();
-    const rawIds = (messageId || "").split(",");
-    const validObjectIds = rawIds.map(id => id.trim()).filter(id => id && mongoose.Types.ObjectId.isValid(id));
+    let rawIds = [];
+    if (Array.isArray(messageIdInput)) {
+      rawIds = messageIdInput.map(id => String(id));
+    } else if (typeof messageIdInput === "string") {
+      rawIds = messageIdInput.split(",");
+    }
+
+    const validObjectIds = rawIds
+      .map(id => id.trim())
+      .filter(id => id && mongoose.Types.ObjectId.isValid(id));
 
     if (validObjectIds.length > 0) {
+      const filter = {
+        _id: { $in: validObjectIds },
+        ...(userId ? { $or: [{ userId }, { userId: { $exists: false } }] } : {}),
+      };
+
       if (agentType === "copilot") {
         await CopilotChatMessage.updateMany(
-          { _id: { $in: validObjectIds } },
+          filter,
           { $set: { deletionStatus: "trash", deletedAt: now } }
         );
       } else {
         await ChatMessage.updateMany(
-          { _id: { $in: validObjectIds } },
+          filter,
           { $set: { deletionStatus: "trash", deletedAt: now } }
         );
       }
