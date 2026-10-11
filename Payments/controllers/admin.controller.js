@@ -4,6 +4,7 @@ import Transaction from '../models/transaction.model.js';
 import { adminGrantCredits, adminResetCredits } from '../services/credit.service.js';
 import { getAdminPackages } from '../config/packages.config.js';
 import { SUBSCRIPTION_TIERS } from '../config/subscription.config.js';
+import { BadRequestError, logger } from 'faultkit';
 
 /**
  * POST /api/payments/admin/grant
@@ -16,29 +17,20 @@ import { SUBSCRIPTION_TIERS } from '../config/subscription.config.js';
  */
 export const grantCreditsController = async (req, res, next) => {
     try {
-        const { userId, company = 'all', creditsToGrant, note } = req.body;
+        const { userId, company = 'all', creditsToGrant, note } = req.body || {};
         const adminId = req.user?.id;
 
         if (!userId || !creditsToGrant) {
-            return res.status(400).json({
-                status: 'error',
-                message: 'userId and creditsToGrant are required',
-            });
+            throw new BadRequestError('userId and creditsToGrant are required');
         }
 
         if (!mongoose.Types.ObjectId.isValid(userId)) {
-            return res.status(400).json({
-                status: 'error',
-                message: 'userId must be a valid ObjectId',
-            });
+            throw new BadRequestError('userId must be a valid ObjectId');
         }
 
         const credits = Number(creditsToGrant);
         if (!Number.isFinite(credits) || credits <= 0) {
-            return res.status(400).json({
-                status: 'error',
-                message: 'creditsToGrant must be a positive number',
-            });
+            throw new BadRequestError('creditsToGrant must be a positive number');
         }
 
         const result = await adminGrantCredits({
@@ -73,21 +65,15 @@ export const grantCreditsController = async (req, res, next) => {
  */
 export const resetCreditsController = async (req, res, next) => {
     try {
-        const { userId, note } = req.body;
+        const { userId, note } = req.body || {};
         const adminId = req.user?.id;
 
         if (!userId) {
-            return res.status(400).json({
-                status: 'error',
-                message: 'userId is required',
-            });
+            throw new BadRequestError('userId is required');
         }
 
         if (!mongoose.Types.ObjectId.isValid(userId)) {
-            return res.status(400).json({
-                status: 'error',
-                message: 'userId must be a valid ObjectId',
-            });
+            throw new BadRequestError('userId must be a valid ObjectId');
         }
 
         const result = await adminResetCredits({ userId, adminId, note });
@@ -170,7 +156,10 @@ export const listAllTransactionsController = async (req, res, next) => {
         const query = {};
         if (req.query.type) query.type = req.query.type;
         if (req.query.status) query.status = req.query.status;
-        if (req.query.userId && mongoose.Types.ObjectId.isValid(req.query.userId)) {
+        if (req.query.userId) {
+            if (!mongoose.Types.ObjectId.isValid(req.query.userId)) {
+                throw new BadRequestError('userId must be a valid ObjectId');
+            }
             query.userId = req.query.userId;
         }
 

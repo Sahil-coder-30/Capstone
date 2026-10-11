@@ -6,19 +6,115 @@ axios.defaults.withCredentials = true;
 // ── In-Memory Token Storage (XSS-Safe) ───────────────────────────────────────
 let _accessToken = null;
 
-export const setAccessToken  = (token) => { _accessToken = token; };
-export const clearAccessToken = ()      => { _accessToken = null;  };
-export const getAccessToken  = ()       => _accessToken;
+export const setAccessToken = (token) => {
+  _accessToken = token;
+};
+export const clearAccessToken = () => {
+  _accessToken = null;
+};
+export const getAccessToken = () => _accessToken;
+
+/**
+ * Standardized FaultKit Client Error Class
+ * Represents normalized errors conforming to the FaultKit OpenAPI schema:
+ * { success: false, error: { code, message, details, requestId }, requestId }
+ */
+export class FaultKitClientError extends Error {
+  constructor({ code, message, details, requestId, status }) {
+    super(message || 'An error occurred');
+    this.name = 'FaultKitClientError';
+    this.code = code || 'UNKNOWN_ERROR';
+    this.details = details || null;
+    this.requestId = requestId || null;
+    this.status = status || 500;
+    this.isFaultKit = true;
+  }
+}
+
+/**
+ * Helper to parse and normalize Fetch/Response errors into FaultKitClientError.
+ * Triggers Loki support tracing and emits global 'faultkit:error' CustomEvent.
+ */
+export const parseFaultKitResponse = async (response) => {
+  let data = null;
+  try {
+    data = await response.json();
+  } catch (_) {
+    data = null;
+  }
+
+  const errorData = data?.error;
+  const headerRequestId = response.headers?.get?.('x-request-id') || data?.requestId || null;
+
+  const code =
+    errorData?.code ||
+    data?.code ||
+    (response.status === 401
+      ? 'UNAUTHORIZED'
+      : response.status === 402
+      ? 'INSUFFICIENT_CREDITS'
+      : response.status === 429
+      ? 'RATE_LIMIT_EXCEEDED'
+      : 'UNKNOWN_ERROR');
+
+  const message =
+    errorData?.message ||
+    data?.message ||
+    `HTTP error ${response.status}: ${response.statusText}`;
+
+  const details = errorData?.details || data?.details || null;
+  const requestId = errorData?.requestId || headerRequestId;
+
+  const faultError = new FaultKitClientError({
+    code,
+    message,
+    details,
+    requestId,
+    status: response.status,
+  });
+
+  // Support Reference Tracing
+  if (requestId) {
+    console.error(`[FaultKit] Support Reference ID: ${requestId} (Code: ${code})`);
+  }
+
+  // Global Event Dispatch for UI Toasts & Modals
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(
+      new CustomEvent('faultkit:error', {
+        detail: {
+          code,
+          message,
+          details,
+          requestId,
+          status: response.status,
+        },
+      })
+    );
+  }
+
+  return faultError;
+};
 
 /**
  * Helper to perform native fetch requests with Authorization token and credentials attached.
+ * Automatically injects correlation ID ('x-request-id') header for distributed tracing.
  */
 export const authenticatedFetch = (url, options = {}) => {
   const token = getAccessToken();
   const headers = { ...(options.headers || {}) };
+
   if (token && !headers['Authorization'] && !headers['authorization']) {
     headers['Authorization'] = `Bearer ${token}`;
   }
+
+  if (!headers['x-request-id'] && !headers['X-Request-Id']) {
+    headers['x-request-id'] =
+      typeof crypto !== 'undefined' && crypto.randomUUID
+        ? crypto.randomUUID()
+        : `req-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+  }
+
   return fetch(url, {
     ...options,
     headers,
@@ -27,18 +123,24 @@ export const authenticatedFetch = (url, options = {}) => {
 };
 
 /**
- * Custom Axios instance configured for automatic cookie passing and token refresh.
+ * Custom Axios instance configured for automatic cookie passing, correlation tracking, and token refresh.
  */
 export const apiClient = axios.create({
   withCredentials: true,
   timeout: 8000,
 });
 
-// ── Request Interceptor: Inject Access Token ──────────────────────────────────
+// ── Request Interceptor: Inject Access Token & Correlation ID ────────────────
 apiClient.interceptors.request.use(
   (config) => {
     if (_accessToken) {
       config.headers.Authorization = `Bearer ${_accessToken}`;
+    }
+    if (!config.headers['x-request-id'] && !config.headers['X-Request-Id']) {
+      config.headers['x-request-id'] =
+        typeof crypto !== 'undefined' && crypto.randomUUID
+          ? crypto.randomUUID()
+          : `req-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
     }
     return config;
   },
@@ -61,12 +163,9 @@ const processQueue = (error, token = null) => {
 };
 
 /**
- * Intercept 401 Unauthorized responses to automatically issue a token refresh request
- * to /api/auth/refresh and retry the original request.
- *
- * NOTE: /api/auth/getMe and /api/auth/logout are excluded because:
- * - getMe 401 = user simply not logged in (don't try to refresh on initial load)
- * - logout 401 = already invalid, no point retrying
+ * Response Interceptor:
+ * 1. Automatically handles 401 token refresh queue.
+ * 2. Parses and enriches errors via FaultKit OpenAPI Contract (Recipe 7).
  */
 apiClient.interceptors.response.use(
   (response) => response,
@@ -78,13 +177,6 @@ apiClient.interceptors.response.use(
 
     const url = originalRequest.url || '';
 
-    // Only exclude endpoints that must NEVER be retried with a refreshed token:
-    //   /refresh  — would cause infinite loop
-    //   /google   — OAuth flow, not a token-protected endpoint
-    //   /logout   — already invalidating the session, no point retrying
-    // NOTE: /getMe is intentionally NOT excluded — a 401 on /getMe means
-    // the access token is missing/expired. The interceptor will transparently
-    // refresh it via the httpOnly cookie and retry /getMe automatically.
     const isAuthEndpoint =
       url.includes('/api/auth/refresh') ||
       url.includes('/api/auth/google') ||
@@ -122,10 +214,61 @@ apiClient.interceptors.response.use(
       } catch (refreshError) {
         processQueue(refreshError, null);
         clearAccessToken();
+        localStorage.removeItem('auth_token');
         return Promise.reject(refreshError);
       } finally {
         isRefreshing = false;
       }
+    }
+
+    // ── FaultKit OpenAPI Error Parsing (Recipe 7) ───────────────────────────
+    // Contract: { success: false, error: { code, message, details, requestId }, requestId }
+    const errorData = error?.response?.data?.error;
+    const responseData = error?.response?.data;
+    const statusCode = error?.response?.status;
+    const headerRequestId = error?.response?.headers?.['x-request-id'] || responseData?.requestId;
+
+    if (errorData) {
+      error.code = errorData.code || 'UNKNOWN_ERROR';
+      error.message = errorData.message || 'An error occurred';
+      error.details = errorData.details || null;
+      error.requestId = errorData.requestId || headerRequestId || null;
+      error.status = statusCode;
+
+      // Auth Session Expiry Redirection
+      if (errorData.code === 'UNAUTHORIZED' || errorData.code === 'TOKEN_EXPIRED') {
+        clearAccessToken();
+        localStorage.removeItem('auth_token');
+        if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/login')) {
+          console.warn('[FaultKit] Session expired or unauthorized, redirecting to login');
+        }
+      }
+
+      // Observability & Support Tracing
+      if (error.requestId) {
+        console.error(`[FaultKit] Support Reference ID: ${error.requestId} (Code: ${error.code})`);
+      }
+
+      // Global Event Dispatch for UI Toasts & Banners
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(
+          new CustomEvent('faultkit:error', {
+            detail: {
+              code: error.code,
+              message: error.message,
+              details: error.details,
+              requestId: error.requestId,
+              status: statusCode,
+            },
+          })
+        );
+      }
+    } else {
+      error.code = error.code || 'NETWORK_ERROR';
+      error.message = responseData?.message || error.message || 'Network or connection error. Please try again.';
+      error.details = null;
+      error.requestId = headerRequestId || null;
+      error.status = statusCode;
     }
 
     return Promise.reject(error);

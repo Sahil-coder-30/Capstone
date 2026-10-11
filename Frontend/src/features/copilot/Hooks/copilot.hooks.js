@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useEditor } from '../../editor/Hooks/editor.hooks';
-import { authenticatedFetch } from '../../../services/apiClient';
+import { authenticatedFetch, parseFaultKitResponse } from '../../../services/apiClient';
 import {
   addMessage,
   updateLastMessage,
@@ -59,7 +59,7 @@ export const useCopilot = (projectId) => {
       });
 
       if (!response.ok) {
-        throw new Error(`Server returned ${response.status}`);
+        throw await parseFaultKitResponse(response);
       }
 
       const reader = response.body.getReader();

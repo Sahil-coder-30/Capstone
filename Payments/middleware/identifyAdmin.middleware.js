@@ -15,16 +15,16 @@
  *   router.delete('/refund/:id', identifyAdmin, adminController.refund);
  */
 import { verifyToken } from './verifyToken.middleware.js';
+import { ForbiddenError } from 'faultkit';
 
 export const identifyAdmin = (req, res, next) => {
     // Step 1: Verify JWT signature and claims (same as verifyToken)
-    verifyToken(req, res, () => {
+    verifyToken(req, res, (err) => {
+        if (err) return next(err);
+
         // Step 2: Check that the signed role claim is 'admin'
         if (!req.user || req.user.role !== 'admin') {
-            return res.status(403).json({
-                status: 'error',
-                message: 'Forbidden: Admin access required.',
-            });
+            return next(new ForbiddenError('Forbidden: Admin access required.'));
         }
 
         req.isAdmin = true;

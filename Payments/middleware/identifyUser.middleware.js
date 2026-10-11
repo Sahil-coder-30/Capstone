@@ -17,6 +17,13 @@ import mongoose from 'mongoose';
 import { createPublicKey } from 'crypto';
 import { isTokenBlacklisted } from '../config/redis.js';
 import Account from '../models/account.model.js';
+import {
+    UnauthorizedError,
+    TokenExpiredError,
+    TokenInvalidError,
+    ServiceUnavailableError,
+    AppError,
+} from 'faultkit';
 
 const AUTH_JWKS_URI = process.env.AUTH_JWKS_URI || 'http://localhost:5000/.well-known/jwks.json';
 
@@ -53,7 +60,7 @@ async function fetchJwks(forceRefresh = false) {
         return cachedJwks;
     } catch (err) {
         if (cachedJwks) return cachedJwks;
-        throw new Error(`Failed to fetch JWKS from Auth Service (${AUTH_JWKS_URI}): ${err.message}`);
+        throw new ServiceUnavailableError(`Failed to fetch JWKS from Auth Service (${AUTH_JWKS_URI}): ${err.message}`);
     }
 }
 
@@ -62,7 +69,7 @@ async function fetchJwks(forceRefresh = false) {
  */
 async function resolvePublicKey(token) {
     const header = jwt.decode(token, { complete: true })?.header;
-    if (!header?.kid) throw new Error('Token is missing the kid (key ID) header claim');
+    if (!header?.kid) throw new TokenInvalidError('Token is missing the kid (key ID) header claim');
 
     let keys = await fetchJwks();
     let jwk = keys.find(k => k.kid === header.kid);
@@ -72,7 +79,7 @@ async function resolvePublicKey(token) {
         jwk  = keys.find(k => k.kid === header.kid);
     }
 
-    if (!jwk) throw new Error(`No JWKS entry found for kid="${header.kid}"`);
+    if (!jwk) throw new TokenInvalidError(`No JWKS entry found for kid="${header.kid}"`);
 
     return createPublicKey({ key: jwk, format: 'jwk' }).export({ type: 'spki', format: 'pem' });
 }
@@ -118,29 +125,20 @@ export async function ensureAccount(userId, initialStatus = 'free') {
 // ── Middleware ────────────────────────────────────────────────────────────────
 
 export const identifyUser = async (req, res, next) => {
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-        return res.status(401).json({
-            status:  'error',
-            message: 'Unauthorized: Missing Authorization header. Expected: Bearer <JWT>',
-        });
-    }
-    const token = authHeader.split(' ')[1];
-    if (!token) {
-        return res.status(401).json({
-            status:  'error',
-            message: 'Unauthorized: Bearer token value is empty.',
-        });
-    }
-
     try {
+        const authHeader = req.headers?.authorization;
+        if (!authHeader || !authHeader.startsWith('Bearer ')) {
+            throw new UnauthorizedError('Unauthorized: Missing Authorization header. Expected: Bearer <JWT>');
+        }
+        const token = authHeader.split(' ')[1];
+        if (!token) {
+            throw new UnauthorizedError('Unauthorized: Bearer token value is empty.');
+        }
+
         // ── 1. Blacklist check (Payments-only) ────────────────────────────────
         const blacklisted = await isTokenBlacklisted(token);
         if (blacklisted) {
-            return res.status(401).json({
-                status:  'error',
-                message: 'Unauthorized: Token has been revoked. Please log in again.',
-            });
+            throw new UnauthorizedError('Unauthorized: Token has been revoked. Please log in again.');
         }
 
         // ── 2. Signature verification (kid-aware) ─────────────────────────────
@@ -150,10 +148,7 @@ export const identifyUser = async (req, res, next) => {
         // ── 3. Identity claim validation ──────────────────────────────────────
         const userId = decodedToken?.sub || decodedToken?.id || decodedToken?._id;
         if (!decodedToken || !userId) {
-            return res.status(401).json({
-                status:  'error',
-                message: 'Unauthorized: Token payload is missing required identity claims (sub / id).',
-            });
+            throw new UnauthorizedError('Unauthorized: Token payload is missing required identity claims (sub / id).');
         }
 
         // ── 4. Auto-Provision / Hydrate Account Document in MongoDB ───────────
@@ -167,13 +162,15 @@ export const identifyUser = async (req, res, next) => {
         next();
 
     } catch (error) {
-        const isExpired = error.name === 'TokenExpiredError';
-        return res.status(401).json({
-            status:  'error',
-            message: isExpired
-                ? 'Unauthorized: Access token expired. Please refresh.'
-                : `Unauthorized: ${error.message}`,
-            expired: isExpired,
-        });
+        if (error instanceof AppError) {
+            return next(error);
+        }
+        if (error.name === 'TokenExpiredError') {
+            return next(new TokenExpiredError('Unauthorized: Access token expired. Please refresh.'));
+        }
+        if (error.name === 'JsonWebTokenError') {
+            return next(new TokenInvalidError(`Unauthorized: Invalid token signature or claim (${error.message})`));
+        }
+        return next(new UnauthorizedError(`Unauthorized: ${error.message}`));
     }
 };

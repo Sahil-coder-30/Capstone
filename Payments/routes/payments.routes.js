@@ -4,6 +4,7 @@ import {
     createOrderController,
     verifyPaymentController,
 } from '../controllers/payment.controller.js';
+import { webhookController } from '../controllers/webhook.controller.js';
 import subscriptionRouter from './subscription.routes.js';
 
 const paymentRouter = Router();
@@ -20,6 +21,9 @@ paymentRouter.post('/order',        identifyUser, createOrderController);
 // status server-side before any DB write. This is the ground-truth check.
 paymentRouter.post('/verify',  identifyUser, verifyPaymentController);
 paymentRouter.post('/confirm', identifyUser, verifyPaymentController);
+
+// ── Razorpay Webhook (Server-to-Server HMAC verification) ────────────────────
+paymentRouter.post('/webhook', webhookController);
 
 // ── Subscription & Transaction history routes ───────────────────────────────
 // GET /api/payments/subscription

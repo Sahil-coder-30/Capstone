@@ -11,6 +11,7 @@
 import mongoose from 'mongoose';
 import Credit, { CREDIT_COMPANIES } from '../models/credit.model.js';
 import Transaction from '../models/transaction.model.js';
+import { BadRequestError } from 'faultkit';
 
 const FREE_CREDITS_PER_COMPANY = 20;
 
@@ -33,7 +34,7 @@ export async function adminGrantCredits({
     note = '',
 }) {
     if (!userId || !company || !creditsToGrant) {
-        throw new Error('[credit.service] userId, company, and creditsToGrant are required');
+        throw new BadRequestError('[credit.service] userId, company, and creditsToGrant are required');
     }
 
     const session = await mongoose.startSession();
@@ -97,7 +98,7 @@ export async function adminGrantCredits({
  * @param {string} [params.note]    - Reason for reset
  */
 export async function adminResetCredits({ userId, adminId, note = '' }) {
-    if (!userId) throw new Error('[credit.service] userId is required');
+    if (!userId) throw new BadRequestError('[credit.service] userId is required');
 
     const session = await mongoose.startSession();
     session.startTransaction();

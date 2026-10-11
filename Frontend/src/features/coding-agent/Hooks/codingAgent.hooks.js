@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { io } from 'socket.io-client';
-import { authenticatedFetch } from '../../../services/apiClient';
+import { authenticatedFetch, parseFaultKitResponse } from '../../../services/apiClient';
 import { useEditor } from '../../editor/Hooks/editor.hooks';
 import {
   addMessage,
@@ -183,8 +183,7 @@ export const useCodingAgent = (projectId) => {
         });
 
         if (!response.ok) {
-          const errData = await response.json().catch(() => ({}));
-          throw new Error(errData.message || `HTTP error ${response.status}: ${response.statusText}`);
+          throw await parseFaultKitResponse(response);
         }
 
         const reader = response.body.getReader();
@@ -546,11 +545,14 @@ export const useCodingAgent = (projectId) => {
   const stopAgent = useCallback(async () => {
     if (!projectId) return;
     try {
-      await authenticatedFetch('/api/ai/code-agent/stop', {
+      const response = await authenticatedFetch('/api/ai/code-agent/stop', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ projectId, sandboxId }),
       });
+      if (!response.ok) {
+        throw await parseFaultKitResponse(response);
+      }
     } catch (err) {
       console.error('[CodingAgent] Failed to send stop request:', err);
     }

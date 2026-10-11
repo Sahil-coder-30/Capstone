@@ -172,6 +172,30 @@ export default function App() {
     }
   }, []);
 
+  // ── FaultKit Global Error Listener ────────────────────────────
+  const [faultAlert, setFaultAlert] = useState(null);
+
+  useEffect(() => {
+    let timer;
+    const handleFaultError = (e) => {
+      const detail = e.detail || {};
+      setFaultAlert(detail);
+
+      if (detail.code !== 'INSUFFICIENT_CREDITS' && detail.code !== 'RATE_LIMIT_EXCEEDED') {
+        clearTimeout(timer);
+        timer = setTimeout(() => {
+          setFaultAlert(null);
+        }, 7000);
+      }
+    };
+
+    window.addEventListener('faultkit:error', handleFaultError);
+    return () => {
+      window.removeEventListener('faultkit:error', handleFaultError);
+      clearTimeout(timer);
+    };
+  }, []);
+
   // Sync state to URL search params
   useEffect(() => {
     if (!isAuthenticated) return;
@@ -470,6 +494,100 @@ export default function App() {
   return (
     <>
       <EntryLoader />
+
+      {/* ── Global FaultKit Error Notification Toast ── */}
+      {faultAlert && (
+        <div style={{
+          position: 'fixed',
+          top: '20px',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          zIndex: 99999,
+          maxWidth: '520px',
+          width: '92%',
+          backgroundColor: 'var(--bg-surface, #1e1e24)',
+          color: 'var(--text-primary, #ffffff)',
+          borderRadius: '10px',
+          border: faultAlert.code === 'INSUFFICIENT_CREDITS'
+            ? '1px solid #f59e0b'
+            : faultAlert.code === 'RATE_LIMIT_EXCEEDED'
+            ? '1px solid #f97316'
+            : '1px solid #ef4444',
+          boxShadow: '0 12px 30px rgba(0,0,0,0.35)',
+          padding: '12px 16px',
+          display: 'flex',
+          alignItems: 'flex-start',
+          gap: '12px',
+          fontFamily: 'var(--font-sans)',
+          fontSize: '13px',
+          lineHeight: '1.4',
+        }}>
+          <AlertTriangle
+            size={18}
+            style={{
+              flexShrink: 0,
+              marginTop: '2px',
+              color: faultAlert.code === 'INSUFFICIENT_CREDITS'
+                ? '#f59e0b'
+                : faultAlert.code === 'RATE_LIMIT_EXCEEDED'
+                ? '#f97316'
+                : '#ef4444'
+            }}
+          />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontWeight: '700', fontSize: '13.5px', marginBottom: '2px' }}>
+              {faultAlert.code === 'INSUFFICIENT_CREDITS'
+                ? 'Credit Limit Reached'
+                : faultAlert.code === 'RATE_LIMIT_EXCEEDED'
+                ? 'Rate Limit Exceeded'
+                : 'Request Error'}
+            </div>
+            <div style={{ color: 'var(--text-muted, #94a3b8)', wordBreak: 'break-word' }}>
+              {faultAlert.message}
+            </div>
+            {faultAlert.requestId && (
+              <div style={{ fontSize: '11px', color: 'var(--text-dark, #64748b)', marginTop: '4px' }}>
+                Ref ID: <code>{faultAlert.requestId}</code>
+              </div>
+            )}
+            {faultAlert.code === 'INSUFFICIENT_CREDITS' && (
+              <button
+                onClick={() => {
+                  const paymentsUrl = window.location.origin.replace(/:\d+$/, ':5174');
+                  window.location.href = paymentsUrl;
+                }}
+                style={{
+                  marginTop: '8px',
+                  padding: '5px 12px',
+                  borderRadius: '6px',
+                  backgroundColor: '#f59e0b',
+                  color: '#000000',
+                  fontWeight: '700',
+                  border: 'none',
+                  cursor: 'pointer',
+                  fontSize: '12px',
+                }}
+              >
+                Upgrade to Pro Plan
+              </button>
+            )}
+          </div>
+          <button
+            onClick={() => setFaultAlert(null)}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: 'var(--text-dark, #64748b)',
+              cursor: 'pointer',
+              padding: '2px',
+              borderRadius: '4px',
+              display: 'flex',
+            }}
+          >
+            <X size={15} />
+          </button>
+        </div>
+      )}
       {currentProjectId ? (
         <div className="app-container animate-fade-in">
           <SandboxHeader 

@@ -6,6 +6,11 @@ import Account from '../models/account.model.js';
 import { Subscription } from '../models/subscription.model.js';
 import { getPublicPackages } from '../config/packages.config.js';
 import { getTierConfig, getWindowConfig } from '../config/subscription.config.js';
+import {
+    BadRequestError,
+    UnauthorizedError,
+    logger,
+} from 'faultkit';
 
 // ── Constants ────────────────────────────────────────────────────────────────
 const FREE_CREDITS_PER_COMPANY = 20;
@@ -24,14 +29,14 @@ const normalizeCompany = (company) => {
 const toNonNegativeInteger = (value, fieldName) => {
     const numberValue = Number(value || 0);
     if (!Number.isFinite(numberValue) || numberValue < 0) {
-        throw new Error(`${fieldName} must be a non-negative number`);
+        throw new BadRequestError(`${fieldName} must be a non-negative number`);
     }
     return Math.floor(numberValue);
 };
 
 const validateObjectId = (userId) => {
     if (!mongoose.Types.ObjectId.isValid(userId)) {
-        throw new Error('userId must be a valid ObjectId');
+        throw new BadRequestError('userId must be a valid ObjectId');
     }
 };
 
@@ -191,7 +196,7 @@ export const getCreditController = async (req, res, next) => {
     try {
         const accountId = req.accountId || req.user?.id || req.user?._id;
         if (!accountId) {
-            return res.status(400).json({ status: 'error', message: 'Account ID is missing from session' });
+            throw new UnauthorizedError('Account ID is missing from session');
         }
 
         const [credit, account] = await Promise.all([
@@ -220,7 +225,7 @@ export const checkCreditController = async (req, res, next) => {
     try {
         const accountId = req.accountId || req.user?.id || req.user?._id;
         if (!accountId) {
-            return res.status(400).json({ status: 'error', message: 'Account ID is missing from session' });
+            throw new UnauthorizedError('Account ID is missing from session');
         }
 
         const accountObjId = new mongoose.Types.ObjectId(accountId);
@@ -288,7 +293,7 @@ export const updateCreditController = async (req, res, next) => {
         const accountId = bodyUserId || req.accountId || req.user?.id || req.user?._id;
 
         if (!accountId) {
-            return res.status(400).json({ status: 'error', message: 'Account ID is required for credit updates' });
+            throw new BadRequestError('Account ID is required for credit updates');
         }
 
         validateObjectId(accountId);
@@ -303,10 +308,7 @@ export const updateCreditController = async (req, res, next) => {
             : toNonNegativeInteger(totalTokensInput, 'totalTokens');
 
         if (totalTokenCount < promptTokenCount + completionTokenCount) {
-            return res.status(400).json({
-                status: 'error',
-                message: 'totalTokens cannot be less than promptTokens + completionTokens',
-            });
+            throw new BadRequestError('totalTokens cannot be less than promptTokens + completionTokens');
         }
 
         const credit = await ensureCreditDocument(accountObjId);
@@ -453,18 +455,15 @@ export const updateCreditController = async (req, res, next) => {
 export const updateSubscriptionController = async (req, res, next) => {
     try {
         const accountId = req.accountId || req.user?.id || req.user?._id;
-        const { subscription } = req.body;
+        const { subscription } = req.body || {};
 
         if (!accountId) {
-            return res.status(400).json({ status: 'error', message: 'Account ID is missing from session' });
+            throw new UnauthorizedError('Account ID is missing from session');
         }
 
         const normalizedSub = normalizeSubscription(subscription);
         if (!normalizedSub) {
-            return res.status(400).json({
-                status: 'error',
-                message: 'subscription must be one of: free, pro, max',
-            });
+            throw new BadRequestError('subscription must be one of: free, pro, max');
         }
 
         const accountObjId = new mongoose.Types.ObjectId(accountId);
@@ -551,7 +550,7 @@ export const getTransactionsController = async (req, res, next) => {
     try {
         const accountId = req.accountId || req.user?.id || req.user?._id;
         if (!accountId) {
-            return res.status(400).json({ status: 'error', message: 'Account ID is missing from session' });
+            throw new UnauthorizedError('Account ID is missing from session');
         }
 
         const accountObjId = new mongoose.Types.ObjectId(accountId);
@@ -590,7 +589,7 @@ export const getTransactionSummaryController = async (req, res, next) => {
     try {
         const accountId = req.accountId || req.user?.id || req.user?._id;
         if (!accountId) {
-            return res.status(400).json({ status: 'error', message: 'Account ID is missing from session' });
+            throw new UnauthorizedError('Account ID is missing from session');
         }
 
         const accountObjId = new mongoose.Types.ObjectId(accountId);
@@ -660,7 +659,7 @@ export const getAnalyticsController = async (req, res, next) => {
     try {
         const accountId = req.accountId || req.user?.id || req.user?._id;
         if (!accountId) {
-            return res.status(400).json({ status: 'error', message: 'Account ID is missing from session' });
+            throw new UnauthorizedError('Account ID is missing from session');
         }
 
         const accountObjId = new mongoose.Types.ObjectId(accountId);

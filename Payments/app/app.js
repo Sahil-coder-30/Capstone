@@ -2,7 +2,7 @@ import express from 'express';
 import cookieParser from 'cookie-parser';
 import morgan from 'morgan';
 import { createExpressErrorHandler } from 'faultkit/express';
-import { logger, NotFoundError } from 'faultkit';
+import { logger, NotFoundError, ServiceUnavailableError } from 'faultkit';
 import creditRouter from '../routes/credit.routes.js';
 import adminRouter from '../routes/admin.routes.js';
 import paymentRouter from '../routes/payments.routes.js';
@@ -52,6 +52,14 @@ app.use(createExpressErrorHandler({
     genericServerErrorMessage: 'An unexpected error occurred in Payments service.',
     includeStackInLog: process.env.NODE_ENV !== 'production',
     includeRequestId: true,
+    errorCoercer: (err) => {
+        if (err && typeof err === 'object') {
+            const statusCode = err.statusCode || err.status;
+            if (statusCode === 502 || statusCode === 503 || statusCode === 504) {
+                return new ServiceUnavailableError(err.error?.description || err.message || 'Payment gateway service temporarily unavailable');
+            }
+        }
+    },
 }));
 
 export default app;

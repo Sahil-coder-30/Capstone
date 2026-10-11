@@ -49,7 +49,11 @@ import Transaction from '../models/transaction.model.js';
 import Credit from '../models/credit.model.js';
 import Account from '../models/account.model.js';
 import { getWindowConfig } from '../config/subscription.config.js';
-
+import {
+    InternalServerError,
+    BadRequestError,
+    NotFoundError,
+} from 'faultkit';
 
 const DAYS_PER_PERIOD = 30;
 const MS_PER_DAY     = 24 * 60 * 60 * 1000;
@@ -59,9 +63,9 @@ const MS_PER_DAY     = 24 * 60 * 60 * 1000;
 /** Resolve hashed planId from .env using the package's planIdEnvKey */
 function resolvePlanId(pkg) {
     const key = pkg.planIdEnvKey;
-    if (!key) throw new Error(`[subscription.service] Package '${pkg.id}' missing planIdEnvKey`);
+    if (!key) throw new InternalServerError(`[subscription.service] Package '${pkg.id}' missing planIdEnvKey`);
     const id = (process.env[key] || '').trim();
-    if (!id) throw new Error(`[subscription.service] Env var '${key}' is not set`);
+    if (!id) throw new InternalServerError(`[subscription.service] Env var '${key}' is not set`);
     return id;
 }
 
@@ -90,15 +94,34 @@ function sortSlots(slots) {
 export async function syncCreditTier(accountObjId, tier, periodStart, periodEnd, amountPaise, session) {
     try {
         const credit = await Credit.findOne({ $or: [{ userId: accountObjId }, { accountId: accountObjId }] }).session(session);
-        if (!credit) return;
-        credit.subscription = tier;
-        if (periodStart) credit.billing.currentPeriodStart = periodStart;
-        if (periodEnd)   credit.billing.currentPeriodEnd   = periodEnd;
-        credit.billing.lifetimeCents = (credit.billing.lifetimeCents || 0) + (amountPaise || 0);
-        await credit.save({ session });
+        if (credit) {
+            credit.subscription = tier;
+            if (periodStart) credit.billing.currentPeriodStart = periodStart;
+            if (periodEnd)   credit.billing.currentPeriodEnd   = periodEnd;
+            credit.billing.lifetimeCents = (credit.billing.lifetimeCents || 0) + (amountPaise || 0);
+            await credit.save({ session });
+        }
+
+        // Auto-provision & sync Account document
+        const windowCfg = getWindowConfig(tier);
+        await Account.findOneAndUpdate(
+            { $or: [{ user_id: accountObjId }, { _id: accountObjId }] },
+            {
+                _id: accountObjId,
+                user_id: accountObjId,
+                subscription_status: tier,
+                subscription_expiry: periodEnd || null,
+                windowCreditsTotal: windowCfg.windowCredits,
+                windowCreditsRemaining: windowCfg.windowCredits,
+                windowExhaustedAt: null,
+                windowRefillAt: null,
+                is_active: true,
+            },
+            { upsert: true, returnDocument: 'after', session }
+        );
     } catch (err) {
-        // Non-fatal: Credit doc may live in another service
-        console.warn(`[subscription.service] Could not sync Credit tier for ${accountObjId}: ${err.message}`);
+        // Non-fatal: Credit/Account doc may live in another service
+        console.warn(`[subscription.service] Could not sync Credit/Account tier for ${accountObjId}: ${err.message}`);
     }
 }
 
@@ -126,12 +149,12 @@ export async function processSubscriptionPayment({
     amountPaise,
 }) {
     if (!accountId || !packageId || !paymentId) {
-        throw new Error('[subscription.service] accountId, packageId, and paymentId are required');
+        throw new BadRequestError('[subscription.service] accountId, packageId, and paymentId are required');
     }
 
     const pkg = getPackageById(packageId);
-    if (!pkg) throw new Error(`[subscription.service] Unknown packageId: ${packageId}`);
-    if (pkg.tier === 'free') throw new Error('[subscription.service] Free plan does not need a payment');
+    if (!pkg) throw new NotFoundError(`[subscription.service] Unknown packageId: ${packageId}`);
+    if (pkg.tier === 'free') throw new BadRequestError('[subscription.service] Free plan does not need a payment');
 
     const newPlanId   = resolvePlanId(pkg);
     const newTier     = pkg.tier;

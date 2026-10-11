@@ -7,6 +7,8 @@ echo "=========================================================="
 echo "⚡ Starting Frontend Fix & Clean Installation Script ⚡"
 echo "=========================================================="
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
 echo "👉 Step 1: Stopping existing Vite dev servers..."
 VITE_PIDS=$(pgrep -f vite || true)
 if [ -n "$VITE_PIDS" ]; then
@@ -19,8 +21,8 @@ fi
 
 echo ""
 echo "👉 Step 2: Deleting any leftover node_modules..."
-rm -rf /Users/home/Desktop/Capstone/Frontend/node_modules
-rm -rf /Users/home/Desktop/Capstone/payments_frontend/node_modules
+rm -rf "$SCRIPT_DIR/Frontend/node_modules"
+rm -rf "$SCRIPT_DIR/payments_frontend/node_modules"
 echo "Cleaned node_modules."
 
 echo ""
@@ -29,14 +31,14 @@ npm cache clean --force
 
 echo ""
 echo "👉 Step 4: Installing dependencies for Main Frontend..."
-cd /Users/home/Desktop/Capstone/Frontend
+cd "$SCRIPT_DIR/Frontend"
 echo "Running npm install (bypassing proxy)..."
 env HTTP_PROXY="" HTTPS_PROXY="" http_proxy="" https_proxy="" npm install
 echo "✅ Main Frontend dependencies installed successfully!"
 
 echo ""
 echo "👉 Step 5: Installing dependencies for Payments Frontend..."
-cd /Users/home/Desktop/Capstone/payments_frontend
+cd "$SCRIPT_DIR/payments_frontend"
 echo "Running npm install (bypassing proxy)..."
 env HTTP_PROXY="" HTTPS_PROXY="" http_proxy="" https_proxy="" npm install
 echo "✅ Payments Frontend dependencies installed successfully!"

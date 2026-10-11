@@ -4,10 +4,11 @@ dotenv.config();
 
 const QUEUE = 'payment_notification_queue';
 
+let connection;
 let channel;
 
 try {
-    const connection = await amqplib.connect(process.env.MQ_URL);
+    connection = await amqplib.connect(process.env.MQ_URL);
     channel = await connection.createChannel();
     await channel.assertQueue(QUEUE, { durable: true });
     console.log(`[Payments MQ] Connected to RabbitMQ queue: ${QUEUE}`);
@@ -25,6 +26,13 @@ export const sendPaymentNotification = async (message) => {
         Buffer.from(JSON.stringify(message)),
         { persistent: true }
     );
+};
+
+export const closeMQ = async () => {
+    try {
+        if (channel) await channel.close();
+        if (connection) await connection.close();
+    } catch (_) {}
 };
 
 export default channel;

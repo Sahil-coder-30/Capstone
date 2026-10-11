@@ -1,5 +1,5 @@
 import { useDispatch, useSelector } from 'react-redux';
-import { authenticatedFetch } from '../../../services/apiClient';
+import { authenticatedFetch, parseFaultKitResponse } from '../../../services/apiClient';
 import { 
   addMessage, 
   updateLastMessage, 
@@ -51,8 +51,7 @@ export const useChat = () => {
         });
 
         if (!response.ok) {
-          const errData = await response.json().catch(() => ({}));
-          throw new Error(errData.message || `HTTP error ${response.status}: ${response.statusText}`);
+          throw await parseFaultKitResponse(response);
         }
 
         const reader = response.body.getReader();
@@ -185,6 +184,10 @@ export const useChat = () => {
           activeFileContent: activeFile ? (tabContents[activeFile] ?? '') : '',
         }),
       });
+
+      if (!response.ok) {
+        throw await parseFaultKitResponse(response);
+      }
 
       const reader = response.body.getReader();
       const decoder = new TextDecoder('utf-8');

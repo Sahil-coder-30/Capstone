@@ -11,6 +11,13 @@
 
 import jwt from 'jsonwebtoken';
 import { createPublicKey } from 'crypto';
+import {
+    UnauthorizedError,
+    TokenExpiredError,
+    TokenInvalidError,
+    ForbiddenError,
+    AppError,
+} from 'faultkit';
 
 const AUTH_JWKS_URI = process.env.AUTH_JWKS_URI || 'http://localhost:5000/.well-known/jwks.json';
 
@@ -62,18 +69,18 @@ async function getPublicKeyFromJWKS() {
  * Express middleware: verifyToken
  */
 export const verifyToken = async (req, res, next) => {
-    const authHeader = req.headers.authorization;
-
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-        return res.status(401).json({
-            status: 'error',
-            message: 'Unauthorized: Missing Authorization header. Expected: Bearer <JWT>',
-        });
-    }
-
-    const token = authHeader.split(' ')[1];
-
     try {
+        const authHeader = req.headers?.authorization;
+
+        if (!authHeader || !authHeader.startsWith('Bearer ')) {
+            throw new UnauthorizedError('Unauthorized: Missing Authorization header. Expected: Bearer <JWT>');
+        }
+
+        const token = authHeader.split(' ')[1];
+        if (!token) {
+            throw new UnauthorizedError('Unauthorized: Bearer token value is empty.');
+        }
+
         const publicKeyPem = await getPublicKeyFromJWKS();
         const decoded = jwt.verify(token, publicKeyPem, JWT_VERIFY_OPTIONS);
 
@@ -86,14 +93,16 @@ export const verifyToken = async (req, res, next) => {
 
         next();
     } catch (err) {
-        const isExpired = err.name === 'TokenExpiredError';
-        return res.status(401).json({
-            status: 'error',
-            message: isExpired
-                ? 'Unauthorized: Access token expired. Please refresh.'
-                : `Unauthorized: Invalid token signature or claim (${err.message})`,
-            expired: isExpired,
-        });
+        if (err instanceof AppError) {
+            return next(err);
+        }
+        if (err.name === 'TokenExpiredError') {
+            return next(new TokenExpiredError('Unauthorized: Access token expired. Please refresh.'));
+        }
+        if (err.name === 'JsonWebTokenError') {
+            return next(new TokenInvalidError(`Unauthorized: Invalid token signature or claim (${err.message})`));
+        }
+        return next(new UnauthorizedError(`Unauthorized: ${err.message}`));
     }
 };
 
@@ -101,12 +110,10 @@ export const verifyToken = async (req, res, next) => {
  * Express middleware: verifyAdmin
  */
 export const verifyAdmin = (req, res, next) => {
-    verifyToken(req, res, () => {
+    verifyToken(req, res, (err) => {
+        if (err) return next(err);
         if (req.user?.role !== 'admin') {
-            return res.status(403).json({
-                status: 'error',
-                message: 'Forbidden: Admin access required.',
-            });
+            return next(new ForbiddenError('Forbidden: Admin access required.'));
         }
         next();
     });

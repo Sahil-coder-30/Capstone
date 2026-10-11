@@ -21,6 +21,11 @@ import {
     getUsageAnalytics,
     getDashboardOverview,
 } from '../services/subscription.service.js';
+import {
+    UnauthorizedError,
+    NotFoundError,
+    logger,
+} from 'faultkit';
 
 const subscriptionRouter = Router();
 
@@ -31,18 +36,18 @@ subscriptionRouter.use(identifyUser);
  * GET /api/payments/dashboard/overview
  * Consolidated boot payload: plan, credit buckets, 30d analytics, recent txs and logs.
  */
-subscriptionRouter.get('/dashboard/overview', async (req, res) => {
+subscriptionRouter.get('/dashboard/overview', async (req, res, next) => {
     try {
         const accountId = req.accountId || req.user?.id || req.user?._id;
         if (!accountId) {
-            return res.status(401).json({ status: 'error', message: 'Account ID not resolved from token' });
+            throw new UnauthorizedError('Account ID not resolved from token');
         }
 
         const data = await getDashboardOverview(accountId);
         return res.status(200).json({ status: 'success', data });
     } catch (err) {
-        console.error('[subscriptionRouter] GET /dashboard/overview error:', err.message);
-        return res.status(500).json({ status: 'error', message: 'Failed to fetch dashboard overview' });
+        logger.error({ err }, '[subscriptionRouter] GET /dashboard/overview error');
+        next(err);
     }
 });
 
@@ -50,11 +55,11 @@ subscriptionRouter.get('/dashboard/overview', async (req, res) => {
  * GET /api/payments/subscription
  * Current plan queue status with lazy expiry promotion.
  */
-subscriptionRouter.get('/subscription', async (req, res) => {
+subscriptionRouter.get('/subscription', async (req, res, next) => {
     try {
         const accountId = req.accountId || req.user?.id || req.user?._id;
         if (!accountId) {
-            return res.status(401).json({ status: 'error', message: 'Account ID not resolved from token' });
+            throw new UnauthorizedError('Account ID not resolved from token');
         }
 
         const sub = await getActiveSubscription(accountId);
@@ -105,8 +110,8 @@ subscriptionRouter.get('/subscription', async (req, res) => {
         });
 
     } catch (err) {
-        console.error('[subscriptionRouter] GET /subscription error:', err.message);
-        return res.status(500).json({ status: 'error', message: 'Failed to fetch subscription' });
+        logger.error({ err }, '[subscriptionRouter] GET /subscription error');
+        next(err);
     }
 });
 
@@ -114,15 +119,15 @@ subscriptionRouter.get('/subscription', async (req, res) => {
  * GET /api/payments/transactions
  * Paginated transaction audit history.
  */
-subscriptionRouter.get('/transactions', async (req, res) => {
+subscriptionRouter.get('/transactions', async (req, res, next) => {
     try {
         const accountId = req.accountId || req.user?.id || req.user?._id;
         if (!accountId) {
-            return res.status(401).json({ status: 'error', message: 'Account ID not resolved from token' });
+            throw new UnauthorizedError('Account ID not resolved from token');
         }
 
-        const page      = Math.max(1, parseInt(req.query.page)  || 1);
-        const limit     = Math.min(100, Math.max(1, parseInt(req.query.limit) || 20));
+        const page      = Math.max(1, parseInt(req.query.page, 10)  || 1);
+        const limit     = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 20));
         const type      = req.query.type || undefined;
         const status    = req.query.status || undefined;
         const startDate = req.query.startDate || undefined;
@@ -136,8 +141,8 @@ subscriptionRouter.get('/transactions', async (req, res) => {
         });
 
     } catch (err) {
-        console.error('[subscriptionRouter] GET /transactions error:', err.message);
-        return res.status(500).json({ status: 'error', message: 'Failed to fetch transaction history' });
+        logger.error({ err }, '[subscriptionRouter] GET /transactions error');
+        next(err);
     }
 });
 
@@ -145,22 +150,22 @@ subscriptionRouter.get('/transactions', async (req, res) => {
  * GET /api/payments/transactions/:id
  * Single transaction / invoice receipt details.
  */
-subscriptionRouter.get('/transactions/:id', async (req, res) => {
+subscriptionRouter.get('/transactions/:id', async (req, res, next) => {
     try {
         const accountId = req.accountId || req.user?.id || req.user?._id;
         if (!accountId) {
-            return res.status(401).json({ status: 'error', message: 'Account ID not resolved from token' });
+            throw new UnauthorizedError('Account ID not resolved from token');
         }
 
         const tx = await getTransactionById(accountId, req.params.id);
         if (!tx) {
-            return res.status(404).json({ status: 'error', message: 'Transaction not found' });
+            throw new NotFoundError('Transaction not found');
         }
 
         return res.status(200).json({ status: 'success', data: tx });
     } catch (err) {
-        console.error('[subscriptionRouter] GET /transactions/:id error:', err.message);
-        return res.status(500).json({ status: 'error', message: 'Failed to fetch transaction' });
+        logger.error({ err }, '[subscriptionRouter] GET /transactions/:id error');
+        next(err);
     }
 });
 
@@ -168,15 +173,15 @@ subscriptionRouter.get('/transactions/:id', async (req, res) => {
  * GET /api/payments/usage-events
  * Paginated granular AI usage events (prompt, completion, model, company, agent).
  */
-subscriptionRouter.get('/usage-events', async (req, res) => {
+subscriptionRouter.get('/usage-events', async (req, res, next) => {
     try {
         const accountId = req.accountId || req.user?.id || req.user?._id;
         if (!accountId) {
-            return res.status(401).json({ status: 'error', message: 'Account ID not resolved from token' });
+            throw new UnauthorizedError('Account ID not resolved from token');
         }
 
-        const page      = Math.max(1, parseInt(req.query.page)  || 1);
-        const limit     = Math.min(100, Math.max(1, parseInt(req.query.limit) || 20));
+        const page      = Math.max(1, parseInt(req.query.page, 10)  || 1);
+        const limit     = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 20));
         const company   = req.query.company || undefined;
         const agentType = req.query.agentType || undefined;
         const search    = req.query.search || undefined;
@@ -190,8 +195,8 @@ subscriptionRouter.get('/usage-events', async (req, res) => {
             data: result,
         });
     } catch (err) {
-        console.error('[subscriptionRouter] GET /usage-events error:', err.message);
-        return res.status(500).json({ status: 'error', message: 'Failed to fetch usage events' });
+        logger.error({ err }, '[subscriptionRouter] GET /usage-events error');
+        next(err);
     }
 });
 
@@ -199,20 +204,20 @@ subscriptionRouter.get('/usage-events', async (req, res) => {
  * GET /api/payments/usage-events/analytics
  * Time-series and distribution analytics for charts.
  */
-subscriptionRouter.get('/usage-events/analytics', async (req, res) => {
+subscriptionRouter.get('/usage-events/analytics', async (req, res, next) => {
     try {
         const accountId = req.accountId || req.user?.id || req.user?._id;
         if (!accountId) {
-            return res.status(401).json({ status: 'error', message: 'Account ID not resolved from token' });
+            throw new UnauthorizedError('Account ID not resolved from token');
         }
 
-        const days = Math.min(365, Math.max(1, parseInt(req.query.days) || 30));
+        const days = Math.min(365, Math.max(1, parseInt(req.query.days, 10) || 30));
         const data = await getUsageAnalytics(accountId, { days });
 
         return res.status(200).json({ status: 'success', data });
     } catch (err) {
-        console.error('[subscriptionRouter] GET /usage-events/analytics error:', err.message);
-        return res.status(500).json({ status: 'error', message: 'Failed to fetch usage analytics' });
+        logger.error({ err }, '[subscriptionRouter] GET /usage-events/analytics error');
+        next(err);
     }
 });
 

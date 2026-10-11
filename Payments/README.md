@@ -3,7 +3,7 @@
 > Owns every credit, subscription, and financial billing decision in the platform — combining a Razorpay HMAC-verified Payment Backend Microservice (`Payments`) with a dedicated, performance-isolated Standalone Checkout React Application (`payments_frontend` running on `checkout.yourdomain.com`).
 
 ![Version](https://img.shields.io/badge/version-1.1.0-blue)
-![Status](https://img.shields.io/badge/status-Production-brightgreen)
+![Status](https://img.shields.io/badge/status-Test%20Mode-yellow)
 ![Runtime](https://img.shields.io/badge/runtime-Node.js%2020%20ESM%20%7C%20Vite%20React%2019-informational)
 ![Architecture](https://img.shields.io/badge/architecture-4--Layered%20Feature%20Driven-purple)
 

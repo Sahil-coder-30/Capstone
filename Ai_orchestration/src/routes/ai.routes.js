@@ -1,16 +1,23 @@
 import { Router } from "express";
 import { identifyUser } from "../middleware/auth.middleware.js";
+import { aiRateLimiter } from "../middleware/rateLimit.middleware.js";
+import { creditLedger } from "../middleware/creditLedger.middleware.js";
 import * as aiController from "../controllers/ai.controller.js";
 import * as chatController from "../controllers/chat.controller.js";
 
 const aiRouter = Router();
 
-aiRouter.post("/app-agent/invoke", identifyUser, aiController.appAgentInvoke);
-aiRouter.post("/app-agent/title", identifyUser, aiController.appAgentTitle);
-aiRouter.post("/code-agent/invoke", identifyUser, aiController.codeAgentInvoke);
+// ── AI Model Orchestration Routes (Auth -> Rate Limit -> Credit Ledger) ──
+aiRouter.post("/app-agent/invoke", identifyUser, aiRateLimiter, creditLedger, aiController.appAgentInvoke);
+aiRouter.post("/app-agent/title", identifyUser, aiRateLimiter, creditLedger, aiController.appAgentTitle);
+aiRouter.post("/code-agent/invoke", identifyUser, aiRateLimiter, creditLedger, aiController.codeAgentInvoke);
+
+// ── Agent Run Controls ──
 aiRouter.post("/code-agent/stop", identifyUser, aiController.codeAgentStop);
 aiRouter.post("/code-agent/plan-approve", identifyUser, aiController.codeAgentPlanApprove);
 aiRouter.post("/code-agent/plan-reject", identifyUser, aiController.codeAgentPlanReject);
+
+// ── Chat History Management ──
 aiRouter.get("/chats/trash", identifyUser, chatController.getTrashChats);
 aiRouter.get("/chats/:projectId/:agentType", identifyUser, chatController.getChats);
 aiRouter.delete("/chats/:projectId/:agentType", identifyUser, chatController.deleteChats);

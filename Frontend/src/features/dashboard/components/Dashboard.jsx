@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { getCachedProjects, setCachedProjects, upsertCachedProject } from '../../editor/service/dbService';
-import { authenticatedFetch } from '../../../services/apiClient';
+import { authenticatedFetch, parseFaultKitResponse } from '../../../services/apiClient';
 import {
   Cpu, Plus, Loader2, Folder, AlertTriangle, LogOut,
   Code, Play, RefreshCw, X, Square, Trash2, MoreVertical,
@@ -482,6 +482,8 @@ export default function Dashboard({
         if (titleData?.title) {
           title = titleData.title;
         }
+      } else {
+        await parseFaultKitResponse(responseTitle);
       }
     } catch (err) {
       console.warn("Failed to generate title, using fallback:", err);
