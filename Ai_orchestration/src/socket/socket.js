@@ -351,13 +351,13 @@ export const initSocketIO = (server) => {
           ? { hasCredit: true, billable: true, subscription: socket.user.subscription }
           : await checkAiCredit({
               authToken: socket.authToken,
-              company: "mistral",
+              company: "openrouter",
             });
 
         if (!creditCheck.hasCredit) {
           const error = new Error(`Insufficient credits. Free users receive 20 credits per model company. Please upgrade to Pro to continue.`);
           error.code = "INSUFFICIENT_CREDITS";
-          error.company = "mistral";
+          error.company = "openrouter";
           throw error;
         }
 

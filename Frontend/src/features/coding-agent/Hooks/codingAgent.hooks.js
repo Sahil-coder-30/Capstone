@@ -227,7 +227,7 @@ export const useCodingAgent = (projectId) => {
               assistantText += (typeof payload === 'string' ? payload : rawData);
               publishAssistant();
             } else if (event === 'agent:model') {
-              const modelLabel = payload.label || payload.modelId || 'Mistral Large';
+              const modelLabel = payload.label || payload.modelId || 'GPT-6 Luna (OpenRouter)';
               const providerText = payload.provider ? ` (${payload.provider})` : '';
               toolLogs = [...toolLogs, `model: using ${modelLabel}${providerText}`].filter(Boolean);
               pushActivity({

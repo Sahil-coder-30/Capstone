@@ -24,11 +24,11 @@ passport.use(new GoogleStrategy({
     clientSecret: process.env.GOOGLE_CLIENT_SECRET,
     callbackURL: "/api/auth/google/callback",
     proxy: true
-} , (accessToken , refreshToken , profile , done) => {
-    return done(null , profile);
+}, (accessToken, refreshToken, profile, done) => {
+    return done(null, profile);
 }))
 
-app.use("/api/auth" , authRouter);
+app.use("/api/auth", authRouter);
 app.use("/api/auth/profile", identifyUser, profileRouter);
 app.use("/api/auth/preferences", identifyUser, preferencesRouter);
 
@@ -37,15 +37,15 @@ app.use("/api/auth/preferences", identifyUser, preferencesRouter);
 // for local JWT verification (zero DB calls on their end).
 app.use("/.well-known/jwks.json", jwksRouter);
 
-app.get("/healthz" , (req , res) =>{
+app.get("/healthz", (req, res) => {
     res.status(200).json({
-        message : "Server is healthy"
+        message: "Server is healthy"
     })
 })
 
-app.get("/readyz" , (req , res) =>{
+app.get("/readyz", (req, res) => {
     res.status(200).json({
-        message : "Server is ready to use"
+        message: "Server is ready to use"
     })
 })
 

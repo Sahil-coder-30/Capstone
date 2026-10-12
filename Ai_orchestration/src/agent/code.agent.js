@@ -24,7 +24,7 @@ if (typeof AbortSignal !== "undefined" && typeof AbortSignal.timeout === "functi
 
 import path from "path";
 import { fileURLToPath } from "url";
-import { ChatMistralAI } from "@langchain/mistralai";
+import { ChatOpenRouter } from "@langchain/openrouter";
 import {
   StateGraph,
   Annotation,
@@ -94,6 +94,12 @@ const isModelTimeoutError = (error) =>
 const MAX_RATE_LIMIT_WAIT_MS = 30 * 60 * 1000;
 
 const MODEL_SAFETY = {
+  gpt6Luna: {
+    baseIntervalMs: 1_200,
+    maxIntervalMs: 20_000,
+    maxRetryDelayMs: 90_000,
+    callTimeoutMs: 110_000,
+  },
   mistralLarge: {
     baseIntervalMs: 1_500,
     maxIntervalMs: 20_000,
@@ -112,7 +118,7 @@ export const onRateLimitEvent = (listener) => {
 
 const getSafetyState = (modelId) => {
   if (!modelSafetyState.has(modelId)) {
-    const safety = MODEL_SAFETY[modelId] || MODEL_SAFETY.mistralLarge;
+    const safety = MODEL_SAFETY[modelId] || MODEL_SAFETY.gpt6Luna;
     modelSafetyState.set(modelId, {
       chain: Promise.resolve(),
       lastStartedAt: 0,
@@ -167,7 +173,7 @@ const throwPersistentRateLimit = (modelId, waitedMs) => {
 };
 
 const runWithModelSafety = async (modelId, operation) => {
-  const safety = MODEL_SAFETY[modelId] || MODEL_SAFETY.mistralLarge;
+  const safety = MODEL_SAFETY[modelId] || MODEL_SAFETY.gpt6Luna;
   const state = getSafetyState(modelId);
 
   const run = state.chain.then(async () => {
@@ -202,7 +208,7 @@ const runWithModelSafety = async (modelId, operation) => {
 };
 
 const streamWithModelSafety = async function* (modelId, operation) {
-  const safety = MODEL_SAFETY[modelId] || MODEL_SAFETY.mistralLarge;
+  const safety = MODEL_SAFETY[modelId] || MODEL_SAFETY.gpt6Luna;
   const state = getSafetyState(modelId);
 
   let releaseSlot = () => {};
@@ -267,21 +273,22 @@ export const applyModelSafety = (model, modelId) => {
 // This runs at module load time, before any node file uses getAppModel().
 // ============================================================================
 {
-  const mistralApiKey = process.env.MISTRALAI_API_KEY?.trim();
-  if (mistralApiKey) {
+  const openRouterApiKey = (process.env.OPENROUTER_API_KEY || process.env.OPEN_ROUTER)?.trim();
+  if (openRouterApiKey) {
     try {
-      const rawModel = new ChatMistralAI({
-        model: "mistral-large-latest",
-        apiKey: mistralApiKey,
+      const rawModel = new ChatOpenRouter({
+        model: "openai/gpt-6-luna",
+        apiKey: openRouterApiKey,
+        temperature: 0.1,
         maxRetries: 0,
         timeout: 180_000,
       });
-      const wrappedModel = applyModelSafety(rawModel, "mistralLarge");
+      const wrappedModel = applyModelSafety(rawModel, "gpt6Luna");
       initModelWithSafety(wrappedModel, {
-        id: "mistralLarge",
-        modelId: "mistral-large-latest",
-        label: "Mistral Large",
-        provider: "mistral",
+        id: "gpt6Luna",
+        modelId: "openai/gpt-6-luna",
+        label: "GPT-6 Luna (OpenRouter)",
+        provider: "openrouter",
       });
     } catch (e) {
       console.warn("[ModelInit] Failed to initialise model at startup:", e.message);
@@ -522,12 +529,12 @@ export const buildAgentGraph = () => {
 // AGENT FACTORY
 // ============================================================================
 
-const hasMistralKey = Boolean(process.env.MISTRALAI_API_KEY?.trim());
+const hasOpenRouterKey = Boolean((process.env.OPENROUTER_API_KEY || process.env.OPEN_ROUTER)?.trim());
 let compiledGraphInstance = null;
 
 export const createAgentForModel = () => {
-  if (!hasMistralKey) {
-    const error = new Error("No configured coding agent model available. Set MISTRALAI_API_KEY.");
+  if (!hasOpenRouterKey) {
+    const error = new Error("No configured coding agent model available. Set OPENROUTER_API_KEY.");
     error.code = "AI_PROVIDER_NOT_CONFIGURED";
     throw error;
   }
@@ -552,9 +559,9 @@ export const createAgentForModel = () => {
     invoke: (input, config) => compiledGraphInstance.invoke(input, ensureConfig(config)),
     taskState: { planSubmitted: true, plan: null, planRevisions: 0 },
     model: {
-      id: "mistralLarge",
-      label: "Mistral Large",
-      provider: "mistral",
+      id: "gpt6Luna",
+      label: "GPT-6 Luna (OpenRouter)",
+      provider: "openrouter",
       requestedModelId: null,
       fallback: false,
     },

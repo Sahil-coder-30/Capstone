@@ -26,6 +26,12 @@ spec:
             cpu: "500m"
             memory: "256M"
         env:
+          - name: OPENROUTER_API_KEY
+            valueFrom:
+              secretKeyRef:
+                name: ai-secret
+                key: OPENROUTER_API_KEY
+                optional: true
           - name: MISTRALAI_API_KEY
             valueFrom:
               secretKeyRef:

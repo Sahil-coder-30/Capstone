@@ -548,7 +548,7 @@ export const codeAgentInvoke = async (req, res) => {
     const isMeteredPlan = req.user?.subscription === "pro" || req.user?.subscription === "max";
     const creditCheck = isMeteredPlan
       ? { hasCredit: true, billable: true }
-      : await checkAiCredit({ authToken: req.authToken, company: model?.provider || "mistral" });
+      : await checkAiCredit({ authToken: req.authToken, company: model?.provider || "openrouter" });
 
     if (!creditCheck.hasCredit) {
       const error = new Error("Insufficient AI credits. Please upgrade to Pro to continue.");
@@ -557,17 +557,17 @@ export const codeAgentInvoke = async (req, res) => {
     }
 
     sendEvent("agent:model", {
-      requestedModel: "mistralLarge",
-      modelId: model?.id || "mistral-large-latest",
-      label: model?.label || "Mistral Large",
-      provider: model?.provider || "mistral",
+      requestedModel: model?.id || "gpt6Luna",
+      modelId: model?.modelId || model?.id || "openai/gpt-6-luna",
+      label: model?.label || "GPT-6 Luna (OpenRouter)",
+      provider: model?.provider || "openrouter",
       fallback: false,
     });
 
     sendEvent("agent:status", {
       phase: "model",
       title: "Model ready",
-      detail: `${model?.label || "Mistral Large"} is starting the agent graph`,
+      detail: `${model?.label || "GPT-6 Luna (OpenRouter)"} is starting the agent graph`,
     });
 
     const threadId = `${containerId || projId}:${Date.now()}`;
@@ -794,8 +794,8 @@ export const codeAgentInvoke = async (req, res) => {
         await recordAiUsage({
           authToken: req.authToken,
           userId,
-          company: "mistral",
-          modelId: "mistral-large-latest",
+          company: model?.provider || "openrouter",
+          modelId: model?.modelId || model?.id || "openai/gpt-6-luna",
           agentType: "codingAgent",
           projectId: projId,
           promptTokens,

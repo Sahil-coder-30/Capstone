@@ -15,7 +15,6 @@ build:
         infer:
           - "src/**"
           - "server.js"
-          - "package.json"
 
     - image: agent
       context: Sandbox/Agent

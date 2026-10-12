@@ -1,7 +1,7 @@
 import axios from "axios";
 import { tool } from "@langchain/core/tools";
 import * as z from "zod";
-import { ChatMistralAI } from "@langchain/mistralai";
+import { ChatOpenRouter } from "@langchain/openrouter";
 import CommandSummary from "../models/CommandSummary.model.js";
 import { searchInternet } from "../services/internetSearch.service.js";
 
@@ -283,14 +283,15 @@ export const createFile = tool(
 let summaryModelInstance = null;
 const getSummaryModel = () => {
   if (!summaryModelInstance) {
-    const mistralApiKey = process.env.MISTRALAI_API_KEY?.trim();
-    if (!mistralApiKey) {
-      throw new Error("No AI provider key configured. Set MISTRALAI_API_KEY.");
+    const openRouterApiKey = (process.env.OPENROUTER_API_KEY || process.env.OPEN_ROUTER)?.trim();
+    if (!openRouterApiKey) {
+      throw new Error("No AI provider key configured. Set OPENROUTER_API_KEY.");
     }
-    summaryModelInstance = new ChatMistralAI({
-      model: "codestral-latest",
-      apiKey: mistralApiKey,
-      maxRetries: 6,
+    summaryModelInstance = new ChatOpenRouter({
+      model: "openai/gpt-6-luna",
+      apiKey: openRouterApiKey,
+      temperature: 0.1,
+      maxRetries: 3,
       timeout: 180_000, // 3 minutes
       tags: ["tool_summary_internal"],
     });
