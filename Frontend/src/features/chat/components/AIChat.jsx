@@ -45,7 +45,7 @@ export default function AIChat({ projectId }) {
 
   const [expandedLogs, setExpandedLogs] = useState({});
   const [copiedCodeIdx, setCopiedCodeIdx] = useState(null);
-  const [selectedModel, setSelectedModel] = useState('GPT-6 Luna (OpenRouter)');
+  const [selectedModel, setSelectedModel] = useState('Codestral (Mistral)');
   const [isModelDropdownOpen, setIsModelDropdownOpen] = useState(false);
   
   const scrollContainerRef = useRef(null);
@@ -362,7 +362,7 @@ export default function AIChat({ projectId }) {
 
   // ─── Models list ────────────────────────────────────────────────────────────
   const MODELS = [
-    { id: 'openrouter', label: 'GPT-6 Luna (OpenRouter)', tag: 'Default', color: '#10b981' },
+    { id: 'mistral', label: 'Codestral (Mistral)', tag: 'Default', color: '#10b981' },
     { id: 'gemini',     label: 'Gemini 3.5 Flash (High)',  tag: 'Fast',    color: '#60a5fa' },
     { id: 'claude',     label: 'Claude 3.5 Sonnet',         tag: 'Smart',   color: '#a78bfa' },
   ];

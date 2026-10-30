@@ -2913,6 +2913,7 @@
       color: #6e7781 !important;
     }
   }
+}
 
 // ─── Plan Review Gate Overlay (Overhauled Masterclass UI/UX) ────────────────
 .ai-chat {
@@ -3019,6 +3020,258 @@
     padding: 3px 8px;
     border-radius: 6px;
     white-space: nowrap;
+  }
+
+  // ─── Live thinking stream ─────────────────────────────────────────────────
+  &__reasoning {
+    margin: 0 0 12px;
+    border-radius: 10px;
+    border: 1px solid rgba(167, 139, 250, 0.2);
+    background: linear-gradient(180deg, rgba(167, 139, 250, 0.07) 0%, rgba(167, 139, 250, 0.02) 100%);
+    overflow: hidden;
+    min-width: 0;
+    transition: border-color 0.2s ease;
+
+    &--live {
+      border-color: rgba(167, 139, 250, 0.4);
+
+      .ai-chat__reasoning-icon {
+        animation: ai-chat-reasoning-pulse 1.4s ease-in-out infinite;
+      }
+    }
+
+    &--open .ai-chat__reasoning-chevron {
+      transform: rotate(180deg);
+    }
+  }
+
+  &__reasoning-toggle {
+    appearance: none;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 9px 12px;
+    margin: 0;
+    border: none;
+    border-radius: 0;
+    background: transparent;
+    color: #c4b5fd;
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.2;
+    letter-spacing: 0.01em;
+    text-align: left;
+    cursor: pointer;
+    transition: background 0.15s ease;
+
+    &:hover {
+      background: rgba(167, 139, 250, 0.08);
+    }
+
+    &:focus-visible {
+      outline: 2px solid rgba(167, 139, 250, 0.6);
+      outline-offset: -2px;
+    }
+  }
+
+  &__reasoning-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    flex-shrink: 0;
+    border-radius: 6px;
+    background: rgba(167, 139, 250, 0.16);
+    color: #a78bfa;
+  }
+
+  &__reasoning-label {
+    flex-shrink: 0;
+  }
+
+  &__reasoning-dots {
+    display: inline-flex;
+    gap: 3px;
+    align-items: center;
+
+    i {
+      width: 4px;
+      height: 4px;
+      border-radius: 50%;
+      background: #a78bfa;
+      animation: ai-chat-reasoning-dot 1.2s ease-in-out infinite;
+
+      &:nth-child(2) { animation-delay: 0.15s; }
+      &:nth-child(3) { animation-delay: 0.3s; }
+    }
+  }
+
+  &__reasoning-preview {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-weight: 400;
+    font-size: 11.5px;
+    color: var(--text-muted, #94a3b8);
+  }
+
+  &__reasoning-chevron {
+    margin-left: auto;
+    flex-shrink: 0;
+    color: var(--text-muted, #94a3b8);
+    transition: transform 0.2s ease;
+  }
+
+  &__reasoning-body {
+    max-height: 260px;
+    overflow-y: auto;
+    padding: 4px 14px 12px 14px;
+    margin: 0 0 0 12px;
+    border-left: 2px solid rgba(167, 139, 250, 0.25);
+    font-size: 12.5px;
+    line-height: 1.6;
+    color: var(--text-muted, #a1a1aa);
+    scrollbar-width: thin;
+
+    &::-webkit-scrollbar { width: 5px; }
+    &::-webkit-scrollbar-thumb { background: rgba(167, 139, 250, 0.3); border-radius: 4px; }
+  }
+
+  &__reasoning-para {
+    margin: 0 0 10px;
+    overflow-wrap: anywhere;
+    white-space: pre-wrap;
+
+    &:last-child { margin-bottom: 0; }
+
+    code, .ai-chat__inline-code {
+      font-size: 11.5px;
+    }
+  }
+
+  &__reasoning-status {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    margin: 0 0 10px;
+    padding: 8px 10px;
+    border-radius: 8px;
+    font-size: 12px;
+    line-height: 1.5;
+    background: rgba(16, 185, 129, 0.08);
+    border: 1px solid rgba(16, 185, 129, 0.25);
+    color: var(--text-main, #e4e4e7);
+
+    &:last-child { margin-bottom: 0; }
+
+    &--blocked {
+      background: rgba(245, 158, 11, 0.08);
+      border-color: rgba(245, 158, 11, 0.3);
+    }
+  }
+
+  &__reasoning-status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
+    padding: 1px 7px;
+    border-radius: 999px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: #34d399;
+    background: rgba(16, 185, 129, 0.16);
+
+    .ai-chat__reasoning-status--blocked & {
+      color: #fbbf24;
+      background: rgba(245, 158, 11, 0.16);
+    }
+  }
+
+  &__reasoning-status-text {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  // ─── Final agent response card ────────────────────────────────────────────
+  &__report-card {
+    border-radius: 10px;
+    border: 1px solid rgba(16, 185, 129, 0.22);
+    background: rgba(255, 255, 255, 0.025);
+    overflow: hidden;
+    min-width: 0;
+  }
+
+  &__report-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 9px 12px;
+    background: linear-gradient(90deg, rgba(16, 185, 129, 0.1), rgba(16, 185, 129, 0.02));
+    border-bottom: 1px solid rgba(16, 185, 129, 0.16);
+  }
+
+  &__report-card-title {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-main, #e4e4e7);
+  }
+
+  &__report-card-badge {
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 9.5px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    color: #34d399;
+    background: rgba(16, 185, 129, 0.14);
+    border: 1px solid rgba(16, 185, 129, 0.3);
+  }
+
+  &__report-card-body {
+    padding: 12px 14px 14px;
+    font-size: 13px;
+    line-height: 1.65;
+    color: var(--text-main, #e4e4e7);
+    overflow-wrap: anywhere;
+
+    > :first-child { margin-top: 0; }
+    > :last-child { margin-bottom: 0; }
+  }
+
+  &__plan-review-warnings {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  &__plan-review-warning {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 8px 12px;
+    border-radius: 8px;
+    background: rgba(245, 158, 11, 0.06);
+    border: 1px solid rgba(245, 158, 11, 0.25);
+    font-size: 0.74rem;
+    color: #fbbf24;
+    line-height: 1.45;
+
+    svg {
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
   }
 
   &__plan-review-summary {
@@ -3420,6 +3673,30 @@
     }
   }
 }
+
+@keyframes ai-chat-reasoning-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
 }
 
+@keyframes ai-chat-reasoning-dot {
+  0%, 80%, 100% { transform: translateY(0); opacity: 0.35; }
+  40% { transform: translateY(-3px); opacity: 1; }
+}
 
+// ─── Light theme: thinking block and response card ───────────────────────────
+:root.light-theme .ai-chat {
+  &__reasoning {
+    border-color: rgba(124, 58, 237, 0.25);
+    background: rgba(124, 58, 237, 0.04);
+  }
+
+  &__reasoning-toggle { color: #6d28d9; }
+  &__reasoning-icon { color: #7c3aed; background: rgba(124, 58, 237, 0.12); }
+  &__reasoning-dots i { background: #7c3aed; }
+  &__reasoning-body { color: #475569; border-left-color: rgba(124, 58, 237, 0.3); }
+  &__reasoning-status { color: #0f172a; }
+  &__report-card { background: #ffffff; border-color: #bbf7d0; }
+  &__report-card-title,
+  &__report-card-body { color: #0f172a; }
+}

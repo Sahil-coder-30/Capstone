@@ -39,7 +39,7 @@ const codingAgentSlice = createSlice({
     messages: [WELCOME_MSG],
     isStreaming: false,
     error: null,
-    planReview: null,  // { plan, taskSubType, interruptId } — set when graph pauses for review
+    planReview: null,  // { plan, taskSubType, warnings, threadId } — set when the graph pauses for review
   },
   reducers: {
     loadMessagesForProject(state, action) {
@@ -70,8 +70,10 @@ const codingAgentSlice = createSlice({
       if (state.messages.length > 0) {
         const lastMsg = state.messages[state.messages.length - 1];
         if (lastMsg.role === 'assistant') {
-          const { text, toolLogs, status, error, streamState } = action.payload;
+          const { text, thinking, steps, toolLogs, status, error, streamState } = action.payload;
           if (text !== undefined) lastMsg.text = text;
+          if (thinking !== undefined) lastMsg.thinking = thinking;
+          if (steps !== undefined) lastMsg.steps = steps;
           if (toolLogs !== undefined) lastMsg.toolLogs = toolLogs;
           if (status !== undefined) lastMsg.status = status;
           if (error !== undefined) lastMsg.error = error;

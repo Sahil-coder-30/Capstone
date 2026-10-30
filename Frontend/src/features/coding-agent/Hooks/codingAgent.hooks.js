@@ -1,8 +1,8 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { io } from 'socket.io-client';
 import { authenticatedFetch, parseFaultKitResponse } from '../../../services/apiClient';
 import { useEditor } from '../../editor/Hooks/editor.hooks';
+import { readAgentStream } from '../service/agentStream';
 import {
   addMessage,
   updateLastMessage,
@@ -14,6 +14,11 @@ import {
   setPlanReview,
 } from '../slice/codingAgent.slice';
 
+const MAX_THINKING_CHARS = 40_000;
+const MAX_TOOL_LOGS = 400;
+const MAX_RECONNECTS = 5;
+const TERMINAL_EVENTS = new Set(['agent:done', 'agent:stopped', 'agent:error']);
+
 const createActivityEntry = ({ kind, title, detail, status = 'running' }) => ({
   id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
   kind,
@@ -23,42 +28,15 @@ const createActivityEntry = ({ kind, title, detail, status = 'running' }) => ({
   timestamp: new Date().toISOString(),
 });
 
-const createInitialStreamState = () => ({
-  phase: 'queued',
-  title: 'Preparing Orion',
-  detail: 'Opening realtime stream',
-  status: 'running',
-  events: [
-    createActivityEntry({
-      kind: 'queued',
-      title: 'Preparing Orion',
-      detail: 'Opening realtime stream',
-    }),
-  ],
-  updatedAt: new Date().toISOString(),
-});
-
-const createRecoveredStreamState = (run) => {
-  const status = run?.status || {};
+const createStreamState = (title = 'Preparing Orion', detail = 'Opening realtime stream') => {
+  const entry = createActivityEntry({ kind: 'queued', title, detail });
   return {
-    phase: status.phase || 'working',
-    title: status.title || 'Run in progress',
-    detail: status.detail || 'Reconnected to an active Orion task',
-    status: status.status || 'running',
-    events: [
-      createActivityEntry({
-        kind: 'reconnected',
-        title: 'Reconnected',
-        detail: 'Recovered active Orion task after page reload',
-      }),
-      ...(status.title ? [createActivityEntry({
-        kind: status.phase || 'status',
-        title: status.title,
-        detail: status.detail || 'Orion is processing the task',
-        status: status.status || 'running',
-      })] : []),
-    ].slice(-6),
-    updatedAt: run?.updatedAt || new Date().toISOString(),
+    phase: 'queued',
+    title,
+    detail,
+    status: 'running',
+    events: [entry],
+    updatedAt: entry.timestamp,
   };
 };
 
@@ -76,24 +54,42 @@ const stringifyPreview = (value, maxLength = 150) => {
 const summarizeToolInput = (toolName, input) => {
   const preview = stringifyPreview(input, 110);
   if (!preview) return 'Tool started';
-  if (toolName === 'readFile' || toolName === 'read_file') return `Reading ${preview}`;
-  if (toolName === 'createFile' || toolName === 'create_file') return `Creating ${preview}`;
-  if (toolName === 'updateFile' || toolName === 'update_file') return `Updating ${preview}`;
-  if (toolName === 'patchFile' || toolName === 'patch_file') return `Patching ${preview}`;
-  if (toolName === 'executeCommand' || toolName === 'execute_command') return `Running ${preview}`;
+  if (toolName === 'read_file') return `Reading ${preview}`;
+  if (toolName === 'create_file') return `Creating ${preview}`;
+  if (toolName === 'update_file') return `Updating ${preview}`;
+  if (toolName === 'patch_file') return `Patching ${preview}`;
+  if (toolName === 'execute_command') return `Running ${preview}`;
+  if (toolName === 'search_code') return `Searching ${preview}`;
   return preview;
 };
 
-const summarizeToolOutput = (toolName, output) => {
-  const preview = stringifyPreview(output, 130);
-  if (!preview) return `${toolName} finished`;
-  return preview;
-};
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 /**
- * useCodingAgent — hook for the left-panel Coding Agent.
- * Uses Socket.io to stream through the pipeline agent at /api/ai/socket.io.
- * Completely isolated from the Co-pilot / App Agent feature.
+ * Per-run view model kept outside Redux so token-level events can be
+ * batched into one Redux update per animation frame.
+ */
+const createRunView = () => ({
+  segments: new Map(),   // answer segments by model run id (retractable)
+  finalText: null,       // authoritative answer from agent:final
+  thinking: '',
+  toolLogs: [],
+  steps: [],
+  streamState: createStreamState(),
+  status: 'running',
+  error: undefined,
+  lastEventId: null,
+  terminal: false,
+  awaitingReview: false,
+  flushScheduled: false,
+});
+
+const messageTextOf = (view) => view.finalText ?? [...view.segments.values()].join('');
+
+/**
+ * useCodingAgent — hook for the left-panel Coding Agent (Orion).
+ * Streams the agent over SSE from /api/ai/code-agent/*. A run keeps going
+ * on the server if the page reloads; on mount the hook re-attaches to it.
  */
 export const useCodingAgent = (projectId) => {
   const dispatch = useDispatch();
@@ -101,12 +97,296 @@ export const useCodingAgent = (projectId) => {
   const { messages, isStreaming, error, planReview } = useSelector((state) => state.codingAgent);
   const { sandboxId } = useSelector((state) => state.sandbox);
   const { fetchFilesList } = useEditor();
-  const activeSocketRef = useRef(null);
+
   const messagesRef = useRef(messages);
+  const viewRef = useRef(null);
+  const streamAbortRef = useRef(null);
+  const onCompleteRef = useRef(null);
 
   useEffect(() => {
     messagesRef.current = messages;
   }, [messages]);
+
+  // ── Rendering ─────────────────────────────────────────────────────────────
+
+  const flushNow = useCallback((view) => {
+    view.flushScheduled = false;
+    if (viewRef.current !== view) return;
+    dispatch(updateLastMessage({
+      text: messageTextOf(view),
+      thinking: view.thinking,
+      toolLogs: view.toolLogs,
+      steps: view.steps,
+      status: view.status,
+      streamState: view.streamState,
+      ...(view.error !== undefined && { error: view.error }),
+    }));
+  }, [dispatch]);
+
+  const scheduleFlush = useCallback((view) => {
+    if (view.flushScheduled) return;
+    view.flushScheduled = true;
+    const raf = typeof window !== 'undefined' && window.requestAnimationFrame;
+    if (raf) raf(() => flushNow(view));
+    else setTimeout(() => flushNow(view), 16);
+  }, [flushNow]);
+
+  const pushActivity = (view, entry) => {
+    const activity = createActivityEntry(entry);
+    view.streamState = {
+      phase: activity.kind,
+      title: activity.title,
+      detail: activity.detail,
+      status: activity.status,
+      events: [...(view.streamState?.events || []), activity].slice(-6),
+      updatedAt: activity.timestamp,
+    };
+  };
+
+  const pushToolLog = (view, line) => {
+    if (!line) return;
+    view.toolLogs = [...view.toolLogs, line].slice(-MAX_TOOL_LOGS);
+  };
+
+  // ── Event handling ────────────────────────────────────────────────────────
+
+  const handleEvent = useCallback((view, { id, event, data }) => {
+    if (Number.isFinite(id)) view.lastEventId = id;
+    const payload = data && typeof data === 'object' ? data : {};
+
+    switch (event) {
+      case 'agent:snapshot': {
+        view.thinking = payload.thinking || '';
+        view.segments = new Map(payload.message ? [['snapshot', payload.message]] : []);
+        view.toolLogs = payload.toolLogs || [];
+        view.steps = payload.steps || [];
+        if (payload.lastStatus) {
+          pushActivity(view, {
+            kind: payload.lastStatus.phase || 'status',
+            title: payload.lastStatus.title || 'Working',
+            detail: payload.lastStatus.detail || '',
+            status: payload.lastStatus.status || 'running',
+          });
+        }
+        if (payload.planReview) {
+          view.awaitingReview = true;
+          dispatch(setPlanReview(payload.planReview));
+          dispatch(setStreaming(false));
+        }
+        if (payload.status === 'finished') {
+          // Reconnected after the run ended and its events were trimmed.
+          view.terminal = true;
+          view.status = 'completed';
+          view.finalText = payload.message || messageTextOf(view);
+          flushNow(view);
+          dispatch(setStreaming(false));
+          return;
+        }
+        break;
+      }
+
+      case 'agent:msg_created':
+        if (payload.role && payload.id) {
+          dispatch(updateMessageId({ role: payload.role, realId: payload.id }));
+        }
+        break;
+
+      case 'agent:model': {
+        const label = payload.label || payload.modelId || 'Orion model';
+        pushToolLog(view, `model: using ${label}`);
+        pushActivity(view, { kind: 'model', title: 'Model selected', detail: label });
+        break;
+      }
+
+      case 'agent:status':
+        pushActivity(view, {
+          kind: payload.phase || 'status',
+          title: payload.title || 'Working',
+          detail: payload.detail || '',
+          status: payload.status || 'running',
+        });
+        break;
+
+      case 'agent:thinking': {
+        const text = typeof data === 'string' ? data : payload.text;
+        if (!text) return;
+        const next = view.thinking + text;
+        view.thinking = next.length > MAX_THINKING_CHARS ? next.slice(-MAX_THINKING_CHARS) : next;
+        break;
+      }
+
+      case 'agent:message':
+        if (!payload.text) return;
+        view.segments.set(payload.segment, (view.segments.get(payload.segment) || '') + payload.text);
+        break;
+
+      case 'agent:message_retract':
+        view.segments.delete(payload.segment);
+        break;
+
+      case 'agent:final':
+        view.finalText = payload.text || messageTextOf(view);
+        break;
+
+      case 'agent:tool_log':
+        pushToolLog(view, payload.message || `${payload.toolName || 'tool'}: ${payload.level || 'info'}`);
+        break;
+
+      case 'agent:tool_start':
+        pushActivity(view, {
+          kind: 'tool',
+          title: payload.toolName || 'Tool',
+          detail: summarizeToolInput(payload.toolName, payload.input),
+        });
+        break;
+
+      case 'agent:tool_end':
+        pushActivity(view, {
+          kind: 'tool',
+          title: `${payload.toolName || 'Tool'} ${payload.ok ? 'done' : 'failed'}`,
+          detail: stringifyPreview(payload.output, 130),
+          status: payload.ok ? 'success' : 'error',
+        });
+        break;
+
+      case 'agent:steps':
+        view.steps = payload.steps || [];
+        break;
+
+      case 'agent:step':
+        view.steps = view.steps.map((s) => (s.id === payload.stepId ? { ...s, status: payload.status, summary: payload.summary } : s));
+        break;
+
+      case 'agent:plan_review':
+        view.awaitingReview = true;
+        view.steps = (payload.plan?.steps || []).map((s) => ({ id: s.id, title: s.title, status: s.status || 'pending' }));
+        dispatch(setPlanReview(payload));
+        dispatch(setStreaming(false));
+        pushActivity(view, {
+          kind: 'plan_review',
+          title: 'Plan review required',
+          detail: `${payload.plan?.totalSteps || 0} steps proposed`,
+          status: 'paused',
+        });
+        break;
+
+      case 'agent:done':
+        view.terminal = true;
+        view.status = 'completed';
+        pushActivity(view, {
+          kind: 'done',
+          title: payload.outcome === 'failed' ? 'Could not complete' : payload.outcome === 'partial' ? 'Partly done' : 'Run complete',
+          detail: 'Workspace sync requested',
+          status: payload.outcome === 'failed' ? 'error' : 'success',
+        });
+        break;
+
+      case 'agent:stopped':
+        view.terminal = true;
+        view.status = 'completed';
+        if (payload.text) view.finalText = payload.text;
+        pushActivity(view, { kind: 'stopped', title: 'Stopped', detail: payload.message || 'Orion stopped the task', status: 'success' });
+        break;
+
+      case 'agent:error': {
+        view.terminal = true;
+        view.status = 'error';
+        const errMsg = payload.message || 'Error running agent';
+        view.error = errMsg;
+        pushActivity(view, {
+          kind: 'error',
+          title: 'Agent error',
+          detail: payload.code ? `${errMsg} (${payload.code})` : errMsg,
+          status: 'error',
+        });
+        dispatch(setError(errMsg));
+        break;
+      }
+
+      default:
+        return;
+    }
+
+    scheduleFlush(view);
+
+    if (TERMINAL_EVENTS.has(event)) {
+      flushNow(view);
+      dispatch(setPlanReview(null));
+      dispatch(setStreaming(false));
+      if (event !== 'agent:error' && sandboxId) fetchFilesList(sandboxId, { forceNetwork: true });
+      onCompleteRef.current?.();
+      onCompleteRef.current = null;
+    }
+  }, [dispatch, fetchFilesList, flushNow, sandboxId, scheduleFlush]);
+
+  /**
+   * Consumes a stream response, then keeps reconnecting with Last-Event-ID
+   * until the run reaches a terminal event or the run is gone.
+   */
+  const followRun = useCallback(async (view, firstResponse, abort) => {
+    let response = firstResponse;
+    let reconnects = 0;
+
+    while (!abort.signal.aborted) {
+      if (response) {
+        await readAgentStream(response, (frame) => handleEvent(view, frame), abort.signal);
+        if (view.terminal || abort.signal.aborted) return;
+        reconnects = 0;
+      }
+
+      if (reconnects >= MAX_RECONNECTS) break;
+      await sleep(Math.min(1000 * 2 ** reconnects, 8000));
+      reconnects += 1;
+      if (abort.signal.aborted) return;
+
+      try {
+        const query = view.lastEventId != null ? `?lastEventId=${view.lastEventId}` : '';
+        const res = await authenticatedFetch(`/api/ai/code-agent/stream/${projectId}${query}`, {
+          headers: view.lastEventId != null ? { 'Last-Event-ID': String(view.lastEventId) } : {},
+          signal: abort.signal,
+        });
+        if (res.status === 204) {
+          // The run finished and was cleaned up while we were disconnected.
+          view.terminal = true;
+          view.status = 'completed';
+          pushActivity(view, { kind: 'done', title: 'Run finished', detail: 'Reload the chat to see the final report', status: 'success' });
+          flushNow(view);
+          dispatch(setStreaming(false));
+          return;
+        }
+        response = res.ok ? res : null;
+      } catch (err) {
+        if (abort.signal.aborted) return;
+        response = null;
+        console.warn('[CodingAgent] Reconnect failed:', err.message);
+      }
+    }
+
+    if (!view.terminal && !abort.signal.aborted) {
+      view.status = 'error';
+      view.error = 'Lost the connection to Orion. The task may still be running; reopen the chat to reconnect.';
+      pushActivity(view, { kind: 'error', title: 'Connection lost', detail: view.error, status: 'error' });
+      flushNow(view);
+      dispatch(setError(view.error));
+      dispatch(setStreaming(false));
+    }
+  }, [dispatch, flushNow, handleEvent, projectId]);
+
+  // The recovery effect reads the latest followRun through a ref so a
+  // re-render never tears down an open stream.
+  const followRunRef = useRef(followRun);
+  useEffect(() => {
+    followRunRef.current = followRun;
+  }, [followRun]);
+
+  const beginStream = () => {
+    streamAbortRef.current?.abort();
+    const abort = new AbortController();
+    streamAbortRef.current = abort;
+    return abort;
+  };
+
+  // ── Send a task ───────────────────────────────────────────────────────────
 
   const sendMessage = useCallback((text, attachments, onComplete) => {
     if (!text.trim() || !sandboxId || !projectId) return;
@@ -118,59 +398,28 @@ export const useCodingAgent = (projectId) => {
       actualAttachments = [];
     }
 
-    // 1. Add user message
+    const view = createRunView();
+    viewRef.current = view;
+    onCompleteRef.current = actualOnComplete || null;
+
     dispatch(addMessage({ role: 'user', text }));
-
-    let streamState = createInitialStreamState();
-
-    // 2. Add placeholder assistant message
     dispatch(addMessage({
       role: 'assistant',
       text: '',
+      thinking: '',
       toolLogs: [],
+      steps: [],
       status: 'running',
-      streamState,
+      streamState: view.streamState,
     }));
-
     dispatch(setStreaming(true));
     dispatch(setError(null));
+    dispatch(setPlanReview(null));
 
-    let assistantText = '';
-    let toolLogs = [];
-    let hasReportToken = false;
+    const abort = beginStream();
 
-    const publishAssistant = (overrides = {}) => {
-      dispatch(updateLastMessage({
-        text: assistantText,
-        toolLogs,
-        status: 'running',
-        streamState,
-        ...overrides,
-      }));
-    };
-
-    const pushActivity = (entry, messageStatus = 'running', extra = {}) => {
-      const activity = createActivityEntry(entry);
-      streamState = {
-        phase: activity.kind,
-        title: activity.title,
-        detail: activity.detail,
-        status: activity.status,
-        events: [...(streamState?.events || []), activity].slice(-6),
-        updatedAt: activity.timestamp,
-      };
-      publishAssistant({ status: messageStatus, ...extra });
-    };
-
-    // 3. Connect to AI Orchestration service via SSE
     (async () => {
       try {
-        pushActivity({
-          kind: 'connected',
-          title: 'Connected',
-          detail: 'Dispatching task to Orion',
-        });
-
         const response = await authenticatedFetch('/api/ai/code-agent/invoke', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -180,389 +429,123 @@ export const useCodingAgent = (projectId) => {
             sandboxId,
             attachments: actualAttachments,
           }),
+          signal: abort.signal,
         });
 
         if (!response.ok) {
           throw await parseFaultKitResponse(response);
         }
 
-        const reader = response.body.getReader();
-        const decoder = new TextDecoder('utf-8');
-        let buffer = '';
-
-        while (true) {
-          const { value, done } = await reader.read();
-          if (done) break;
-
-          buffer += decoder.decode(value, { stream: true });
-          const blocks = buffer.split('\n\n');
-          buffer = blocks.pop(); // Keep incomplete block in buffer
-
-          for (const block of blocks) {
-            if (!block.trim() || block.startsWith(':')) continue;
-
-            const eventMatch = block.match(/^event:\s*(.+)$/m);
-            const dataMatch = block.match(/^data:\s*([\s\S]+)$/m);
-
-            const event = eventMatch ? eventMatch[1].trim() : 'message';
-            const rawData = dataMatch ? dataMatch[1].trim() : '';
-            let payload = {};
-            if (rawData) {
-              try { payload = JSON.parse(rawData); } catch (_) { payload = rawData; }
-            }
-
-            if (event === 'agent:msg_created') {
-              if (payload.role && payload.id) {
-                dispatch(updateMessageId({ role: payload.role, realId: payload.id }));
-              }
-            } else if (event === 'agent:thinking') {
-              if (!hasReportToken) {
-                hasReportToken = true;
-                pushActivity({
-                  kind: 'report',
-                  title: 'Streaming report',
-                  detail: 'Writing the final agent report',
-                });
-              }
-              assistantText += (typeof payload === 'string' ? payload : rawData);
-              publishAssistant();
-            } else if (event === 'agent:model') {
-              const modelLabel = payload.label || payload.modelId || 'GPT-6 Luna (OpenRouter)';
-              const providerText = payload.provider ? ` (${payload.provider})` : '';
-              toolLogs = [...toolLogs, `model: using ${modelLabel}${providerText}`].filter(Boolean);
-              pushActivity({
-                kind: 'model',
-                title: 'Model selected',
-                detail: `${modelLabel}${providerText}`,
-              });
-            } else if (event === 'agent:plan_review') {
-              dispatch(setPlanReview(payload));
-              dispatch(setStreaming(false));
-              pushActivity({
-                kind: 'plan_review',
-                title: 'Plan review required',
-                detail: `${payload?.plan?.totalSteps || 0} steps proposed`,
-                status: 'paused',
-              });
-            } else if (event === 'agent:status') {
-              pushActivity({
-                kind: payload.phase || 'status',
-                title: payload.title || 'Working',
-                detail: payload.detail || 'Orion is processing the task',
-                status: payload.status || 'running',
-              });
-            } else if (event === 'agent:tool_start') {
-              const { toolName, input } = payload;
-              let inputStr = stringifyPreview(input);
-              if (inputStr.length > 150) inputStr = inputStr.substring(0, 150) + '...';
-              toolLogs = [...toolLogs, `${toolName}: starting with input (${inputStr})`].filter(Boolean);
-              pushActivity({
-                kind: 'tool',
-                title: toolName || 'Tool started',
-                detail: summarizeToolInput(toolName, input),
-              });
-            } else if (event === 'agent:tool_log') {
-              const { toolName, message, level = 'info' } = payload;
-              const logLine = message || `${toolName || 'tool'}: ${level}`;
-              toolLogs = [...toolLogs, logLine].filter(Boolean);
-              pushActivity({
-                kind: 'tool',
-                title: toolName || 'Tool activity',
-                detail: stringifyPreview(logLine, 140),
-                status: level === 'error' ? 'error' : level === 'success' ? 'success' : 'running',
-              });
-            } else if (event === 'agent:tool_end') {
-              const { toolName, output } = payload;
-              let outputStr = stringifyPreview(output);
-              toolLogs = [...toolLogs, `${toolName}: finished (${outputStr})`].filter(Boolean);
-              pushActivity({
-                kind: 'tool',
-                title: `${toolName || 'Tool'} complete`,
-                detail: summarizeToolOutput(toolName, output),
-                status: 'success',
-              });
-            } else if (event === 'agent:done') {
-              dispatch(setPlanReview(null));
-              pushActivity({
-                kind: 'done',
-                title: 'Run complete',
-                detail: 'Workspace sync requested',
-                status: 'success',
-              }, 'completed');
-              dispatch(setStreaming(false));
-              fetchFilesList(sandboxId, { forceNetwork: true });
-              actualOnComplete?.();
-            } else if (event === 'agent:stopped') {
-              if (payload.text) assistantText = payload.text;
-              pushActivity({
-                kind: 'stopped',
-                title: 'Stopped',
-                detail: payload.message || 'Orion stopped the current task',
-                status: 'success',
-              }, 'completed');
-              dispatch(setStreaming(false));
-              if (sandboxId) fetchFilesList(sandboxId, { forceNetwork: true });
-              actualOnComplete?.();
-            } else if (event === 'agent:error') {
-              const errMsg = payload.message || 'Error running agent';
-              pushActivity({
-                kind: 'error',
-                title: 'Agent error',
-                detail: payload.code ? `${errMsg} (${payload.code})` : errMsg,
-                status: 'error',
-              }, 'error', { error: errMsg });
-              dispatch(setError(errMsg));
-              dispatch(setStreaming(false));
-            }
-          }
-        }
+        await followRun(view, response, abort);
       } catch (err) {
+        if (abort.signal.aborted) return;
         console.error('[CodingAgent] SSE connection error:', err);
         const errMsg = err.message || 'Failed to connect to the AI Orchestration service';
-        pushActivity({
-          kind: 'error',
-          title: 'Connection failed',
-          detail: errMsg,
-          status: 'error',
-        }, 'error', { error: errMsg });
-        dispatch(setError(errMsg));
-        dispatch(setStreaming(false));
+        handleEvent(view, { id: null, event: 'agent:error', data: { message: errMsg, code: err.code } });
       }
     })();
-  }, [projectId, sandboxId, dispatch, fetchFilesList]);
+  }, [projectId, sandboxId, dispatch, followRun, handleEvent]);
+
+  // ── Re-attach to a run that is still active on the server ─────────────────
 
   useEffect(() => {
     if (!projectId || !sandboxId || isHistoryLoading) return undefined;
-    if (activeSocketRef.current?.connected) return undefined;
+    if (streamAbortRef.current && !streamAbortRef.current.signal.aborted) return undefined;
 
-    const socket = io(window.location.origin, {
-      path: '/api/ai/socket.io',
-      transports: ['polling'],
-      upgrade: false,
-      withCredentials: true,
-      timeout: 15000,
-      reconnection: true,
-      reconnectionAttempts: 4,
-      reconnectionDelay: 1500,
-    });
+    const abort = beginStream();
 
-    activeSocketRef.current = socket;
+    (async () => {
+      try {
+        const res = await authenticatedFetch(`/api/ai/code-agent/stream/${projectId}`, { signal: abort.signal });
+        if (res.status !== 200 || abort.signal.aborted) return;
 
-    let assistantText = '';
-    let toolLogs = [];
-    let streamState = null;
-    let recoveredActiveRun = false;
-    let hasReportToken = false;
+        const view = createRunView();
+        view.streamState = createStreamState('Reconnected', 'Recovered an active Orion task');
+        viewRef.current = view;
 
-    const publishRecoveredAssistant = (overrides = {}) => {
-      dispatch(updateLastMessage({
-        text: assistantText,
-        toolLogs,
-        status: 'running',
-        streamState,
-        ...overrides,
-      }));
-    };
+        const current = messagesRef.current || [];
+        const last = current[current.length - 1];
+        if (!(last?.role === 'assistant' && last?.status === 'running')) {
+          dispatch(addMessage({
+            role: 'assistant',
+            text: '',
+            thinking: '',
+            toolLogs: [],
+            steps: [],
+            status: 'running',
+            streamState: view.streamState,
+          }));
+        }
+        dispatch(setStreaming(true));
+        dispatch(setError(null));
 
-    const pushRecoveredActivity = (entry, messageStatus = 'running', extra = {}) => {
-      if (!recoveredActiveRun) return;
-      const activity = createActivityEntry(entry);
-      streamState = {
-        phase: activity.kind,
-        title: activity.title,
-        detail: activity.detail,
-        status: activity.status,
-        events: [...(streamState?.events || []), activity].slice(-6),
-        updatedAt: activity.timestamp,
-      };
-      publishRecoveredAssistant({ status: messageStatus, ...extra });
-    };
-
-    socket.on('connect', () => {
-      socket.emit('agent:subscribe', { projectId, sandboxId });
-    });
-
-    socket.on('agent:active_run', ({ active, run } = {}) => {
-      if (!active || !run) {
-        if (activeSocketRef.current === socket) activeSocketRef.current = null;
-        socket.disconnect();
-        return;
+        await followRunRef.current(view, res, abort);
+      } catch (err) {
+        if (!abort.signal.aborted) console.warn('[CodingAgent] Could not recover active run:', err.message);
       }
+    })();
 
-      recoveredActiveRun = true;
-      assistantText = run.assistantText || '';
-      toolLogs = run.toolLogs || [];
-      streamState = createRecoveredStreamState(run);
+    return () => abort.abort();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectId, sandboxId, isHistoryLoading]);
 
-      const currentMessages = messagesRef.current || [];
-      const lastMessage = currentMessages[currentMessages.length - 1];
-      if (lastMessage?.role === 'assistant' && lastMessage?.status === 'running') {
-        publishRecoveredAssistant();
-      } else {
-        dispatch(addMessage({
-          role: 'assistant',
-          text: assistantText,
-          toolLogs,
-          status: 'running',
-          streamState,
-        }));
-      }
-      dispatch(setStreaming(true));
-      dispatch(setError(null));
+  // Close any open stream when the panel unmounts. The run keeps going.
+  useEffect(() => () => streamAbortRef.current?.abort(), []);
+
+  // ── Run controls ──────────────────────────────────────────────────────────
+
+  const postControl = useCallback(async (path, body = {}) => {
+    const response = await authenticatedFetch(`/api/ai/code-agent/${path}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ projectId, sandboxId, ...body }),
     });
-
-    socket.on('agent:thinking', (token) => {
-      if (!recoveredActiveRun) return;
-      if (!hasReportToken) {
-        hasReportToken = true;
-        pushRecoveredActivity({
-          kind: 'report',
-          title: 'Streaming report',
-          detail: 'Writing the final agent report',
-        });
-      }
-      assistantText += token;
-      publishRecoveredAssistant();
-    });
-
-    socket.on('agent:model', (modelInfo = {}) => {
-      if (!recoveredActiveRun) return;
-      const modelLabel = modelInfo.label || modelInfo.modelId || 'selected model';
-      const providerText = modelInfo.provider ? ` (${modelInfo.provider})` : '';
-      const fallbackText = modelInfo.fallback && modelInfo.fallbackFrom
-        ? ` after ${modelInfo.fallbackFrom}`
-        : '';
-      toolLogs = [...toolLogs, `model: using ${modelLabel}${providerText}${fallbackText}`].filter(Boolean);
-      pushRecoveredActivity({
-        kind: 'model',
-        title: 'Model selected',
-        detail: `${modelLabel}${providerText}${fallbackText}`,
-      });
-    });
-
-    socket.on('agent:status', (statusInfo = {}) => {
-      pushRecoveredActivity({
-        kind: statusInfo.phase || 'status',
-        title: statusInfo.title || 'Working',
-        detail: statusInfo.detail || 'Orion is processing the task',
-        status: statusInfo.status || 'running',
-      });
-    });
-
-    socket.on('agent:tool_start', ({ toolName, input }) => {
-      if (!recoveredActiveRun) return;
-      const inputStr = stringifyPreview(input);
-      toolLogs = [...toolLogs, `${toolName}: starting with input (${inputStr})`].filter(Boolean);
-      pushRecoveredActivity({
-        kind: 'tool',
-        title: toolName || 'Tool started',
-        detail: summarizeToolInput(toolName, input),
-      });
-    });
-
-    socket.on('agent:tool_log', ({ toolName, message, level = 'info' } = {}) => {
-      if (!recoveredActiveRun) return;
-      const logLine = message || `${toolName || 'tool'}: ${level}`;
-      toolLogs = [...toolLogs, logLine].filter(Boolean);
-      pushRecoveredActivity({
-        kind: 'tool',
-        title: toolName || 'Tool activity',
-        detail: stringifyPreview(logLine, 140),
-        status: level === 'error' ? 'error' : level === 'success' ? 'success' : 'running',
-      });
-    });
-
-    socket.on('agent:tool_end', ({ toolName, output }) => {
-      if (!recoveredActiveRun) return;
-      const outputStr = stringifyPreview(output);
-      toolLogs = [...toolLogs, `${toolName}: finished (${outputStr})`].filter(Boolean);
-      pushRecoveredActivity({
-        kind: 'tool',
-        title: `${toolName || 'Tool'} complete`,
-        detail: summarizeToolOutput(toolName, output),
-        status: 'success',
-      });
-    });
-
-    socket.on('agent:done', () => {
-      if (!recoveredActiveRun) return;
-      pushRecoveredActivity({
-        kind: 'done',
-        title: 'Run complete',
-        detail: 'Workspace sync requested',
-        status: 'success',
-      }, 'completed');
-      dispatch(setStreaming(false));
-      if (activeSocketRef.current === socket) activeSocketRef.current = null;
-      socket.disconnect();
-      fetchFilesList(sandboxId, { forceNetwork: true });
-    });
-
-    socket.on('agent:stopped', ({ message, text: stoppedText } = {}) => {
-      if (!recoveredActiveRun) return;
-      if (stoppedText) assistantText = stoppedText;
-      pushRecoveredActivity({
-        kind: 'stopped',
-        title: 'Stopped',
-        detail: message || 'Orion stopped the current task',
-        status: 'success',
-      }, 'completed');
-      dispatch(setStreaming(false));
-      if (activeSocketRef.current === socket) activeSocketRef.current = null;
-      socket.disconnect();
-      fetchFilesList(sandboxId, { forceNetwork: true });
-    });
-
-    socket.on('agent:error', ({ message, code }) => {
-      if (!recoveredActiveRun) return;
-      const errMsg = message || 'Error running agent';
-      pushRecoveredActivity({
-        kind: 'error',
-        title: 'Agent error',
-        detail: code ? `${errMsg} (${code})` : errMsg,
-        status: 'error',
-      }, 'error', { error: errMsg });
-      dispatch(setError(errMsg));
-      dispatch(setStreaming(false));
-      if (activeSocketRef.current === socket) activeSocketRef.current = null;
-      socket.disconnect();
-    });
-
-    socket.on('disconnect', (reason) => {
-      if (reason === 'io client disconnect') return;
-      if (recoveredActiveRun) {
-        dispatch(setStreaming(false));
-      }
-      if (activeSocketRef.current === socket) activeSocketRef.current = null;
-    });
-
-    return () => {
-      if (activeSocketRef.current === socket) activeSocketRef.current = null;
-      socket.disconnect();
-    };
-  }, [projectId, sandboxId, isHistoryLoading, dispatch, fetchFilesList]);
+    if (!response.ok) throw await parseFaultKitResponse(response);
+    return response;
+  }, [projectId, sandboxId]);
 
   const stopAgent = useCallback(async () => {
     if (!projectId) return;
     try {
-      const response = await authenticatedFetch('/api/ai/code-agent/stop', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ projectId, sandboxId }),
-      });
-      if (!response.ok) {
-        throw await parseFaultKitResponse(response);
-      }
+      await postControl('stop');
     } catch (err) {
       console.error('[CodingAgent] Failed to send stop request:', err);
     }
-  }, [projectId, sandboxId]);
+  }, [projectId, postControl]);
 
-  // Auto-load chat history from MongoDB when projectId changes
+  const approvePlan = useCallback(async () => {
+    if (!sandboxId || !projectId) return;
+    dispatch(setPlanReview(null));
+    dispatch(setStreaming(true));
+    if (viewRef.current) viewRef.current.awaitingReview = false;
+    try {
+      await postControl('plan-approve');
+    } catch (err) {
+      console.error('[CodingAgent] Failed to approve plan:', err);
+      dispatch(setError(err.message || 'Failed to approve the plan'));
+      dispatch(setStreaming(false));
+    }
+  }, [projectId, sandboxId, dispatch, postControl]);
+
+  const rejectPlan = useCallback(async (feedback = '') => {
+    if (!sandboxId || !projectId) return;
+    dispatch(setPlanReview(null));
+    dispatch(setStreaming(true));
+    if (viewRef.current) viewRef.current.awaitingReview = false;
+    try {
+      await postControl('plan-reject', { feedback });
+    } catch (err) {
+      console.error('[CodingAgent] Failed to reject plan:', err);
+      dispatch(setError(err.message || 'Failed to send plan feedback'));
+      dispatch(setStreaming(false));
+    }
+  }, [projectId, sandboxId, dispatch, postControl]);
+
+  // ── Chat history ──────────────────────────────────────────────────────────
+
   useEffect(() => {
     const loadChatHistory = async () => {
       if (!projectId) {
-        // Reset to initial welcome message if no project is active
         dispatch(clearHistory());
         setIsHistoryLoading(false);
         return;
@@ -633,42 +616,6 @@ export const useCodingAgent = (projectId) => {
   const deleteMessage = useCallback(async (messageId) => {
     return deleteMessages([messageId]);
   }, [deleteMessages]);
-
-  const approvePlan = useCallback(async () => {
-    if (!sandboxId || !projectId) return;
-    dispatch(setPlanReview(null));
-    dispatch(setStreaming(true));
-    if (activeSocketRef.current?.connected) {
-      activeSocketRef.current.emit('agent:plan_approve', { projectId, sandboxId });
-    }
-    try {
-      await authenticatedFetch('/api/ai/code-agent/plan-approve', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ projectId, sandboxId }),
-      });
-    } catch (err) {
-      console.error('[CodingAgent] Failed to approve plan:', err);
-    }
-  }, [projectId, sandboxId, dispatch]);
-
-  const rejectPlan = useCallback(async (feedback = '') => {
-    if (!sandboxId || !projectId) return;
-    dispatch(setPlanReview(null));
-    dispatch(setStreaming(true));
-    if (activeSocketRef.current?.connected) {
-      activeSocketRef.current.emit('agent:plan_reject', { projectId, sandboxId, feedback });
-    }
-    try {
-      await authenticatedFetch('/api/ai/code-agent/plan-reject', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ projectId, sandboxId, feedback }),
-      });
-    } catch (err) {
-      console.error('[CodingAgent] Failed to reject plan:', err);
-    }
-  }, [projectId, sandboxId, dispatch]);
 
   return {
     messages,

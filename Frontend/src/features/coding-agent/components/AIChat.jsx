@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { useCodingAgent } from '../Hooks/codingAgent.hooks';
 import { useSandbox } from '../../sandbox/Hooks/sandbox.hooks';
 import { useEditor } from '../../editor/Hooks/editor.hooks';
@@ -8,7 +8,7 @@ import {
   X, Activity, FileCode, ArrowRight, Paperclip, Square,
   CheckSquare2, CheckCheck, RotateCcw, Sparkles
 } from 'lucide-react';
-import { parseMarkdownToReact } from '../../../components/Markdown';
+import { parseMarkdownToReact, formatInline } from '../../../components/Markdown';
 import { TakshaIcon } from '../../../components/BrandLogo';
 import './AIChat.scss';
 
@@ -21,9 +21,96 @@ const TOOL_TYPE_COLORS = {
   info:   'var(--text-muted)',
 };
 
+// Plan step status (from the agent) → phase row status used by PhaseIcon.
+const STEP_PHASE_STATUS = {
+  done: 'completed',
+  failed: 'error',
+  skipped: 'error',
+  in_progress: 'running',
+};
+
+/**
+ * Live "thinking" panel: the model's reasoning and narration while it works.
+ * Open and auto-scrolling while the run is live, collapsed afterwards.
+ */
+/**
+ * Turns the raw thinking stream into readable blocks:
+ *  - paragraphs (older runs glued sentences together, e.g. "UI?I'll start")
+ *  - "STATUS: done SUMMARY: ..." protocol lines become a status block
+ */
+function parseThinking(raw) {
+  const prepared = String(raw || '')
+    .replace(/([?!])(?=[A-Z])/g, '$1\n\n')
+    .replace(/\.(?=(?:STATUS:|I'll |I will |Let's |Now |Next |First ))/g, '.\n\n')
+    .replace(/(?=STATUS:\s*(?:done|blocked))/gi, '\n\n');
+
+  return prepared
+    .split(/\n{2,}/)
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .map((part) => {
+      const status = /^STATUS:\s*(done|blocked)\s*\|?\s*(?:SUMMARY:\s*([\s\S]*))?$/i.exec(part);
+      if (status) {
+        return { type: 'status', status: status[1].toLowerCase(), summary: (status[2] || '').trim() };
+      }
+      return { type: 'text', text: part };
+    });
+}
+
+function ThinkingBlock({ text, isLive, isOpen, onToggle }) {
+  const bodyRef = useRef(null);
+  const blocks = useMemo(() => parseThinking(text), [text]);
+
+  useEffect(() => {
+    if (isLive && isOpen && bodyRef.current) {
+      bodyRef.current.scrollTop = bodyRef.current.scrollHeight;
+    }
+  }, [text, isLive, isOpen]);
+
+  if (!blocks.length) return null;
+
+  const firstText = blocks.find((b) => b.type === 'text')?.text || '';
+  const preview = firstText.replace(/\s+/g, ' ').slice(0, 90);
+
+  return (
+    <div className={`ai-chat__reasoning ${isLive ? 'ai-chat__reasoning--live' : ''} ${isOpen ? 'ai-chat__reasoning--open' : ''}`}>
+      <button type="button" className="ai-chat__reasoning-toggle" onClick={onToggle} aria-expanded={isOpen}>
+        <span className="ai-chat__reasoning-icon">
+          <Sparkles size={12} />
+        </span>
+        <span className="ai-chat__reasoning-label">{isLive ? 'Thinking' : 'Thought process'}</span>
+        {isLive && (
+          <span className="ai-chat__reasoning-dots" aria-hidden="true">
+            <i /><i /><i />
+          </span>
+        )}
+        {!isOpen && preview && <span className="ai-chat__reasoning-preview">{preview}</span>}
+        <ChevronDown size={13} className="ai-chat__reasoning-chevron" />
+      </button>
+      {isOpen && (
+        <div ref={bodyRef} className="ai-chat__reasoning-body">
+          {blocks.map((block, idx) =>
+            block.type === 'status' ? (
+              <div key={idx} className={`ai-chat__reasoning-status ai-chat__reasoning-status--${block.status}`}>
+                <span className="ai-chat__reasoning-status-badge">
+                  {block.status === 'done' ? <CheckCircle2 size={11} /> : <AlertCircle size={11} />}
+                  {block.status === 'done' ? 'Done' : 'Blocked'}
+                </span>
+                {block.summary && <span className="ai-chat__reasoning-status-text">{formatInline(block.summary)}</span>}
+              </div>
+            ) : (
+              <p key={idx} className="ai-chat__reasoning-para">{formatInline(block.text)}</p>
+            ),
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 /**
  * AIChat — Coding Agent left-panel chat.
- * Uses ONLY useCodingAgent hook (Socket.io pipeline, /api/ai/socket.io).
+ * Uses ONLY useCodingAgent hook (SSE stream from /api/ai/code-agent/*).
  * No references to copilot / app-agent.
  */
 export default function AIChat({ projectId, onCloseChat }) {
@@ -34,6 +121,7 @@ export default function AIChat({ projectId, onCloseChat }) {
   const [input, setInput] = useState('');
   const [expandedRuns, setExpandedRuns] = useState({});
   const [expandedLogs, setExpandedLogs] = useState({});
+  const [expandedThinking, setExpandedThinking] = useState({});
   const [inputFocused, setInputFocused] = useState(false);
   const [copiedCodeIdx, setCopiedCodeIdx] = useState(null);
   const selectedModel = 'codestral';
@@ -471,6 +559,19 @@ export default function AIChat({ projectId, onCloseChat }) {
     return phases;
   };
 
+  // ─── Real plan steps (preferred over log heuristics when available) ────────
+  const getPlanPhases = (assistantMsg, isLive) => {
+    const steps = assistantMsg?.steps || [];
+    const firstPending = steps.findIndex((s) => !s.status || s.status === 'pending');
+    return steps.map((step, idx) => ({
+      id: `step-${step.id}`,
+      name: `Step ${step.id}: ${step.title}`,
+      description: step.summary || 'In progress',
+      status: STEP_PHASE_STATUS[step.status]
+        || (isLive && idx === firstPending && !planReview ? 'running' : 'pending'),
+    }));
+  };
+
   // ─── Log event parser ───────────────────────────────────────────────────────
   const parseToolLogToEvent = (log) => {
     const isStart   = log.includes(': start') || log.includes('attempt 1');
@@ -902,7 +1003,12 @@ export default function AIChat({ projectId, onCloseChat }) {
             const isWelcome = run.goal === null;
             const isExpanded = expandedRuns[run.id] !== undefined ? expandedRuns[run.id] : (run.id === runs[runs.length - 1]?.id);
             const assistant = run.assistant;
-            const phases = assistant ? getWorkflowPhases(assistant) : [];
+            const isLiveRun = assistant?.status === 'running';
+            const phases = !assistant
+              ? []
+              : assistant.steps?.length
+                ? getPlanPhases(assistant, isLiveRun)
+                : getWorkflowPhases(assistant);
             const modifiedFiles = assistant ? getModifiedFiles(assistant.toolLogs) : [];
             const parsedEvents = assistant ? assistant.toolLogs.map((log, i) => parseToolLogToEvent(log, i)) : [];
             const isThisLatestAssistant =
@@ -1073,6 +1179,16 @@ export default function AIChat({ projectId, onCloseChat }) {
                       <div className="ai-chat__report">
                         {showLiveReport && renderLiveReport(assistant, parsedEvents)}
 
+                        <ThinkingBlock
+                          text={assistant.thinking}
+                          isLive={isGenuinelyRunning}
+                          isOpen={expandedThinking[run.id] ?? isGenuinelyRunning}
+                          onToggle={() => setExpandedThinking((prev) => ({
+                            ...prev,
+                            [run.id]: !(prev[run.id] ?? isGenuinelyRunning),
+                          }))}
+                        />
+
                         {assistant.text ? (
                           <div className="ai-chat__report-card">
                             <div className="ai-chat__report-card-header">
@@ -1150,6 +1266,17 @@ export default function AIChat({ projectId, onCloseChat }) {
             <div className="ai-chat__plan-review-summary">
               <Sparkles size={13} className="ai-chat__plan-review-summary-icon" />
               <span>{planReview.plan.summary}</span>
+            </div>
+          )}
+
+          {planReview.warnings?.length > 0 && (
+            <div className="ai-chat__plan-review-warnings">
+              {planReview.warnings.map((warning, wIdx) => (
+                <div key={wIdx} className="ai-chat__plan-review-warning">
+                  <AlertCircle size={12} />
+                  <span>{warning}</span>
+                </div>
+              ))}
             </div>
           )}
 
