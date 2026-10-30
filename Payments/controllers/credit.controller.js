@@ -9,6 +9,7 @@ import { getTierConfig, getWindowConfig } from '../config/subscription.config.js
 import {
     BadRequestError,
     UnauthorizedError,
+    ForbiddenError,
     logger,
 } from 'faultkit';
 
@@ -291,10 +292,15 @@ export const updateCreditController = async (req, res, next) => {
             totalTokens: totalTokensInput,
         } = req.body;
 
-        const accountId = bodyUserId || req.accountId || req.user?.id || req.user?._id;
+        // Usage is always billed to the authenticated caller. A body userId is
+        // only accepted when it matches, so one user can never bill another.
+        const accountId = req.accountId || req.user?.id || req.user?._id;
 
         if (!accountId) {
             throw new BadRequestError('Account ID is required for credit updates');
+        }
+        if (bodyUserId && String(bodyUserId) !== String(accountId)) {
+            throw new ForbiddenError('Forbidden: cannot record usage for another account');
         }
 
         validateObjectId(accountId);
@@ -451,7 +457,8 @@ export const updateCreditController = async (req, res, next) => {
 
 /**
  * PATCH /api/payments/subscription
- * Upgrades or downgrades the user's subscription tier.
+ * Users may only downgrade themselves to 'free'. Paid tiers are granted by
+ * processSubscriptionPayment after a verified payment, or by an admin.
  */
 export const updateSubscriptionController = async (req, res, next) => {
     try {
@@ -465,6 +472,9 @@ export const updateSubscriptionController = async (req, res, next) => {
         const normalizedSub = normalizeSubscription(subscription);
         if (!normalizedSub) {
             throw new BadRequestError('subscription must be one of: free, pro, max');
+        }
+        if (normalizedSub !== 'free' && req.user?.role !== 'admin') {
+            throw new ForbiddenError('Forbidden: paid tiers can only be activated through a verified payment');
         }
 
         const accountObjId = new mongoose.Types.ObjectId(accountId);
