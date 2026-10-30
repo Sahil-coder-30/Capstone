@@ -22,7 +22,35 @@
 ## 🎯 Overview & The "Why"
 
 ### What this service does
-AI Orchestration is the agent brain of the platform. It receives a user's coding prompt, validates that the user has credits, executes a LangGraph-powered ReAct loop using configurable LLM providers (Mistral Devstral, Google Gemini, OpenAI-compatible, Cohere), invokes filesystem and terminal tools through the sandbox sidecar's File API, persists chat history in MongoDB, and streams structured step-by-step output back to the frontend over Socket.io and Server-Sent Events.
+AI Orchestration is the agent brain of the platform. It receives a user's coding prompt, validates that the user has credits, runs the Orion LangGraph agent (Mistral models, default codestral-latest), invokes filesystem and terminal tools through the sandbox sidecar's File API, persists chat history in MongoDB, and streams thinking, tool activity and the final report back to the frontend over Server-Sent Events.
+
+### Orion agent flow
+
+```
+router ─┬→ general (read-only answers) → END
+        └→ planner → critic → plan_review (interrupt) → coder (one step per pass)
+           → tester (build/tests by exit code) → reviewer (acceptance criteria vs real files)
+           → debugger ↺ tester (max 3) → finalizer (report from facts) → END
+```
+
+Anti-hallucination rules built into the graph:
+- Step status comes from tool results. A step that should change files but wrote nothing is reported as failed.
+- The tester decides pass/fail from the command exit status. Vite builds go to `node_modules/.orion-build-check`, so user folders are never deleted.
+- The reviewer checks acceptance criteria against the current file contents, not the model's claims.
+- The finalizer computes the outcome (`complete | partial | failed`) in code and only lets the model phrase it.
+
+### SSE contract (`/api/ai/code-agent/*`)
+
+| Endpoint | Purpose |
+|---|---|
+| `POST /code-agent/invoke` | Start a run. Response is the SSE stream. |
+| `GET /code-agent/stream/:projectId` | Re-attach after reload or network loss. Honors `Last-Event-ID`. `204` when no run is active. |
+| `POST /code-agent/plan-approve` / `plan-reject` | Resume the paused run. Events continue on the open stream. |
+| `POST /code-agent/stop` | Abort the active run. |
+
+Every frame is `id: <n>`, `event: <name>`, `data: <json>`. Events: `agent:run`, `agent:snapshot`, `agent:status`, `agent:model`, `agent:thinking`, `agent:message`, `agent:message_retract`, `agent:final`, `agent:tool_start`, `agent:tool_end`, `agent:tool_log`, `agent:steps`, `agent:step`, `agent:plan_review`, `agent:msg_created`, `agent:done`, `agent:stopped`, `agent:error`.
+
+Runs and paused threads are kept in process memory, so the service must run as a single replica (or with sticky sessions) until they move to a shared store.
 
 ### Why this is its own microservice (not part of a monolith)
 
@@ -148,7 +176,7 @@ cp .env.example .env
 # 3. Start in dev mode (nodemon with -L flag for Docker volume compat)
 npm run dev
 
-# 4. Run tests (not yet implemented)
+# 4. Run the offline tests (no network, no database)
 npm test
 ```
 
@@ -180,12 +208,7 @@ skaffold dev
 | Outbound | REST | Sidecar File API (`http://sandbox-service-<id>:3000/*`) | Sandbox Agent Container — tool calls |
 
 ### Asynchronous (event/queue)
-AI Orchestration does not produce or consume RabbitMQ messages. It communicates with the frontend in real time exclusively via Socket.io.
-
-| Event | Direction | Broker | Payload |
-|---|---|---|---|
-| `agent-step` | Socket.io emit (outbound to client) | Socket.io room keyed by userId | `{ step, type, content, isComplete }` |
-| `agent-error` | Socket.io emit (outbound to client) | Socket.io room keyed by userId | `{ error, message }` |
+AI Orchestration does not produce or consume RabbitMQ messages. It streams to the frontend over Server-Sent Events only (see the SSE contract above). Socket.IO is no longer used.
 
 ### Contract source of truth
 [`src/routes/ai.routes.js`](./src/routes/ai.routes.js). No OpenAPI spec yet.
