@@ -1,163 +1,109 @@
-// critic.node.js — v2 (NEW)
-// Structural plan validator. Runs a cheap, no-execution check on the plan
-// BEFORE Coder starts writing any files. Catches bad plans at the lowest
-// possible cost — before a full Coder→Tester round-trip is spent.
-//
-// Checks:
-//  1. Referenced activeFiles actually exist in the workspace
-//  2. No single step touches > 5 files (too large to isolate on failure)
-//  3. Dependency order is correct (dependsOn IDs always reference earlier steps)
-//  4. At least one acceptance criterion per step
-//  5. High-risk steps are explicitly flagged
+// critic.node.js
+// Deterministic plan validator (no LLM call). Runs before the plan is shown
+// to the user and catches the cheap-to-fix problems:
+//   - paths that look hallucinated (a "near miss" of a real file)
+//   - deleting files that do not exist
+//   - steps touching too many files / with no acceptance criteria
+// High-risk files with a low risk label are fixed in place, not re-planned.
+// After MAX_REVISIONS the plan goes to review with the remaining warnings.
 
-import { getAppModel } from "../model.js";
-import { listFiles, searchCode } from "../tool.js";
-import { SystemMessage, HumanMessage } from "@langchain/core/messages";
+import { normalizePath } from "../guards.js";
 
-// ---------------------------------------------------------------------------
-// SYSTEM PROMPT — Structural Plan Critic
-// ---------------------------------------------------------------------------
-const CRITIC_SYSTEM_PROMPT = `You are Orion's Critic — a plan quality auditor.
+const MAX_REVISIONS = 2;
+const HIGH_RISK_FILE = /auth|payment|migration|schema|stripe|razorpay|jwt|password|credential|secret/i;
 
-You receive an implementation plan (JSON) and a list of files that currently exist in the workspace.
-Your job is to perform a structural validation ONLY — no execution, no code writing.
+const stem = (p) => {
+  const base = p.split("/").pop() || "";
+  return base.replace(/\.[^.]+$/, "").toLowerCase();
+};
 
-Check for these specific issues:
-1. FILES_MISSING: Any file in "activeFiles" that does not exist AND is not being created in that step's title
-2. STEP_TOO_LARGE: Any step with more than 5 files in activeFiles
-3. DEPENDENCY_ORDER: Any step whose dependsOn includes an ID >= its own ID (circular or forward dependency)
-4. MISSING_CRITERIA: Any step with an empty acceptanceCriteria array
-5. RISK_NOT_FLAGGED: Any step that modifies auth, payment, or migration files but has riskLevel != "high"
-
-Output ONLY a JSON object in this exact shape (no markdown, no code fences):
-{
-  "pass": true | false,
-  "issues": [
-    { "stepId": 1, "type": "FILES_MISSING", "detail": "src/missing.jsx does not exist" }
-  ],
-  "recommendation": "One sentence on how to fix if pass is false, or empty string if pass is true"
-}`;
-
-// ---------------------------------------------------------------------------
-// CRITIC NODE FUNCTION
-// ---------------------------------------------------------------------------
-export async function criticNode(state, config) {
+export function criticNode(state) {
   const plan = state.plan;
-
-  if (!plan?.steps?.length) {
-    return {
-      criticPass: false,
-      criticFeedback: "No plan to validate — Planner must run first.",
-      lastNodeInvoked: "critic",
-      taskStatus: "critic_failed",
-      currentSituation: "Critic: No plan found. Routing back to Planner.",
-    };
+  const existing = (state.existingFiles || []).map(normalizePath);
+  const existingSet = new Set(existing.map((p) => p.toLowerCase()));
+  const byStem = new Map();
+  for (const p of existing) {
+    const key = stem(p);
+    if (!byStem.has(key)) byStem.set(key, []);
+    byStem.get(key).push(p);
   }
 
-  // --- Collect existing workspace files ------------------------------------
-  let workspaceFiles = [];
-  try {
-    const listResult = await listFiles.invoke({}, config);
-    const rawList = typeof listResult === "string" ? listResult : JSON.stringify(listResult);
-    // Extract file paths from the listing (handles both string lists and JSON arrays)
-    workspaceFiles = rawList.match(/[\w./\\-]+\.[a-z]{1,6}/gi) || [];
-  } catch (err) {
-    console.warn("[CriticNode] Could not list workspace files:", err.message);
-  }
-
-  const workspaceFileSet = new Set(workspaceFiles.map((f) => f.toLowerCase().replace(/^\.\//, "")));
-
-  // --- Run structural checks -----------------------------------------------
   const issues = [];
+  const createdSoFar = new Set();
 
-  for (const step of plan.steps) {
-    // 1. Files missing check (skip if step is creating the file)
-    const isCreationStep = step.action === "create" || /create|add|new|scaffold/i.test(step.title);
-    if (!isCreationStep && step.activeFiles?.length > 0) {
-      for (const file of step.activeFiles) {
-        const normalized = file.toLowerCase().replace(/^\.\//, "").replace(/^\//, "");
-        if (!workspaceFileSet.has(normalized)) {
-          issues.push({ stepId: step.id, type: "FILES_MISSING", detail: `"${file}" does not exist in workspace` });
+  const steps = plan.steps.map((step) => {
+    const files = step.activeFiles || [];
+
+    for (const file of files) {
+      const lower = file.toLowerCase();
+      const exists = existingSet.has(lower) || createdSoFar.has(lower);
+
+      if (step.action === "delete" && !exists) {
+        issues.push(`Step ${step.id}: cannot delete "${file}", it does not exist.`);
+      }
+
+      // A path that does not exist but closely matches a real file is most
+      // likely a hallucinated name (App.js vs App.jsx, wrong folder).
+      if (!exists && step.action !== "create" && existing.length > 0) {
+        const nearMisses = (byStem.get(stem(file)) || []).filter((p) => p.toLowerCase() !== lower);
+        if (nearMisses.length > 0) {
+          issues.push(`Step ${step.id}: "${file}" does not exist. Did you mean ${nearMisses.slice(0, 3).map((p) => `"${p}"`).join(" or ")}?`);
         }
       }
     }
+    for (const file of files) createdSoFar.add(file.toLowerCase());
 
-    // 2. Step too large
-    if ((step.activeFiles?.length || 0) > 5) {
-      issues.push({ stepId: step.id, type: "STEP_TOO_LARGE", detail: `Step has ${step.activeFiles.length} files — max 5 for isolation` });
+    if (files.length > 5) {
+      issues.push(`Step ${step.id}: touches ${files.length} files, split it (max 5 per step).`);
     }
-
-    // 3. Dependency order
-    for (const depId of (step.dependsOn || [])) {
-      if (depId >= step.id) {
-        issues.push({ stepId: step.id, type: "DEPENDENCY_ORDER", detail: `Depends on step ${depId} which doesn't come before step ${step.id}` });
-      }
-    }
-
-    // 4. Missing criteria
     if (!step.acceptanceCriteria?.length) {
-      issues.push({ stepId: step.id, type: "MISSING_CRITERIA", detail: "No acceptance criteria defined" });
+      issues.push(`Step ${step.id}: has no acceptance criteria.`);
     }
 
-    // 5. High-risk not flagged
-    const highRiskPatterns = /auth|payment|migration|schema|stripe|jwt|password|credential/i;
-    const touchesHighRisk = step.activeFiles?.some((f) => highRiskPatterns.test(f));
-    if (touchesHighRisk && step.riskLevel !== "high") {
-      issues.push({ stepId: step.id, type: "RISK_NOT_FLAGGED", detail: `File touches auth/payment/migration but riskLevel="${step.riskLevel}"` });
-    }
+    const touchesHighRisk = files.some((f) => HIGH_RISK_FILE.test(f));
+    return touchesHighRisk && step.riskLevel !== "high" ? { ...step, riskLevel: "high" } : step;
+  });
+
+  const fixedPlan = { ...plan, steps };
+  const revisions = state.planRevisions || 0;
+
+  if (issues.length === 0) {
+    return {
+      plan: fixedPlan,
+      criticPass: true,
+      criticFeedback: "",
+      planWarnings: [],
+      lastNodeInvoked: "critic",
+      taskStatus: "critic_passed",
+      currentSituation: `Critic: plan structure is valid (${plan.totalSteps} steps).`,
+    };
   }
 
-  const pass = issues.length === 0;
-  const currentRevisions = (state.planRevisions || 0);
-  const nextRevisions = pass ? currentRevisions : currentRevisions + 1;
-
-  // --- Optionally ask LLM for a deeper recommendation on failure -----------
-  let recommendation = "";
-  if (!pass) {
-    try {
-      const model = getAppModel();
-      const issueList = issues.map((i) => `Step ${i.stepId} [${i.type}]: ${i.detail}`).join("\n");
-      const response = await model.invoke([
-        new SystemMessage(CRITIC_SYSTEM_PROMPT),
-        new HumanMessage(`Plan:\n${JSON.stringify(plan, null, 2)}\n\nExisting files:\n${workspaceFiles.slice(0, 50).join(", ")}\n\nIssues found:\n${issueList}`),
-      ]);
-      const raw = String(response?.content || "").trim()
-        .replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/```$/m, "").trim();
-      try {
-        const parsed = JSON.parse(raw);
-        recommendation = parsed.recommendation || "";
-      } catch (_) {
-        recommendation = raw.slice(0, 300);
-      }
-    } catch (_) {}
+  if (revisions >= MAX_REVISIONS) {
+    console.warn(`[CriticNode] ${issues.length} issue(s) left after ${revisions} revisions, sending to review with warnings`);
+    return {
+      plan: fixedPlan,
+      criticPass: true,
+      criticFeedback: "",
+      planWarnings: issues,
+      lastNodeInvoked: "critic",
+      taskStatus: "critic_passed",
+      currentSituation: `Critic: ${issues.length} warning(s) remain after ${revisions} revisions. Showing them in the plan review.`,
+    };
   }
 
-  if (pass) {
-    console.log(`[CriticNode] ✓ Plan structural check passed (${plan.totalSteps} steps)`);
-  } else {
-    console.warn(`[CriticNode] ✗ Plan failed with ${issues.length} issue(s) (revision ${nextRevisions}/2)`);
-  }
-
+  console.warn(`[CriticNode] ${issues.length} issue(s), revision ${revisions + 1}/${MAX_REVISIONS}`);
   return {
-    criticPass: pass,
-    planRevisions: nextRevisions,
-    criticFeedback: pass ? "" : `${issues.length} issue(s): ${issues.map((i) => i.detail).join("; ")}. ${recommendation}`,
+    plan: null,
+    criticPass: false,
+    criticFeedback: issues.join("\n"),
+    planRevisions: revisions + 1,
     lastNodeInvoked: "critic",
-    taskStatus: pass ? "critic_passed" : "critic_failed",
-    currentSituation: pass
-      ? `Critic: Plan structure valid. ${plan.totalSteps} steps ready for Coder.`
-      : `Critic: ${issues.length} structural issue(s) found (Revision ${nextRevisions}/2). Routing back to Planner for revision.`,
+    taskStatus: "critic_failed",
+    currentSituation: `Critic: found ${issues.length} problem(s) in the plan. Re-planning (${revisions + 1}/${MAX_REVISIONS}).`,
   };
 }
 
-// ---------------------------------------------------------------------------
-// CONDITIONAL EDGE — called after critic node
-// ---------------------------------------------------------------------------
 export function criticEdge(state) {
-  if (state.criticPass) return "coder";
-  if ((state.planRevisions ?? 0) >= 2) {
-    console.warn(`[CriticEdge] Plan reached maximum revisions (${state.planRevisions}) — escalating to finalizer`);
-    return "finalizer";
-  }
-  return "planner"; // Re-plan with critic feedback in context
+  return state.criticPass ? "plan_review" : "planner";
 }

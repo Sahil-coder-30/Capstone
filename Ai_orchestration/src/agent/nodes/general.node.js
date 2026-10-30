@@ -1,80 +1,60 @@
-// general.node.js — v2
-// Lightweight conversational node for non-coding queries.
-// Read-only: no file writes, no tool calls that modify state.
-//
-// Can detect mid-conversation pivots to coding tasks and route back to Router
-// instead of answering directly, without requiring a fresh graph invocation.
+// general.node.js
+// Answers questions that need no code change. It can read the project
+// (read-only tools) so answers about the user's own code are grounded in the
+// real files instead of guesses. Its final text is the user-facing answer.
 
+import { createReactAgent } from "@langchain/langgraph/prebuilt";
 import { getAppModel } from "../model.js";
-import { SystemMessage, HumanMessage, AIMessage } from "@langchain/core/messages";
+import { listFiles, readFile, searchCode, searchInternetTool } from "../tool.js";
+import { GROUNDING_RULES, formatChatHistory, lastAiText } from "../agentUtils.js";
 
-// ---------------------------------------------------------------------------
-// SYSTEM PROMPT — General Assistant
-// ---------------------------------------------------------------------------
-const GENERAL_SYSTEM_PROMPT = `You are Orion, an AI coding assistant inside Taksha — a cloud IDE built for React developers.
+const GENERAL_SYSTEM_PROMPT = `You are Orion, the AI coding agent inside Taksha, a cloud IDE for React + Vite apps. Each user has a live sandbox with their project at /workspace.
 
-You are responding to a non-coding query: a greeting, a question about your capabilities, or a general programming concept.
+You are answering a message that does NOT need code changes: a greeting, a question about what you can do, a programming concept, or a question about the user's own project.
 
-Guidelines:
-- Be friendly, concise, and helpful
-- If the user asks what you can do, describe: building features, fixing bugs, refactoring code, running builds, debugging runtime errors
-- If the user asks a programming concept question, answer it clearly without writing code changes
-- If the response would benefit from a code snippet, include one inline
-- Keep responses under 300 words unless depth is genuinely required
+How to answer:
+- Questions about the user's project: look first. Use list_files, search_code and read_file, then answer from what the files actually contain. Cite file paths.
+- Concept questions: answer directly. Use search_internet only for fast-moving library details (versions, new APIs).
+- Be clear and concise. Use Markdown with short sections, bullets and code blocks where they help. Stay under ~300 words unless depth is really needed.
+- You cannot change files in this mode. If the user wants a change, tell them what you would change and ask them to confirm, e.g. "Want me to implement this?".
 
-If the user's message is actually a request to change code (e.g. "build X", "fix Y", "add Z"), 
-end your response with exactly this line on its own: [ROUTE_TO_CODING]`;
+${GROUNDING_RULES}`;
 
-// ---------------------------------------------------------------------------
-// GENERAL NODE FUNCTION
-// ---------------------------------------------------------------------------
-export async function generalNode(state) {
-  const messages = state.messages || [];
-  const userText =
-    state.task ||
-    [...messages].reverse().find((m) => m.role === "user" || m._getType?.() === "human")?.content ||
-    "Hello";
+export async function generalNode(state, config) {
+  const task = String(state.task || "").trim() || "Hello";
+  const history = formatChatHistory(state.messages || []);
 
-  const userTextStr = typeof userText === "string" ? userText : JSON.stringify(userText);
+  const agent = createReactAgent({
+    llm: getAppModel(),
+    tools: [listFiles, readFile, searchCode, searchInternetTool],
+    prompt: GENERAL_SYSTEM_PROMPT,
+  });
 
-  let responseText = "Hi! I'm Orion, your AI coding assistant. How can I help you today?";
-  let pivotToCoding = false;
-
+  let answer = "";
   try {
-    const model = getAppModel();
-    const response = await model.invoke([
-      new SystemMessage(GENERAL_SYSTEM_PROMPT),
-      new HumanMessage(userTextStr.slice(0, 2000)),
-    ]);
-    responseText = String(response?.content ?? "").trim();
-
-    // Detect pivot signal
-    if (responseText.includes("[ROUTE_TO_CODING]")) {
-      pivotToCoding = true;
-      responseText = responseText.replace("[ROUTE_TO_CODING]", "").trim();
-    }
+    const result = await agent.invoke(
+      {
+        messages: [
+          {
+            role: "user",
+            content: `${history ? `Conversation so far:\n${history}\n\n` : ""}User message:\n${task}`,
+          },
+        ],
+      },
+      { ...config, recursionLimit: 24 },
+    );
+    answer = lastAiText(result.messages);
   } catch (err) {
-    console.warn("[GeneralNode] LLM call failed:", err.message);
-    responseText = "I'm having trouble connecting to my AI backend right now. Please try again in a moment.";
+    if (config?.signal?.aborted) throw err;
+    console.warn("[GeneralNode] Agent failed:", err.message);
+    answer = "I could not reach the AI model just now. Please try again in a moment.";
   }
 
-  console.log(`[GeneralNode] Response ready (${responseText.length} chars) | pivotToCoding=${pivotToCoding}`);
-
   return {
-    messages: [new AIMessage(responseText)],
-    intent: pivotToCoding ? "coding" : "general",
+    finalAnswer: answer || "I'm Orion. Ask me to build a feature, fix a bug, or explain your code.",
     lastNodeInvoked: "general",
-    taskStatus: pivotToCoding ? "routing" : "complete",
-    currentSituation: pivotToCoding
-      ? "General: User pivoted to a coding request. Routing back to Planner."
-      : responseText,
+    taskStatus: "complete",
+    outcome: "answered",
+    currentSituation: "General: answered the question.",
   };
-}
-
-// ---------------------------------------------------------------------------
-// CONDITIONAL EDGE — called after general node
-// ---------------------------------------------------------------------------
-export function generalEdge(state) {
-  if (state.intent === "coding") return "planner"; // pivot mid-conversation
-  return "__end__"; // normal general reply directly ends graph
 }

@@ -10,7 +10,8 @@ if (typeof AbortSignal !== "undefined" && typeof AbortSignal.timeout === "functi
 }
 import path from "path";
 import { fileURLToPath } from "url";
-import { ChatOpenRouter } from "@langchain/openrouter";
+import { ChatMistralAI } from "@langchain/mistralai";
+import { getApiKey, DEFAULT_MODEL } from "./model.js";
 import { StateGraph, Annotation, END, START, MemorySaver } from "@langchain/langgraph";
 import { createReactAgent } from "@langchain/langgraph/prebuilt";
 import dotenv from "dotenv";
@@ -31,27 +32,19 @@ let appModelInstance = null;
 let appModelInfo = null;
 
 export const getAppModel = () => {
-  const openRouterApiKey = (process.env.OPENROUTER_API_KEY || process.env.OPEN_ROUTER)?.trim();
-
   if (!appModelInstance) {
-    if (!openRouterApiKey) {
-      const error = new Error("No AI provider key configured. Set OPENROUTER_API_KEY.");
-      error.code = "AI_PROVIDER_NOT_CONFIGURED";
-      throw error;
-    }
-
-    appModelInstance = new ChatOpenRouter({
-      model: "openai/gpt-6-luna",
-      apiKey: openRouterApiKey,
+    const modelId = process.env.ORION_MODEL?.trim() || DEFAULT_MODEL;
+    appModelInstance = new ChatMistralAI({
+      model: modelId,
+      apiKey: getApiKey(),
       temperature: 0.1,
       maxRetries: 0,
-      timeout: 180_000, // 3 minutes
     });
     appModelInfo = {
-      id: "gpt6Luna",
-      modelId: "openai/gpt-6-luna",
-      label: "GPT-6 Luna (OpenRouter)",
-      provider: "openrouter",
+      id: modelId,
+      modelId,
+      label: `${modelId} (Mistral)`,
+      provider: "mistral",
     };
   }
 

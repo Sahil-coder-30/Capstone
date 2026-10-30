@@ -14,6 +14,7 @@ aiRouter.post("/app-agent/title", identifyUser, aiRateLimiter, creditLedger, aiC
 aiRouter.post("/code-agent/invoke", identifyUser, requireOwnedSandbox, aiRateLimiter, creditLedger, aiController.codeAgentInvoke);
 
 // ── Agent Run Controls (runs are keyed by the caller's own user id) ──
+aiRouter.get("/code-agent/stream/:projectId", identifyUser, aiController.codeAgentStream);
 aiRouter.post("/code-agent/stop", identifyUser, aiController.codeAgentStop);
 aiRouter.post("/code-agent/plan-approve", identifyUser, aiController.codeAgentPlanApprove);
 aiRouter.post("/code-agent/plan-reject", identifyUser, aiController.codeAgentPlanReject);

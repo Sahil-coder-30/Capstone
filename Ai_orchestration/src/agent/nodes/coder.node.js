@@ -1,10 +1,12 @@
-// coder.node.js — v2
-// Software Engineer specialist. Implements ONE plan step at a time.
-// After each step it performs a self-review against that step's
-// acceptanceCriteria before handing to Tester.
+// coder.node.js
+// Implements ONE plan step per invocation with a fresh, small context:
+// task + plan + this step + factual reports of earlier steps.
 //
-// Tool write access is scoped to state.activeFiles — any write attempt
-// outside that list is blocked at the guard layer.
+// Step status is decided from tool results, not from the model's own claim:
+//   - a step that should change files but made no successful write is failed
+//   - a step whose dependency failed is skipped
+// Each step leaves a report (files written, failures, the model's summary)
+// that later steps, the reviewer and the finalizer rely on.
 
 import { createReactAgent } from "@langchain/langgraph/prebuilt";
 import { getAppModel } from "../model.js";
@@ -21,210 +23,205 @@ import {
   searchCode,
   searchInternetTool,
 } from "../tool.js";
+import {
+  GROUNDING_RULES,
+  analyzeToolActivity,
+  formatChatHistory,
+  formatPlan,
+  lastAiText,
+  truncate,
+} from "../agentUtils.js";
 
-// ---------------------------------------------------------------------------
-// SYSTEM PROMPT — Full-Stack Software Engineer
-// ---------------------------------------------------------------------------
-const CODER_SYSTEM_PROMPT = `You are Orion's Coder — a senior full-stack engineer. You implement EXACTLY ONE assigned task step.
+// ~30 tool calls per step. Enough for real work, small enough to stop loops.
+const STEP_RECURSION_LIMIT = 64;
 
-=== EXECUTION PROTOCOL ===
-1. READ the step's acceptance criteria first — they define what "done" means
-2. READ all files in activeFiles before writing anything
-3. Use search_code to find existing patterns before creating new ones
-4. Implement the step. Use patch_file for changes < 20 lines, update_file for full rewrites
-5. After implementing: re-read each modified file to self-verify against the acceptance criteria
-6. If a criterion is not met, fix it before stopping
+const CODER_SYSTEM_PROMPT = `You are Orion's Coder, a senior React + Vite engineer. You implement EXACTLY ONE plan step in the user's project at /workspace. The Vite dev server already runs on port 5173 with hot reload.
 
-=== TOOL RULES ===
-- Use execute_command ONLY for: npm install <pkg>, mkdir -p <dir>, git commands
-- NEVER use: cat, head, tail, echo, touch, cp, mv, sed, awk, grep — use read_file instead
-- Use search_internet only if you need library documentation you are unfamiliar with
-- The Vite dev server runs on port 5173 — never run "npm run dev" yourself
+Execution protocol:
+1. Read before you write. read_file every file in this step's activeFiles that exists, plus anything they import that you need to understand. Use search_code to find existing patterns.
+2. Implement the step completely. No placeholders, no TODOs, no "rest of the code here" comments. Every import must point to a file or package that really exists.
+3. Edit with the right tool: patch_file for small targeted edits (copy oldStr exactly from read_file or search_code output), update_file for full rewrites, create_file for new files (parent folders are created automatically).
+4. New npm package needed? Check package.json first, then execute_command "npm install <pkg>". Never run dev/start/preview servers.
+5. Self-check: re-read each file you changed and confirm every acceptance criterion against the real content. Fix anything that is off.
 
-=== CODING STANDARDS ===
-- Match existing code style exactly (indentation, quote style, naming)
-- No debug console.log statements
-- No placeholder TODO comments unless the step explicitly requires them
-- Import paths must be exact — check casing on Linux systems`;
+Narrate briefly: before each tool call, write one short sentence about what you are doing and why (e.g. "Reading App.jsx to see where routes are defined.").
 
-function normalizePath(p) {
-  return String(p || "").toLowerCase().replace(/^\.\//, "").replace(/^\//, "").trim();
-}
+Coding standards:
+- Match the existing style (indentation, quotes, naming, file structure, CSS approach).
+- Function components and hooks. Keep components small and focused.
+- Import paths are case-sensitive (Linux). Check them.
+- No debug console.log.
 
-function extractFilePaths(toolName, input) {
-  if (!input || typeof input !== "object") return [];
-  if (Array.isArray(input.files)) {
-    return input.files.map((f) => (typeof f === "string" ? f : f?.file)).filter(Boolean);
-  }
-  if (Array.isArray(input.updates)) {
-    return input.updates.map((u) => u?.file).filter(Boolean);
-  }
-  if (input.filePath) return [input.filePath];
-  if (input.path) return [input.path];
-  if (input.file) return [input.file];
-  if (input.filename) return [input.filename];
-  return [];
-}
+When finished, reply with exactly this format:
+STATUS: done | blocked
+SUMMARY: <2-4 sentences: what you changed and how each acceptance criterion is met, or what blocked you>
 
-// ---------------------------------------------------------------------------
-// Build a per-step file scope guard
-// Wraps write tools to reject files outside activeFiles
-// ---------------------------------------------------------------------------
-function buildScopedTools(activeFiles) {
-  const allowSet = new Set((activeFiles || []).map(normalizePath));
+${GROUNDING_RULES}`;
 
-  const scopeCheck = (toolInstance) => {
-    const original = toolInstance.invoke.bind(toolInstance);
-    const wrapped = { ...toolInstance };
-    wrapped.invoke = async (input, config) => {
-      if (allowSet.size > 0) {
-        const extracted = extractFilePaths(toolInstance.name, input).map(normalizePath);
-        const violations = extracted.filter((p) => p && !allowSet.has(p));
-        if (violations.length > 0) {
-          console.warn(`[CoderNode] Write to ${violations.join(", ")} blocked — not in activeFiles allowlist`);
-          return {
-            error: `SCOPE_VIOLATION: ${violations.join(", ")} is not in the active files allowlist for this step. Only write to allowed files: ${[...allowSet].join(", ")}`,
-          };
-        }
-      }
-      return original(input, config);
-    };
-    return wrapped;
-  };
-
-  const writeTools = [createFile, updateFile, patchFile, deleteFile];
-  const readTools = [listFiles, readFile, searchCode, searchInternetTool, executeCommand, getViteRuntimeErrors];
-
-  return applyGuards([
-    ...readTools,
-    ...writeTools.map(scopeCheck),
+const buildTools = () =>
+  applyGuards([
+    listFiles,
+    readFile,
+    searchCode,
+    searchInternetTool,
+    executeCommand,
+    getViteRuntimeErrors,
+    createFile,
+    updateFile,
+    patchFile,
+    deleteFile,
   ]);
-}
 
-// ---------------------------------------------------------------------------
-// CODER NODE FUNCTION
-// ---------------------------------------------------------------------------
-export async function coderNode(state, config) {
-  const plan = state.plan;
-  const currentStep = state.currentStep || 0;
+const parseStatus = (text) => {
+  const match = /STATUS:\s*(done|blocked)/i.exec(text || "");
+  return match ? match[1].toLowerCase() : null;
+};
 
-  if (!plan?.steps?.length) {
-    return {
-      currentSituation: "Coder: No plan found. Routing back to Planner.",
-      lastNodeInvoked: "coder",
-      taskStatus: "error",
-    };
-  }
+const parseSummary = (text) => {
+  const match = /SUMMARY:\s*([\s\S]+)/i.exec(text || "");
+  return (match ? match[1] : text || "").trim();
+};
 
-  // All steps done
-  if (currentStep >= plan.steps.length) {
-    console.log("[CoderNode] All plan steps implemented");
-    return {
-      currentSituation: "Coder: All plan steps implemented. Handing to Tester for final verification.",
-      lastNodeInvoked: "coder",
-      taskStatus: "coding_complete",
-    };
-  }
-
-  const step = plan.steps[currentStep];
-
-  // Update step status in plan
-  const updatedPlan = {
-    ...plan,
-    steps: plan.steps.map((s, i) => ({
-      ...s,
-      status: i === currentStep ? "in_progress" : s.status,
-    })),
-  };
-
-  const planContext = plan.steps
-    .map((s, i) => {
-      const marker = i === currentStep ? "→ ACTIVE" : s.status === "done" ? "✓ done" : "  pending";
-      return `${marker}  Step ${s.id}: ${s.title}`;
+const formatPreviousReports = (reports = []) => {
+  if (!reports.length) return "(this is the first step)";
+  return reports
+    .map((r) => {
+      const files = [...(r.filesWritten || []), ...(r.filesDeleted || []).map((f) => `${f} (deleted)`)];
+      return `Step ${r.stepId} [${r.status}]: ${r.summary}\n  files: ${files.length ? files.join(", ") : "none"}`;
     })
     .join("\n");
+};
 
-  const taskPrompt = `You are implementing Step ${step.id}/${plan.totalSteps}: "${step.title}"
+const markStep = (plan, index, status) => ({
+  ...plan,
+  steps: plan.steps.map((s, i) => (i === index ? { ...s, status } : s)),
+});
 
-Description: ${step.description}
+export async function coderNode(state, config) {
+  const plan = state.plan;
+  const index = state.currentStep || 0;
+  const step = plan.steps[index];
 
-Acceptance criteria (you must satisfy ALL of these before finishing):
-${(step.acceptanceCriteria || []).map((c, i) => `  ${i + 1}. ${c}`).join("\n")}
+  // Skip steps whose dependencies did not complete.
+  const failedDeps = (step.dependsOn || []).filter((id) => {
+    const dep = plan.steps.find((s) => s.id === id);
+    return dep && dep.status !== "done";
+  });
+  if (failedDeps.length > 0) {
+    const report = {
+      stepId: step.id,
+      title: step.title,
+      status: "skipped",
+      summary: `Skipped because step ${failedDeps.join(", ")} did not complete.`,
+      filesWritten: [],
+      filesDeleted: [],
+      failures: [],
+    };
+    return {
+      plan: markStep(plan, index, "skipped"),
+      currentStep: index + 1,
+      stepReports: [report],
+      lastNodeInvoked: "coder",
+      taskStatus: "coding",
+      currentSituation: `Coder: step ${step.id} skipped, dependency step ${failedDeps.join(", ")} did not complete.`,
+    };
+  }
 
-Files you are allowed to write to (activeFiles):
-${(step.activeFiles || []).length > 0 ? step.activeFiles.map((f) => `  - ${f}`).join("\n") : "  (not specified — read existing files to determine scope)"}
+  const taskPrompt = `TASK FROM THE USER:
+${state.task}
 
-Full plan context (for reference only):
-${planContext}
+${state.messages?.length ? `CONVERSATION CONTEXT:\n${formatChatHistory(state.messages, 2_000)}\n\n` : ""}PROJECT ANALYSIS (from the planner's inspection, verify before relying on it):
+${truncate(state.planAnalysis || "(none)", 4_000)}
 
-Implement this step now. Read files first, then implement, then self-verify against the criteria above.`;
+FULL PLAN:
+${formatPlan(plan, index)}
 
-  const coderAgent = createReactAgent({
+EARLIER STEPS (facts from tool results):
+${formatPreviousReports(state.stepReports)}
+
+YOUR STEP: ${step.id}/${plan.totalSteps} - ${step.title} (${step.action})
+${step.description}
+
+Files for this step:
+${step.activeFiles.length ? step.activeFiles.map((f) => `  - ${f}`).join("\n") : "  (not listed, decide from the code)"}
+
+Acceptance criteria (all must be true when you finish):
+${step.acceptanceCriteria.map((c, i) => `  ${i + 1}. ${c}`).join("\n")}
+
+Implement this step now.`;
+
+  const agent = createReactAgent({
     llm: getAppModel(),
-    tools: buildScopedTools(step.activeFiles),
+    tools: buildTools(),
     prompt: CODER_SYSTEM_PROMPT,
   });
 
+  let messages = [];
+  let runError = null;
   try {
-    const result = await coderAgent.invoke(
-      { messages: [...(state.messages || []), { role: "user", content: taskPrompt }] },
-      config
+    const result = await agent.invoke(
+      { messages: [{ role: "user", content: taskPrompt }] },
+      { ...config, recursionLimit: STEP_RECURSION_LIMIT },
     );
-
-    // Mark step done in plan
-    const completedPlan = {
-      ...plan,
-      steps: plan.steps.map((s, i) => ({
-        ...s,
-        status: i === currentStep ? "done" : s.status,
-      })),
-    };
-
-    const nextStep = currentStep + 1;
-    const remaining = plan.steps.length - nextStep;
-
-    console.log(`[CoderNode] Step ${step.id} complete (${remaining} remaining)`);
-
-    return {
-      plan: completedPlan,
-      currentStep: nextStep,
-      activeFiles: nextStep < plan.steps.length ? (plan.steps[nextStep]?.activeFiles || []) : [],
-      messages: result.messages || [],
-      lastNodeInvoked: "coder",
-      taskStatus: remaining > 0 ? "coding" : "coding_complete",
-      currentSituation: `Coder: Step ${step.id} done — "${step.title}". ${remaining > 0 ? `${remaining} step(s) remaining.` : "All steps implemented. Handing to Tester."}`,
-    };
+    messages = result.messages || [];
   } catch (err) {
+    if (config?.signal?.aborted) throw err;
+    runError = /recursion/i.test(err.message)
+      ? "Ran out of tool-call budget for this step before finishing."
+      : err.message;
     console.error(`[CoderNode] Step ${step.id} failed:`, err.message);
-
-    const failedPlan = {
-      ...plan,
-      steps: plan.steps.map((s, i) => ({
-        ...s,
-        status: i === currentStep ? "failed" : s.status,
-      })),
-    };
-
-    return {
-      plan: failedPlan,
-      currentStep: currentStep + 1, // skip failed step, continue
-      lastNodeInvoked: "coder",
-      taskStatus: "coding",
-      currentSituation: `Coder: Step ${step.id} failed — "${err.message}". Skipping to next step.`,
-    };
   }
+
+  const activity = analyzeToolActivity(messages);
+  const finalText = lastAiText(messages);
+  const claimed = parseStatus(finalText);
+  const changedSomething = activity.filesWritten.length + activity.filesDeleted.length > 0;
+  const planned = new Set(plan.steps.flatMap((s) => s.activeFiles));
+  const outOfPlan = activity.filesWritten.filter((f) => !planned.has(f));
+
+  let status = "done";
+  let summary = parseSummary(finalText) || "No summary returned.";
+  if (runError) {
+    status = "failed";
+    summary = runError;
+  } else if (claimed === "blocked") {
+    status = "failed";
+  } else if (!changedSomething) {
+    status = "failed";
+    summary = `No file was changed in this step. ${summary}`;
+  }
+
+  const report = {
+    stepId: step.id,
+    title: step.title,
+    status,
+    summary: truncate(summary, 800),
+    filesWritten: activity.filesWritten,
+    filesDeleted: activity.filesDeleted,
+    failures: activity.failures.slice(-5),
+    outOfPlan,
+  };
+
+  console.log(`[CoderNode] Step ${step.id} ${status} (${activity.filesWritten.length} written, ${activity.failures.length} failed calls)`);
+
+  const next = index + 1;
+  return {
+    plan: markStep(plan, index, status),
+    currentStep: next,
+    stepReports: [report],
+    filesTouched: [...activity.filesWritten, ...activity.filesDeleted],
+    lastNodeInvoked: "coder",
+    taskStatus: next < plan.steps.length ? "coding" : "coding_complete",
+    currentSituation: status === "done"
+      ? `Coder: step ${step.id} done (${activity.filesWritten.length} file(s) changed).`
+      : `Coder: step ${step.id} failed. ${truncate(summary, 160)}`,
+  };
 }
 
-// ---------------------------------------------------------------------------
-// CONDITIONAL EDGE — called after coder node
-// ---------------------------------------------------------------------------
 export function coderEdge(state) {
   const plan = state.plan;
-  const currentStep = state.currentStep || 0;
-
-  // More steps remain — loop coder
-  if (plan?.steps && currentStep < plan.steps.length) return "coder";
-
-  // All steps done — go to tester
+  if (plan?.steps && (state.currentStep || 0) < plan.steps.length) return "coder";
+  // Nothing changed means nothing to verify; report honestly instead.
+  if (!(state.filesTouched || []).length) return "finalizer";
   return "tester";
 }

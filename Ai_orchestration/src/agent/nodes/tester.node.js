@@ -1,242 +1,157 @@
-// tester.node.js — v2
-// The enforcement core. Runs: unit tests → real build, in that order.
-// Lint step is disabled per user configuration.
+// tester.node.js
+// Deterministic verification. No LLM call.
+//   1. Unit tests, only when package.json has a test script using vitest/jest.
+//   2. Production build ("npm run build") when a build script exists.
+// Pass/fail comes from the command's exit status, not from regex guessing.
 //
-// Rules:
-//  - Cleanup (delete build artifacts) runs unconditionally — pass OR fail
-//  - Only this node sets testResults.pass = true
-//  - On failure: captures file:line:message tuples into buildLog + flaggedFiles
-//  - Build dirs deleted: dist/, build/, .next/, out/, .cache/
+// Vite builds are written to node_modules/.orion-build-check and removed
+// afterwards, so the user's own dist/ or build/ folders are never touched.
 
-import { executeCommand, listFiles, readFile } from "../tool.js";
+import { runSandboxCommand, readSandboxFiles, logToRun } from "../sandboxClient.js";
+import { normalizePath } from "../guards.js";
+import { truncate } from "../agentUtils.js";
 
-// Artifact directories to always clean up
-const BUILD_ARTIFACT_DIRS = ["dist", "build", ".next", "out", ".cache", ".vite"];
+const BUILD_CHECK_DIR = "node_modules/.orion-build-check";
+const FILE_REF = /(?:\/workspace\/)?((?:[\w@.-]+\/)*[\w@.-]+\.(?:jsx?|tsx?|mjs|cjs|css|scss|sass|less|json|html|vue|svelte))(?::(\d+))?/g;
 
-// Error line pattern: extract file:line:col patterns from build output
-const ERROR_LINE_PATTERN = /(?:^|\s)((?:src|app|pages|components|lib|utils|hooks|features|routes|views|api|server)[\w./\\-]*\.[jt]sx?)(?::(\d+)(?::(\d+))?)?\s*[:\-–|]\s*(.+)/gim;
+const combinedOutput = (result) =>
+  [result.stdout, result.stderr, result.error].filter(Boolean).join("\n").trim();
 
-// ---------------------------------------------------------------------------
-// Parse raw build/test output into structured error tuples
-// ---------------------------------------------------------------------------
-function parseErrorLines(rawOutput) {
-  const lines = [];
+/** Keeps the start and end of long logs, where build tools print errors. */
+const trimLog = (text) =>
+  text.length <= 5_000 ? text : `${text.slice(0, 3_000)}\n...[trimmed]...\n${text.slice(-2_000)}`;
+
+const parseErrors = (output) => {
+  const errorLines = output
+    .split("\n")
+    .map((l) => l.trim())
+    .filter((l) => /error|failed|cannot|could not|unexpected|not found|is not defined|does not provide/i.test(l))
+    .filter((l) => !/^\s*at\s/.test(l))
+    .slice(0, 15);
+
   const flagged = new Set();
-
-  let match;
-  const seen = new Set();
-  const text = rawOutput || "";
-
-  // Reset regex state
-  ERROR_LINE_PATTERN.lastIndex = 0;
-
-  while ((match = ERROR_LINE_PATTERN.exec(text)) !== null) {
-    const file = match[1];
-    const line = match[2] ? parseInt(match[2]) : null;
-    const message = (match[4] || "").trim().slice(0, 200);
-    const key = `${file}:${line}:${message}`;
-
-    if (!seen.has(key) && message) {
-      seen.add(key);
-      lines.push({ file, line, message });
-      flagged.add(file);
-    }
-    if (lines.length >= 20) break;
+  for (const match of output.matchAll(FILE_REF)) {
+    const file = normalizePath(match[1]);
+    if (!file || file.startsWith("node_modules/") || file.includes("/node_modules/")) continue;
+    if (file === "package.json" || file === "package-lock.json") continue;
+    flagged.add(file);
   }
+  return { errorLines, flaggedFiles: [...flagged].slice(0, 10) };
+};
 
-  // Also capture lines with "error" keyword not caught by above
-  if (lines.length === 0) {
-    const errorLines = text.split("\n").filter((l) => /\berror\b/i.test(l) && l.trim().length > 5).slice(0, 10);
-    for (const l of errorLines) {
-      const trimmed = l.trim().slice(0, 200);
-      if (!seen.has(trimmed)) {
-        seen.add(trimmed);
-        lines.push({ file: null, line: null, message: trimmed });
-      }
-    }
-  }
+const runLogged = async (config, command, label) => {
+  logToRun(config, `executeCommand: start - command: "${label}"`);
+  const result = await runSandboxCommand(config, command);
+  logToRun(
+    config,
+    result.ok
+      ? `executeCommand: success - "${label}" passed`
+      : `executeCommand: error - "${label}" failed${result.timedOut ? " (timed out)" : ""}`,
+  );
+  return result;
+};
 
-  return { lines, flagged: [...flagged] };
-}
+const failure = (state, stage, result) => {
+  const output = combinedOutput(result);
+  const { errorLines, flaggedFiles } = parseErrors(output);
+  return {
+    testResults: {
+      pass: false,
+      stage,
+      timedOut: result.timedOut,
+      errorLines,
+      summary: result.timedOut
+        ? `${stage === "tests" ? "Unit tests" : "Build"} timed out.`
+        : `${stage === "tests" ? "Unit tests" : "Build"} failed with ${errorLines.length || "unknown"} error line(s).`,
+    },
+    buildLog: trimLog(output),
+    flaggedFiles,
+    lastNodeInvoked: "tester",
+    taskStatus: stage === "tests" ? "tests_failed" : "build_failed",
+    currentSituation: `Tester: ${stage === "tests" ? "unit tests" : "build"} failed${flaggedFiles.length ? ` in ${flaggedFiles.slice(0, 3).join(", ")}` : ""}.`,
+  };
+};
 
-// ---------------------------------------------------------------------------
-// Cleanup: unconditionally delete build artifact directories
-// ---------------------------------------------------------------------------
-async function runCleanup(config) {
-  for (const dir of BUILD_ARTIFACT_DIRS) {
-    try {
-      await executeCommand.invoke({ command: `rm -rf ${dir}` }, config);
-    } catch (_) {} // silently ignore non-existent dirs
-  }
-  console.log("[TesterNode] Cleanup: build artifact directories removed");
-}
-
-// ---------------------------------------------------------------------------
-// Check if a test runner exists
-// ---------------------------------------------------------------------------
-async function detectTestRunner(config) {
-  try {
-    const pkgRaw = await readFile.invoke({ path: "package.json" }, config);
-    const pkg = JSON.parse(typeof pkgRaw === "string" ? pkgRaw : JSON.stringify(pkgRaw));
-    const scripts = pkg?.scripts || {};
-    const deps = { ...pkg?.dependencies, ...pkg?.devDependencies };
-
-    if (deps?.vitest || scripts?.test?.includes("vitest")) return "vitest";
-    if (deps?.jest || scripts?.test?.includes("jest")) return "jest";
-  } catch (_) {}
-  return null;
-}
-
-// ---------------------------------------------------------------------------
-// TESTER NODE FUNCTION
-// ---------------------------------------------------------------------------
 export async function testerNode(state, config) {
-  let buildLog = "";
-  let testPassed = false;
-  let flaggedFiles = [];
-  let errorLines = [];
+  const { files } = await readSandboxFiles(config, ["package.json"]);
+  const pkgRaw = files.get("package.json");
 
-  const step = (state.plan?.steps || [])[Math.max(0, (state.currentStep || 1) - 1)];
-  const acceptanceCriteria = step?.acceptanceCriteria || [];
-
+  let pkg = null;
   try {
-    // ── Step 1: Unit tests (skip if no runner detected) ───────────────────
-    const testRunner = await detectTestRunner(config);
-
-    if (testRunner) {
-      try {
-        let testOutput;
-        if (testRunner === "vitest") {
-          testOutput = await executeCommand.invoke({
-            command: "npx vitest run --reporter=verbose 2>&1",
-          }, config);
-        } else {
-          testOutput = await executeCommand.invoke({
-            command: "npx jest --no-coverage 2>&1",
-          }, config);
-        }
-
-        const raw = typeof testOutput === "string" ? testOutput : JSON.stringify(testOutput);
-        const hasFail = /FAIL|FAILED|Tests failed|test failed/i.test(raw);
-        const hasError = /Error:/i.test(raw);
-
-        if (hasFail || hasError) {
-          const parsed = parseErrorLines(raw);
-          buildLog = raw.slice(0, 4000);
-          errorLines = parsed.lines;
-          flaggedFiles = parsed.flagged;
-          console.warn(`[TesterNode] Unit tests failed (${errorLines.length} errors)`);
-
-          await runCleanup(config);
-          return {
-            testResults: { pass: false, errorLines, flaggedFiles },
-            buildLog: buildLog.slice(0, 4000),
-            flaggedFiles,
-            retryCount: (state.retryCount || 0),
-            lastNodeInvoked: "tester",
-            taskStatus: "tests_failed",
-            currentSituation: `Tester: Unit tests failed. ${errorLines.length} error(s) captured. Handing to Debugger.`,
-          };
-        }
-        console.log("[TesterNode] Unit tests passed");
-      } catch (testErr) {
-        console.warn("[TesterNode] Test runner error:", testErr.message);
-      }
-    } else {
-      console.log("[TesterNode] No test runner detected — skipping unit tests");
-    }
-
-    // ── Step 2: Real build ─────────────────────────────────────────────────
-    let hasBuildScript = false;
-    try {
-      const pkgRaw = await readFile.invoke({ path: "package.json" }, config);
-      const pkg = JSON.parse(typeof pkgRaw === "string" ? pkgRaw : JSON.stringify(pkgRaw));
-      if (pkg?.scripts?.build) {
-        hasBuildScript = true;
-      }
-    } catch (_) {}
-
-    if (hasBuildScript) {
-      let buildOutput;
-      try {
-        buildOutput = await executeCommand.invoke({
-          command: "npm run build 2>&1",
-        }, config);
-      } catch (buildErr) {
-        buildOutput = buildErr.message || String(buildErr);
-      }
-
-      const buildRaw = typeof buildOutput === "string" ? buildOutput : JSON.stringify(buildOutput);
-      const buildFailed = /error|failed|cannot find module|unexpected token|build error/i.test(buildRaw) && !/warn/i.test(buildRaw.replace(/error/gi, "").slice(0, 50));
-
-      if (buildFailed) {
-        const parsed = parseErrorLines(buildRaw);
-        buildLog = buildRaw.slice(0, 4000);
-        errorLines = parsed.lines;
-        flaggedFiles = parsed.flagged;
-        console.warn(`[TesterNode] Build failed (${errorLines.length} errors)`);
-
-        await runCleanup(config);
-        return {
-          testResults: { pass: false, errorLines, flaggedFiles },
-          buildLog: buildLog.slice(0, 4000),
-          flaggedFiles,
-          retryCount: state.retryCount || 0,
-          lastNodeInvoked: "tester",
-          taskStatus: "build_failed",
-          currentSituation: `Tester: Build failed. ${errorLines.length} error(s) in ${flaggedFiles.length} file(s). Handing to Debugger.`,
-        };
-      }
-
-      console.log("[TesterNode] Build passed ✓");
-    } else {
-      console.log("[TesterNode] No 'build' script defined in package.json — skipping build verification");
-    }
-
-    testPassed = true;
-
+    pkg = pkgRaw ? JSON.parse(pkgRaw) : null;
   } catch (err) {
-    console.error("[TesterNode] Unexpected error:", err.message);
-    buildLog = err.message;
-    errorLines = [{ file: null, line: null, message: err.message }];
-  } finally {
-    // ── Cleanup: ALWAYS runs, pass or fail ─────────────────────────────────
-    await runCleanup(config);
-  }
-
-  if (testPassed) {
+    // A broken package.json is itself a failure the debugger should fix.
     return {
-      testResults: { pass: true, errorLines: [], flaggedFiles: [] },
-      buildLog: null,
-      flaggedFiles: [],
+      testResults: {
+        pass: false,
+        stage: "build",
+        errorLines: [`package.json is not valid JSON: ${err.message}`],
+        summary: "package.json is not valid JSON.",
+      },
+      buildLog: `package.json parse error: ${err.message}`,
+      flaggedFiles: ["package.json"],
       lastNodeInvoked: "tester",
-      taskStatus: "tests_passed",
-      currentSituation: `Tester: All checks passed ✓. Build artifacts cleaned. Handing to Finalizer.`,
+      taskStatus: "build_failed",
+      currentSituation: "Tester: package.json is not valid JSON.",
     };
   }
 
-  // Fallback: something failed
+  if (!pkg) {
+    return {
+      testResults: { pass: true, stage: "skipped", errorLines: [], summary: "No package.json, nothing to build." },
+      buildLog: null,
+      flaggedFiles: [],
+      lastNodeInvoked: "tester",
+      taskStatus: "tests_skipped",
+      currentSituation: "Tester: no package.json found, skipped build verification.",
+    };
+  }
+
+  const scripts = pkg.scripts || {};
+  const deps = { ...pkg.dependencies, ...pkg.devDependencies };
+  const checks = [];
+
+  // ── 1. Unit tests ────────────────────────────────────────────────────────
+  const testScript = String(scripts.test || "");
+  const runner = deps.vitest || /vitest/.test(testScript) ? "vitest" : deps.jest || /jest/.test(testScript) ? "jest" : null;
+  if (runner && testScript) {
+    const command = runner === "vitest"
+      ? "npx vitest run --passWithNoTests 2>&1"
+      : "npx jest --ci --passWithNoTests 2>&1";
+    const result = await runLogged(config, command, runner === "vitest" ? "vitest run" : "jest --ci");
+    if (!result.ok) return failure(state, "tests", result);
+    checks.push("unit tests passed");
+  }
+
+  // ── 2. Production build ──────────────────────────────────────────────────
+  const buildScript = String(scripts.build || "");
+  if (buildScript) {
+    const endsWithViteBuild = /vite\s+build[^&|;]*$/.test(buildScript);
+    const command = endsWithViteBuild
+      ? `npm run build -- --outDir ${BUILD_CHECK_DIR} --emptyOutDir 2>&1`
+      : "npm run build 2>&1";
+    const result = await runLogged(config, command, "npm run build");
+    if (endsWithViteBuild) await runSandboxCommand(config, `rm -rf ${BUILD_CHECK_DIR}`, { timeoutMs: 30_000 });
+    if (!result.ok) return failure(state, "build", result);
+    checks.push("production build passed");
+  }
+
+  const summary = checks.length
+    ? checks.join(", ")
+    : "No test or build script in package.json, nothing to run.";
+
   return {
-    testResults: { pass: false, errorLines, flaggedFiles },
-    buildLog: buildLog.slice(0, 4000),
-    flaggedFiles,
-    retryCount: state.retryCount || 0,
+    testResults: { pass: true, stage: checks.length ? "build" : "skipped", errorLines: [], summary: truncate(summary, 200) },
+    buildLog: null,
+    flaggedFiles: [],
     lastNodeInvoked: "tester",
-    taskStatus: "failed",
-    currentSituation: `Tester: Checks failed. ${errorLines.length} error(s) captured. Routing to Debugger.`,
+    taskStatus: checks.length ? "tests_passed" : "tests_skipped",
+    currentSituation: `Tester: ${summary}.`,
   };
 }
 
-// ---------------------------------------------------------------------------
-// CONDITIONAL EDGE — called after tester node
-// ---------------------------------------------------------------------------
 export function testerEdge(state) {
-  const { testResults, retryCount = 0, maxRetries = 3, escalated = false } = state;
-
-  if (testResults?.pass) return "finalizer";
-
-  // Escalate if maxRetries hit or loop detected
-  if (escalated || retryCount >= maxRetries) return "finalizer";
-
+  if (state.testResults?.pass) return "reviewer";
+  if ((state.retryCount || 0) >= (state.maxRetries || 3)) return "finalizer";
   return "debugger";
 }

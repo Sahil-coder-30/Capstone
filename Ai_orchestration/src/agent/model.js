@@ -1,64 +1,83 @@
 // model.js
-// Singleton OpenRouter model for all Orion nodes.
-// All nodes import getAppModel() from HERE — never from code.agent.js.
-// code.agent.js calls initModelWithSafety() once on startup to inject
-// the safety-wrapped instance.
+// Model singletons for all Orion nodes.
+//
+//   getAppModel()  — main working model. Reasoning is enabled so the UI can
+//                    stream the model's thinking.
+//   getFastModel() — same provider, reasoning off. Used for classification,
+//                    structured extraction and other internal calls where
+//                    thinking tokens only add latency and cost.
+//
+// Both are wrapped with modelSafety (pacing, rate-limit backoff, timeouts).
 
 import path from "path";
 import { fileURLToPath } from "url";
-import { ChatOpenRouter } from "@langchain/openrouter";
+import { ChatMistralAI } from "@langchain/mistralai";
 import dotenv from "dotenv";
+import { applyModelSafety } from "./modelSafety.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 dotenv.config({ path: path.resolve(__dirname, "../../.env") });
 
-let _instance = null;
-let _info = null;
+// Codestral works on the Mistral free tier. mistral-large needs a paid plan.
+export const DEFAULT_MODEL = "codestral-latest";
 
-/**
- * Called once by code.agent.js after the safety wrapper is applied.
- * Subsequent calls to getAppModel() return the wrapped instance.
- */
-export const initModelWithSafety = (wrappedInstance, info) => {
-  _instance = wrappedInstance;
-  _info = info;
-};
+/** Mistral key from env. Returns "" when missing. */
+export const readApiKey = () =>
+  (process.env.MISTRALAI_API_KEY || process.env.MISTRAL_API_KEY)?.trim() || "";
 
-/**
- * Returns the singleton model instance.
- * If not yet initialised by code.agent.js (e.g., in tests or direct node
- * calls), creates a raw (un-wrapped) instance as a fallback.
- */
-export const getAppModel = () => {
-  if (_instance) return _instance;
-
-  const openRouterApiKey = (process.env.OPENROUTER_API_KEY || process.env.OPEN_ROUTER)?.trim();
-  if (!openRouterApiKey) {
-    const error = new Error("No AI provider key configured. Set OPENROUTER_API_KEY.");
+export const getApiKey = () => {
+  const key = readApiKey();
+  if (!key) {
+    const error = new Error("No AI provider key configured. Set MISTRALAI_API_KEY.");
     error.code = "AI_PROVIDER_NOT_CONFIGURED";
     throw error;
   }
+  return key;
+};
 
-  _instance = new ChatOpenRouter({
-    model: "openai/gpt-6-luna",
-    apiKey: openRouterApiKey,
+const getModelId = () => process.env.ORION_MODEL?.trim() || DEFAULT_MODEL;
+const getFastModelId = () => process.env.ORION_FAST_MODEL?.trim() || getModelId();
+
+let appModel = null;
+let fastModel = null;
+
+// Call timeouts are enforced by applyModelSafety (ChatMistralAI has no timeout option).
+export const getAppModel = () => {
+  if (appModel) return appModel;
+  const raw = new ChatMistralAI({
+    model: getModelId(),
+    apiKey: getApiKey(),
     temperature: 0.1,
     maxRetries: 0,
-    timeout: 180_000,
   });
-
-  _info = {
-    id: "gpt6Luna",
-    modelId: "openai/gpt-6-luna",
-    label: "GPT-6 Luna (OpenRouter)",
-    provider: "openrouter",
-  };
-
-  return _instance;
+  appModel = applyModelSafety(raw, "orion-main");
+  return appModel;
 };
 
-export const getAppModelInfo = () => {
-  getAppModel();
-  return _info;
+export const getFastModel = () => {
+  if (fastModel) return fastModel;
+  const raw = new ChatMistralAI({
+    model: getFastModelId(),
+    apiKey: getApiKey(),
+    temperature: 0,
+    maxRetries: 0,
+  });
+  fastModel = applyModelSafety(raw, "orion-fast");
+  return fastModel;
 };
+
+/** Test-only: replace both model singletons (offline tests use a scripted model). */
+export const setModelsForTesting = (app, fast = app) => {
+  appModel = app;
+  fastModel = fast;
+};
+
+export const getAppModelInfo = () => ({
+  id: getModelId(),
+  modelId: getModelId(),
+  label: `${getModelId()} (Mistral)`,
+  provider: "mistral",
+});
+
+export const hasModelKey = () => Boolean(readApiKey());

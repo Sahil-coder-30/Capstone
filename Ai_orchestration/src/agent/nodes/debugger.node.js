@@ -1,196 +1,171 @@
-// debugger.node.js — v2
-// Surgical bug fixer scoped to flaggedFiles (files Tester implicated).
+// debugger.node.js
+// Fixes a failed build, failed tests, or unmet acceptance criteria.
+// Always hands back to the tester; it never marks its own fix as verified.
 //
-// Key upgrade over v1:
-//   BEFORE applying any fix, Debugger computes a SHA-256 hash of the intended patch.
-//   If that hash already appears in state.attemptedFixes, it means this exact fix
-//   was tried before and failed. In that case, it escalates immediately instead of
-//   burning another retry on a guaranteed repeat.
-//
-// Debugger NEVER marks its own fix as verified — it always routes back to Tester.
+// Escalates (stops retrying) when:
+//   - the agent changed nothing, so another loop would see the same failure
+//   - the same error signature has already been attempted twice
 
+import { createHash } from "crypto";
 import { createReactAgent } from "@langchain/langgraph/prebuilt";
 import { getAppModel } from "../model.js";
-import { applyGuards } from "../guards.js";
-import { readFile, patchFile, searchCode } from "../tool.js";
-import { createHash } from "crypto";
+import { applyGuards, scopeWriteTools } from "../guards.js";
+import {
+  listFiles,
+  readFile,
+  searchCode,
+  patchFile,
+  updateFile,
+  createFile,
+  executeCommand,
+  getViteRuntimeErrors,
+} from "../tool.js";
+import { GROUNDING_RULES, analyzeToolActivity, lastAiText, truncate } from "../agentUtils.js";
 
-// ---------------------------------------------------------------------------
-// SYSTEM PROMPT — Surgical Debugger
-// ---------------------------------------------------------------------------
-const DEBUGGER_SYSTEM_PROMPT = `You are Orion's Debugger — a specialist in root-cause analysis and surgical bug fixing.
+const DEBUG_RECURSION_LIMIT = 50;
 
-=== PROTOCOL ===
-1. READ the build log and error lines first — do not guess the cause from memory
-2. READ each flagged file entirely before touching it
-3. Identify the root cause from the actual error output
-4. Apply the MINIMAL fix using patch_file — not a full rewrite
-5. Do NOT mark the work as done — Tester will verify your fix
+const DEBUGGER_SYSTEM_PROMPT = `You are Orion's Debugger. You find the root cause of a failure in a React + Vite project at /workspace and apply the smallest correct fix.
 
-=== CONSTRAINTS ===
-- You may ONLY modify files in the flaggedFiles list
-- Use patch_file, not update_file (surgical, minimal diffs only)
-- If the root cause is in an unlisted file, report it in your response — do not modify that file
-- After patching, re-read the file to confirm the patch applied correctly
+Protocol:
+1. Read the failure output first. Find the exact file, line and message.
+2. read_file the failing file(s) and anything they import that is involved. Use search_code to find where a symbol is defined or used.
+3. Fix the root cause, not the symptom. Prefer patch_file with an exact oldStr copied from read_file. Use update_file only if most of the file must change.
+4. Missing npm package? Check package.json, then execute_command "npm install <pkg>".
+5. Re-read the changed file to confirm the fix is in place. Do not run the build yourself; the tester will.
 
-=== ESCALATION RULE ===
-If you believe the fix you are about to apply has already been tried and failed, say so explicitly.
-The system will handle escalation — do not attempt to fix it again yourself.`;
+Narrate briefly: before each tool call, write one short sentence about what you are checking or fixing.
 
-// ---------------------------------------------------------------------------
-// Compute a stable hash for a given fix description
-// Used to detect repeat fix attempts
-// ---------------------------------------------------------------------------
-function hashFix(description) {
-  return createHash("sha256").update(description || "").digest("hex").slice(0, 16);
-}
+Do not repeat a fix listed under PREVIOUS ATTEMPTS. If that fix did not work, find a different cause.
+You may only change files listed under ALLOWED FILES. If the real cause is elsewhere, explain it in your final message.
 
-// ---------------------------------------------------------------------------
-// Build scope-locked tools (only flaggedFiles writable)
-function normalizePath(p) {
-  return String(p || "").toLowerCase().replace(/^\.\//, "").replace(/^\//, "").trim();
-}
+When finished, reply with:
+ROOT CAUSE: <one sentence>
+FIX: <what you changed, file by file>
 
-// ---------------------------------------------------------------------------
-// Build scope-locked tools (only target files writable)
-// ---------------------------------------------------------------------------
-function buildDebuggerTools(targetFiles) {
-  const allowSet = new Set((targetFiles || []).map(normalizePath));
+${GROUNDING_RULES}`;
 
-  const scopedPatch = { ...patchFile };
-  const originalInvoke = patchFile.invoke.bind(patchFile);
-  scopedPatch.invoke = async (input, config) => {
-    const rawPath = input?.filePath || input?.path || input?.file || "";
-    const filePath = normalizePath(rawPath);
-    if (filePath && allowSet.size > 0 && !allowSet.has(filePath)) {
-      console.warn(`[DebuggerNode] patchFile to "${filePath}" blocked — not in target files allowlist`);
-      return {
-        error: `SCOPE_VIOLATION: "${filePath}" is not in the allowed files list. Allowed files: ${[...allowSet].join(", ")}`,
-      };
-    }
-    return originalInvoke(input, config);
-  };
+const signatureOf = (testResults) =>
+  createHash("sha256")
+    .update((testResults?.errorLines || []).join("\n").replace(/\d+/g, "#"))
+    .digest("hex")
+    .slice(0, 16);
 
-  return applyGuards([readFile, scopedPatch, searchCode]);
-}
-
-// ---------------------------------------------------------------------------
-// DEBUGGER NODE FUNCTION
-// ---------------------------------------------------------------------------
 export async function debuggerNode(state, config) {
   const {
-    buildLog,
     testResults,
+    buildLog,
     flaggedFiles = [],
+    filesTouched = [],
     attemptedFixes = [],
     retryCount = 0,
     maxRetries = 3,
     plan,
-    currentStep,
-    messages = [],
   } = state;
 
-  const filesForDebugger = flaggedFiles.length > 0
-    ? flaggedFiles
-    : (state.activeFiles && state.activeFiles.length > 0 ? state.activeFiles : []);
-
-  // --- Build a concise context of what failed ------------------------------
-  const errorSummary = (testResults?.errorLines || [])
-    .slice(0, 10)
-    .map((e) => `${e.file || "unknown"}:${e.line || "?"} — ${e.message}`)
-    .join("\n");
-
-  const debugPrompt = `You are fixing a build/test failure.
-
-=== BUILD LOG (trimmed) ===
-${(buildLog || "No build log available").slice(0, 3000)}
-
-=== STRUCTURED ERRORS ===
-${errorSummary || "No structured errors — check build log above"}
-
-=== FLAGGED FILES (you may modify these) ===
-${filesForDebugger.length > 0 ? filesForDebugger.map((f) => `  - ${f}`).join("\n") : "  (none — read build log above to determine root cause)"}
-
-=== PREVIOUS FIX ATTEMPTS THIS CYCLE ===
-${attemptedFixes.length > 0 ? attemptedFixes.map((f, i) => `  ${i + 1}. [${f.hash}] ${f.description}`).join("\n") : "  (none — first attempt)"}
-
-Root-cause the failure from the build log, then apply the minimal surgical fix using patch_file.
-If you cannot determine a root cause from the log, say so explicitly.`;
-
-  // --- Run debugger agent -------------------------------------------------
-  const debuggerAgent = createReactAgent({
-    llm: getAppModel(),
-    tools: buildDebuggerTools(filesForDebugger),
-    prompt: DEBUGGER_SYSTEM_PROMPT,
-  });
-
-  let fixDescription = "";
-  let newMessages = [];
-
-  try {
-    const result = await debuggerAgent.invoke(
-      { messages: [...messages, { role: "user", content: debugPrompt }] },
-      config
-    );
-
-    newMessages = result.messages || [];
-
-    // Extract the AI's fix description from the last AI message
-    const lastAI = [...newMessages].reverse()
-      .find((m) => m._getType?.() === "ai" || m.constructor?.name === "AIMessage");
-    fixDescription = String(lastAI?.content || "").slice(0, 300);
-  } catch (err) {
-    console.error("[DebuggerNode] Agent invocation failed:", err.message);
-    fixDescription = `Agent error: ${err.message}`;
-  }
-
-  // --- Hash check: did we already try this fix? ----------------------------
-  const fixHash = hashFix(fixDescription);
-  const alreadyTried = attemptedFixes.some((f) => f.hash === fixHash);
-
-  if (alreadyTried) {
-    console.warn(`[DebuggerNode] Duplicate fix detected (hash ${fixHash}) — escalating`);
+  const signature = signatureOf(testResults);
+  const repeats = attemptedFixes.filter((f) => f.signature === signature).length;
+  if (repeats >= 2) {
     return {
       escalated: true,
+      escalationReason: "The same error came back after two different fix attempts.",
       retryCount: retryCount + 1,
-      attemptedFixes,
-      messages: newMessages,
       lastNodeInvoked: "debugger",
       taskStatus: "escalated",
-      currentSituation: `Debugger: Duplicate fix detected (hash ${fixHash}). This exact fix was tried before and did not resolve the issue. Escalating to human review.`,
+      currentSituation: "Debugger: the same failure persisted after two fixes. Stopping and reporting.",
     };
   }
 
-  // --- Record this fix attempt ----------------------------------------------
-  const updatedAttemptedFixes = [
-    ...attemptedFixes,
-    { hash: fixHash, description: fixDescription, retryCount: retryCount + 1 },
-  ];
+  const allowed = [...new Set([
+    ...flaggedFiles,
+    ...filesTouched,
+    ...(plan?.steps || []).flatMap((s) => s.activeFiles || []),
+    "package.json",
+  ])];
 
-  console.log(`[DebuggerNode] Fix applied (hash ${fixHash}), attempt #${retryCount + 1}`);
+  const stageLabel = testResults?.stage === "review"
+    ? "ACCEPTANCE REVIEW found unmet requirements"
+    : testResults?.stage === "tests"
+      ? "UNIT TESTS failed"
+      : "PRODUCTION BUILD failed";
+
+  const prompt = `${stageLabel}. Attempt ${retryCount + 1} of ${maxRetries}.
+
+TASK THE CODE SHOULD IMPLEMENT:
+${state.task}
+
+FAILURE DETAILS:
+${(testResults?.errorLines || []).map((l) => `- ${l}`).join("\n") || "- (no structured lines, see log)"}
+
+${buildLog ? `OUTPUT LOG:\n${truncate(buildLog, 4_000)}\n` : ""}
+FILES IMPLICATED: ${flaggedFiles.length ? flaggedFiles.join(", ") : "(none parsed, find them from the log)"}
+FILES CHANGED IN THIS RUN: ${filesTouched.join(", ") || "(none)"}
+
+ALLOWED FILES:
+${allowed.map((f) => `  - ${f}`).join("\n")}
+
+PREVIOUS ATTEMPTS:
+${attemptedFixes.length ? attemptedFixes.map((f) => `  ${f.attempt}. [${f.stage}] ${f.summary}`).join("\n") : "  (none)"}
+
+Find the root cause and fix it now.`;
+
+  const tools = scopeWriteTools(
+    applyGuards([listFiles, readFile, searchCode, getViteRuntimeErrors, executeCommand, patchFile, updateFile, createFile]),
+    allowed,
+  );
+  const agent = createReactAgent({ llm: getAppModel(), tools, prompt: DEBUGGER_SYSTEM_PROMPT });
+
+  let messages = [];
+  let runError = null;
+  try {
+    const result = await agent.invoke(
+      { messages: [{ role: "user", content: prompt }] },
+      { ...config, recursionLimit: DEBUG_RECURSION_LIMIT },
+    );
+    messages = result.messages || [];
+  } catch (err) {
+    if (config?.signal?.aborted) throw err;
+    runError = err.message;
+    console.error("[DebuggerNode] Agent failed:", err.message);
+  }
+
+  const activity = analyzeToolActivity(messages);
+  const installedSomething = activity.commands.some((c) => c.ok && /\b(npm|pnpm|yarn)\s+(install|add|i)\b/.test(c.command || ""));
+  const changed = activity.filesWritten.length > 0 || installedSomething;
+  const summary = truncate(lastAiText(messages) || runError || "No explanation returned.", 600);
+
+  const attempt = {
+    attempt: retryCount + 1,
+    stage: testResults?.stage || "build",
+    signature,
+    summary,
+    filesWritten: activity.filesWritten,
+  };
+
+  if (!changed) {
+    return {
+      escalated: true,
+      escalationReason: runError
+        ? `The debugger failed: ${runError}`
+        : "The debugger could not find a safe fix and changed nothing.",
+      attemptedFixes: [attempt],
+      retryCount: retryCount + 1,
+      lastNodeInvoked: "debugger",
+      taskStatus: "escalated",
+      currentSituation: "Debugger: could not apply a fix. Stopping and reporting.",
+    };
+  }
 
   return {
+    attemptedFixes: [attempt],
+    filesTouched: activity.filesWritten,
     retryCount: retryCount + 1,
-    attemptedFixes: updatedAttemptedFixes,
-    messages: newMessages,
     escalated: false,
     lastNodeInvoked: "debugger",
     taskStatus: "debugging",
-    currentSituation: `Debugger: Fix applied (attempt ${retryCount + 1}/${maxRetries}). Routing back to Tester for verification.`,
+    currentSituation: `Debugger: applied fix attempt ${retryCount + 1}/${maxRetries} (${activity.filesWritten.length} file(s)). Re-running checks.`,
   };
 }
 
-// ---------------------------------------------------------------------------
-// CONDITIONAL EDGE — called after debugger node
-// ---------------------------------------------------------------------------
 export function debuggerEdge(state) {
-  // Escalated (duplicate fix or gave up) — go to finalizer
-  if (state.escalated) return "finalizer";
-
-  // Max retries hit — go to finalizer
-  const { retryCount = 0, maxRetries = 3 } = state;
-  if (retryCount >= maxRetries) return "finalizer";
-
-  // Otherwise — back to Tester to verify the fix
-  return "tester";
+  return state.escalated ? "finalizer" : "tester";
 }
