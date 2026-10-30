@@ -21,6 +21,19 @@ app.get("/api/router/ready", (req, res) => {
     });
 });
 
+// The sandbox id is taken from the Host header and becomes part of the proxy
+// target hostname. Restrict it to a single DNS label so values such as
+// "x@10.0.0.5" or "x:8080" cannot point the proxy at another internal host.
+const SANDBOX_ID_PATTERN = /^[a-z0-9](?:[a-z0-9-]{0,46}[a-z0-9])?$/;
+
+const parseSandboxHost = (host) => {
+    if (!host) return null;
+    const [sandboxId, targetHost] = host.toLowerCase().split('.');
+    if (!SANDBOX_ID_PATTERN.test(sandboxId || '')) return null;
+    if (targetHost !== 'agent' && targetHost !== 'preview') return null;
+    return { sandboxId, targetHost };
+};
+
 // Caches for HTTP proxies (ws: false to prevent auto upgrade subscription)
 const httpProxies = {};
 const httpAgentProxies = {};
@@ -108,8 +121,11 @@ app.use(async (req, res, next) => {
         return res.status(400).json({ status: "error", message: "Missing host header" });
     }
 
-    const sandboxId = host.split('.')[0];
-    const targetHost = host.split('.')[1];
+    const parsed = parseSandboxHost(host);
+    if (!parsed) {
+        return next();
+    }
+    const { sandboxId, targetHost } = parsed;
 
     await refreshTTL(sandboxId);
 
@@ -135,8 +151,13 @@ server.on('upgrade', async (req, socket, head) => {
         return;
     }
 
-    const sandboxId = host.split('.')[0];
-    const targetHost = host.split('.')[1];
+    const parsed = parseSandboxHost(host);
+    if (!parsed) {
+        console.log('[Router Upgrade] Rejected invalid sandbox host');
+        socket.destroy();
+        return;
+    }
+    const { sandboxId, targetHost } = parsed;
     await refreshTTL(sandboxId);
     console.log(`[Router Upgrade] sandboxId: ${sandboxId}, targetHost: ${targetHost}`);
 
