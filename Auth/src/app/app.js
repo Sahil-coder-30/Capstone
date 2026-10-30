@@ -9,11 +9,14 @@ import preferencesRouter from '../routes/preferences.routes.js';
 import jwksRouter from '../routes/jwks.route.js';
 import { identifyUser } from '../middleware/auth.middleware.js';
 import dotenv from 'dotenv';
+import { register } from '../observability/metrics.js';
+import {metricsMiddleware} from '../middleware/metrics.middleware.js';
 
 dotenv.config();
 const app = express();
 app.set('trust proxy', true);
 app.use(morgan("dev"));
+app.use(metricsMiddleware);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
@@ -41,6 +44,11 @@ app.get("/healthz", (req, res) => {
     res.status(200).json({
         message: "Server is healthy"
     })
+})
+
+app.get('/metrics', async (req, res) => {
+    res.set("Content-Type", register.contentType);
+    res.end(await register.metrics());
 })
 
 app.get("/readyz", (req, res) => {
