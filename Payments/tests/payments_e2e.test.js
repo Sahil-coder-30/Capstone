@@ -435,8 +435,9 @@ test('9. webhookController: verifies HMAC-SHA256 signature and processes payment
     assert.equal(invalidRes2.statusCode, 400);
 
     // Case C: Valid signature -> processed 200 & updates DB
+    // express.json's verify hook hands the controller a Buffer, not a string.
     const validReq = {
-        rawBody: rawBodyString,
+        rawBody: Buffer.from(rawBodyString),
         body: webhookBody,
         headers: { 'x-razorpay-signature': validSignature },
     };

@@ -27,17 +27,20 @@ export async function webhookController(req, res, next) {
         return res.status(err.statusCode || 400).json(toErrorResponse(err));
     };
 
-    const rawBody = req.rawBody || req.body;
-    let payload;
+    // express.json's verify hook stores the exact bytes Razorpay signed as a
+    // Buffer. The HMAC must be computed over those bytes, not a re-serialised
+    // object, so normalise to a UTF-8 string before verifying or parsing.
+    const source = req.rawBody ?? req.body;
+    const rawBody = Buffer.isBuffer(source) ? source.toString('utf8') : source;
+    if (typeof rawBody !== 'string') {
+        return sendError(new BadRequestError('Webhook raw body is unavailable'));
+    }
 
-    if (typeof rawBody === 'string') {
-        try {
-            payload = JSON.parse(rawBody);
-        } catch {
-            return sendError(new BadRequestError('Malformed JSON payload'));
-        }
-    } else {
-        payload = rawBody;
+    let payload;
+    try {
+        payload = JSON.parse(rawBody);
+    } catch {
+        return sendError(new BadRequestError('Malformed JSON payload'));
     }
 
     const signature = req.headers?.['x-razorpay-signature'];

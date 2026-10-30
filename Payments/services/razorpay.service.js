@@ -31,6 +31,18 @@ import {
 let _razorpayInstance = null;
 
 /**
+ * Synthetic test payments (pay_test_* ids, test_/mock_ signatures) are only
+ * honoured when explicitly enabled AND the gateway is in test mode. Never
+ * infer this from the key prefix alone — a demo deployed with test keys would
+ * otherwise hand out paid plans for free.
+ */
+function syntheticPaymentsAllowed() {
+    const keyId = (process.env.RAZORPAY_KEY_ID || process.env.RAZORPAY_SECRET_ID || '').trim();
+    const isTestMode = keyId.startsWith('rzp_test_') || process.env.RAZORPAY_MODE === 'test';
+    return isTestMode && process.env.ALLOW_SYNTHETIC_PAYMENTS === 'true';
+}
+
+/**
  * Get or initialize the official Razorpay SDK singleton instance.
  * @returns {Razorpay}
  */
@@ -82,8 +94,9 @@ export async function createOrder({ amountPaise, currency = 'INR', receipt, note
  *  5. RabbitMQ invoice notification
  *
  * Verification order (no webhook needed):
- *   a. HMAC signature check via validatePaymentVerification (if orderId & signature provided).
- *   b. fetchPayment(paymentId) — mandatory server-side confirmation against Razorpay's API.
+ *   a. HMAC signature check via validatePaymentVerification (orderId & signature required).
+ *   b. fetchPayment(paymentId) — mandatory server-side confirmation against Razorpay's API,
+ *      bound to the caller via the order notes (accountId, packageId).
  *      Auto-captures authorized payments if necessary.
  *
  * @param {Object} params
@@ -114,35 +127,35 @@ export async function verifyPaymentSignature({
         throw new BadRequestError(`Unknown packageId: ${packageId}. Available plans: Pro (₹499) and Max (₹999)`);
     }
 
-    // ── Step 1: HMAC signature check (if client-side order checkout was used) ──
-    if (orderId && signature) {
-        if (!secret) {
-            throw new InternalServerError('RAZORPAY_KEY_SECRET is required to verify signatures');
-        }
+    // ── Step 1: HMAC signature check (mandatory) ──────────────────────────────
+    // Without the order-bound signature, anyone holding another user's
+    // paymentId could claim it, so both fields are required.
+    if (!orderId || !signature) {
+        throw new BadRequestError('orderId and signature are required for payment verification');
+    }
 
-        let signatureValid = false;
-        try {
-            signatureValid = validatePaymentVerification(
-                { order_id: orderId, payment_id: paymentId },
-                signature,
-                secret
-            );
-        } catch (sigErr) {
-            logger.warn({ err: sigErr }, '[Razorpay SDK] validatePaymentVerification threw warning');
-        }
+    if (!secret) {
+        throw new InternalServerError('RAZORPAY_KEY_SECRET is required to verify signatures');
+    }
 
-        const isTestMode = (process.env.RAZORPAY_KEY_ID || process.env.RAZORPAY_SECRET_ID || '').startsWith('rzp_test_') || process.env.RAZORPAY_MODE === 'test';
+    let signatureValid = false;
+    try {
+        signatureValid = validatePaymentVerification(
+            { order_id: orderId, payment_id: paymentId },
+            signature,
+            secret
+        );
+    } catch (sigErr) {
+        logger.warn({ err: sigErr }, '[Razorpay SDK] validatePaymentVerification threw warning');
+    }
 
-        if (!signatureValid) {
-            if (isTestMode && (signature.startsWith('test_') || signature.startsWith('mock_') || paymentId.startsWith('pay_test_'))) {
-                logger.info({ paymentId }, '[Razorpay Test Mode] Synthetic test signature accepted in sandbox test mode');
-            } else {
-                logger.error({ paymentId, orderId }, '[Razorpay SDK] HMAC signature check failed');
-                throw new BadRequestError('Payment verification failed: Invalid cryptographic signature');
-            }
+    if (!signatureValid) {
+        if (syntheticPaymentsAllowed() && (signature.startsWith('test_') || signature.startsWith('mock_'))) {
+            logger.info({ paymentId }, '[Razorpay Test Mode] Synthetic test signature accepted in sandbox test mode');
+        } else {
+            logger.error({ paymentId, orderId }, '[Razorpay SDK] HMAC signature check failed');
+            throw new BadRequestError('Payment verification failed: Invalid cryptographic signature');
         }
-    } else {
-        logger.info({ paymentId }, '[Razorpay SDK] orderId or signature not provided; proceeding with direct server-side verification');
     }
 
     // ── Step 2: Confirm payment status with Razorpay's API (mandatory source of truth) ─
@@ -152,15 +165,15 @@ export async function verifyPaymentSignature({
         razorpayPayment = await client.payments.fetch(paymentId);
     } catch (fetchErr) {
         logger.error({ err: fetchErr, paymentId }, '[Razorpay SDK] fetchPayment failed');
-        const isTestMode = (process.env.RAZORPAY_KEY_ID || process.env.RAZORPAY_SECRET_ID || '').startsWith('rzp_test_') || process.env.RAZORPAY_MODE === 'test';
-        if (isTestMode && (paymentId.startsWith('pay_test_') || paymentId.startsWith('pay_mock_') || paymentId.startsWith('pay_sim_'))) {
+        if (syntheticPaymentsAllowed() && (paymentId.startsWith('pay_test_') || paymentId.startsWith('pay_mock_') || paymentId.startsWith('pay_sim_'))) {
             logger.info({ paymentId }, '[Razorpay Test Mode] Synthetic test payment detected — using simulated capture');
             razorpayPayment = {
                 id: paymentId,
                 status: 'captured',
                 amount: pkg.priceINRPaise,
                 currency: 'INR',
-                order_id: orderId || `order_${paymentId}`,
+                order_id: orderId,
+                notes: { accountId: String(accountId), packageId: pkg.id },
             };
         } else {
             if (fetchErr.statusCode === 404 || fetchErr.status === 404) {
@@ -168,6 +181,30 @@ export async function verifyPaymentSignature({
             }
             throw new ServiceUnavailableError(`Could not confirm payment with Razorpay gateway: ${fetchErr.message}`);
         }
+    }
+
+    // Bind the payment to this order, account and package. The signature only
+    // proves orderId+paymentId belong together; the order notes (written by
+    // createOrderController) prove who it was created for and which plan.
+    if (razorpayPayment.order_id && razorpayPayment.order_id !== orderId) {
+        throw new BadRequestError('Payment does not belong to the supplied order');
+    }
+    let notes = razorpayPayment.notes || {};
+    if (!notes.accountId) {
+        try {
+            const order = await client.orders.fetch(orderId);
+            notes = order?.notes || {};
+        } catch (orderErr) {
+            logger.error({ err: orderErr, orderId }, '[Razorpay SDK] fetchOrder failed during verification');
+            throw new ServiceUnavailableError(`Could not confirm order with Razorpay gateway: ${orderErr.message}`);
+        }
+    }
+    if (String(notes.accountId || '') !== String(accountId)) {
+        logger.error({ paymentId, orderId }, '[Razorpay SDK] Payment was created for a different account');
+        throw new BadRequestError('Payment does not belong to this account');
+    }
+    if (notes.packageId && getPackageById(notes.packageId)?.id !== pkg.id) {
+        throw new BadRequestError('Payment was made for a different package');
     }
 
     // If payment is authorized but not yet captured, auto-capture it server-side
@@ -261,12 +298,16 @@ export async function verifyPaymentSignature({
  * @returns {boolean} True if webhook is authentic
  */
 export function verifyWebhookSignature({ rawBody, signature, webhookSecret }) {
-    const secret = webhookSecret || (process.env.RAZORPAY_WEBHOOK_SECRET || process.env.RAZORPAY_KEY_SECRET || '').trim();
+    // The webhook secret is configured separately in the Razorpay dashboard;
+    // never fall back to the API key secret.
+    const secret = webhookSecret || (process.env.RAZORPAY_WEBHOOK_SECRET || '').trim();
     if (!secret) {
-        throw new Error('[Razorpay SDK] Webhook secret is required to verify webhook signatures');
+        throw new Error('[Razorpay SDK] RAZORPAY_WEBHOOK_SECRET is required to verify webhook signatures');
     }
+    if (!signature) return false;
 
-    const bodyString = typeof rawBody === 'string' ? rawBody : JSON.stringify(rawBody);
+    const bodyString = Buffer.isBuffer(rawBody) ? rawBody.toString('utf8') : rawBody;
+    if (typeof bodyString !== 'string') return false;
     return validateWebhookSignature(bodyString, signature, secret);
 }
 
