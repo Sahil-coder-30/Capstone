@@ -44,6 +44,7 @@ function shouldStreamChunk(event) {
 import ChatMessage from "../models/ChatMessage.model.js";
 import { checkAiCredit, recordAiUsage } from "../services/credit.service.js";
 import { verifyToken } from "../middleware/auth.middleware.js";
+import { resolveOwnedSandbox } from "../services/sandboxOwnership.service.js";
 
 const getErrorPayload = (error) => {
   return error?.response?.data || error?.cause?.response?.data || null;
@@ -253,6 +254,21 @@ export const initSocketIO = (server) => {
 
       if(!message) {
         socket.emit("agent:error", { message: "Message is required" });
+        return;
+      }
+
+      // Only drive a sandbox the caller owns; the verified id replaces the
+      // client-supplied one before it reaches any tool.
+      try {
+        const owned = await resolveOwnedSandbox({
+          authToken: socket.authToken,
+          userId: socket.user?.id,
+          projectId,
+          sandboxId,
+        });
+        if (owned) sandboxId = owned.sandboxId;
+      } catch (err) {
+        socket.emit("agent:error", { message: err.message, code: err.errorCode || "FORBIDDEN" });
         return;
       }
 

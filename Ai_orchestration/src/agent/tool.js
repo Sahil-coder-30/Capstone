@@ -10,6 +10,22 @@ import { searchInternet } from "../services/internetSearch.service.js";
 // (e.g. an echoed file payload), which bloats tokens and derails the agent.
 const MAX_ERROR_FIELD_CHARS = 2000;
 
+// Sandbox ids end up in the request hostname, so anything other than a plain
+// DNS label (e.g. "x@10.0.0.5" or "x:8080/") would redirect the tool call to
+// an arbitrary internal host. Only accept lowercase letters, digits and dashes.
+const SANDBOX_ID_PATTERN = /^[a-z0-9](?:[a-z0-9-]{0,46}[a-z0-9])?$/;
+
+export function isValidSandboxId(id) {
+  return typeof id === "string" && SANDBOX_ID_PATTERN.test(id);
+}
+
+export function sandboxBaseUrl(id) {
+  if (!isValidSandboxId(id)) {
+    throw new Error(`Invalid sandbox id: ${JSON.stringify(String(id)).slice(0, 80)}`);
+  }
+  return `http://sandbox-service-${id}:3000`;
+}
+
 function truncate(value) {
   if (typeof value !== "string") return value;
   return value.length > MAX_ERROR_FIELD_CHARS
@@ -95,7 +111,7 @@ export const listFiles = tool(
         `listFiles: start (project=${config?.configurable?.projectId || "unknown"})`,
       );
       const response = await axios.get(
-        `http://sandbox-service-${config.configurable.projectId}:3000/api/agent/list-files`,
+        `${sandboxBaseUrl(config.configurable.projectId)}/api/agent/list-files`,
         { timeout: 30_000 },
       );
       config.writer(
@@ -135,7 +151,7 @@ export const readFile = tool(
       // otherwise corrupt the query string (breaking the request or silently
       // dropping/merging file names).
       const response = await axios.get(
-        `http://sandbox-service-${config.configurable.projectId}:3000/api/agent/read-file?files=` +
+        `${sandboxBaseUrl(config.configurable.projectId)}/api/agent/read-file?files=` +
           file.map(encodeURIComponent).join(","),
         { timeout: 30_000 },
       );
@@ -178,7 +194,7 @@ export const updateFile = tool(
         `updateFile: start - updates: ${JSON.stringify(updates)}`,
       );
       const response = await axios.patch(
-        `http://sandbox-service-${config.configurable.projectId}:3000/api/agent/update-file`,
+        `${sandboxBaseUrl(config.configurable.projectId)}/api/agent/update-file`,
         {
           updates,
         },
@@ -231,7 +247,7 @@ export const createFile = tool(
         `createFile: start - files: ${JSON.stringify(files)}`,
       );
       const response = await axios.post(
-        `http://sandbox-service-${config.configurable.projectId}:3000/api/agent/create-file`,
+        `${sandboxBaseUrl(config.configurable.projectId)}/api/agent/create-file`,
         {
           files,
         },
@@ -308,7 +324,7 @@ export const executeCommand = tool(
         `executeCommand: start - command: "${command}", subDir: "${subDir || ""}"`,
       );
       const response = await axios.post(
-        `http://sandbox-service-${projectId}:3000/api/agent/exec`,
+        `${sandboxBaseUrl(projectId)}/api/agent/exec`,
         {
           command,
           ...(subDir && { subDir }),
@@ -440,7 +456,7 @@ export const getViteRuntimeErrors = tool(
         `getViteRuntimeErrors: start (project=${config?.configurable?.projectId || "unknown"})`,
       );
       const response = await axios.get(
-        `http://sandbox-service-${config.configurable.projectId}:3000/api/agent/vite-runtime-errors`,
+        `${sandboxBaseUrl(config.configurable.projectId)}/api/agent/vite-runtime-errors`,
         { timeout: 45_000 }, // k8s log fetch — give it time but not infinite
       );
       console.log("============================");
@@ -486,7 +502,7 @@ export const getViteRuntimeErrors = tool(
 export const patchFile = tool(
   async ({ filePath, oldStr, newStr }, config) => {
     config = ensureWriter(config);
-    const baseUrl = `http://sandbox-service-${config.configurable.projectId}:3000`;
+    const baseUrl = sandboxBaseUrl(config.configurable.projectId);
 
     // ── helper: call the sandbox patch endpoint ──────────────────────────────
     const tryPatch = async (oldString) => {
@@ -656,7 +672,7 @@ export const deleteFile = tool(
         `deleteFile: start - files: ${JSON.stringify(files)}`,
       );
       const response = await axios.delete(
-        `http://sandbox-service-${config.configurable.projectId}:3000/api/agent/delete-file`,
+        `${sandboxBaseUrl(config.configurable.projectId)}/api/agent/delete-file`,
         {
           data: { files },
           timeout: 30_000,
@@ -710,7 +726,7 @@ export const searchCode = tool(
       if (filesOnly !== undefined) params.filesOnly = String(filesOnly);
 
       const response = await axios.get(
-        `http://sandbox-service-${config.configurable.projectId}:3000/api/agent/search-code`,
+        `${sandboxBaseUrl(config.configurable.projectId)}/api/agent/search-code`,
         {
           params,
           timeout: 15_000,
