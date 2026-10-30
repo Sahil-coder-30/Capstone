@@ -1,1 +1,7 @@
 .agents/
+
+# Agent tooling: personal overrides and runtime state (never commit)
+.claude/settings.local.json
+.claude/worktrees/
+agent-guardrails/.state/
+launch-video
