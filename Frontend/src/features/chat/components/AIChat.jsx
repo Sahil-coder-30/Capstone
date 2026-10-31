@@ -12,9 +12,9 @@ import { TakshaIcon } from '../../../components/BrandLogo';
 
 // ─── Tool type icon colors ────────────────────────────────────────────────────
 const TOOL_TYPE_COLORS = {
-  read:   '#60a5fa',
+  read:   '#a5b4fc',
   write:  '#a78bfa',
-  cmd:    '#34d399',
+  cmd:    '#ff8a4c',
   verify: '#f59e0b',
   info:   'var(--text-muted)',
 };
@@ -354,7 +354,7 @@ export default function AIChat({ projectId }) {
 
   // ─── Phase icon renderer ────────────────────────────────────────────────────
   const PhaseIcon = ({ status }) => {
-    if (status === 'completed') return <CheckCircle2 size={13} color="#10b981" />;
+    if (status === 'completed') return <CheckCircle2 size={13} color="#22c55e" />;
     if (status === 'running')   return <Loader2 size={13} color="var(--primary)" style={{ animation: 'spin 1s linear infinite' }} />;
     if (status === 'error')     return <AlertCircle size={13} color="#f43f5e" />;
     return <div className="ai-chat__phases-pending-dot" />;
@@ -362,8 +362,8 @@ export default function AIChat({ projectId }) {
 
   // ─── Models list ────────────────────────────────────────────────────────────
   const MODELS = [
-    { id: 'mistral', label: 'Codestral (Mistral)', tag: 'Default', color: '#10b981' },
-    { id: 'gemini',     label: 'Gemini 3.5 Flash (High)',  tag: 'Fast',    color: '#60a5fa' },
+    { id: 'mistral', label: 'Codestral (Mistral)', tag: 'Default', color: '#ea580c' },
+    { id: 'gemini',     label: 'Gemini 3.5 Flash (High)',  tag: 'Fast',    color: '#a5b4fc' },
     { id: 'claude',     label: 'Claude 3.5 Sonnet',         tag: 'Smart',   color: '#a78bfa' },
   ];
 
@@ -427,7 +427,7 @@ export default function AIChat({ projectId }) {
                 onClick={() => { setActiveAgent('clio'); setIsAgentDropdownOpen(false); }}
                 style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 8px', borderRadius: '4px', cursor: 'pointer' }}
               >
-                <Sparkles size={11} color="#60a5fa" />
+                <Sparkles size={11} color="#a5b4fc" />
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', flex: 1, textAlign: 'left' }}>
                   <span style={{ fontWeight: 600, fontSize: '11px', color: 'var(--text-primary)' }}>Clio (Assistant)</span>
                     <span style={{ fontSize: '9px', color: 'var(--text-dark)' }}>Copilot helper for files & info</span>
@@ -438,7 +438,7 @@ export default function AIChat({ projectId }) {
                   onClick={() => { setActiveAgent('pipeline'); setIsAgentDropdownOpen(false); }}
                   style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 8px', borderRadius: '4px', cursor: 'pointer' }}
                 >
-                  <Cpu size={11} color="#34d399" />
+                  <Cpu size={11} color="#ff8a4c" />
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', flex: 1, textAlign: 'left' }}>
                     <span style={{ fontWeight: 600, fontSize: '11px', color: 'var(--text-primary)' }}>Orion (Coding Agent)</span>
                     <span style={{ fontSize: '9px', color: 'var(--text-dark)' }}>5-agent code-gen pipeline</span>
@@ -519,8 +519,8 @@ export default function AIChat({ projectId }) {
             <div className="ai-chat__welcome-caps">
               <span className="ai-chat__welcome-caps-label">Capabilities</span>
               {[
-                { label: 'Read & write project files', color: '#60a5fa' },
-                { label: 'Execute shell commands & scripts', color: '#34d399' },
+                { label: 'Read & write project files', color: '#a5b4fc' },
+                { label: 'Execute shell commands & scripts', color: '#ff8a4c' },
                 { label: 'Inspect Vite compiler output', color: '#f59e0b' },
                 { label: 'Generate and patch code autonomously', color: '#a78bfa' },
               ].map((cap, i) => (
@@ -651,14 +651,14 @@ export default function AIChat({ projectId }) {
                           {modifiedFiles.map((file, fIdx) => (
                             <div key={fIdx} className="ai-chat__files-row">
                               <div className="ai-chat__files-name">
-                                <div className="ai-chat__files-check-wrap" style={{ background: file.type === 'create' ? 'rgba(16,185,129,0.1)' : 'rgba(139,92,246,0.1)' }}>
+                                <div className="ai-chat__files-check-wrap" style={{ background: file.type === 'create' ? 'rgba(234, 88, 12,0.1)' : 'rgba(139,92,246,0.1)' }}>
                                   {file.type === 'create'
-                                    ? <Check size={8} color="#10b981" strokeWidth={3} />
+                                    ? <Check size={8} color="#22c55e" strokeWidth={3} />
                                     : <FileCode size={8} color="#a78bfa" />}
                                 </div>
                                 <span>{file.path}</span>
                               </div>
-                              <span className="ai-chat__files-badge" style={{ color: file.type === 'create' ? '#10b981' : '#a78bfa' }}>
+                              <span className="ai-chat__files-badge" style={{ color: file.type === 'create' ? '#ea580c' : '#a78bfa' }}>
                                 {file.type === 'create' ? 'NEW' : 'MOD'}
                               </span>
                             </div>

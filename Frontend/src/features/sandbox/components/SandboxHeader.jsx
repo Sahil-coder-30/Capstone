@@ -153,7 +153,7 @@ export default function SandboxHeader({
           <button
             onClick={handleStart}
             style={{
-              background: 'linear-gradient(135deg, #0D8A6A 0%, #0B7359 100%)',
+              background: 'linear-gradient(135deg, #EA580C 0%, #0B7359 100%)',
               border: 'none',
               borderRadius: '6px',
               padding: '5px 12px',
@@ -164,7 +164,7 @@ export default function SandboxHeader({
               display: 'flex',
               alignItems: 'center',
               gap: '6px',
-              boxShadow: '0 2px 8px rgba(13,138,106,0.25)',
+              boxShadow: '0 2px 8px rgba(234,88,12,0.25)',
               transition: 'all 0.2s',
             }}
             onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-0.5px)'}

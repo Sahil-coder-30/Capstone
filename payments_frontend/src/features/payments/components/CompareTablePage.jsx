@@ -107,7 +107,7 @@ export default function CompareTablePage() {
                 <th style={{ padding: '20px 20px', fontSize: '0.92rem', fontWeight: 800, color: 'var(--text-muted)', textAlign: 'center', width: '20%' }}>
                   Taksha Free
                 </th>
-                <th style={{ padding: '20px 20px', fontSize: '0.92rem', fontWeight: 800, color: 'var(--brand-primary)', textAlign: 'center', width: '21%', background: 'rgba(61,197,161,0.04)' }}>
+                <th style={{ padding: '20px 20px', fontSize: '0.92rem', fontWeight: 800, color: 'var(--brand-primary)', textAlign: 'center', width: '21%', background: 'rgba(255, 179, 71,0.04)' }}>
                   Pro — ₹499/mo
                   <div style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--brand-primary)', margin: '4px auto 0' }} />
                 </th>
@@ -136,7 +136,7 @@ export default function CompareTablePage() {
                       <td style={{ padding: '14px 20px', textAlign: 'center', color: 'var(--text-muted)' }}>
                         {renderVal(feat.free)}
                       </td>
-                      <td style={{ padding: '14px 20px', textAlign: 'center', background: 'rgba(61,197,161,0.02)' }}>
+                      <td style={{ padding: '14px 20px', textAlign: 'center', background: 'rgba(255, 179, 71,0.02)' }}>
                         {renderVal(feat.pro, 'var(--brand-primary)')}
                       </td>
                       <td style={{ padding: '14px 20px', textAlign: 'center' }}>

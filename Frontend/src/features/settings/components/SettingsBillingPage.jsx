@@ -29,7 +29,7 @@ export default function SettingsBillingPage({
       
       {/* 1. Subscription & Payments Banner Header */}
       <div style={{ 
-        background: 'linear-gradient(135deg, rgba(16,185,129,0.08) 0%, rgba(59,130,246,0.06) 100%)', 
+        background: 'linear-gradient(135deg, rgba(234, 88, 12,0.08) 0%, rgba(99, 102, 241,0.06) 100%)', 
         backgroundColor: 'var(--bg-surface)', padding: '28px', borderRadius: '14px', 
         border: '1px solid var(--border-strong)', display: 'flex', justifyContent: 'space-between', 
         alignItems: 'center', flexWrap: 'wrap', gap: '20px', boxShadow: '0 6px 24px rgba(0,0,0,0.15)', position: 'relative'
@@ -41,8 +41,8 @@ export default function SettingsBillingPage({
         <div>
           <span style={{ 
             fontSize: '10px', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.06em',
-            backgroundColor: 'rgba(16,185,129,0.15)', color: '#10B981', padding: '4px 10px', borderRadius: '12px',
-            border: '1px solid rgba(16,185,129,0.3)'
+            backgroundColor: 'rgba(234, 88, 12,0.15)', color: '#EA580C', padding: '4px 10px', borderRadius: '12px',
+            border: '1px solid rgba(234, 88, 12,0.3)'
           }}>
             Current Plan: {planLabel} Tier
           </span>
@@ -59,7 +59,7 @@ export default function SettingsBillingPage({
           style={{
             display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '12px 24px', borderRadius: '10px',
             backgroundColor: 'var(--primary)', color: '#000', fontSize: '13.5px', fontWeight: '800',
-            border: 'none', cursor: 'pointer', boxShadow: '0 4px 14px rgba(16,185,129,0.3)', transition: 'all 0.15s'
+            border: 'none', cursor: 'pointer', boxShadow: '0 4px 14px rgba(234, 88, 12,0.3)', transition: 'all 0.15s'
           }}
         >
           <Zap size={16} /> Manage Subscription & Plans <ArrowRight size={14} />
@@ -101,8 +101,8 @@ export default function SettingsBillingPage({
               <div 
                 style={{ 
                   width: `${creditPercentage}%`, height: '100%',
-                  background: 'linear-gradient(90deg, #10B981, #059669)', borderRadius: '6px',
-                  boxShadow: '0 0 10px rgba(16,185,129,0.3)', transition: 'width 0.5s ease-out'
+                  background: 'linear-gradient(90deg, #EA580C, #C2410C)', borderRadius: '6px',
+                  boxShadow: '0 0 10px rgba(234, 88, 12,0.3)', transition: 'width 0.5s ease-out'
                 }} 
               />
             </div>
@@ -139,7 +139,7 @@ export default function SettingsBillingPage({
                     <span style={{ fontSize: '10px', color: 'var(--text-dark)' }}>{remaining.toFixed(2)} / {granted}</span>
                   </div>
                   <div style={{ height: '7px', background: 'var(--bg-element)', borderRadius: '4px', overflow: 'hidden' }}>
-                    <div style={{ width: `${pct}%`, height: '100%', background: '#10B981' }} />
+                    <div style={{ width: `${pct}%`, height: '100%', background: '#EA580C' }} />
                   </div>
                 </div>
               );
@@ -205,7 +205,7 @@ export default function SettingsBillingPage({
           </div>
 
           <div style={{ flex: '1 1 200px', background: 'var(--bg-canvas)', padding: '16px', borderRadius: '10px', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: '14px' }}>
-            <Database size={18} color="#3B82F6" />
+            <Database size={18} color="#6366F1" />
             <div>
               <span style={{ fontSize: '11px', fontWeight: '800', color: 'var(--text-dark)', textTransform: 'uppercase' }}>Memory Allocated</span>
               <h4 style={{ fontSize: '18px', fontWeight: '800', color: 'var(--text-primary)', margin: '2px 0 0' }}>512 MB / 2 GB</h4>

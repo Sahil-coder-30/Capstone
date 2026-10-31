@@ -542,7 +542,7 @@ export default function App() {
                 ? 'Rate Limit Exceeded'
                 : 'Request Error'}
             </div>
-            <div style={{ color: 'var(--text-muted, #94a3b8)', wordBreak: 'break-word' }}>
+            <div style={{ color: 'var(--text-muted, #a1a1aa)', wordBreak: 'break-word' }}>
               {faultAlert.message}
             </div>
             {faultAlert.requestId && (
@@ -821,7 +821,7 @@ export default function App() {
                               onClick={() => startSandbox(currentProjectId)}
                               style={{
                                 padding: '8px 16px',
-                                background: 'linear-gradient(135deg, #0D8A6A 0%, #0B7359 100%)',
+                                background: 'linear-gradient(135deg, #EA580C 0%, #0B7359 100%)',
                                 border: 'none',
                                 borderRadius: '6px',
                                 color: '#fff',
@@ -832,7 +832,7 @@ export default function App() {
                                 gap: '8px',
                                 cursor: 'pointer',
                                 transition: 'all 0.2s',
-                                boxShadow: '0 4px 12px rgba(13,138,106,0.3)',
+                                boxShadow: '0 4px 12px rgba(234,88,12,0.3)',
                               }}
                               onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-0.5px)'}
                               onMouseLeave={e => e.currentTarget.style.transform = 'none'}

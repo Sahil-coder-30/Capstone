@@ -99,7 +99,7 @@ function ProjectCard({ project, index, onOpen, onStop, onDelete }) {
       <div className="project-card__header">
         <div className="project-card__details">
           <div className={`project-card__icon-box ${isLive ? 'project-card__icon-box--live' : ''}`}>
-            <Code size={16} color={isLive ? '#10b981' : 'var(--primary)'} />
+            <Code size={16} color={isLive ? '#22c55e' : 'var(--primary)'} />
           </div>
           <h3 className="project-card__title">
             {project.title}

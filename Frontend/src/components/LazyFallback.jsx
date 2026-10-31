@@ -10,19 +10,19 @@ export function EditorSkeleton() {
     <div style={{
       width: '100%',
       height: '100%',
-      background: 'var(--bg-canvas, #07080B)',
+      background: 'var(--bg-canvas, #0A0A0C)',
       display: 'flex',
       flexDirection: 'column',
       overflow: 'hidden',
       userSelect: 'none',
-      border: '1px solid var(--border, #252A40)',
+      border: '1px solid var(--border, #2A2A31)',
       borderRadius: '6px'
     }}>
       {/* Editor Tab Bar Ghost */}
       <div style={{
         height: '36px',
-        background: 'var(--bg-surface, #0E1017)',
-        borderBottom: '1px solid var(--border, #252A40)',
+        background: 'var(--bg-surface, #111114)',
+        borderBottom: '1px solid var(--border, #2A2A31)',
         display: 'flex',
         alignItems: 'center',
         padding: '0 12px',
@@ -31,7 +31,7 @@ export function EditorSkeleton() {
         <div style={{
           width: '110px',
           height: '20px',
-          background: 'var(--bg-element, #202438)',
+          background: 'var(--bg-element, #232329)',
           borderRadius: '4px',
           opacity: 0.7
         }} />
@@ -68,7 +68,7 @@ export function EditorSkeleton() {
             <div style={{
               height: '14px',
               width: line.w,
-              background: 'var(--bg-element, #202438)',
+              background: 'var(--bg-element, #232329)',
               borderRadius: '4px',
               opacity: line.op,
               animation: 'pulse 1.8s ease-in-out infinite'
@@ -85,7 +85,7 @@ export function TerminalSkeleton() {
     <div style={{
       width: '100%',
       height: '100%',
-      background: 'var(--bg-canvas, #07080B)',
+      background: 'var(--bg-canvas, #0A0A0C)',
       padding: '12px 16px',
       fontFamily: 'var(--font-mono, monospace)',
       fontSize: '12px',
@@ -93,16 +93,16 @@ export function TerminalSkeleton() {
       display: 'flex',
       flexDirection: 'column',
       gap: '8px',
-      borderTop: '1px solid var(--border, #252A40)'
+      borderTop: '1px solid var(--border, #2A2A31)'
     }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-        <span style={{ color: 'var(--primary, #10B981)', fontWeight: 600 }}>taksha@codespace</span>
+        <span style={{ color: 'var(--primary, #EA580C)', fontWeight: 600 }}>taksha@codespace</span>
         <span style={{ color: 'var(--text-muted, #64748B)' }}>:~$</span>
         <span style={{
           display: 'inline-block',
           width: '8px',
           height: '14px',
-          background: 'var(--primary, #10B981)',
+          background: 'var(--primary, #EA580C)',
           animation: 'pulse 1s infinite'
         }} />
       </div>
@@ -115,7 +115,7 @@ export function ChatSkeleton() {
     <div style={{
       width: '100%',
       height: '100%',
-      background: 'var(--bg-surface, #0E1017)',
+      background: 'var(--bg-surface, #111114)',
       padding: '16px',
       display: 'flex',
       flexDirection: 'column',
@@ -124,14 +124,14 @@ export function ChatSkeleton() {
       <div style={{
         width: '60%',
         height: '42px',
-        background: 'var(--bg-element, #202438)',
+        background: 'var(--bg-element, #232329)',
         borderRadius: '10px',
         animation: 'pulse 1.8s ease-in-out infinite'
       }} />
       <div style={{
         width: '80%',
         height: '64px',
-        background: 'var(--bg-element, #202438)',
+        background: 'var(--bg-element, #232329)',
         borderRadius: '10px',
         alignSelf: 'flex-start',
         opacity: 0.6,
@@ -145,7 +145,7 @@ export function PageSkeleton({ title = 'Loading...' }) {
   return (
     <div style={{
       minHeight: '100vh',
-      background: 'var(--bg-canvas, #07080B)',
+      background: 'var(--bg-canvas, #0A0A0C)',
       display: 'flex',
       flexDirection: 'column',
       alignItems: 'center',
@@ -155,8 +155,8 @@ export function PageSkeleton({ title = 'Loading...' }) {
       <div style={{
         width: '40px',
         height: '40px',
-        border: '3px solid var(--border, #252A40)',
-        borderTopColor: 'var(--primary, #10B981)',
+        border: '3px solid var(--border, #2A2A31)',
+        borderTopColor: 'var(--primary, #EA580C)',
         borderRadius: '50%',
         animation: 'spin 0.8s linear infinite'
       }} />

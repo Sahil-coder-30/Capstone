@@ -81,9 +81,9 @@ export default function AIRequestsView() {
 
   const getCompanyColor = (company) => {
     switch (company?.toLowerCase()) {
-      case 'google': return '#3DC5A1';
-      case 'openai': return '#10B981';
-      case 'mistral': return '#1B6EF3';
+      case 'google': return '#FFB347';
+      case 'openai': return '#EA580C';
+      case 'mistral': return '#4F46E5';
       case 'cohere': return '#F59E0B';
       default: return 'var(--text-muted)';
     }
@@ -388,7 +388,7 @@ export default function AIRequestsView() {
                   Raw Telemetry Payload:
                 </div>
                 <pre style={{
-                  background: '#0D1117', color: '#58A6FF',
+                  background: '#0A0A0C', color: '#58A6FF',
                   padding: 16, borderRadius: 10, fontSize: '0.76rem',
                   overflowX: 'auto', border: '1px solid var(--border)',
                   fontFamily: 'var(--font-mono)', lineHeight: 1.5,

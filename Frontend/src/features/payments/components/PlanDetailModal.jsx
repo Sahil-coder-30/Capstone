@@ -60,7 +60,7 @@ export default function PlanDetailModal({ plan, billingCycle, onClose, onCheckou
 
           <div>
             <h3 style={{ color: '#fff', fontSize: '1.15rem', marginBottom: '0.5rem' }}>Overview & Capabilities</h3>
-            <p style={{ color: '#94a3b8', lineHeight: 1.6, margin: 0 }}>
+            <p style={{ color: '#a1a1aa', lineHeight: 1.6, margin: 0 }}>
               {plan.description} Built specifically for engineers and development teams requiring high-performance isolated sandboxes, automated AI agent workflows, and seamless cloud execution.
             </p>
           </div>
@@ -85,7 +85,7 @@ export default function PlanDetailModal({ plan, billingCycle, onClose, onCheckou
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '10px' }}>
               {plan.highlights.map((h, idx) => (
                 <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#cbd5e1', fontSize: '0.875rem' }}>
-                  <CheckCircle2 size={16} color="#10b981" />
+                  <CheckCircle2 size={16} color="#22c55e" />
                   <span>{h}</span>
                 </div>
               ))}

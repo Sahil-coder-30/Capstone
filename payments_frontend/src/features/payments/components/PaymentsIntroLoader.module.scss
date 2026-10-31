@@ -34,7 +34,7 @@
   max-width: 100vw;
   background: radial-gradient(
     ellipse at center,
-    rgba(61, 197, 161, 0.11) 0%,
+    rgba(255, 179, 71, 0.11) 0%,
     rgba(27, 110, 243, 0.06) 45%,
     transparent 70%
   );
@@ -83,7 +83,7 @@
     #CBD5E1 22%,
     #F1F5F9 42%,
     #FFFFFF 48%,
-    #3DC5A1 51%,
+    #FFB347 51%,
     #00DFD8 53%,
     #FFFFFF 56%,
     #CBD5E1 72%,
@@ -115,21 +115,21 @@
 .dividerLineLeft {
   flex: 1;
   height: 1px;
-  background: linear-gradient(90deg, transparent 0%, rgba(61, 197, 161, 0.6) 80%, rgba(27, 110, 243, 0.8) 100%);
+  background: linear-gradient(90deg, transparent 0%, rgba(255, 179, 71, 0.6) 80%, rgba(27, 110, 243, 0.8) 100%);
 }
 
 .dividerLineRight {
   flex: 1;
   height: 1px;
-  background: linear-gradient(90deg, rgba(27, 110, 243, 0.8) 0%, rgba(61, 197, 161, 0.6) 20%, transparent 100%);
+  background: linear-gradient(90deg, rgba(27, 110, 243, 0.8) 0%, rgba(255, 179, 71, 0.6) 20%, transparent 100%);
 }
 
 .dividerCoreDot {
   width: 5px;
   height: 5px;
   border-radius: 50%;
-  background: #3DC5A1;
-  box-shadow: 0 0 6px #3DC5A1, 0 0 14px rgba(61, 197, 161, 0.7);
+  background: #FFB347;
+  box-shadow: 0 0 6px #FFB347, 0 0 14px rgba(255, 179, 71, 0.7);
   flex-shrink: 0;
 }
 

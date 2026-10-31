@@ -11,7 +11,7 @@
   transition: box-shadow 0.3s ease;
 
   &:hover {
-    box-shadow: 0 16px 48px rgba(59, 130, 246, 0.15);
+    box-shadow: 0 16px 48px rgba(99, 102, 241, 0.15);
   }
 
   &.minimized {
@@ -326,7 +326,7 @@
       .chat-input {
         background: #ffffff !important;
         border-color: #d0d7de !important;
-        color: #0f172a !important;
+        color: #0f0f12 !important;
 
         &::placeholder {
           color: #64748b !important;
@@ -334,9 +334,9 @@
 
         &:focus {
           background: #ffffff !important;
-          color: #0f172a !important;
-          border-color: #059669 !important;
-          box-shadow: 0 0 0 2px rgba(5, 150, 105, 0.15) !important;
+          color: #0f0f12 !important;
+          border-color: #C2410C !important;
+          box-shadow: 0 0 0 2px rgba(194, 65, 12, 0.15) !important;
         }
       }
     }

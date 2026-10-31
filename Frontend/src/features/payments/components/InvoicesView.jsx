@@ -16,7 +16,7 @@ export default function InvoicesView({ transactions, summary }) {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
         <div>
           <h2 style={{ color: '#fff', fontSize: '1.75rem', fontWeight: 800, margin: '0 0 0.5rem' }}>Billing & Invoices</h2>
-          <p style={{ color: '#94a3b8', margin: 0, fontSize: '0.9rem' }}>
+          <p style={{ color: '#a1a1aa', margin: 0, fontSize: '0.9rem' }}>
             View your complete payment audit trail, subscription charges, and token usage history.
           </p>
         </div>
@@ -27,7 +27,7 @@ export default function InvoicesView({ transactions, summary }) {
             style={{
               background: filter === 'all' ? 'rgba(99,102,241,0.2)' : 'none',
               border: filter === 'all' ? '1px solid #6366f1' : 'none',
-              color: filter === 'all' ? '#818cf8' : '#94a3b8',
+              color: filter === 'all' ? '#818cf8' : '#a1a1aa',
               padding: '6px 14px',
               borderRadius: '6px',
               fontWeight: 600,
@@ -42,7 +42,7 @@ export default function InvoicesView({ transactions, summary }) {
             style={{
               background: filter === 'CREDIT_PURCHASE' ? 'rgba(99,102,241,0.2)' : 'none',
               border: filter === 'CREDIT_PURCHASE' ? '1px solid #6366f1' : 'none',
-              color: filter === 'CREDIT_PURCHASE' ? '#818cf8' : '#94a3b8',
+              color: filter === 'CREDIT_PURCHASE' ? '#818cf8' : '#a1a1aa',
               padding: '6px 14px',
               borderRadius: '6px',
               fontWeight: 600,
@@ -69,7 +69,7 @@ export default function InvoicesView({ transactions, summary }) {
         </div>
         <div style={{ background: 'rgba(15,23,42,0.6)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '14px', padding: '1.25rem' }}>
           <span style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 600, textTransform: uppercase }}>Tokens Consumed</span>
-          <h3 style={{ color: '#34d399', fontSize: '1.5rem', fontWeight: 800, margin: '4px 0 0' }}>
+          <h3 style={{ color: '#ff8a4c', fontSize: '1.5rem', fontWeight: 800, margin: '4px 0 0' }}>
             {Number(summary?.totalTokensConsumed || 0).toLocaleString()}
           </h3>
         </div>
@@ -85,7 +85,7 @@ export default function InvoicesView({ transactions, summary }) {
         ) : (
           <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
             <thead>
-              <tr style={{ background: 'rgba(2,6,23,0.4)', color: '#94a3b8', fontSize: '0.75rem', textTransform: uppercase }}>
+              <tr style={{ background: 'rgba(2,6,23,0.4)', color: '#a1a1aa', fontSize: '0.75rem', textTransform: uppercase }}>
                 <th style={{ padding: '12px 20px' }}>Date</th>
                 <th style={{ padding: '12px 20px' }}>Description</th>
                 <th style={{ padding: '12px 20px' }}>Type</th>
@@ -101,10 +101,10 @@ export default function InvoicesView({ transactions, summary }) {
                     {new Date(tx.createdAt || Date.now()).toLocaleDateString('en-IN', { month: 'short', day: 'numeric', year: 'numeric' })}
                   </td>
                   <td style={{ padding: '14px 20px', color: '#fff', fontWeight: 600 }}>{tx.description || 'Subscription Invoice'}</td>
-                  <td style={{ padding: '14px 20px', color: '#94a3b8' }}>{tx.type}</td>
+                  <td style={{ padding: '14px 20px', color: '#a1a1aa' }}>{tx.type}</td>
                   <td style={{ padding: '14px 20px', color: '#fff', fontWeight: 700 }}>{formatINR(tx.amountINR)}</td>
                   <td style={{ padding: '14px 20px' }}>
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', color: '#34d399', fontSize: '0.75rem', fontWeight: 600 }}>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', color: '#ff8a4c', fontSize: '0.75rem', fontWeight: 600 }}>
                       <CheckCircle2 size={12} />
                       <span>Completed</span>
                     </span>

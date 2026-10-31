@@ -13,13 +13,13 @@ export default function MaxNetwork({ size = 120, animated = true }) {
 
   // 7-node network layout
   const nodes = [
-    { id: 'center', cx: 60, cy: 60, r: 10, color: '#3DC5A1', fill: 'rgba(61,197,161,0.2)' },
-    { id: 'top',    cx: 60, cy: 18, r: 7,  color: '#1B6EF3', fill: 'rgba(27,110,243,0.15)' },
-    { id: 'right',  cx: 100,cy: 42, r: 7,  color: '#3DC5A1', fill: 'rgba(61,197,161,0.15)' },
-    { id: 'br',     cx: 92, cy: 88, r: 7,  color: '#1B6EF3', fill: 'rgba(27,110,243,0.15)' },
-    { id: 'bl',     cx: 28, cy: 88, r: 7,  color: '#3DC5A1', fill: 'rgba(61,197,161,0.15)' },
-    { id: 'left',   cx: 20, cy: 42, r: 7,  color: '#1B6EF3', fill: 'rgba(27,110,243,0.15)' },
-    { id: 'orbit',  cx: 60, cy: 104, r: 5, color: '#3DC5A1', fill: 'rgba(61,197,161,0.12)' },
+    { id: 'center', cx: 60, cy: 60, r: 10, color: '#FFB347', fill: 'rgba(255, 179, 71,0.2)' },
+    { id: 'top',    cx: 60, cy: 18, r: 7,  color: '#4F46E5', fill: 'rgba(27,110,243,0.15)' },
+    { id: 'right',  cx: 100,cy: 42, r: 7,  color: '#FFB347', fill: 'rgba(255, 179, 71,0.15)' },
+    { id: 'br',     cx: 92, cy: 88, r: 7,  color: '#4F46E5', fill: 'rgba(27,110,243,0.15)' },
+    { id: 'bl',     cx: 28, cy: 88, r: 7,  color: '#FFB347', fill: 'rgba(255, 179, 71,0.15)' },
+    { id: 'left',   cx: 20, cy: 42, r: 7,  color: '#4F46E5', fill: 'rgba(27,110,243,0.15)' },
+    { id: 'orbit',  cx: 60, cy: 104, r: 5, color: '#FFB347', fill: 'rgba(255, 179, 71,0.12)' },
   ];
 
   const edges = [
@@ -56,7 +56,7 @@ export default function MaxNetwork({ size = 120, animated = true }) {
         return (
           <line key={i} className="draw-path"
             x1={x1} y1={y1} x2={x2} y2={y2}
-            stroke={i % 2 === 0 ? '#3DC5A1' : '#1B6EF3'}
+            stroke={i % 2 === 0 ? '#FFB347' : '#4F46E5'}
             strokeWidth={isSolid ? '1.5' : '1'}
             strokeDasharray={isSolid ? undefined : '3 3'}
             opacity={isSolid ? 0.9 : 0.55}
@@ -75,9 +75,9 @@ export default function MaxNetwork({ size = 120, animated = true }) {
       ))}
 
       {/* Center pulse */}
-      <circle cx="60" cy="60" r="18" stroke="#3DC5A1" strokeWidth="1" opacity="0.25"
+      <circle cx="60" cy="60" r="18" stroke="#FFB347" strokeWidth="1" opacity="0.25"
         style={{ animation: 'pulse-ring 1.8s ease-out infinite' }} />
-      <circle cx="60" cy="60" r="26" stroke="#3DC5A1" strokeWidth="0.5" opacity="0.12"
+      <circle cx="60" cy="60" r="26" stroke="#FFB347" strokeWidth="0.5" opacity="0.12"
         style={{ animation: 'pulse-ring 1.8s ease-out 0.6s infinite' }} />
     </svg>
   );

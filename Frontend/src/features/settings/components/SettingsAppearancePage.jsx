@@ -94,7 +94,7 @@ export default function SettingsAppearancePage({ preferences, onUpdatePreference
             style={{ 
               flex: '1 1 200px', padding: '20px', borderRadius: '12px', 
               border: `2px solid ${theme === 'dark' ? 'var(--primary)' : 'var(--border)'}`, 
-              background: '#0E1017', cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: '12px',
+              background: '#111114', cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: '12px',
               boxShadow: theme === 'dark' ? '0 0 12px var(--primary-glow)' : 'none', transition: 'all 0.2s'
             }}
           >
@@ -104,9 +104,9 @@ export default function SettingsAppearancePage({ preferences, onUpdatePreference
               </span>
               {theme === 'dark' && <div style={{ width: '16px', height: '16px', borderRadius: '50%', backgroundColor: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Check size={10} color="#000" /></div>}
             </div>
-            <div style={{ height: '40px', background: '#07080B', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.04)', padding: '6px', display: 'flex', gap: '4px' }}>
-              <div style={{ width: '20px', background: '#0E1017', borderRadius: '3px' }} />
-              <div style={{ flex: 1, background: '#131622', borderRadius: '3px' }} />
+            <div style={{ height: '40px', background: '#0A0A0C', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.04)', padding: '6px', display: 'flex', gap: '4px' }}>
+              <div style={{ width: '20px', background: '#111114', borderRadius: '3px' }} />
+              <div style={{ flex: 1, background: '#141417', borderRadius: '3px' }} />
             </div>
           </div>
 
@@ -121,13 +121,13 @@ export default function SettingsAppearancePage({ preferences, onUpdatePreference
             }}
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ fontSize: '13.5px', fontWeight: '700', color: '#0f172a', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span style={{ fontSize: '13.5px', fontWeight: '700', color: '#0f0f12', display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <Sun size={14} style={{ color: '#f59e0b' }} /> Light Mode
               </span>
               {theme === 'light' && <div style={{ width: '16px', height: '16px', borderRadius: '50%', backgroundColor: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Check size={10} color="#000" /></div>}
             </div>
-            <div style={{ height: '40px', background: '#f8fafc', borderRadius: '6px', border: '1px solid #e2e8f0', padding: '6px', display: 'flex', gap: '4px' }}>
-              <div style={{ width: '20px', background: '#ffffff', borderRadius: '3px', border: '1px solid #e2e8f0' }} />
+            <div style={{ height: '40px', background: '#f8fafc', borderRadius: '6px', border: '1px solid #e4e4e7', padding: '6px', display: 'flex', gap: '4px' }}>
+              <div style={{ width: '20px', background: '#ffffff', borderRadius: '3px', border: '1px solid #e4e4e7' }} />
               <div style={{ flex: 1, background: '#f1f5f9', borderRadius: '3px' }} />
             </div>
           </div>
@@ -138,13 +138,13 @@ export default function SettingsAppearancePage({ preferences, onUpdatePreference
             style={{ 
               flex: '1 1 200px', padding: '20px', borderRadius: '12px', 
               border: `2px solid ${theme === 'system' ? 'var(--primary)' : 'var(--border)'}`, 
-              background: 'linear-gradient(135deg, #0E1017 50%, #ffffff 50%)', cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: '12px',
+              background: 'linear-gradient(135deg, #111114 50%, #ffffff 50%)', cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: '12px',
               boxShadow: theme === 'system' ? '0 0 12px var(--primary-glow)' : 'none', transition: 'all 0.2s'
             }}
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(0,0,0,0.6)', padding: '4px 8px', borderRadius: '6px' }}>
               <span style={{ fontSize: '13.5px', fontWeight: '700', color: '#fff', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <Monitor size={14} style={{ color: '#3b82f6' }} /> System Default
+                <Monitor size={14} style={{ color: '#6366f1' }} /> System Default
               </span>
               {theme === 'system' && <div style={{ width: '16px', height: '16px', borderRadius: '50%', backgroundColor: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Check size={10} color="#000" /></div>}
             </div>

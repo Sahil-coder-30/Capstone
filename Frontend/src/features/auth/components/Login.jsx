@@ -190,7 +190,7 @@ export default function Login({ onBackToHome }) {
         {/* Footer Secure Info */}
         <footer style={{ marginTop: '32px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
           <div className="login__secure-badge">
-            <ShieldCheck size={14} color="#10b981" />
+            <ShieldCheck size={14} color="#22c55e" />
             <span>AES-256 SECURED SESSION</span>
           </div>
           <div className="login__footer-links">

@@ -14,9 +14,9 @@ import './AIChat.scss';
 
 // ─── Tool type icon colors ────────────────────────────────────────────────────
 const TOOL_TYPE_COLORS = {
-  read:   '#60a5fa',
+  read:   '#a5b4fc',
   write:  '#a78bfa',
-  cmd:    '#34d399',
+  cmd:    '#ff8a4c',
   verify: '#f59e0b',
   info:   'var(--text-muted)',
 };
@@ -698,15 +698,15 @@ export default function AIChat({ projectId, onCloseChat }) {
       phaseBadgeText = 'ERROR';
     } else if (stateClass === 'success') {
       phaseIcon = <CheckCircle2 className="ai-chat__thinking-orb-icon" size={14} />;
-      phaseColor = '#10b981'; // Green
+      phaseColor = '#22c55e'; // Green
       phaseBadgeText = 'DONE';
     } else if (current.phase === 'tool') {
       phaseIcon = <Loader2 className="ai-chat__thinking-orb-icon spin-animation" size={14} />;
-      phaseColor = '#34d399'; // Mint Green
+      phaseColor = '#4ade80'; // Mint Green
       phaseBadgeText = 'EXECUTING';
     } else if (current.phase === 'queued') {
       phaseIcon = <Loader2 className="ai-chat__thinking-orb-icon pulse-animation" size={14} />;
-      phaseColor = '#60a5fa'; // Blue
+      phaseColor = '#a5b4fc'; // Blue
       phaseBadgeText = 'QUEUED';
     }
 
@@ -947,8 +947,8 @@ export default function AIChat({ projectId, onCloseChat }) {
             <div className="ai-chat__welcome-caps">
               <span className="ai-chat__welcome-caps-label">Capabilities</span>
               {[
-                { label: 'Read & write project files', color: '#60a5fa' },
-                { label: 'Execute shell commands & scripts', color: '#34d399' },
+                { label: 'Read & write project files', color: '#a5b4fc' },
+                { label: 'Execute shell commands & scripts', color: '#ff8a4c' },
                 { label: 'Inspect Vite compiler output', color: '#f59e0b' },
                 { label: 'Generate and patch code autonomously', color: '#a78bfa' },
               ].map((cap, i) => (
@@ -1127,15 +1127,15 @@ export default function AIChat({ projectId, onCloseChat }) {
                               title={`Open ${file.path} in editor`}
                             >
                               <div className="ai-chat__files-name">
-                                <div className="ai-chat__files-check-wrap" style={{ background: file.type === 'create' ? 'rgba(16,185,129,0.1)' : 'rgba(139,92,246,0.1)' }}>
+                                <div className="ai-chat__files-check-wrap" style={{ background: file.type === 'create' ? 'rgba(234, 88, 12,0.1)' : 'rgba(139,92,246,0.1)' }}>
                                   {file.type === 'create'
-                                    ? <Check size={8} color="#10b981" strokeWidth={3} />
+                                    ? <Check size={8} color="#22c55e" strokeWidth={3} />
                                     : <FileCode size={8} color="#a78bfa" />}
                                 </div>
                                 <span className="ai-chat__files-path-text">{file.path}</span>
                               </div>
                               <div className="ai-chat__files-action">
-                                <span className="ai-chat__files-badge" style={{ color: file.type === 'create' ? '#10b981' : '#a78bfa' }}>
+                                <span className="ai-chat__files-badge" style={{ color: file.type === 'create' ? '#ea580c' : '#a78bfa' }}>
                                   {file.type === 'create' ? 'NEW' : 'MOD'}
                                 </span>
                                 <ArrowRight size={10} className="ai-chat__files-arrow" />
@@ -1239,7 +1239,7 @@ export default function AIChat({ projectId, onCloseChat }) {
           <div className="ai-chat__plan-review-header">
             <div className="ai-chat__plan-review-title">
               <div className="ai-chat__plan-review-icon-glow">
-                <CheckSquare2 size={16} color="var(--brand-primary, #10b981)" />
+                <CheckSquare2 size={16} color="var(--brand-primary, #ea580c)" />
               </div>
               <div className="ai-chat__plan-review-heading">
                 <div className="ai-chat__plan-review-main-title">

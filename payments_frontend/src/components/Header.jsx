@@ -17,7 +17,7 @@ const NAV_LINKS = [
 
 const TIER_COLORS = {
   free: { bg: 'var(--bg-element)',   text: 'var(--text-muted)',     border: 'var(--border)' },
-  pro:  { bg: 'var(--brand-subtle)', text: 'var(--brand-primary)',  border: 'rgba(61,197,161,0.3)' },
+  pro:  { bg: 'var(--brand-subtle)', text: 'var(--brand-primary)',  border: 'rgba(255, 179, 71,0.3)' },
   max:  { bg: 'var(--accent-subtle)',text: 'var(--accent-primary)', border: 'rgba(27,110,243,0.3)' },
 };
 

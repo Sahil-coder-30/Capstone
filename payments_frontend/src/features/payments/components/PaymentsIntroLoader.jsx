@@ -228,8 +228,8 @@ export default function PaymentsIntroLoader({ onComplete, onExitStart, forcePlay
               />
               <defs>
                 <linearGradient id="rzpBoltGrad" x1="0" y1="0" x2="14" y2="18" gradientUnits="userSpaceOnUse">
-                  <stop stopColor="#5591F7" />
-                  <stop offset="1" stopColor="#1B6EF3" />
+                  <stop stopColor="#818CF8" />
+                  <stop offset="1" stopColor="#4F46E5" />
                 </linearGradient>
               </defs>
             </svg>

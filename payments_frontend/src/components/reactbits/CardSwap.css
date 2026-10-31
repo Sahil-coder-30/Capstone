@@ -12,11 +12,11 @@
   top: 50%;
   left: 50%;
   border-radius: 16px;
-  border: 1px solid var(--border-glow, rgba(61, 197, 161, 0.2));
+  border: 1px solid var(--border-glow, rgba(255, 179, 71, 0.2));
   background: var(--bg-overlay, rgba(13, 17, 23, 0.85));
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  box-shadow: 0 20px 45px rgba(0, 0, 0, 0.4), 0 0 30px rgba(61, 197, 161, 0.05);
+  box-shadow: 0 20px 45px rgba(0, 0, 0, 0.4), 0 0 30px rgba(255, 179, 71, 0.05);
 
   transform-style: preserve-3d;
   will-change: transform;
@@ -28,15 +28,15 @@
 }
 
 .card:hover {
-  border-color: var(--brand-primary, #3DC5A1);
-  box-shadow: 0 25px 55px rgba(61, 197, 161, 0.25), 0 0 40px rgba(61, 197, 161, 0.15);
+  border-color: var(--brand-primary, #FFB347);
+  box-shadow: 0 25px 55px rgba(255, 179, 71, 0.25), 0 0 40px rgba(255, 179, 71, 0.15);
 }
 
 /* Light Theme Overrides */
 .light-theme .card {
   background: rgba(255, 255, 255, 0.9);
-  border-color: rgba(61, 197, 161, 0.3);
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.08), 0 0 20px rgba(61, 197, 161, 0.1);
+  border-color: rgba(255, 179, 71, 0.3);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.08), 0 0 20px rgba(255, 179, 71, 0.1);
 }
 
 @media (max-width: 768px) {

@@ -559,7 +559,7 @@ body.is-resizing-row * {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  background-color: var(--bg-canvas); /* was hardcoded #07080b — now respects light theme */
+  background-color: var(--bg-canvas); /* was hardcoded #0a0a0c — now respects light theme */
   position: relative;
   overflow: hidden;
   user-select: none;
@@ -580,7 +580,7 @@ body.is-resizing-row * {
     height: 450px;
     top: -100px;
     left: -100px;
-    background: radial-gradient(circle, #10b981 0%, transparent 70%);
+    background: radial-gradient(circle, #ea580c 0%, transparent 70%);
     animation: authOrbFloat1 12s infinite alternate ease-in-out;
   }
 
@@ -589,7 +589,7 @@ body.is-resizing-row * {
     height: 500px;
     bottom: -150px;
     right: -150px;
-    background: radial-gradient(circle, #3b82f6 0%, transparent 70%);
+    background: radial-gradient(circle, #6366f1 0%, transparent 70%);
     animation: authOrbFloat2 15s infinite alternate ease-in-out;
   }
 }
@@ -641,8 +641,8 @@ body.is-resizing-row * {
   width: 100%;
   height: 100%;
   border-radius: 20px;
-  border: 1.5px solid rgba(16, 185, 129, 0.4);
-  background: rgba(16, 185, 129, 0.03);
+  border: 1.5px solid rgba(234, 88, 12, 0.4);
+  background: rgba(234, 88, 12, 0.03);
   animation: authPulseRing 2.4s infinite cubic-bezier(0.215, 0.61, 0.355, 1);
   will-change: transform, opacity;
 }
@@ -655,7 +655,7 @@ body.is-resizing-row * {
   100% {
     transform: scale(1.45);
     opacity: 0;
-    border-color: rgba(59, 130, 246, 0);
+    border-color: rgba(99, 102, 241, 0);
   }
 }
 
@@ -685,10 +685,10 @@ body.is-resizing-row * {
   }
   50% {
     transform: scale(1.04);
-    border-color: rgba(16, 185, 129, 0.25);
+    border-color: rgba(234, 88, 12, 0.25);
     box-shadow: 
       0 12px 35px rgba(0, 0, 0, 0.4),
-      0 0 12px rgba(16, 185, 129, 0.15);
+      0 0 12px rgba(234, 88, 12, 0.15);
   }
 }
 
@@ -718,8 +718,8 @@ body.is-resizing-row * {
   width: 5px;
   height: 5px;
   border-radius: 50%;
-  background-color: var(--success);    /* was hardcoded #10b981 */
-  box-shadow: 0 0 6px var(--success);  /* was hardcoded #10b981 */
+  background-color: var(--success);    /* was hardcoded #22c55e */
+  box-shadow: 0 0 6px var(--success);  /* was hardcoded #22c55e */
   animation: authStatusDotPulse 1.4s infinite alternate ease-in-out;
 }
 
@@ -887,7 +887,7 @@ body.is-resizing-row * {
 
         .activity-bar-item-indicator {
           background-color: var(--brand-primary);
-          box-shadow: 0 0 8px rgba(5, 150, 105, 0.3);
+          box-shadow: 0 0 8px rgba(194, 65, 12, 0.3);
         }
       }
     }

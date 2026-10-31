@@ -130,10 +130,10 @@ export default function TerminalShell() {
     if (xtermInstance.current) return;
 
     const computedStyle = getComputedStyle(document.documentElement);
-    const bgPanel = computedStyle.getPropertyValue('--bg-panel').trim() || '#131622';
+    const bgPanel = computedStyle.getPropertyValue('--bg-panel').trim() || '#141417';
     const textMain = computedStyle.getPropertyValue('--text-primary').trim() || '#FFFFFF';
-    const brandPrimary = computedStyle.getPropertyValue('--brand-primary').trim() || '#10B981';
-    const textDark = computedStyle.getPropertyValue('--text-dark').trim() || '#94A3B8';
+    const brandPrimary = computedStyle.getPropertyValue('--brand-primary').trim() || '#EA580C';
+    const textDark = computedStyle.getPropertyValue('--text-dark').trim() || '#A1A1AA';
 
     const term = new Terminal({
       cursorBlink: true,
@@ -144,19 +144,19 @@ export default function TerminalShell() {
         foreground: textMain,
         cursor: brandPrimary,
         cursorAccent: bgPanel,
-        selectionBackground: 'rgba(59, 130, 246, 0.2)',
-        black:        '#0A0B0F',
+        selectionBackground: 'rgba(99, 102, 241, 0.2)',
+        black:        '#0A0A0C',
         red:          '#EF4444',
         green:        brandPrimary,
         yellow:       '#F59E0B',
-        blue:         '#3B82F6',
+        blue:         '#6366F1',
         magenta:      '#c084fc',
-        cyan:         '#3DC5A1',
+        cyan:         '#FFB347',
         white:        textMain,
         brightBlack:  textDark,
         brightGreen:  '#34D399',
         brightYellow: '#FDD598',
-        brightBlue:   '#60A5FA',
+        brightBlue:   '#A5B4FC',
       },
     });
 
@@ -212,19 +212,19 @@ export default function TerminalShell() {
           foreground: fg,
           cursor: brand,
           cursorAccent: bg,
-          selectionBackground: 'rgba(59, 130, 246, 0.2)',
-          black: '#0A0B0F',
+          selectionBackground: 'rgba(99, 102, 241, 0.2)',
+          black: '#0A0A0C',
           red: '#EF4444',
           green: brand,
           yellow: '#F59E0B',
-          blue: '#3B82F6',
+          blue: '#6366F1',
           magenta: '#c084fc',
-          cyan: '#3DC5A1',
+          cyan: '#FFB347',
           white: fg,
           brightBlack: darkText,
           brightGreen: '#34D399',
           brightYellow: '#FDD598',
-          brightBlue: '#60A5FA',
+          brightBlue: '#A5B4FC',
         };
       }
     });
@@ -325,7 +325,7 @@ export default function TerminalShell() {
                 background: 'var(--brand-subtle)',
                 padding: '3px 8px',
                 borderRadius: '4px',
-                border: '1px solid rgba(16, 185, 129, 0.15)',
+                border: '1px solid rgba(234, 88, 12, 0.15)',
                 fontWeight: '600',
                 textTransform: 'uppercase',
                 letterSpacing: '0.05em'

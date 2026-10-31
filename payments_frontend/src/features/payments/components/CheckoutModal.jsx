@@ -80,7 +80,7 @@ export default function CheckoutModal({ user: propUser }) {
         { opacity: 1, scale: 1, duration: 0.6, ease: 'back.out(1.4)' }
       );
       // Confetti dots
-      const colors = ['#3DC5A1','#1B6EF3','#F59E0B','#A78BFA'];
+      const colors = ['#FFB347','#4F46E5','#F59E0B','#A78BFA'];
       for (let i = 0; i < 24; i++) {
         const dot = document.createElement('div');
         dot.style.cssText = `
@@ -200,7 +200,7 @@ export default function CheckoutModal({ user: propUser }) {
           // prompts the user for their real mobile phone number.
         },
 
-        theme: { color: '#3DC5A1' },
+        theme: { color: '#FFB347' },
         modal: {
           ondismiss: () => {
             console.log('[CheckoutModal] Payment modal dismissed by user');
@@ -258,7 +258,7 @@ export default function CheckoutModal({ user: propUser }) {
           <div style={{
             position: 'absolute', top: -30, left: '50%', transform: 'translateX(-50%)',
             width: 200, height: 120,
-            background: 'radial-gradient(ellipse, rgba(61,197,161,0.18) 0%, transparent 70%)',
+            background: 'radial-gradient(ellipse, rgba(255, 179, 71,0.18) 0%, transparent 70%)',
           }} />
 
           <div style={{
@@ -292,7 +292,7 @@ export default function CheckoutModal({ user: propUser }) {
             <div style={{ color: 'var(--brand-primary)' }}>plan: <span style={{ color: 'var(--text-secondary)' }}>"{planInfo.label}"</span></div>
             <div style={{ color: 'var(--brand-primary)' }}>tier: <span style={{ color: 'var(--text-secondary)' }}>"{planInfo.tier}"</span></div>
             <div style={{ color: 'var(--brand-primary)' }}>billing: <span style={{ color: 'var(--text-secondary)' }}>"{billingCycle}"</span></div>
-            <div style={{ color: 'var(--brand-primary)' }}>status: <span style={{ color: '#3DC5A1' }}>"ACTIVE"</span></div>
+            <div style={{ color: 'var(--brand-primary)' }}>status: <span style={{ color: '#FFB347' }}>"ACTIVE"</span></div>
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10, width: '100%' }}>

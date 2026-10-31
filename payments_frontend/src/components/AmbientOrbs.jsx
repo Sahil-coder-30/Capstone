@@ -44,8 +44,8 @@ export default function AmbientOrbs({ style = {}, opacity = 1, showMeteors = tru
     const orb1 = {
       radius: Math.max(900, Math.min(width, height) * 0.75),
       colorStops: isLightMode
-        ? ['rgba(16, 185, 129, 0.14)', 'rgba(16, 185, 129, 0.02)', 'transparent']
-        : ['rgba(13, 138, 106, 0.22)', 'rgba(13, 138, 106, 0.035)', 'transparent'],
+        ? ['rgba(234, 88, 12, 0.14)', 'rgba(234, 88, 12, 0.02)', 'transparent']
+        : ['rgba(234, 88, 12, 0.22)', 'rgba(234, 88, 12, 0.035)', 'transparent'],
       speedX: 0.00010,
       speedY: 0.00014,
       rangeX: width * 0.20,
@@ -56,7 +56,7 @@ export default function AmbientOrbs({ style = {}, opacity = 1, showMeteors = tru
     const orb2 = {
       radius: Math.max(850, Math.min(width, height) * 0.70),
       colorStops: isLightMode
-        ? ['rgba(59, 130, 246, 0.14)', 'rgba(59, 130, 246, 0.02)', 'transparent']
+        ? ['rgba(99, 102, 241, 0.14)', 'rgba(99, 102, 241, 0.02)', 'transparent']
         : ['rgba(27, 110, 243, 0.20)', 'rgba(27, 110, 243, 0.03)', 'transparent'],
       speedX: 0.00012,
       speedY: 0.00009,
@@ -68,7 +68,7 @@ export default function AmbientOrbs({ style = {}, opacity = 1, showMeteors = tru
     // 2. Small Glowing Stars (42 delicate twinkling stars)
     const NUM_STARS = 42;
     const darkColors = ['#FFFFFF', '#A5F3FC', '#6EE7B7'];
-    const lightColors = ['#0969DA', '#059669', '#7C3AED'];
+    const lightColors = ['#4F46E5', '#C2410C', '#7C3AED'];
     const starColors = isLightMode ? lightColors : darkColors;
 
     const stars = Array.from({ length: NUM_STARS }, () => ({
@@ -92,8 +92,8 @@ export default function AmbientOrbs({ style = {}, opacity = 1, showMeteors = tru
       const startX = Math.random() * width * 1.2 - width * 0.2;
       const startY = Math.random() * height * 0.35 - height * 0.1;
       const trailColor = isLightMode
-        ? (Math.random() > 0.5 ? 'rgba(5, 150, 105,' : 'rgba(9, 105, 218,')
-        : (Math.random() > 0.4 ? 'rgba(61, 197, 161,' : Math.random() > 0.5 ? 'rgba(85, 145, 247,' : 'rgba(255, 255, 255,');
+        ? (Math.random() > 0.5 ? 'rgba(194, 65, 12,' : 'rgba(79, 70, 229,')
+        : (Math.random() > 0.4 ? 'rgba(255, 179, 71,' : Math.random() > 0.5 ? 'rgba(85, 145, 247,' : 'rgba(255, 255, 255,');
 
       meteors.push({
         x: startX,
@@ -244,8 +244,8 @@ export default function AmbientOrbs({ style = {}, opacity = 1, showMeteors = tru
           ctx.stroke();
 
           // Draw Glowing Star Head Flare (Lightweight multi-arc)
-          const glowColor = currentlyLight ? `rgba(9, 105, 218, ${m.alpha * 0.3})` : `rgba(61, 197, 161, ${m.alpha * 0.3})`;
-          const coreColor = currentlyLight ? `rgba(9, 105, 218, ${m.alpha})` : `rgba(255, 255, 255, ${m.alpha})`;
+          const glowColor = currentlyLight ? `rgba(79, 70, 229, ${m.alpha * 0.3})` : `rgba(255, 179, 71, ${m.alpha * 0.3})`;
+          const coreColor = currentlyLight ? `rgba(79, 70, 229, ${m.alpha})` : `rgba(255, 255, 255, ${m.alpha})`;
 
           ctx.beginPath();
           ctx.arc(headX, headY, m.lineWidth * 2.8, 0, Math.PI * 2);

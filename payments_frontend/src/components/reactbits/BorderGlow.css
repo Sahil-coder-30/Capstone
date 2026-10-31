@@ -168,7 +168,7 @@
 
 /* Popular card gets a permanent subtle border tint so it stands out at rest */
 .plan-card-border-glow.popular-card {
-  border-color: rgba(61, 197, 161, 0.22);
+  border-color: rgba(255, 179, 71, 0.22);
 }
 
 /* Max card permanent golden border tint at rest */

@@ -35,7 +35,7 @@ const SPOTLIGHT_ITEMS = [
     id: 0,
     title: 'Isolated vCPU AI Sandbox',
     tagline: 'Dedicated Compute Containers',
-    color: '#3DC5A1',
+    color: '#FFB347',
     icon: <Cpu size={20} />,
     desc: 'Each session runs inside an isolated container with dedicated vCPU and RAM, protecting your workspace state and guaranteeing lightning-fast code synthesis.',
     image: cardSandboxImg,
@@ -45,7 +45,7 @@ const SPOTLIGHT_ITEMS = [
     id: 1,
     title: 'Multi-Agent Model Orchestration',
     tagline: 'Gemini, Claude, GPT & Cohere',
-    color: '#1B6EF3',
+    color: '#4F46E5',
     icon: <Network size={20} />,
     desc: 'Intelligent routing automatically directs complex refactoring, reasoning, or quick inline autocompletion to the optimal AI model tier without latency bottlenecks.',
     image: cardMultiAgentImg,
@@ -65,7 +65,7 @@ const SPOTLIGHT_ITEMS = [
     id: 3,
     title: 'HMAC SHA-256 Security',
     tagline: 'Cryptographic Verification',
-    color: '#1B6EF3',
+    color: '#4F46E5',
     icon: <ShieldCheck size={20} />,
     desc: 'All billing events and subscription status upgrades are cryptographically signed with SHA-256 HMAC tokens, keeping auth and payment microservices decoupled.',
     image: cardHmacSecurityImg,
@@ -81,7 +81,7 @@ const PLATFORM_CAPABILITIES = [
     shortTitle: 'Isolated Sandbox',
     tagline: 'Dedicated Hardware Isolation',
     icon: <Cpu size={20} />,
-    color: '#3DC5A1',
+    color: '#FFB347',
     metric: '0.18ms',
     metricLabel: 'Spin-Up Latency',
     badge: 'Hardware Isolated',
@@ -105,7 +105,7 @@ const sandbox = await Taksha.createContainer({
     shortTitle: 'Multi-Agent Core',
     tagline: 'Parallel Model Dispatch',
     icon: <Network size={20} />,
-    color: '#1B6EF3',
+    color: '#4F46E5',
     metric: '4 LLMs',
     metricLabel: 'Auto-Routed Models',
     badge: 'Multi-Model Core',
@@ -142,7 +142,7 @@ Telemetry.on('token_consumed', (event) => {
     shortTitle: 'HMAC Security',
     tagline: 'Cryptographic Verification',
     icon: <ShieldCheck size={20} />,
-    color: '#1B6EF3',
+    color: '#4F46E5',
     metric: 'SHA-256',
     metricLabel: 'Signature Encryption',
     badge: 'Zero Trust Ledger',
@@ -180,7 +180,7 @@ const context = await Workspace.buildContext({
     shortTitle: 'Auth Isolation',
     tagline: 'Decoupled Architecture',
     icon: <Lock size={20} />,
-    color: '#3DC5A1',
+    color: '#FFB347',
     metric: '100%',
     metricLabel: 'DB Decoupling',
     badge: 'Decoupled Ledger',
@@ -417,7 +417,7 @@ export default function PaymentsLandingPage({ user }) {
           <div id="hero-glow" style={{
             position: 'absolute', top: '-20%', left: '50%', transform: 'translateX(-50%)',
             width: '80vw', height: '60vh',
-            background: 'radial-gradient(ellipse, rgba(61,197,161,0.08) 0%, rgba(27,110,243,0.06) 40%, transparent 70%)',
+            background: 'radial-gradient(ellipse, rgba(255, 179, 71,0.08) 0%, rgba(27,110,243,0.06) 40%, transparent 70%)',
             opacity: 0.25,
           }} />
         </div>
@@ -454,7 +454,7 @@ export default function PaymentsLandingPage({ user }) {
           >
             <CursorGrid
               cellSize={40}
-              color="#3DC5A1"
+              color="#FFB347"
               radius={140}
               falloff="smooth"
               holdTime={400}
@@ -475,7 +475,7 @@ export default function PaymentsLandingPage({ user }) {
                 <Sparkles size={14} />
                 <ShinyText
                   text="PROLOGUE // TAKSHA AI PLATFORM"
-                  color="#3DC5A1"
+                  color="#FFB347"
                   shineColor="#FFFFFF"
                   speed={2.5}
                   spread={120}
@@ -500,7 +500,7 @@ export default function PaymentsLandingPage({ user }) {
                 Power your coding workflow<br />
                 with a{' '}
                 <GradientText
-                  colors={['#3DC5A1', '#1B6EF3', '#00DFD8', '#3DC5A1']}
+                  colors={['#FFB347', '#4F46E5', '#00DFD8', '#FFB347']}
                   animationSpeed={5}
                   showBorder={false}
                 >
@@ -595,7 +595,7 @@ export default function PaymentsLandingPage({ user }) {
               transform: 'translate(0, -50%)',
               width: '650px',
               height: '650px',
-              background: 'radial-gradient(circle, rgba(61,197,161,0.12) 0%, rgba(27,110,243,0.07) 45%, transparent 70%)',
+              background: 'radial-gradient(circle, rgba(255, 179, 71,0.12) 0%, rgba(27,110,243,0.07) 45%, transparent 70%)',
               filter: 'blur(50px)',
               pointerEvents: 'none',
               zIndex: 0,
@@ -1003,7 +1003,7 @@ export default function PaymentsLandingPage({ user }) {
 
                         {/* Code Snippet Box */}
                         <div style={{ padding: '22px 24px', fontFamily: 'monospace', fontSize: '0.86rem', lineHeight: 1.65, color: '#A0AEC0' }}>
-                          <pre style={{ margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-word', color: '#E2E8F0' }}>
+                          <pre style={{ margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-word', color: '#E4E4E7' }}>
                             {activeCap.codeSnippet}
                           </pre>
                         </div>
@@ -1187,14 +1187,14 @@ export default function PaymentsLandingPage({ user }) {
                 width: '100%',
                 maxWidth: 960,
                 padding: '44px 40px',
-                background: 'linear-gradient(135deg, rgba(61,197,161,0.08) 0%, rgba(27,110,243,0.06) 100%)',
+                background: 'linear-gradient(135deg, rgba(255, 179, 71,0.08) 0%, rgba(27,110,243,0.06) 100%)',
                 border: '1px solid var(--border-glow)',
                 borderRadius: 24,
                 textAlign: 'center',
                 position: 'relative',
                 overflow: 'hidden',
                 backdropFilter: 'blur(12px)',
-                boxShadow: '0 20px 50px -10px rgba(0,0,0,0.5), 0 0 30px rgba(61,197,161,0.12)',
+                boxShadow: '0 20px 50px -10px rgba(0,0,0,0.5), 0 0 30px rgba(255, 179, 71,0.12)',
               }}
             >
               {/* Decorative glows */}
@@ -1207,7 +1207,7 @@ export default function PaymentsLandingPage({ user }) {
               <div style={{
                 position: 'absolute', bottom: -60, left: -60,
                 width: 200, height: 200,
-                background: 'radial-gradient(circle, rgba(61,197,161,0.12), transparent 70%)',
+                background: 'radial-gradient(circle, rgba(255, 179, 71,0.12), transparent 70%)',
                 pointerEvents: 'none',
               }} />
 

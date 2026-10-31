@@ -28,7 +28,7 @@ export class ErrorBoundary extends React.Component {
           alignItems: 'center',
           justifyContent: 'center',
           minHeight: '100vh',
-          backgroundColor: 'var(--bg-main, #0d1117)',
+          backgroundColor: 'var(--bg-main, #0a0a0c)',
           color: 'var(--text-primary, #c9d1d9)',
           fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
           padding: '24px',
@@ -68,7 +68,7 @@ export class ErrorBoundary extends React.Component {
 
             {this.state.error && (
               <div style={{
-                backgroundColor: 'var(--bg-element, #0d1117)',
+                backgroundColor: 'var(--bg-element, #0a0a0c)',
                 border: '1px solid var(--border, #30363d)',
                 borderRadius: '8px',
                 padding: '12px',

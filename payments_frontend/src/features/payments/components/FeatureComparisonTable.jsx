@@ -47,7 +47,7 @@ const renderVal = (val, color = 'var(--text-secondary)') => {
     return (
       <ShinyText
         text={val}
-        color="#1B6EF3"
+        color="#4F46E5"
         shineColor="#FFFFFF"
         speed={2.5}
         spread={100}
@@ -69,7 +69,7 @@ export default function FeatureComparisonTable() {
             <th style={{ padding: '18px 20px', fontSize: '0.9rem', fontWeight: 800, color: 'var(--text-muted)', textAlign: 'center', width: '20%' }}>
               Free
             </th>
-            <th style={{ padding: '18px 20px', fontSize: '0.9rem', fontWeight: 800, color: 'var(--brand-primary)', textAlign: 'center', width: '20%', background: 'rgba(61,197,161,0.04)' }}>
+            <th style={{ padding: '18px 20px', fontSize: '0.9rem', fontWeight: 800, color: 'var(--brand-primary)', textAlign: 'center', width: '20%', background: 'rgba(255, 179, 71,0.04)' }}>
               Pro
               <div style={{ width: 5, height: 5, borderRadius: '50%', background: 'var(--brand-primary)', margin: '4px auto 0' }} />
             </th>
@@ -103,7 +103,7 @@ export default function FeatureComparisonTable() {
                   <td style={{ padding: '13px 20px', textAlign: 'center', color: 'var(--text-muted)' }}>
                     {renderVal(feat.free)}
                   </td>
-                  <td style={{ padding: '13px 20px', textAlign: 'center', background: 'rgba(61,197,161,0.02)' }}>
+                  <td style={{ padding: '13px 20px', textAlign: 'center', background: 'rgba(255, 179, 71,0.02)' }}>
                     {renderVal(feat.pro)}
                   </td>
                   <td style={{ padding: '13px 20px', textAlign: 'center' }}>

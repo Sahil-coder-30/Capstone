@@ -37,7 +37,7 @@ export default function CheckoutModal({ plan, billingCycle, onClose, onConfirmPa
       <div className="plan-detail-card" style={{ maxWidth: '580px' }} onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Lock size={18} color="#10b981" />
+            <Lock size={18} color="#22c55e" />
             <h2 style={{ margin: 0, fontSize: '1.25rem' }}>Checkout & Activation</h2>
           </div>
           <button className="btn-close" onClick={onClose}>
@@ -48,15 +48,15 @@ export default function CheckoutModal({ plan, billingCycle, onClose, onConfirmPa
         <div className="modal-body" style={{ gap: '1.5rem' }}>
           {success ? (
             <div style={{ textAlign: 'center', padding: '2rem 1rem' }}>
-              <CheckCircle2 size={56} color="#10b981" style={{ margin: '0 auto 1rem' }} />
+              <CheckCircle2 size={56} color="#22c55e" style={{ margin: '0 auto 1rem' }} />
               <h3 style={{ color: '#fff', fontSize: '1.5rem', marginBottom: '0.5rem' }}>Subscription Activated!</h3>
-              <p style={{ color: '#94a3b8', fontSize: '0.9rem', marginBottom: '1.5rem' }}>
+              <p style={{ color: '#a1a1aa', fontSize: '0.9rem', marginBottom: '1.5rem' }}>
                 You have successfully upgraded to {plan.label}. Your new credits, LLMs, and sandbox container specs are live.
               </p>
               <button
                 onClick={onClose}
                 style={{
-                  background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                  background: 'linear-gradient(135deg, #ea580c 0%, #C2410C 100%)',
                   border: 'none',
                   color: '#fff',
                   padding: '10px 24px',
@@ -95,7 +95,7 @@ export default function CheckoutModal({ plan, billingCycle, onClose, onConfirmPa
                       border: method === 'upi' ? '1px solid #6366f1' : '1px solid rgba(255,255,255,0.08)',
                       borderRadius: '8px',
                       padding: '10px',
-                      color: method === 'upi' ? '#818cf8' : '#94a3b8',
+                      color: method === 'upi' ? '#818cf8' : '#a1a1aa',
                       fontSize: '0.8rem',
                       fontWeight: 600,
                       cursor: 'pointer',
@@ -116,7 +116,7 @@ export default function CheckoutModal({ plan, billingCycle, onClose, onConfirmPa
                       border: method === 'card' ? '1px solid #6366f1' : '1px solid rgba(255,255,255,0.08)',
                       borderRadius: '8px',
                       padding: '10px',
-                      color: method === 'card' ? '#818cf8' : '#94a3b8',
+                      color: method === 'card' ? '#818cf8' : '#a1a1aa',
                       fontSize: '0.8rem',
                       fontWeight: 600,
                       cursor: 'pointer',
@@ -137,7 +137,7 @@ export default function CheckoutModal({ plan, billingCycle, onClose, onConfirmPa
                       border: method === 'netbanking' ? '1px solid #6366f1' : '1px solid rgba(255,255,255,0.08)',
                       borderRadius: '8px',
                       padding: '10px',
-                      color: method === 'netbanking' ? '#818cf8' : '#94a3b8',
+                      color: method === 'netbanking' ? '#818cf8' : '#a1a1aa',
                       fontSize: '0.8rem',
                       fontWeight: 600,
                       cursor: 'pointer',

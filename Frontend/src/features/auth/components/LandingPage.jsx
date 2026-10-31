@@ -76,7 +76,7 @@ function PricingCard3D({ plan, isYearly, onSelectPlan }) {
     const rotateX = ((y - centerY) / centerY) * -12;
     const rotateY = ((x - centerX) / centerX) * 12;
 
-    const glowColor = plan.glowColor || 'rgba(13, 138, 106, 0.25)';
+    const glowColor = plan.glowColor || 'rgba(234, 88, 12, 0.25)';
 
     setStyle({
       transform: `perspective(1000px) rotateX(${rotateX.toFixed(2)}deg) rotateY(${rotateY.toFixed(2)}deg) scale3d(1.025, 1.025, 1.025)`,
@@ -180,7 +180,7 @@ function PricingCard3D({ plan, isYearly, onSelectPlan }) {
 
 const AGENTS = [
   {
-    id: 'planner', step: '01', name: 'Planner', color: '#0D8A6A', tag: 'Layer 01', icon: Layers,
+    id: 'planner', step: '01', name: 'Planner', color: '#EA580C', tag: 'Layer 01', icon: Layers,
     headline: 'Breaks the prompt into a precise developer task graph',
     desc: 'Decomposes natural-language input into file topology, Redux slice maps, and a dependency order for the Builder.',
     logs: [
@@ -193,7 +193,7 @@ const AGENTS = [
     ],
   },
   {
-    id: 'builder', step: '02', name: 'Builder', color: '#1B6EF3', tag: 'Layer 02', icon: Code,
+    id: 'builder', step: '02', name: 'Builder', color: '#4F46E5', tag: 'Layer 02', icon: Code,
     headline: 'Writes all source files and resolves every import',
     desc: 'Outputs complete, runnable source code — components, slices, API calls — resolving imports and syncing file buffers.',
     logs: [
@@ -235,9 +235,9 @@ const AGENTS = [
 ];
 
 const FEATURES = [
-  { icon: Box,            title: 'Sandbox Environment',         desc: 'Fully isolated, cloud-based dev environment — spin up, build, break, restart, zero risk.', accent: '#1B6EF3' },
-  { icon: TerminalSquare, title: 'Full Code Editor + Terminal', desc: 'Code by hand, install dependencies, run any command — a complete environment, not just a chat box.', accent: '#3DC5A1' },
-  { icon: Activity,       title: 'Agentic Build Pipeline',      desc: 'Give it one prompt. Agents and subagents plan, build, test, and debug a full React app end to end.', tag: 'Core', accent: '#0D8A6A' },
+  { icon: Box,            title: 'Sandbox Environment',         desc: 'Fully isolated, cloud-based dev environment — spin up, build, break, restart, zero risk.', accent: '#4F46E5' },
+  { icon: TerminalSquare, title: 'Full Code Editor + Terminal', desc: 'Code by hand, install dependencies, run any command — a complete environment, not just a chat box.', accent: '#4ADE80' },
+  { icon: Activity,       title: 'Agentic Build Pipeline',      desc: 'Give it one prompt. Agents and subagents plan, build, test, and debug a full React app end to end.', tag: 'Core', accent: '#EA580C' },
   { icon: GitBranch,      title: 'GitHub Integration via MCP',  desc: 'Deploy directly, or push your finished project straight to GitHub — no manual handoff.', accent: '#D97B0C' },
 ];
 
@@ -264,9 +264,9 @@ const PRICING_PLANS = [
     badge: 'GET STARTED',
     icon: Code,
     bannerImg: '/images/free_plan_banner.png',
-    accentColor: '#0D8A6A',
-    glowColor: 'rgba(13, 138, 106, 0.22)',
-    shadowColor: 'rgba(13, 138, 106, 0.25)',
+    accentColor: '#EA580C',
+    glowColor: 'rgba(234, 88, 12, 0.22)',
+    shadowColor: 'rgba(234, 88, 12, 0.25)',
     description: 'Essential sandbox and AI model credits for developers getting started.',
     ctaText: 'Get Started Free',
     highlights: [
@@ -285,7 +285,7 @@ const PRICING_PLANS = [
     popular: true,
     icon: Zap,
     bannerImg: '/images/pro_plan_banner.png',
-    accentColor: '#1B6EF3',
+    accentColor: '#4F46E5',
     glowColor: 'rgba(27, 110, 243, 0.28)',
     shadowColor: 'rgba(27, 110, 243, 0.35)',
     description: 'Full AI power with high-performance isolated sandbox containers.',
@@ -484,7 +484,7 @@ export default function LandingPage({ onNavigateToLogin }) {
     }, 0);
 
     tl.to(sideActor, {
-      boxShadow: '0 -8px 60px rgba(13, 138, 106, 0.08), 0 40px 120px rgba(0, 0, 0, 0.9), inset 0 1px 0 rgba(255, 255, 255, 0.1)',
+      boxShadow: '0 -8px 60px rgba(234, 88, 12, 0.08), 0 40px 120px rgba(0, 0, 0, 0.9), inset 0 1px 0 rgba(255, 255, 255, 0.1)',
       duration:  DUR,
       ease:      EASE,
     }, 0);
@@ -832,8 +832,8 @@ export default function LandingPage({ onNavigateToLogin }) {
           </Reveal>
           <div className="how-steps">
             {[
-              { icon: MessageSquare, n: '01', title: 'Describe',          color: '#3DC5A1', desc: 'Type a plain-English prompt. Scaffold a React component, a full-stack API, a state machine — anything.' },
-              { icon: Cpu,           n: '02', title: 'Orchestrate & Heal', color: '#1B6EF3', desc: 'The 4-agent chain plans, writes, executes and automatically patches every compiler error in a K8s sandbox.' },
+              { icon: MessageSquare, n: '01', title: 'Describe',          color: '#FFB347', desc: 'Type a plain-English prompt. Scaffold a React component, a full-stack API, a state machine — anything.' },
+              { icon: Cpu,           n: '02', title: 'Orchestrate & Heal', color: '#4F46E5', desc: 'The 4-agent chain plans, writes, executes and automatically patches every compiler error in a K8s sandbox.' },
               { icon: Rocket,        n: '03', title: 'Preview & Export',   color: '#D97B0C', desc: 'Preview live in a browser iframe, shell into the terminal, or export as ZIP / push to GitHub.' },
             ].map((s, i) => { const Icon = s.icon; return (
               <Reveal key={i} delay={i * 80}>
@@ -881,7 +881,7 @@ export default function LandingPage({ onNavigateToLogin }) {
               <div className="demo-right">
                 <div className="demo-right__bar">
                   <div className="demo-dots"><span /><span /><span /></div>
-                  <span className="demo-path"><TerminalSquare size={10} color="#0D8A6A" /> langgraph://orchestrator.trace</span>
+                  <span className="demo-path"><TerminalSquare size={10} color="#EA580C" /> langgraph://orchestrator.trace</span>
                   <span className="demo-status">
                     {demoState === 'running' && <span className="demo-streaming">STREAMING</span>}
                     {demoState === 'done'    && <span className="demo-done">DONE</span>}

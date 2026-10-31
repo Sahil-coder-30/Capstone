@@ -139,3 +139,8 @@ No other service has tests. `fix_frontends.sh` kills Vite, deletes both `node_mo
 - Auth needs `certs/public.pem` at startup, and `RSA_PRIVATE_KEY` or `certs/private.pem`. Never open those files.
 - Port defaults in code differ from `.env.example` and k8s (for example Payments JWKS default `localhost:5000`). Always set the env var.
 - `docs/` describes some things that do not exist in code yet: gRPC, HTTP/2 SSE, the Chrome extension, the Admin service, Loki. Check the code before relying on a doc.
+
+## Launch video rule
+
+- Follow `.claude/skills/saas-launch-video/SKILL.md` for all launch video work in `launch-video/`.
+- After each round of feedback on the video, update that skill in the same turn: add the general rule and a dated changelog line.

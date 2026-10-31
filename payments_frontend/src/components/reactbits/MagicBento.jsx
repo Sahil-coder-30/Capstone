@@ -16,42 +16,42 @@ const MOBILE_BREAKPOINT = 768;
 
 const defaultCardData = [
   {
-    color: '#0d131f',
+    color: '#0f0f12',
     title: 'Fully Equipped Terminal',
     description: 'Interactive xterm.js shell, pty session, npm script runner & live command logs',
     label: 'Interactive Shell',
     image: bentoTerminal,
   },
   {
-    color: '#0d131f',
+    color: '#0f0f12',
     title: 'Monaco Code Editor',
     description: 'VS Code engine with syntax highlighting, multi-file tabs & smart completion',
     label: 'Cloud IDE',
     image: bentoEditor,
   },
   {
-    color: '#0d131f',
+    color: '#0f0f12',
     title: 'Real-Time Auto Save',
     description: 'Instant background workspace synchronization — zero lost progress, zero manual saves',
     label: 'Persistence',
     image: bentoAutosave,
   },
   {
-    color: '#0d131f',
+    color: '#0f0f12',
     title: 'Autonomous AI Agents',
     description: 'Planner, Builder, Executor & Self-Healer pipeline resolving complex prompts',
     label: '4-Layer Pipeline',
     image: bentoAiAgents,
   },
   {
-    color: '#0d131f',
+    color: '#0f0f12',
     title: 'Instant HMR Preview',
     description: 'Sub-second hot module replacement inside an isolated preview iframe',
     label: 'Live Preview',
     image: bentoHmrPreview,
   },
   {
-    color: '#0d131f',
+    color: '#0f0f12',
     title: 'Isolated K8s Containers',
     description: 'Dedicated vCPU and memory allocation for fast, isolated compute execution',
     label: 'Sandboxed Compute',

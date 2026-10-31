@@ -449,7 +449,7 @@ export default function PlanDetailPage() {
                     <th key={tid} style={{
                       padding: '16px 20px', textAlign: 'center', fontSize: '0.88rem', fontWeight: 700,
                       color: tid === planId ? accentColor : 'var(--text-muted)',
-                      background: tid === planId ? (isMax ? 'rgba(27,110,243,0.06)' : 'rgba(61,197,161,0.05)') : 'transparent',
+                      background: tid === planId ? (isMax ? 'rgba(27,110,243,0.06)' : 'rgba(255, 179, 71,0.05)') : 'transparent',
                     }}>
                       {PLAN_LABELS[tid]}
                       {tid === planId && <div style={{ width: 6, height: 6, borderRadius: '50%', background: accentColor, margin: '4px auto 0' }} />}
@@ -474,7 +474,7 @@ export default function PlanDetailPage() {
                       return (
                         <td key={tid} style={{
                           padding: '14px 20px', textAlign: 'center',
-                          background: tid === planId ? (isMax ? 'rgba(27,110,243,0.03)' : 'rgba(61,197,161,0.02)') : 'transparent',
+                          background: tid === planId ? (isMax ? 'rgba(27,110,243,0.03)' : 'rgba(255, 179, 71,0.02)') : 'transparent',
                         }}>
                           {val === true  && <Check size={17} style={{ color: 'var(--brand-primary)', margin: '0 auto' }} />}
                           {val === false && <Minus size={17} style={{ color: 'var(--text-disabled)', margin: '0 auto' }} />}

@@ -139,7 +139,7 @@ export default function InvoicesView() {
         return {
           bg: 'var(--brand-subtle)',
           color: 'var(--brand-primary)',
-          border: '1px solid rgba(61,197,161,0.3)',
+          border: '1px solid rgba(255, 179, 71,0.3)',
         };
       case 'SUBSCRIPTION_EXTENSION':
         return {

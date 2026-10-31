@@ -4,61 +4,51 @@ import TakshaLogoAnimation from './TakshaLogoAnimation';
 export { TakshaLogoAnimation as TakshaAnimatedLogo };
 export { TakshaLogoAnimation };
 
+// The chisel T: a beam and a blade cut to a point, lit from the left.
+function ChiselDefs({ id }) {
+  return (
+    <defs>
+      <linearGradient id={`${id}f`} gradientUnits="userSpaceOnUse" x1="7" y1="10" x2="48" y2="58">
+        <stop offset="0%" stopColor="#FFC14D" />
+        <stop offset="100%" stopColor="#FF6A2B" />
+      </linearGradient>
+      <linearGradient id={`${id}s`} gradientUnits="userSpaceOnUse" x1="32" y1="28" x2="32" y2="58">
+        <stop offset="0%" stopColor="#F0561A" />
+        <stop offset="100%" stopColor="#B83A0A" />
+      </linearGradient>
+    </defs>
+  );
+}
+
+function ChiselMark({ id, mono = false, transform }) {
+  const face = mono ? '#ffffff' : `url(#${id}f)`;
+  const shade = mono ? 'rgba(255, 255, 255, 0.6)' : `url(#${id}s)`;
+  return (
+    <g transform={transform}>
+      <path d="M7 10H57L47 25H17Z" fill={face} />
+      <path d="M23 28.5H32V58L23 47Z" fill={face} />
+      <path d="M32 28.5H41V47L32 58Z" fill={shade} />
+    </g>
+  );
+}
+
 export function TakshaIcon({ size = 32, variant = 'primary' }) {
   const isWhite = variant === 'white';
   const baseId = useId().replace(/:/g, '_');
   const gId = `g_icon_${variant}_${baseId}`;
 
   return (
-    <svg 
-      width={size} 
-      height={size} 
-      viewBox="0 0 64 64" 
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 64 64"
       xmlns="http://www.w3.org/2000/svg"
       role="img"
       aria-label="Taksha Icon"
       style={{ display: 'block', userSelect: 'none' }}
     >
-      <defs>
-        <linearGradient id={gId} x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor={isWhite ? '#ffffff' : '#3DC5A1'} />
-          <stop offset="100%" stopColor={isWhite ? '#e8fff8' : '#0D8A6A'} />
-        </linearGradient>
-        <linearGradient id={`${gId}b`} x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor={isWhite ? '#ffffff' : '#5591F7'} />
-          <stop offset="100%" stopColor={isWhite ? '#e2ecfb' : '#1B6EF3'} />
-        </linearGradient>
-        <filter id={`${gId}glow`} x="-30%" y="-30%" width="160%" height="160%">
-          <feGaussianBlur in="SourceGraphic" stdDeviation="1" result="blur" />
-          <feMerge>
-            <feMergeNode in="blur" />
-            <feMergeNode in="SourceGraphic" />
-          </feMerge>
-        </filter>
-      </defs>
-
-      {/* Onyx container box */}
-      <rect x="0" y="0" width="64" height="64" rx="14" fill={isWhite ? 'rgba(255, 255, 255, 0.08)' : '#141520'} stroke={isWhite ? 'none' : 'rgba(61, 197, 161, 0.3)'} strokeWidth="1" />
-
-      {/* Grid Lines */}
-      <line x1="16" y1="16" x2="48" y2="16" stroke={isWhite ? "rgba(255,255,255,0.15)" : "#1C1E2E"} strokeWidth="1.5" strokeLinecap="round" />
-      <line x1="16" y1="32" x2="48" y2="32" stroke={isWhite ? "rgba(255,255,255,0.15)" : "#1C1E2E"} strokeWidth="1.5" strokeLinecap="round" />
-      <line x1="16" y1="48" x2="48" y2="48" stroke={isWhite ? "rgba(255,255,255,0.15)" : "#1C1E2E"} strokeWidth="1.5" strokeLinecap="round" />
-      <line x1="16" y1="16" x2="16" y2="48" stroke={isWhite ? "rgba(255,255,255,0.15)" : "#1C1E2E"} strokeWidth="1.5" strokeLinecap="round" />
-      <line x1="48" y1="16" x2="48" y2="48" stroke={isWhite ? "rgba(255,255,255,0.15)" : "#1C1E2E"} strokeWidth="1.5" strokeLinecap="round" />
-
-      {/* Connection path Z/V */}
-      <path d="M16 48 L32 16 L48 32" fill="none" stroke={isWhite ? '#ffffff' : `url(#${gId})`} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-
-      {/* Accent Nodes */}
-      <circle cx="16" cy="16" r="3.5" fill={isWhite ? "rgba(255,255,255,0.4)" : "#3D3F52"} />
-      <circle cx="48" cy="16" r="2.5" fill={isWhite ? "rgba(255,255,255,0.4)" : "#3D3F52"} />
-      <circle cx="32" cy="16" r="3" fill={isWhite ? "#ffffff" : "#3DC5A1"} filter={isWhite ? undefined : `url(#${gId}glow)`} />
-      <circle cx="16" cy="32" r="2.5" fill={isWhite ? "rgba(255,255,255,0.4)" : "#3D3F52"} />
-      <circle cx="48" cy="32" r="4.5" fill={isWhite ? "#ffffff" : `url(#${gId}b)`} filter={isWhite ? undefined : `url(#${gId}glow)`} />
-      <circle cx="16" cy="48" r="3" fill={isWhite ? "rgba(255,255,255,0.4)" : "#3D3F52"} />
-      <circle cx="32" cy="48" r="3.5" fill={isWhite ? "#ffffff" : "#0D8A6A"} />
-      <circle cx="48" cy="48" r="2.5" fill={isWhite ? "rgba(255,255,255,0.4)" : "#3D3F52"} />
+      <ChiselDefs id={gId} />
+      <ChiselMark id={gId} mono={isWhite} />
     </svg>
   );
 }

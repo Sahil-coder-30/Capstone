@@ -5,11 +5,11 @@
 // ─────────────────────────────────────────────
 
 :root {
-  /* Onyx/Obsidian Canvas & Backgrounds (Google AI Studio style) */
-  --bg-canvas: #07080B;
-  --bg-surface: #0E1017;
-  --bg-overlay: #161929;   /* bumped +3% luminance for clear panel depth */
-  --bg-element: #202438;   /* bumped +4% luminance for input/dropdown clarity */
+  /* Ink canvas and backgrounds, neutral with no blue cast */
+  --bg-canvas: #0A0A0C;
+  --bg-surface: #111114;
+  --bg-overlay: #18181D;   /* bumped +3% luminance for clear panel depth */
+  --bg-element: #232329;   /* bumped +4% luminance for input/dropdown clarity */
   --bg-active: rgba(255, 255, 255, 0.08);
 
   /* Legacy mappings to keep the rest of the application stable */
@@ -18,24 +18,24 @@
   --bg-panel: var(--bg-overlay);
 
   /* Solid & Crisp Borders — raised contrast for panel/tab separators */
-  --border: #252A40;        /* was #1B1E2E — now ~3:1 contrast on canvas */
-  --border-strong: #353A56; /* was #2B2F48 — clear on hover/active states */
-  --border-glow: rgba(59, 130, 246, 0.15);
+  --border: #2A2A31;        /* was #1B1E2E — now ~3:1 contrast on canvas */
+  --border-strong: #3B3B45; /* was #2B2F48 — clear on hover/active states */
+  --border-glow: rgba(99, 102, 241, 0.15);
 
-  /* Brand/Primary (Emerald/Mint Accent) */
-  --brand-primary: #10B981;
-  --brand-hover: #34D399;
-  --brand-subtle: rgba(16, 185, 129, 0.1);
+  /* Brand/Primary (Ember) */
+  --brand-primary: #EA580C;
+  --brand-hover: #FF8A4C;
+  --brand-subtle: rgba(234, 88, 12, 0.1);
 
   /* Legacy mappings */
   --primary: var(--brand-primary);
   --primary-hover: var(--brand-hover);
   --primary-glow: var(--brand-subtle);
 
-  /* Accent/Link (Neon Blue Accent) */
-  --accent-primary: #3B82F6;
-  --accent-hover: #60A5FA;
-  --accent-subtle: rgba(59, 130, 246, 0.1);
+  /* Accent/Link (Indigo) */
+  --accent-primary: #6366F1;
+  --accent-hover: #A5B4FC;
+  --accent-subtle: rgba(99, 102, 241, 0.1);
 
   /* Legacy mappings */
   --accent: var(--accent-primary);
@@ -52,15 +52,15 @@
   --error-glow: rgba(239, 68, 68, 0.15);
   --error-bg: #2A0808;
 
-  --info: #3B82F6;
+  --info: #6366F1;
   --info-bg: #0A132C;
 
   /* Typography Colors — corrected semantic hierarchy */
   --text-primary:   #FFFFFF;    /* AAA — active labels, headings, selected states */
-  --text-secondary: #E2E8F0;    /* AA  — general body text, panel titles (slate-200) */
-  --text-muted:     #94A3B8;    /* AA  — hints, inactive tabs, status bar (slate-400) */
-  --text-dark:      #94A3B8;    /* alias kept for backwards compat → same as muted */
-  --text-disabled:  #475569;    /* non-interactive / placeholder chrome (slate-600) */
+  --text-secondary: #E4E4E7;    /* AA  — general body text, panel titles (slate-200) */
+  --text-muted:     #A1A1AA;    /* AA  — hints, inactive tabs, status bar (slate-400) */
+  --text-dark:      #A1A1AA;    /* alias kept for backwards compat → same as muted */
+  --text-disabled:  #52525B;    /* non-interactive / placeholder chrome (slate-600) */
 
   /* Legacy mappings */
   --text-main: var(--text-primary);
@@ -87,7 +87,7 @@
   --bg-sidebar: var(--surface-chrome);
   --bg-overlay: var(--surface-overlay);
   --bg-element: var(--surface-sunken);
-  --bg-active:  rgba(5, 150, 105, 0.1);
+  --bg-active:  rgba(194, 65, 12, 0.1);
 
   /* Border Hierarchy */
   --border-subtle:      #e4e4e7;
@@ -95,22 +95,22 @@
   --border-interactive: #8c8c94; /* Inputs, interactive controls (3.3:1 contrast) */
   --border:             #d0d7de;
   --border-strong:      #8c8c94;
-  --border-glow:        rgba(5, 150, 105, 0.2);
+  --border-glow:        rgba(194, 65, 12, 0.2);
 
   /* Brand / Accent Tokens */
-  --brand-primary: #059669;    /* Rich Emerald 600 */
-  --brand-hover:   #047857;    /* Darken on hover per custom skill rules */
-  --brand-subtle:  rgba(5, 150, 105, 0.1);
+  --brand-primary: #C2410C;    /* Deep ember, 5:1 on white */
+  --brand-hover:   #9A3412;    /* Darken on hover per custom skill rules */
+  --brand-subtle:  rgba(194, 65, 12, 0.1);
 
-  --accent-primary: #0969da;   /* Electric Indigo / Azure interactive accent */
-  --accent-hover:   #0850b8;   /* Darken on hover */
-  --accent-subtle:  rgba(9, 105, 218, 0.1);
+  --accent-primary: #4f46e5;   /* Electric Indigo / Azure interactive accent */
+  --accent-hover:   #4338ca;   /* Darken on hover */
+  --accent-subtle:  rgba(79, 70, 229, 0.1);
 
   /* Typography — WCAG AA compliance (my_custom_skill) */
   --text-primary:   #1a1a1e;   /* 17.4:1 contrast on canvas */
   --text-secondary: #57606a;   /* 6.4:1 contrast on canvas */
   --text-muted:     #6e7781;   /* 4.55:1 captions only */
-  --text-dark:      #475569;   /* Slate-600 */
+  --text-dark:      #52525B;   /* Slate-600 */
   --text-disabled:  #afb8c1;
 
   /* Status Tokens */
@@ -251,17 +251,17 @@ input, select, textarea {
   justify-content: center;
   gap: 6px;
   transition: all 0.2s;
-  box-shadow: 0 2px 10px rgba(13, 138, 106, 0.25);
+  box-shadow: 0 2px 10px rgba(234, 88, 12, 0.25);
 
   &:hover:not(:disabled) {
     transform: translateY(-0.5px);
-    box-shadow: 0 4px 16px rgba(13, 138, 106, 0.4);
+    box-shadow: 0 4px 16px rgba(234, 88, 12, 0.4);
     background: linear-gradient(135deg, var(--brand-hover), var(--accent-hover));
   }
 
   &:active:not(:disabled) {
     transform: translateY(0.5px) scale(0.97);
-    box-shadow: 0 1px 4px rgba(13, 138, 106, 0.2);
+    box-shadow: 0 1px 4px rgba(234, 88, 12, 0.2);
   }
 
   &:disabled {
@@ -347,7 +347,7 @@ input, select, textarea {
   padding: 24px;
   width: 400px;
   max-width: 90vw;
-  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(13, 138, 106, 0.1);
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(234, 88, 12, 0.1);
   position: relative;
   animation: slideInCard 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 
@@ -359,7 +359,7 @@ input, select, textarea {
     right: 0;
     height: 1px;
     border-radius: 14px 14px 0 0;
-    background: linear-gradient(90deg, transparent, rgba(13, 138, 106, 0.5), transparent);
+    background: linear-gradient(90deg, transparent, rgba(234, 88, 12, 0.5), transparent);
   }
 }
 
@@ -449,10 +449,10 @@ input, select, textarea {
 
     &:hover {
       background: rgba(0, 0, 0, 0.05);
-      color: #0f172a;
+      color: #0f0f12;
 
       svg {
-        color: #0f172a;
+        color: #0f0f12;
       }
     }
 
@@ -473,7 +473,7 @@ input, select, textarea {
   left: -100%;
   width: 40%;
   height: 100%;
-  background: linear-gradient(90deg, transparent, rgba(16, 185, 129, 0.04), transparent);
+  background: linear-gradient(90deg, transparent, rgba(34, 197, 94, 0.04), transparent);
   animation: liveShimmer 3s ease-in-out infinite;
   pointer-events: none;
   z-index: 1;

@@ -28,7 +28,7 @@ export class ErrorBoundary extends React.Component {
           alignItems: 'center',
           justifyContent: 'center',
           minHeight: '100vh',
-          backgroundColor: '#0F172A',
+          backgroundColor: '#0F0F12',
           color: '#F8FAFC',
           fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
           padding: '24px',
@@ -37,7 +37,7 @@ export class ErrorBoundary extends React.Component {
           <div style={{
             maxWidth: '520px',
             width: '100%',
-            backgroundColor: '#1E293B',
+            backgroundColor: '#1F1F24',
             border: '1px solid #334155',
             borderRadius: '16px',
             padding: '32px',
@@ -62,13 +62,13 @@ export class ErrorBoundary extends React.Component {
               Something went wrong
             </h2>
             
-            <p style={{ fontSize: '14px', color: '#94A3B8', lineHeight: '1.6', marginBottom: '24px' }}>
+            <p style={{ fontSize: '14px', color: '#A1A1AA', lineHeight: '1.6', marginBottom: '24px' }}>
               An unexpected error prevented this application from loading properly.
             </p>
 
             {this.state.error && (
               <div style={{
-                backgroundColor: '#0F172A',
+                backgroundColor: '#0F0F12',
                 border: '1px solid #334155',
                 borderRadius: '8px',
                 padding: '12px',
@@ -87,7 +87,7 @@ export class ErrorBoundary extends React.Component {
             <button
               onClick={this.handleReload}
               style={{
-                backgroundColor: '#3B82F6',
+                backgroundColor: '#6366F1',
                 color: '#FFFFFF',
                 border: 'none',
                 borderRadius: '8px',
@@ -97,8 +97,8 @@ export class ErrorBoundary extends React.Component {
                 cursor: 'pointer',
                 transition: 'background-color 0.2s ease'
               }}
-              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#2563EB'}
-              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#3B82F6'}
+              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#4F46E5'}
+              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#6366F1'}
             >
               Reload Application
             </button>

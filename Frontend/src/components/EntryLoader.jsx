@@ -130,7 +130,7 @@ export default function EntryLoader({ onComplete, onExitStart, forcePlay = false
       }
       ctx.font = '10px "JetBrains Mono", monospace';
       bitStreams.forEach((stream) => {
-        ctx.fillStyle = `rgba(61, 197, 161, ${stream.opacity})`;
+        ctx.fillStyle = `rgba(255, 179, 71, ${stream.opacity})`;
         ctx.fillText(stream.char, stream.x, stream.y);
         stream.y += stream.speed;
         if (stream.y > H) {

@@ -33,7 +33,7 @@ function RingGauge({ percent, color, size = 64 }) {
 }
 
 // Interactive SVG Area & Line Chart
-function TimeSeriesAreaChart({ data = [], activeKey = 'totalTokens', color = '#3DC5A1', label = 'Tokens' }) {
+function TimeSeriesAreaChart({ data = [], activeKey = 'totalTokens', color = '#FFB347', label = 'Tokens' }) {
   const [hoveredPoint, setHoveredPoint] = useState(null);
   const containerRef = useRef(null);
 
@@ -508,7 +508,7 @@ export default function PaymentsDashboard() {
         <TimeSeriesAreaChart
           data={usageAnalytics?.timeline || []}
           activeKey={activeMetric}
-          color={activeMetric === 'totalTokens' ? '#3DC5A1' : '#1B6EF3'}
+          color={activeMetric === 'totalTokens' ? '#FFB347' : '#4F46E5'}
           label={activeMetric === 'totalTokens' ? 'Total Tokens' : 'AI Requests'}
         />
       </div>
@@ -537,7 +537,7 @@ export default function PaymentsDashboard() {
             ]).map((prov, i) => {
               const totalAll = usageAnalytics?.byProvider?.reduce((acc, p) => acc + (p.totalTokens || 0), 0) || 1;
               const pct = Math.round(((prov.totalTokens || 0) / totalAll) * 100) || 25;
-              const color = ['#3DC5A1', '#1B6EF3', '#F59E0B', '#C084FC'][i % 4];
+              const color = ['#FFB347', '#4F46E5', '#F59E0B', '#C084FC'][i % 4];
 
               return (
                 <div key={i}>
@@ -578,7 +578,7 @@ export default function PaymentsDashboard() {
             ]).map((agent, i) => {
               const totalAll = usageAnalytics?.byAgent?.reduce((acc, a) => acc + (a.totalTokens || 0), 0) || 1;
               const pct = Math.round(((agent.totalTokens || 0) / totalAll) * 100) || 33;
-              const color = ['#3DC5A1', '#FFB800', '#1B6EF3'][i % 3];
+              const color = ['#FFB347', '#FFB800', '#4F46E5'][i % 3];
 
               return (
                 <div key={i}>
