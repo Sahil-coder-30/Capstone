@@ -114,7 +114,9 @@ export default function EntryLoader({ onComplete, onExitStart, forcePlay = false
     let frameId;
     const draw = () => {
       ctx.clearRect(0, 0, W, H);
-      ctx.strokeStyle = 'rgba(28, 30, 46, 0.14)';
+      ctx.strokeStyle = document.documentElement.classList.contains('light-theme')
+        ? 'rgba(26, 26, 30, 0.04)'
+        : 'rgba(28, 30, 46, 0.14)';
       ctx.lineWidth = 1;
       for (let x = 0; x < W; x += 48) {
         ctx.beginPath();

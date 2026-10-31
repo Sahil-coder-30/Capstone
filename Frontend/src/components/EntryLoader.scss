@@ -176,6 +176,58 @@
   }
 }
 
+// Light theme: the intro follows the page instead of flashing a dark curtain.
+:root.light-theme .entry-loader {
+  background-color: #FBFAF8;
+
+  &__badge {
+    background: rgba(255, 255, 255, 0.85);
+    border-color: rgba(194, 65, 12, 0.25);
+    color: #C2410C;
+
+    .pulse-dot {
+      background-color: #C2410C;
+      box-shadow: none;
+    }
+  }
+
+  &__skip {
+    background: rgba(255, 255, 255, 0.85);
+    border-color: #C9C6BF;
+    color: #55555E;
+
+    kbd {
+      background: #F5F4F1;
+      border-color: #E6E4DF;
+      color: #55555E;
+    }
+
+    &:hover {
+      border-color: #C2410C;
+      color: #C2410C;
+      box-shadow: none;
+
+      kbd {
+        border-color: rgba(194, 65, 12, 0.4);
+        color: #C2410C;
+      }
+    }
+  }
+
+  &__logo-wrapper {
+    filter: none;
+
+    .taksha-logo-wrapper .taksha-logo-svg {
+      filter: none;
+
+      // CSS beats the white SVG fills set by the logo animation.
+      .letter-slot { fill: #1A1A1E; }
+      .codespace-submark { fill: #6B6B75; }
+      .g-sweep line:first-child { stroke: #1A1A1E; }
+    }
+  }
+}
+
 // Keyframe Animations
 @keyframes pulseGlow {
   0%, 100% { opacity: 1; transform: scale(1); }

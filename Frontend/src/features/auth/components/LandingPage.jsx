@@ -1,16 +1,18 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
-import gsap from 'gsap';
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import {
-  Cpu, Code, Activity, Zap, ArrowRight, Sparkles,
-  ChevronRight, Server, Play, RotateCw, CheckCircle,
-  Layers, TerminalSquare, Box, ChevronDown, MessageSquare,
-  Rocket, ShieldCheck, Download, MousePointerClick,
-  FileCode, Braces, X, GitBranch, Globe, Menu, Crown
+  ArrowRight, Box, Check, ChevronDown, Cloud, Code, Layers, Menu, Moon,
+  Play, ShieldCheck, Sun, Volume2, VolumeX, Wrench, X,
 } from 'lucide-react';
 import './LandingPage.scss';
 import BrandLogo from '../../../components/BrandLogo';
 import EntryLoader from '../../../components/EntryLoader';
-import AmbientOrbs from '../../../components/AmbientOrbs';
+import LandingWorkspace from './LandingWorkspace';
+import { useLandingMotion } from '../Hooks/landing.hooks';
+
+const LandingForge3D = lazy(() => import('./LandingForge3D'));
+
+const FILM_SRC = '/video/taksha-film.mp4';
+const FILM_POSTER = '/video/taksha-film-poster.jpg';
 
 function LinkedinIcon({ size = 16 }) {
   return (
@@ -30,1084 +32,542 @@ function GithubIcon({ size = 16 }) {
   );
 }
 
-function Reveal({ children, className = '', delay = 0, style = {} }) {
-  const ref = useRef(null);
-  const [vis, setVis] = useState(false);
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const obs = new IntersectionObserver(
-      ([e]) => { if (e.isIntersecting) { setVis(true); obs.disconnect(); } },
-      { threshold: 0.07, rootMargin: '0px 0px -30px 0px' }
-    );
-    obs.observe(el);
-    return () => obs.disconnect();
-  }, []);
+// Splits text so GSAP can animate each letter. Screen readers get the h1 aria-label.
+function SplitChars({ text }) {
+  return text.split(' ').map((word, w) => (
+    <span key={`${word}-${w}`} className="split-word" aria-hidden="true">
+      {[...word].map((char, c) => <span key={c} className="split-char">{char}</span>)}
+    </span>
+  )).reduce((all, word, i) => (i === 0 ? [word] : [...all, ' ', word]), []);
+}
+
+const NAV_LINKS = [
+  { id: 'product', label: 'Product' },
+  { id: 'how', label: 'How it works' },
+  { id: 'features', label: 'Features' },
+  { id: 'pricing', label: 'Pricing' },
+  { id: 'faq', label: 'FAQ' },
+];
+
+const FACTS = [
+  { icon: ShieldCheck, title: 'You review the plan', text: 'Approve or reject before code starts' },
+  { icon: Box, title: 'Your own sandbox', text: 'One Kubernetes pod per project' },
+  { icon: Cloud, title: 'Files stay saved', text: 'Workspace syncs to cloud storage' },
+  { icon: Check, title: 'Free to start', text: 'No credit card required' },
+];
+
+const STATEMENT = 'Most AI tools hand you code and wish you luck. Taksha hands you a running app, with the errors already fixed.';
+
+const STACK = ['Kubernetes', 'LangGraph', 'Mistral Codestral', 'React', 'Vite', 'Monaco Editor', 'xterm.js', 'MongoDB', 'Redis'];
+
+const STAGES = [
+  {
+    id: 'plan', step: '01', name: 'Plan', agent: 'Planner', icon: Layers,
+    headline: 'Splits your prompt into steps. You approve first.',
+    desc: 'The Planner pauses before any code is written. Approve the plan, or reject it and say what to change.',
+  },
+  {
+    id: 'build', step: '02', name: 'Build', agent: 'Coder', icon: Code,
+    headline: 'Writes every file inside your sandbox.',
+    desc: 'Every change lands in the real editor, where you can read it, edit it, or take over.',
+  },
+  {
+    id: 'test', step: '03', name: 'Test', agent: 'Tester', icon: Play,
+    headline: 'Runs the app and reads the real errors.',
+    desc: 'The Tester runs commands in the sandbox and checks Vite for runtime errors, the same way you would.',
+  },
+  {
+    id: 'fix', step: '04', name: 'Fix', agent: 'Debugger', icon: Wrench,
+    headline: 'Patches what broke and tries again.',
+    desc: 'The Debugger reads the error, patches the exact lines, and checks again until the app runs clean.',
+  },
+];
+
+const STAGE_IDS = STAGES.map((stage) => stage.id);
+
+const PLANS = [
+  {
+    id: 'free', label: 'Free', price: '₹0', cta: 'Start free',
+    description: 'Start building with AI. No credit card required.',
+    highlights: ['20 AI credits per provider', 'Coding agent + Copilot', '50,000 tokens per day', '0.5 vCPU + 512MB sandbox', 'Community support'],
+  },
+  {
+    id: 'pro', label: 'Pro', price: '₹499', cta: 'Get Pro', popular: true,
+    description: 'Full AI power for active developers.',
+    highlights: ['4x higher AI usage limits', '5,000,000 tokens per month', '2.0 vCPU + 2GB sandbox', 'All coding and app agents', 'Priority email support'],
+  },
+  {
+    id: 'max', label: 'Max', price: '₹999', cta: 'Get Max',
+    description: 'Maximum AI power with flagship models.',
+    highlights: ['Unlimited AI tokens', 'Priority queue processing', '4.0 vCPU + 4GB sandbox', 'All flagship AI models', 'Dedicated 24/7 support'],
+  },
+];
+
+const FAQ = [
+  { q: 'What can Taksha build?', a: 'React apps on Vite. Your workspace is a real Node.js environment, so you can open the terminal and install any npm package you need.' },
+  { q: 'Do I see the plan before code is written?', a: 'Yes. The agent pauses after planning. You approve the plan, or reject it and say what to change. You can also stop a run at any time.' },
+  { q: 'Where does my project run?', a: 'Each project runs in its own Kubernetes pod with CPU and memory limits. Idle sandboxes shut down after about 20 minutes, and your files come back when you start again.' },
+  { q: 'Can I code by hand too?', a: 'Yes. You get a Monaco editor and a full terminal next to the agent, so you can edit any file or run any command yourself.' },
+  { q: 'How does usage work?', a: 'AI usage is counted in credits, and each plan has its own limits. The Free plan is enough to build your first app, and you can upgrade when you need more.' },
+];
+
+function SandboxViz() {
   return (
-    <div
-      ref={ref}
-      className={`reveal ${vis ? 'reveal--in' : ''} ${className}`}
-      style={{ transitionDelay: `${delay}ms`, ...style }}
-    >
-      {children}
+    <div className="viz-pod" aria-hidden="true">
+      <div className="viz-pod__head"><Box size={13} /> sandbox-pod <span>Running</span></div>
+      {[['template', 'Vite dev server', ':5173'], ['agent', 'Agent sidecar', ':3000'], ['sync-agent', 'Cloud file sync', 'syncing']].map(([name, role, meta]) => (
+        <div key={name} className="viz-pod__row">
+          <span className="viz-pod__dot" />
+          <code>{name}</code>
+          <em>{role}</em>
+          <small>{meta}</small>
+        </div>
+      ))}
     </div>
   );
 }
 
-// AmbientOrbs is imported from src/components/AmbientOrbs.jsx
-
-// ── Interactive 3D Card Component for Pricing Tier Cards ─────────────────────
-function PricingCard3D({ plan, isYearly, onSelectPlan }) {
-  const cardRef = useRef(null);
-  const [style, setStyle] = useState({
-    transform: 'perspective(1000px) rotateX(0deg) rotateY(0deg) scale3d(1, 1, 1)',
-    spotlight: 'radial-gradient(circle 240px at 50% 50%, rgba(255,255,255,0.03), transparent 80%)',
-  });
-  const [isHovered, setIsHovered] = useState(false);
-
-  const handleMouseMove = (e) => {
-    const card = cardRef.current;
-    if (!card) return;
-    const rect = card.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-    const centerX = rect.width / 2;
-    const centerY = rect.height / 2;
-    const rotateX = ((y - centerY) / centerY) * -12;
-    const rotateY = ((x - centerX) / centerX) * 12;
-
-    const glowColor = plan.glowColor || 'rgba(234, 88, 12, 0.25)';
-
-    setStyle({
-      transform: `perspective(1000px) rotateX(${rotateX.toFixed(2)}deg) rotateY(${rotateY.toFixed(2)}deg) scale3d(1.025, 1.025, 1.025)`,
-      spotlight: `radial-gradient(circle 280px at ${x}px ${y}px, ${glowColor}, transparent 80%)`,
-    });
-  };
-
-  const handleMouseEnter = () => setIsHovered(true);
-
-  const handleMouseLeave = () => {
-    setIsHovered(false);
-    setStyle({
-      transform: 'perspective(1000px) rotateX(0deg) rotateY(0deg) scale3d(1, 1, 1)',
-      spotlight: 'radial-gradient(circle 240px at 50% 50%, transparent, transparent)',
-    });
-  };
-
-  const calculatePrice = () => {
-    if (plan.priceINR === 0) return '₹0';
-    const monthlyPrice = plan.priceINR;
-    if (isYearly) {
-      const discounted = Math.round(monthlyPrice * 0.8);
-      return `₹${discounted}`;
-    }
-    return `₹${monthlyPrice}`;
-  };
-
+function ReviewViz() {
   return (
-    <div
-      ref={cardRef}
-      className={`price-card-3d price-card-3d--${plan.id} ${plan.popular ? 'price-card-3d--popular' : ''} ${isHovered ? 'price-card-3d--hovered' : ''}`}
-      style={{
-        transform: style.transform,
-        '--card-accent': plan.accentColor,
-        '--card-glow': plan.glowColor,
-        '--card-shadow': plan.shadowColor,
-      }}
-      onMouseMove={handleMouseMove}
-      onMouseEnter={handleMouseEnter}
-      onMouseLeave={handleMouseLeave}
-    >
-      <div className="price-card-3d__spotlight" style={{ background: style.spotlight }} />
-      <div className="price-card-3d__glass-border" />
-
-      {plan.popular && (
-        <div className="price-card-3d__top-badge">
-          <Sparkles size={11} /> {plan.badge}
-        </div>
-      )}
-
-      {/* Banner Image */}
-      {plan.bannerImg && (
-        <div className="price-card-3d__banner">
-          <img src={plan.bannerImg} alt={`${plan.label} plan visual`} />
-          <div className="price-card-3d__banner-overlay" />
-        </div>
-      )}
-
-      <div className="price-card-3d__body">
-        <div className="price-card-3d__head">
-          <div className="price-card-3d__tier-group">
-            {plan.icon && <plan.icon size={16} className="price-card-3d__icon" />}
-            <span className="price-card-3d__tier">{plan.label}</span>
-          </div>
-          {!plan.popular && plan.badge && (
-            <span className="price-card-3d__badge">{plan.badge}</span>
-          )}
-        </div>
-
-        <p className="price-card-3d__desc">{plan.description}</p>
-
-        <div className="price-card-3d__price-box">
-          <span className="price-card-3d__price">{calculatePrice()}</span>
-          <span className="price-card-3d__cycle">/month</span>
-          {isYearly && plan.priceINR > 0 && (
-            <span className="price-card-3d__billed-annually">Billed annually (Save 20%)</span>
-          )}
-        </div>
-
-        <div className="price-card-3d__divider" />
-
-        <ul className="price-card-3d__list">
-          {plan.highlights.map((h, i) => (
-            <li key={i}>
-              <CheckCircle size={13} className="price-card-3d__check" />
-              <span>{h}</span>
-            </li>
-          ))}
-        </ul>
-
-        <button
-          onClick={onSelectPlan}
-          className={`btn price-card-3d__cta ${plan.popular ? 'btn--primary' : 'btn--ghost'}`}
-        >
-          {plan.ctaText || 'Get Started'} <ArrowRight size={13} />
-        </button>
+    <div className="viz-review" aria-hidden="true">
+      <span>Plan ready. 3 steps.</span>
+      <div>
+        <b className="viz-review__yes"><Check size={12} /> Approve</b>
+        <b><X size={12} /> Reject</b>
       </div>
     </div>
   );
 }
 
-const AGENTS = [
-  {
-    id: 'planner', step: '01', name: 'Planner', color: '#EA580C', tag: 'Layer 01', icon: Layers,
-    headline: 'Breaks the prompt into a precise developer task graph',
-    desc: 'Decomposes natural-language input into file topology, Redux slice maps, and a dependency order for the Builder.',
-    logs: [
-      { cls: 'log-muted',   text: 'PROMPT: "Build a telemetry dashboard with live Redux state."' },
-      { cls: 'log-planner', text: '[PLANNER] Decomposing into developer operations...' },
-      { cls: 'log-planner', text: '[PLANNER] Init dir: /src/features/telemetry/' },
-      { cls: 'log-planner', text: '[PLANNER] Scaffold Redux slice: telemetry.slice.js' },
-      { cls: 'log-planner', text: '[PLANNER] Map websocket payloads to state shape' },
-      { cls: 'log-success', text: '[PLANNER] Task graph ready — handoff to BUILDER' },
-    ],
-  },
-  {
-    id: 'builder', step: '02', name: 'Builder', color: '#4F46E5', tag: 'Layer 02', icon: Code,
-    headline: 'Writes all source files and resolves every import',
-    desc: 'Outputs complete, runnable source code — components, slices, API calls — resolving imports and syncing file buffers.',
-    logs: [
-      { cls: 'log-muted',   text: 'SPEC: "Write telemetry dashboard + Redux slice."' },
-      { cls: 'log-builder', text: '[BUILDER] Scaffolding TelemetryConsole.jsx (124 lines)' },
-      { cls: 'log-builder', text: '[BUILDER] Writing telemetry.slice.js — 84 lines' },
-      { cls: 'log-builder', text: '[BUILDER] Resolving imports: lucide-react, recharts' },
-      { cls: 'log-builder', text: '[BUILDER] 1,204 lines modified across 6 files' },
-      { cls: 'log-success', text: '[BUILDER] HMR patch synced — handoff to EXECUTOR' },
-    ],
-  },
-  {
-    id: 'executor', step: '03', name: 'Executor', color: '#D97B0C', tag: 'Layer 03', icon: Play,
-    headline: 'Boots a live Kubernetes pod and runs the dev server',
-    desc: 'Provisions the K8s sandbox, maps web ports, executes npm scripts, and opens an xterm.js shell for live interaction.',
-    logs: [
-      { cls: 'log-muted',    text: 'CMD: npm run dev --host -> port 5173' },
-      { cls: 'log-executor', text: '[EXECUTOR] Spawning pty in K8s pod...' },
-      { cls: 'log-executor', text: '[EXECUTOR] $ npm install (42 packages)' },
-      { cls: 'log-executor', text: '[EXECUTOR] $ npm run dev --host' },
-      { cls: 'log-executor', text: '[EXECUTOR] > vite v8.0.16 dev server running' },
-      { cls: 'log-success',  text: '[EXECUTOR] Sandbox ONLINE -> sandbox.taksha.dev:5173' },
-    ],
-  },
-  {
-    id: 'healer', step: '04', name: 'Self-Healer', color: '#D63B3B', tag: 'Layer 04', icon: Activity,
-    headline: 'Intercepts errors and applies surgical line-level patches',
-    desc: 'Monitors stdout/stderr, detects compiler exceptions, analyses the AST, and auto-patches imports and type errors.',
-    logs: [
-      { cls: 'log-muted',   text: 'SCAN: Monitoring container output stream...' },
-      { cls: 'log-healer',  text: '[HEALER] ReferenceError: "Cpu" is not defined — line 24' },
-      { cls: 'log-healer',  text: '[HEALER] Analysing AST for missing import declarations...' },
-      { cls: 'log-healer',  text: '[HEALER] Patch: inject "Cpu" into lucide-react import' },
-      { cls: 'log-healer',  text: '[HEALER] Writing surgical fix to TelemetryConsole.jsx' },
-      { cls: 'log-success', text: '[HEALER] Patch applied · HMR reload complete · 1.8s' },
-    ],
-    showDiff: true,
-  },
-];
+function TerminalViz() {
+  return (
+    <div className="viz-term" aria-hidden="true">
+      <div><span>$</span> npm i recharts</div>
+      <div className="viz-term__muted">added 37 packages</div>
+      <div><span>$</span> npm run dev<i /></div>
+    </div>
+  );
+}
 
-const FEATURES = [
-  { icon: Box,            title: 'Sandbox Environment',         desc: 'Fully isolated, cloud-based dev environment — spin up, build, break, restart, zero risk.', accent: '#4F46E5' },
-  { icon: TerminalSquare, title: 'Full Code Editor + Terminal', desc: 'Code by hand, install dependencies, run any command — a complete environment, not just a chat box.', accent: '#4ADE80' },
-  { icon: Activity,       title: 'Agentic Build Pipeline',      desc: 'Give it one prompt. Agents and subagents plan, build, test, and debug a full React app end to end.', tag: 'Core', accent: '#EA580C' },
-  { icon: GitBranch,      title: 'GitHub Integration via MCP',  desc: 'Deploy directly, or push your finished project straight to GitHub — no manual handoff.', accent: '#D97B0C' },
-];
+function CopilotViz() {
+  return (
+    <div className="viz-chat" aria-hidden="true">
+      <p className="viz-chat__me">Why is this card overflowing?</p>
+      <p className="viz-chat__bot">The grid has no min-width. Want me to fix it?</p>
+    </div>
+  );
+}
 
-const TECH_STACK = ['React 18','Vite 8','Kubernetes','LangGraph','Mistral Devstral','MongoDB Atlas','FastAPI','Docker','Monaco Editor','xterm.js','Redux Toolkit','Tailwind CSS'];
-
-const STATS = [
-  { value: '< 30s', label: 'First live preview' },
-  { value: '4',     label: 'Agent layers' },
-  { value: '1.8s',  label: 'Auto-heal cycle' },
-  { value: '100%',  label: 'Pod isolation' },
-];
-
-const SHOWCASE_ITEMS = [
-  { id: 0, src: '/images/codespace-preview-1.jpg', fallbackSrc: '/images/free_plan_banner.png', sideLabel: 'editor.jsx',   tag: 'Builder Agent', TagIcon: Code },
-  { id: 1, src: '/images/Dahboard_Image_pure.jpg', fallbackSrc: '/images/pro_plan_banner.png',  sideLabel: 'dashboard.jsx', tag: 'Dashboard',     TagIcon: Layers },
-  { id: 2, src: '/images/codespace-preview-2.jpg', fallbackSrc: '/images/max_plan_banner.png',  sideLabel: 'agent.log',    tag: 'Self-Healer',   TagIcon: Activity },
-];
-
-const PRICING_PLANS = [
-  {
-    id: 'free',
-    label: 'Taksha AI Free',
-    priceINR: 0,
-    badge: 'GET STARTED',
-    icon: Code,
-    bannerImg: '/images/free_plan_banner.png',
-    accentColor: '#EA580C',
-    glowColor: 'rgba(234, 88, 12, 0.22)',
-    shadowColor: 'rgba(234, 88, 12, 0.25)',
-    description: 'Essential sandbox and AI model credits for developers getting started.',
-    ctaText: 'Get Started Free',
-    highlights: [
-      '20 AI credits per provider daily',
-      '50,000 daily token limit',
-      '0.5 vCPU + 512 MB RAM container',
-      'Coding Agent + Copilot',
-      'Community Forum support'
-    ]
-  },
-  {
-    id: 'pro',
-    label: 'Taksha AI Pro',
-    priceINR: 499,
-    badge: 'MOST POPULAR',
-    popular: true,
-    icon: Zap,
-    bannerImg: '/images/pro_plan_banner.png',
-    accentColor: '#4F46E5',
-    glowColor: 'rgba(27, 110, 243, 0.28)',
-    shadowColor: 'rgba(27, 110, 243, 0.35)',
-    description: 'Full AI power with high-performance isolated sandbox containers.',
-    ctaText: 'Start Pro Plan',
-    highlights: [
-      '4x higher usage limits in Taksha AI',
-      '5,000,000 tokens per month cap',
-      '2.0 vCPU + 2 GB RAM dedicated container',
-      'Coding Agent + Copilot + App Agent',
-      'Priority Email & Discord support'
-    ]
-  },
-  {
-    id: 'max',
-    label: 'Taksha AI Max',
-    priceINR: 999,
-    badge: 'FLAGSHIP TIER',
-    icon: Crown,
-    bannerImg: '/images/max_plan_banner.png',
-    accentColor: '#F5A83C',
-    glowColor: 'rgba(245, 168, 60, 0.28)',
-    shadowColor: 'rgba(245, 168, 60, 0.35)',
-    description: 'Uncapped tokens, flagship LLMs, and priority worker execution queue.',
-    ctaText: 'Upgrade to Max',
-    highlights: [
-      'Up to 20x higher usage limits than Pro',
-      'Truly Unlimited Tokens with zero throttling',
-      '4.0 vCPU + 4 GB RAM container allocation',
-      'All Agents + Flagship LLM models',
-      'Dedicated 24/7 technical manager'
-    ]
-  }
-];
-
-const FAQ = [
-  { q: 'How do the 4 agent layers coordinate?', a: 'They run as isolated nodes in a LangGraph state machine. Planner -> Builder -> Executor -> Self-Healer. Each passes structured output to the next. The orchestrator graph handles retries and state persistence between steps.' },
-  { q: 'Are sandboxes secure and isolated?', a: 'Yes. Every workspace runs in a private Kubernetes Namespace with hard CPU/RAM resource ceilings, NVMe persistent volumes, and zero cross-container network access. Each session gets a freshly provisioned pod.' },
-  { q: 'Can I export my generated code?', a: 'Absolutely — download as ZIP, push to GitHub with one click, or generate a Dockerfile for local self-hosting from the Workspace Exporter panel inside the IDE.' },
-  { q: 'What languages and frameworks work?', a: 'React, Vite, Next.js, Express, and plain HTML/CSS/JS out of the box. The container includes Node.js and Python, so you can install any npm or pip package and run custom build scripts.' },
-  { q: 'Can it build full-stack apps?', a: 'Yes. The Builder agent can scaffold both React frontends and FastAPI/Express backends. Both run in the same pod with inter-service communication over localhost.' },
-];
-
-const PROMPTS = [
-  'Build a React todo list with Redux state',
-  'Build a REST API with JWT authentication',
-  'Build a Markdown notes app with local storage',
-  'Build a real-time chat with WebSocket',
-  'Build a dashboard with live Recharts graphs',
-];
-
-function buildLines(prompt) {
-  return [
-    { cls: 'log-muted',    text: `> "${prompt}"` },
-    { cls: 'log-planner',  text: '[PLANNER] Decomposing into task graph...' },
-    { cls: 'log-planner',  text: '[PLANNER] File topology mapped -> /src/App.jsx, /src/store/' },
-    { cls: 'log-builder',  text: '[BUILDER] Scaffolding /src/App.jsx...' },
-    { cls: 'log-builder',  text: '[BUILDER] Writing Redux slice — 1,024 lines synced' },
-    { cls: 'log-executor', text: '[EXECUTOR] Booting K8s sandbox pod...' },
-    { cls: 'log-executor', text: '[EXECUTOR] > vite v8.0.16 dev server — port 5173' },
-    { cls: 'log-healer',   text: '[HEALER] ReferenceError detected — line 18' },
-    { cls: 'log-healer',   text: '[HEALER] Generating surgical patch...' },
-    { cls: 'log-success',  text: 'Workspace live & auto-healed in 28.4s' },
-  ];
+function SyncViz() {
+  return (
+    <div className="viz-sync" aria-hidden="true">
+      <span>src/App.jsx</span>
+      <span>src/TaskItem.jsx</span>
+      <span>src/app.scss</span>
+      <em><Cloud size={13} /> Saved</em>
+    </div>
+  );
 }
 
 export default function LandingPage({ onNavigateToLogin }) {
-  const landingRef     = useRef(null);
-  const headerRef      = useRef(null);
-  const heroInnerRef   = useRef(null);
-  const consoleBodyRef = useRef(null);
-  const ivRef          = useRef(null);
+  const landingRef = useRef(null);
+  const contentRef = useRef(null);
+  const filmRef = useRef(null);
+  const forgeProgressRef = useRef(0);
 
   const [showLoader, setShowLoader] = useState(() => {
     try {
       return sessionStorage.getItem('taksha_session_loader_v1') !== 'true';
-    } catch (e) {
+    } catch {
       return true;
     }
   });
-  const [isScrolled,     setIsScrolled]     = useState(false);
-  const [isScrolling,    setIsScrolling]    = useState(false);
-  const [isHovered,      setIsHovered]      = useState(false);
-  const [activeAgent,    setActiveAgent]    = useState('planner');
-  const [openFaq,        setOpenFaq]        = useState(null);
-  const [showChevron,    setShowChevron]    = useState(true);
+  const [introReady,     setIntroReady]     = useState(!showLoader);
+  const [activeStage,    setActiveStage]    = useState('plan');
+  const [openFaq,        setOpenFaq]        = useState(0);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [isYearly,       setIsYearly]       = useState(false);
+  const [soundOn,        setSoundOn]        = useState(false);
+  const [isLight,        setIsLight]        = useState(() => {
+    try {
+      return localStorage.getItem('theme') === 'light';
+    } catch {
+      return document.documentElement.classList.contains('light-theme');
+    }
+  });
 
-  // Showcase FLIP card swap state
-  const [slots, setSlots]       = useState({ left: 0, center: 1, right: 2 });
-  const [swapping, setSwapping] = useState(false);
-  const leftPanelRef            = useRef(null);
-  const centerPanelRef          = useRef(null);
-  const rightPanelRef           = useRef(null);
-  const isSwapping              = useRef(false);
+  const resetSound = useCallback(() => setSoundOn(false), []);
 
-  const handlePanelClick = useCallback((clickedSide) => {
-    if (isSwapping.current) return;
-    isSwapping.current = true;
-    setSwapping(true);
-
-    const sideEl   = clickedSide === 'left' ? leftPanelRef.current : rightPanelRef.current;
-    const centerEl = centerPanelRef.current;
-    if (!sideEl || !centerEl) { isSwapping.current = false; setSwapping(false); return; }
-
-    const sR = sideEl.getBoundingClientRect();
-    const cR = centerEl.getBoundingClientRect();
-
-    const spawnActor = (source, rect) => {
-      const actor = source.cloneNode(true);
-      Object.assign(actor.style, {
-        position:      'fixed',
-        top:           `${rect.top}px`,
-        left:          `${rect.left}px`,
-        width:         `${rect.width}px`,
-        height:        `${rect.height}px`,
-        margin:        '0',
-        padding:       '0',
-        zIndex:        '9999',
-        pointerEvents: 'none',
-        overflow:      'hidden',
-        boxSizing:     'border-box',
-        willChange:    'transform, left, top, width, height, opacity',
-      });
-      actor.querySelectorAll('img').forEach(img => {
-        img.style.width          = '100%';
-        img.style.height         = '100%';
-        img.style.maxHeight      = 'none';
-        img.style.objectFit      = 'cover';
-        img.style.objectPosition = 'top';
-        img.style.display        = 'block';
-      });
-      actor.querySelectorAll('.lp__showcase-frame-body').forEach(el => {
-        el.style.flex      = '1 1 0';
-        el.style.minHeight = '0';
-        el.style.overflow  = 'hidden';
-      });
-      document.body.appendChild(actor);
-      return actor;
-    };
-
-    const sideActor   = spawnActor(sideEl,  sR);
-    const centerActor = spawnActor(centerEl, cR);
-
-    gsap.set([sideEl, centerEl], { opacity: 0 });
-
-    const tiltY = clickedSide === 'left' ? 18 : -18;
-    gsap.set(sideActor, {
-      rotateY:              tiltY,
-      rotateX:              4,
-      transformPerspective: 900,
-    });
-
-    const DUR  = 0.72;
-    const EASE = 'power4.inOut';
-
-    const tl = gsap.timeline({
-      onComplete: () => {
-        setSlots(prev => ({
-          left:   clickedSide === 'left'  ? prev.center : prev.left,
-          center: clickedSide === 'left'  ? prev.left   : prev.right,
-          right:  clickedSide === 'right' ? prev.center : prev.right,
-        }));
-        requestAnimationFrame(() => {
-          gsap.set([sideEl, centerEl], { clearProps: 'opacity' });
-          sideActor.remove();
-          centerActor.remove();
-          isSwapping.current = false;
-          setSwapping(false);
-        });
-      },
-    });
-
-    tl.to(sideActor, {
-      left:                 cR.left,
-      top:                  cR.top,
-      width:                cR.width,
-      height:               cR.height,
-      rotateY:              0,
-      rotateX:              0,
-      transformPerspective: 1400,
-      duration:             DUR,
-      ease:                 EASE,
-    }, 0);
-
-    tl.to(centerActor, {
-      left:                 sR.left,
-      top:                  sR.top,
-      width:                sR.width,
-      height:               sR.height,
-      rotateY:              tiltY,
-      rotateX:              4,
-      transformPerspective: 900,
-      duration:             DUR,
-      ease:                 EASE,
-    }, 0);
-
-    tl.to(sideActor, {
-      boxShadow: '0 -8px 60px rgba(234, 88, 12, 0.08), 0 40px 120px rgba(0, 0, 0, 0.9), inset 0 1px 0 rgba(255, 255, 255, 0.1)',
-      duration:  DUR,
-      ease:      EASE,
-    }, 0);
-
-    tl.to(centerActor, {
-      boxShadow: '0 20px 60px rgba(0, 0, 0, 0.8), inset 0 1px 0 rgba(255, 255, 255, 0.07)',
-      duration:  DUR,
-      ease:      EASE,
-    }, 0);
-
-    tl.to(centerActor, {
-      opacity:  0.65,
-      duration: DUR * 0.55,
-      ease:     'power2.in',
-    }, DUR * 0.15);
-  }, []);
-
-  const [promptText, setPromptText] = useState(PROMPTS[0]);
-  const [demoLogs,   setDemoLogs]   = useState([]);
-  const [demoState,  setDemoState]  = useState('idle');
+  const motionRef = useLandingMotion({
+    rootRef: landingRef,
+    contentRef,
+    ready: introReady,
+    stageIds: STAGE_IDS,
+    onStage: setActiveStage,
+    onFilmReset: resetSound,
+    forgeProgressRef,
+  });
 
   useEffect(() => { document.title = 'Taksha CodeSpace Studio — Agentic Cloud IDE'; }, []);
 
-  useEffect(() => {
-    const el = landingRef.current;
-    if (!el) return;
-    let t;
-    const h = () => {
-      const s = el.scrollTop;
-      setIsScrolled(s > 80);
-      setShowChevron(s < 80);
-      setIsScrolling(true);
-      clearTimeout(t);
-      t = setTimeout(() => setIsScrolling(false), 150);
-    };
-    el.addEventListener('scroll', h, { passive: true });
-    return () => { el.removeEventListener('scroll', h); clearTimeout(t); };
+  const setFilmSound = useCallback((on) => {
+    const film = filmRef.current;
+    if (!film) return;
+    film.muted = !on;
+    setSoundOn(on);
   }, []);
 
-  const expanded = !isScrolled || (isHovered && !isScrolling);
+  const handleWatchFilm = useCallback(() => {
+    setFilmSound(true);
+    motionRef.current.scrollToFilm?.();
+  }, [motionRef, setFilmSound]);
 
-  const hasRevealedRef = useRef(false);
-
-  const revealLandingContent = useCallback(() => {
-    if (hasRevealedRef.current) return;
-    hasRevealedRef.current = true;
-
-    if (headerRef.current) {
-      gsap.to(headerRef.current, {
-        y: 0,
-        opacity: 1,
-        duration: 0.75,
-        ease: 'power3.out',
-        overwrite: 'auto',
-      });
-    }
-    if (heroInnerRef.current) {
-      gsap.to(heroInnerRef.current, {
-        y: 0,
-        opacity: 1,
-        duration: 0.95,
-        ease: 'power3.out',
-        delay: 0.08,
-        overwrite: 'auto',
-      });
-    }
+  const toggleTheme = useCallback(() => {
+    const next = !document.documentElement.classList.contains('light-theme');
+    document.documentElement.classList.toggle('light-theme', next);
+    try {
+      localStorage.setItem('theme', next ? 'light' : 'dark');
+    } catch { /* theme still applies for this visit */ }
+    setIsLight(next);
   }, []);
-
-  // Pre-hide header and hero on initial mount if loader is active to prevent flash of content
-  useEffect(() => {
-    if (showLoader) {
-      if (headerRef.current) gsap.set(headerRef.current, { y: -40, opacity: 0 });
-      if (heroInnerRef.current) gsap.set(heroInnerRef.current, { y: 32, opacity: 0 });
-    } else {
-      revealLandingContent();
-    }
-  }, [showLoader, revealLandingContent]);
 
   const handleScrollTo = useCallback((e, id) => {
     if (e?.preventDefault) e.preventDefault();
-    const el = document.getElementById(id);
-    if (landingRef.current && el) landingRef.current.scrollTo({ top: el.offsetTop - 80, behavior: 'smooth' });
     setMobileMenuOpen(false);
-  }, []);
-
-  useEffect(() => {
-    if (demoLogs.length > 0 && consoleBodyRef.current)
-      consoleBodyRef.current.scrollTop = consoleBodyRef.current.scrollHeight;
-  }, [demoLogs]);
-
-  const runDemo = useCallback(() => {
-    if (demoState === 'running' || !promptText.trim()) return;
-    clearInterval(ivRef.current);
-    setDemoLogs([]); setDemoState('running');
-    const lines = buildLines(promptText);
-    let i = 0;
-    ivRef.current = setInterval(() => {
-      if (i < lines.length) {
-        const nextLine = lines[i];
-        setDemoLogs(p => [...p, nextLine]);
-        i++;
-      } else {
-        clearInterval(ivRef.current);
-        setDemoState('done');
-      }
-    }, 360);
-  }, [demoState, promptText]);
-
-  const resetDemo = useCallback(() => { clearInterval(ivRef.current); setDemoLogs([]); setDemoState('idle'); }, []);
-  useEffect(() => () => clearInterval(ivRef.current), []);
+    motionRef.current.scrollTo?.(`#${id}`, -88);
+  }, [motionRef]);
 
   const handleCtaClick = useCallback((e) => {
     if (e?.preventDefault) e.preventDefault();
-    if (onNavigateToLogin) {
-      onNavigateToLogin();
-    }
+    if (onNavigateToLogin) onNavigateToLogin();
   }, [onNavigateToLogin]);
 
-  const agent = AGENTS.find(a => a.id === activeAgent);
+  const stage = STAGES.find((s) => s.id === activeStage);
 
   return (
     <div ref={landingRef} className="lp">
       {showLoader && (
-        <EntryLoader 
-          onExitStart={revealLandingContent}
+        <EntryLoader
+          onExitStart={() => setIntroReady(true)}
           onComplete={() => {
             try {
               sessionStorage.setItem('taksha_session_loader_v1', 'true');
               sessionStorage.setItem('taksha_intro_seen', 'true');
-            } catch (_) {}
+            } catch { /* loader just shows again next visit */ }
+            setIntroReady(true);
             setShowLoader(false);
-          }} 
+          }}
         />
       )}
-      
-      {/* Giant Slow Orbs + Small Glowing Twinkling Stars + Shooting Star Meteor Engine */}
-      <AmbientOrbs />
+
+      <div className="lp__progress" aria-hidden="true" />
 
       {/* NAV */}
-      <div className="lp__nav-wrap">
-        <header
-          ref={headerRef}
-          className={`lp__header ${expanded ? 'lp__header--expanded' : 'lp__header--collapsed'}`}
-          onMouseEnter={() => setIsHovered(true)}
-          onMouseLeave={() => setIsHovered(false)}
-        >
-          {/* Collapsed pill */}
-          <div
-            className="lp__pill-collapsed"
-            onClick={() => setMobileMenuOpen(true)}
-          >
-            <span className="pulse-dot" />
-            <span>Taksha Codespace</span>
-          </div>
+      <header className="lp__header">
+        <a href="#top" className="lp__brand" aria-label="Taksha CodeSpace home" onClick={(e) => { e.preventDefault(); motionRef.current.scrollTo?.('.lp-hero-track'); }}>
+          <BrandLogo height={24} />
+        </a>
+        <nav className="lp__nav-links" aria-label="Main">
+          {NAV_LINKS.map((link) => (
+            <a key={link.id} href={`#${link.id}`} onClick={(e) => handleScrollTo(e, link.id)}>{link.label}</a>
+          ))}
+        </nav>
+        <div className="lp__nav-cta">
+          <button type="button" className="lp__icon-btn" onClick={toggleTheme} aria-label={isLight ? 'Switch to dark mode' : 'Switch to light mode'}>
+            {isLight ? <Moon size={15} /> : <Sun size={15} />}
+          </button>
+          <button type="button" onClick={handleCtaClick} className="btn btn--ghost btn--sm lp__nav-signin">Sign in</button>
+          <button type="button" onClick={handleCtaClick} className="btn btn--primary btn--sm lp__nav-start">Start free</button>
+          <button type="button" className="lp__icon-btn lp__hamburger" onClick={() => setMobileMenuOpen(true)} aria-label="Open navigation menu">
+            <Menu size={16} />
+          </button>
+        </div>
+      </header>
 
-          {/* Expanded pill */}
-          <div className="lp__pill-expanded">
-            <div className="lp__brand"><BrandLogo height={22} variant="dark" /></div>
-            <nav className="lp__nav-links">
-              <a href="#demo"     onClick={e => handleScrollTo(e, 'demo')}>Demo</a>
-              <a href="#pipeline" onClick={e => handleScrollTo(e, 'pipeline')}>Architecture</a>
-              <a href="#features" onClick={e => handleScrollTo(e, 'features')}>Features</a>
-              <a href="#pricing"  onClick={e => handleScrollTo(e, 'pricing')}>Pricing</a>
-            </nav>
-            <div className="lp__nav-cta">
-              <button onClick={handleCtaClick} className="btn btn--ghost btn--sm">
-                Sign in
-              </button>
-              <button onClick={handleCtaClick} className="btn btn--primary btn--sm">
-                Get started <ChevronRight size={11} />
-              </button>
-              <button
-                className="lp__hamburger"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setMobileMenuOpen(true);
-                }}
-                aria-label="Open navigation menu"
-              >
-                <Menu size={16} />
-              </button>
-            </div>
-          </div>
-        </header>
-      </div>
-
-      {/* MOBILE FULL-SCREEN MENU */}
+      {/* MOBILE MENU */}
       <div className={`lp__mobile-menu${mobileMenuOpen ? ' lp__mobile-menu--open' : ''}`} role="dialog" aria-modal="true" aria-label="Navigation menu">
-        <button className="lp__mobile-menu-close" onClick={() => setMobileMenuOpen(false)} aria-label="Close navigation menu">
+        <button type="button" className="lp__icon-btn lp__mobile-menu-close" onClick={() => setMobileMenuOpen(false)} aria-label="Close navigation menu">
           <X size={18} />
         </button>
-        <a href="#demo"     onClick={e => handleScrollTo(e, 'demo')}>Demo</a>
-        <a href="#pipeline" onClick={e => handleScrollTo(e, 'pipeline')}>Architecture</a>
-        <a href="#features" onClick={e => handleScrollTo(e, 'features')}>Features</a>
-        <a href="#pricing"  onClick={e => handleScrollTo(e, 'pricing')}>Pricing</a>
-        <button onClick={handleCtaClick} className="btn btn--primary btn--md" style={{ marginTop: '16px', width: '80%', justifyContent: 'center' }}>
-          Open Workspace <ArrowRight size={14} />
+        {NAV_LINKS.map((link) => (
+          <a key={link.id} href={`#${link.id}`} onClick={(e) => handleScrollTo(e, link.id)}>{link.label}</a>
+        ))}
+        <button type="button" onClick={handleCtaClick} className="btn btn--primary btn--lg">
+          Start free <ArrowRight size={15} />
         </button>
       </div>
 
-      {/* HERO */}
-      <section className="lp__hero">
-        <div ref={heroInnerRef} className="lp__hero-inner">
+      <div ref={contentRef} className="lp__content">
+        {/* HERO: headline first, a small scroll fades in the film, then the curtain */}
+        <div className="lp-hero-track">
+          <section className="lp-hero">
+            <div className="lp-hero__bg" aria-hidden="true" />
 
-          {/* Headline + Sub + CTAs */}
-          <div className="lp__hero-text">
-            <div className="lp__badge"><Sparkles size={10} /><span>AI Agentic Cloud IDE · Powered by Mistral Devstral</span></div>
-            <h1 className="lp__hero-h1">Describe your app.<br /><span className="grad">Taksha builds, tests &amp; heals it.</span></h1>
-            <p className="lp__hero-sub">
-              A cloud-based, sandboxed, agentic coding IDE — one prompt plans, codes, tests, debugs, and deploys a complete React application.
-            </p>
-            <div className="lp__hero-actions">
-              <button onClick={handleCtaClick} className="btn btn--primary btn--lg">
-                Get Started Free <ArrowRight size={14} />
-              </button>
-              <a href="#demo" onClick={e => handleScrollTo(e, 'demo')} className="btn btn--ghost btn--lg">Try Live Demo</a>
-            </div>
-          </div>
-
-          {/* Showcase browser mockup frame with 3D tilt FLIP animations */}
-          <div className={`lp__showcase ${swapping ? 'lp__showcase--swapping' : ''}`}>
-
-            {/* Left floating panel */}
-            {(() => {
-              const item = SHOWCASE_ITEMS[slots.left];
-              const TagIcon = item.TagIcon;
-              return (
-                <div
-                  className="lp__showcase-side lp__showcase-side--left"
-                  onClick={() => handlePanelClick('left')}
-                  role="button" tabIndex={0} aria-label={`Expand ${item.tag} view`}
-                  onKeyDown={e => e.key === 'Enter' && handlePanelClick('left')}
-                >
-                  <div ref={leftPanelRef} className="lp__showcase-frame lp__showcase-frame--side lp__showcase-frame--clickable">
-                    <div className="lp__showcase-frame-header">
-                      <div className="lp__showcase-frame-dots">
-                        <span className="dot dot--red" />
-                        <span className="dot dot--yellow" />
-                        <span className="dot dot--green" />
-                      </div>
-                      <span className="lp__showcase-frame-address">{item.sideLabel}</span>
-                    </div>
-                    <div className="lp__showcase-frame-body">
-                      <img
-                        src={item.src}
-                        alt={`Taksha CodeSpace ${item.sideLabel}`}
-                        onError={(e) => { e.currentTarget.src = item.fallbackSrc; }}
-                      />
-                      <div className="lp__showcase-frame-fade" />
-                    </div>
-                  </div>
-                  <div className="lp__showcase-tag lp__showcase-tag--left">
-                    {TagIcon && <TagIcon size={10} />} {item.tag}
-                  </div>
-                </div>
-              );
-            })()}
-
-            {/* Center — main browser mockup */}
-            <div className="lp__showcase-center">
-              <div ref={centerPanelRef} className="lp__showcase-frame lp__showcase-frame--center">
-                <div className="lp__showcase-frame-header">
-                  <div className="lp__showcase-frame-dots">
-                    <span className="dot dot--red" />
-                    <span className="dot dot--yellow" />
-                    <span className="dot dot--green" />
-                  </div>
-                  <span className="lp__showcase-frame-address">codespace.taksha.dev</span>
-                </div>
-                <div className="lp__showcase-frame-body">
-                  <img
-                    src={SHOWCASE_ITEMS[slots.center].src}
-                    alt="Taksha CodeSpace main dashboard"
-                    onError={(e) => { e.currentTarget.src = SHOWCASE_ITEMS[slots.center].fallbackSrc; }}
-                  />
-                </div>
-              </div>
-              <div className="lp__showcase-glow" />
+            <div className="lp-hero__media">
+              <video ref={filmRef} className="lp-video" src={FILM_SRC} poster={FILM_POSTER} muted loop playsInline preload="auto" />
             </div>
 
-            {/* Right floating panel */}
-            {(() => {
-              const item = SHOWCASE_ITEMS[slots.right];
-              const TagIcon = item.TagIcon;
-              return (
-                <div
-                  className="lp__showcase-side lp__showcase-side--right"
-                  onClick={() => handlePanelClick('right')}
-                  role="button" tabIndex={0} aria-label={`Expand ${item.tag} view`}
-                  onKeyDown={e => e.key === 'Enter' && handlePanelClick('right')}
-                >
-                  <div ref={rightPanelRef} className="lp__showcase-frame lp__showcase-frame--side lp__showcase-frame--clickable">
-                    <div className="lp__showcase-frame-header">
-                      <div className="lp__showcase-frame-dots">
-                        <span className="dot dot--red" />
-                        <span className="dot dot--yellow" />
-                        <span className="dot dot--green" />
-                      </div>
-                      <span className="lp__showcase-frame-address">{item.sideLabel}</span>
-                    </div>
-                    <div className="lp__showcase-frame-body">
-                      <img
-                        src={item.src}
-                        alt={`Taksha CodeSpace ${item.sideLabel}`}
-                        onError={(e) => { e.currentTarget.src = item.fallbackSrc; }}
-                      />
-                      <div className="lp__showcase-frame-fade" />
-                    </div>
-                  </div>
-                  <div className="lp__showcase-tag lp__showcase-tag--right">
-                    {TagIcon && <TagIcon size={10} />} {item.tag}
-                  </div>
-                </div>
-              );
-            })()}
-
-          </div>
-
-          {/* Stats bar */}
-          <div className="lp__stats">
-            {STATS.map((s, i) => (
-              <div key={i} className="lp__stat">
-                <span className="lp__stat-val">{s.value}</span>
-                <span className="lp__stat-label">{s.label}</span>
-              </div>
-            ))}
-          </div>
-
-        </div>
-        <div className={`lp__scroll-cue${showChevron ? ' lp__scroll-cue--on' : ''}`} onClick={e => handleScrollTo(e, 'demo')} style={{ cursor: 'pointer' }}>
-          <ChevronDown size={17} />
-        </div>
-        <div className="lp__hero-fade" />
-      </section>
-
-      {/* HOW IT WORKS */}
-      <section className="lp__section lp__how">
-        <div className="lp__container">
-          <Reveal>
-            <div className="lp__sect-head lp__sect-head--center">
-              <div className="lp__label">How it works</div>
-              <h2 className="lp__sect-title">From idea to live app in seconds</h2>
-              <p className="lp__sect-sub">The full pipeline is autonomous — you only write the prompt.</p>
-            </div>
-          </Reveal>
-          <div className="how-steps">
-            {[
-              { icon: MessageSquare, n: '01', title: 'Describe',          color: '#FFB347', desc: 'Type a plain-English prompt. Scaffold a React component, a full-stack API, a state machine — anything.' },
-              { icon: Cpu,           n: '02', title: 'Orchestrate & Heal', color: '#4F46E5', desc: 'The 4-agent chain plans, writes, executes and automatically patches every compiler error in a K8s sandbox.' },
-              { icon: Rocket,        n: '03', title: 'Preview & Export',   color: '#D97B0C', desc: 'Preview live in a browser iframe, shell into the terminal, or export as ZIP / push to GitHub.' },
-            ].map((s, i) => { const Icon = s.icon; return (
-              <Reveal key={i} delay={i * 80}>
-                <div className="how-card" style={{ '--c': s.color }}>
-                  <div className="how-card__num">STEP {s.n}</div>
-                  <div className="how-card__icon"><Icon size={22} /></div>
-                  <h3 className="how-card__title">{s.title}</h3>
-                  <p className="how-card__desc">{s.desc}</p>
-                </div>
-              </Reveal>
-            ); })}
-          </div>
-        </div>
-      </section>
-
-      {/* DEMO */}
-      <section id="demo" className="lp__section lp__demo">
-        <div className="lp__container">
-          <Reveal>
-            <div className="lp__sect-head">
-              <div className="lp__label"><MousePointerClick size={10} /> Interactive Demo</div>
-              <h2 className="lp__sect-title">Type what you want. Watch it build.</h2>
-              <p className="lp__sect-sub">Pick a template or write your own prompt and run the 4-agent pipeline live.</p>
-            </div>
-          </Reveal>
-          <Reveal delay={60}>
-            <div className={`demo-shell${demoState === 'running' ? ' demo-shell--running' : ''}`}>
-              <div className="demo-left">
-                <div className="demo-left__top"><span className="demo-left__label">Your prompt</span></div>
-                <textarea className="demo-textarea" value={promptText} onChange={e => setPromptText(e.target.value)} rows={4} placeholder="Describe what you want to build..." spellCheck={false} />
-                <div className="demo-chips">
-                  {PROMPTS.map((p, i) => (
-                    <button key={i} className={`demo-chip${promptText === p ? ' demo-chip--active' : ''}`} onClick={() => { setPromptText(p); resetDemo(); }}>
-                      {p.replace('Build a ', '')}
-                    </button>
-                  ))}
-                </div>
-                <div className="demo-actions">
-                  <button className="btn btn--primary btn--sm" onClick={runDemo} disabled={demoState === 'running'}>
-                    {demoState === 'running' ? <><RotateCw size={11} className="spin" /> Running...</> : <><Play size={11} /> Run pipeline</>}
-                  </button>
-                  {demoState !== 'idle' && <button className="btn btn--ghost btn--sm" onClick={resetDemo}><X size={11} /> Reset</button>}
-                </div>
-              </div>
-              <div className="demo-right">
-                <div className="demo-right__bar">
-                  <div className="demo-dots"><span /><span /><span /></div>
-                  <span className="demo-path"><TerminalSquare size={10} color="#EA580C" /> langgraph://orchestrator.trace</span>
-                  <span className="demo-status">
-                    {demoState === 'running' && <span className="demo-streaming">STREAMING</span>}
-                    {demoState === 'done'    && <span className="demo-done">DONE</span>}
-                    {demoState === 'idle'    && <span className="demo-idle">READY</span>}
-                  </span>
-                </div>
-                <div ref={consoleBodyRef} className="demo-right__body">
-                  {demoLogs.length === 0 && demoState === 'idle' && (
-                    <div className="demo-empty"><Play size={20} strokeWidth={1.5} /><span>Run the pipeline to see the agent trace</span></div>
-                  )}
-                  {demoLogs.map((l, i) => l && (
-                    <div key={i} className={`demo-line ${l.cls || ''}`}>
-                      <span className="demo-ln">{String(i + 1).padStart(2, '0')}</span>
-                      <span>{l.text || ''}</span>
-                    </div>
-                  ))}
-                  {demoState === 'done' && (
-                    <div className="demo-success-bar">
-                      <CheckCircle size={13} /> App compiled · sandbox live · <a href="#login" onClick={handleCtaClick} style={{ color: 'inherit', textDecoration: 'underline', fontWeight: 'bold' }}>Open workspace to start coding</a>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          </Reveal>
-        </div>
-      </section>
-
-      {/* PIPELINE */}
-      <section id="pipeline" className="lp__section lp__pipeline">
-        <div className="lp__container">
-          <Reveal>
-            <div className="lp__sect-head">
-              <div className="lp__label">Multi-Agent Architecture</div>
-              <h2 className="lp__sect-title">4-layer LangGraph agent pipeline</h2>
-              <p className="lp__sect-sub">Click a layer to inspect its live execution trace and auto-generated code diff.</p>
-            </div>
-          </Reveal>
-          <div className="pipe-tabs">
-            {AGENTS.map(a => { const Icon = a.icon; const active = activeAgent === a.id; return (
-              <button key={a.id} className={`pipe-tab${active ? ' pipe-tab--active' : ''}`} style={{ '--c': a.color }} onClick={() => setActiveAgent(a.id)}>
-                <span className="pipe-tab__step">{a.tag}</span>
-                <Icon size={15} />
-                <span className="pipe-tab__name">{a.name}</span>
-              </button>
-            ); })}
-          </div>
-          <div className="pipe-panel">
-            <div className="pipe-info">
-              <div className="pipe-info__tag" style={{ color: agent.color }}>{agent.tag} · {agent.name}</div>
-              <h3 className="pipe-info__headline">{agent.headline}</h3>
-              <p className="pipe-info__desc">{agent.desc}</p>
-              <div className="pipe-info__chip">
-                <span className="pipe-info__dot" style={{ background: agent.color }} />
-                {agent.id === 'healer' ? 'Self-healing active' : 'Status: operational'}
-              </div>
-            </div>
-            <div className="pipe-console">
-              <div className="pipe-console__bar">
-                <div className="pipe-dots"><span /><span /><span /></div>
-                <span className="pipe-console__path"><TerminalSquare size={10} color={agent.color} /> agent://{agent.id}.log</span>
-                <span className="pipe-console__live" style={{ color: agent.color }}>LIVE</span>
-              </div>
-              <div className="pipe-console__body">
-                {agent.logs.map((l, i) => (
-                  <div key={i} className={`pipe-line ${l.cls}`}>
-                    <span className="pipe-ln">[{String(i + 1).padStart(2, '0')}]</span>
-                    <span>{l.text}</span>
-                  </div>
-                ))}
-                {agent.showDiff && (
-                  <div className="diff-grid">
-                    <div className="diff-half">
-                      <div className="diff-head diff-head--del">BEFORE <span>line 24</span></div>
-                      <div className="diff-body">
-                        <div className="diff-line">18: import React from 'react';</div>
-                        <div className="diff-line diff-line--del">24: - import {'{'} Sparkles {'}'} from 'lucide-react';</div>
-                        <div className="diff-line">25: export default function T() {'{'}</div>
-                        <div className="diff-line diff-line--err">26:   return &lt;Cpu /&gt; <span className="diff-comment">// ReferenceError</span></div>
-                      </div>
-                    </div>
-                    <div className="diff-half">
-                      <div className="diff-head diff-head--add">AFTER <span>1.8s</span></div>
-                      <div className="diff-body">
-                        <div className="diff-line">18: import React from 'react';</div>
-                        <div className="diff-line diff-line--add">24: + import {'{'} Sparkles, Cpu {'}'} from 'lucide-react';</div>
-                        <div className="diff-line">25: export default function T() {'{'}</div>
-                        <div className="diff-line diff-line--ok">26:   return &lt;Cpu /&gt; <span className="diff-comment">// OK</span></div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* FEATURES */}
-      <section id="features" className="lp__section lp__features">
-        <div className="lp__container">
-          <Reveal>
-            <div className="lp__sect-head">
-              <div className="lp__label">Feature Set</div>
-              <h2 className="lp__sect-title">Everything inside one cloud IDE</h2>
-              <p className="lp__sect-sub">Editor, terminal, sandbox, self-healer, and GitHub export — all in one place.</p>
-            </div>
-          </Reveal>
-          <div className="feat-grid">
-            {FEATURES.map((f, i) => { const Icon = f.icon; return (
-              <Reveal key={i} delay={i * 60}>
-                <div className="feat-card" style={{ '--a': f.accent }}>
-                  {f.tag && <span className="feat-card__tag">{f.tag}</span>}
-                  <div className="feat-card__icon"><Icon size={18} /></div>
-                  <h3 className="feat-card__title">{f.title}</h3>
-                  <p className="feat-card__desc">{f.desc}</p>
-                </div>
-              </Reveal>
-            ); })}
-          </div>
-        </div>
-      </section>
-
-      {/* TECH STACK MARQUEE */}
-      <section className="lp__stack">
-        <div className="lp__stack-label">Powered by</div>
-        <div className="marquee-vp">
-          <div className="marquee-track">
-            {[...TECH_STACK, ...TECH_STACK, ...TECH_STACK].map((t, i) => (
-              <span key={i} className="marquee-item"><span className="marquee-dot" />{t}</span>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* PRICING & PLANS */}
-      <section id="pricing" className="lp__section lp__pricing">
-        <div className="lp__container">
-          <Reveal>
-            <div className="lp__sect-head lp__sect-head--center">
-              <div className="lp__label">Plans &amp; Pricing</div>
-              <h2 className="lp__sect-title">Supercharge your code with Taksha AI</h2>
-              <p className="lp__sect-sub">
-                Access advanced AI coding agents, high-performance vCPU sandboxes, and dedicated token quotas.
+            <div className="lp-hero__copy">
+              <h1 className="lp-hero__title" aria-label="Describe your app. Taksha builds, tests and heals it.">
+                <span className="lp-hero__line"><SplitChars text="Describe your app." /></span>
+                <span className="lp-hero__line lp-hero__line--accent"><SplitChars text="Taksha builds, tests & heals it." /></span>
+              </h1>
+              <p className="lp-hero__sub" data-intro>
+                Write one prompt and approve the plan. Agents write the code, run it in your own cloud sandbox, and fix their own errors until the app is live.
               </p>
+              <div className="lp-hero__actions" data-intro>
+                <button type="button" onClick={handleCtaClick} className="btn btn--primary btn--lg magnetic">
+                  Start building free <ArrowRight size={15} />
+                </button>
+                <button type="button" onClick={handleWatchFilm} className="btn btn--ghost btn--lg magnetic">
+                  <Play size={15} /> Watch the film
+                </button>
+              </div>
+              <p className="lp-hero__note" data-intro>Free plan. No credit card required.</p>
             </div>
-          </Reveal>
 
-          <Reveal delay={90}>
-            <div className="lp__billing-wrap">
-              <button
-                type="button"
-                className={`lp__billing-btn ${!isYearly ? 'lp__billing-btn--active' : ''}`}
-                onClick={() => setIsYearly(false)}
-              >
-                Monthly
-              </button>
-              <button
-                type="button"
-                className={`lp__billing-btn ${isYearly ? 'lp__billing-btn--active' : ''}`}
-                onClick={() => setIsYearly(true)}
-              >
-                Annual Billing
-                <span className="lp__billing-save">Save 20%</span>
-              </button>
+            <button type="button" className="lp-hero__watch" onClick={() => setFilmSound(!soundOn)}>
+              {soundOn ? <VolumeX size={14} /> : <Volume2 size={14} />}
+              {soundOn ? 'Mute' : 'Turn sound on'}
+            </button>
+
+            <div className="lp-hero__cue" aria-hidden="true"><span /></div>
+          </section>
+        </div>
+
+        {/* PRODUCT: slides over the hero like a curtain */}
+        <section id="product" className="lp-product">
+          <div className="lp__container">
+            <header className="lp__head lp__head--center" data-rise>
+              <p className="lp__eyebrow">The real workspace</p>
+              <h2>This is where the work happens.</h2>
+            </header>
+            <div className="lp-product__stage">
+              <LandingWorkspace isLight={isLight} />
             </div>
-          </Reveal>
+            <div className="lp-facts">
+              {FACTS.map((fact, i) => {
+                const Icon = fact.icon;
+                return (
+                  <div key={fact.title} className="lp-fact" data-rise={i}>
+                    <span className="lp-fact__icon"><Icon size={16} /></span>
+                    <div>
+                      <strong>{fact.title}</strong>
+                      <span>{fact.text}</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </section>
 
-          <Reveal delay={120}>
-            <div className="pricing-grid-3d">
-              {PRICING_PLANS.map((plan) => (
-                <PricingCard3D
-                  key={plan.id}
-                  plan={plan}
-                  isYearly={isYearly}
-                  onSelectPlan={handleCtaClick}
-                />
+        {/* KINETIC STATEMENT */}
+        <section className="lp-statement">
+          <p className="lp__container">
+            {STATEMENT.split(' ').map((word, i) => (
+              <span key={`${word}-${i}`} className="split-word-plain">{word} </span>
+            ))}
+          </p>
+        </section>
+
+        {/* FORGE: pinned 3D, scroll moves through the four stages */}
+        <div id="how" className="lp-forge-track">
+          <section className="lp-forge">
+            <div className="lp-forge__stars" aria-hidden="true" />
+            <Suspense fallback={<div className="lp-forge__canvas" />}>
+              <LandingForge3D progressRef={forgeProgressRef} stage={activeStage} />
+            </Suspense>
+
+            <div className="lp-forge__layout">
+              <div className="lp-forge__copy" key={stage.id}>
+                <p className="lp__eyebrow">{stage.step} / {stage.agent}</p>
+                <h2>{stage.headline}</h2>
+                <p>{stage.desc}</p>
+              </div>
+            </div>
+
+            <ol className="lp-forge__list">
+              {STAGES.map((item) => (
+                <li key={item.id}>
+                  <p className="lp__eyebrow">{item.step} / {item.agent}</p>
+                  <h2>{item.headline}</h2>
+                  <p>{item.desc}</p>
+                </li>
+              ))}
+            </ol>
+          </section>
+        </div>
+
+        {/* STACK MARQUEE */}
+        <section className="lp-marquee" aria-label="Built on">
+          <div className="lp-marquee__track">
+            {[0, 1].map((copy) => (
+              <div key={copy} className="lp-marquee__group" aria-hidden={copy === 1}>
+                {STACK.map((item) => <span key={item}>{item}</span>)}
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* FEATURES */}
+        <section id="features" className="lp__section">
+          <div className="lp__container">
+            <header className="lp__head" data-rise>
+              <p className="lp__eyebrow">Features</p>
+              <h2>A full IDE, not a chat box</h2>
+              <p>The agent does the heavy work. You keep the editor, the terminal, and the final say.</p>
+            </header>
+
+            <div className="bento">
+              <div className="bento__slot bento__slot--wide" data-rise>
+                <article className="bento__cell tilt">
+                  <h3>A real sandbox for every project</h3>
+                  <p>Your app runs in its own Kubernetes pod with a live Vite server, so the preview is the real thing.</p>
+                  <SandboxViz />
+                </article>
+              </div>
+              <div className="bento__slot" data-rise="1">
+                <article className="bento__cell tilt">
+                  <h3>You stay in control</h3>
+                  <p>Approve or reject the plan, and stop a run at any time.</p>
+                  <ReviewViz />
+                </article>
+              </div>
+              <div className="bento__slot" data-rise="0">
+                <article className="bento__cell tilt">
+                  <h3>Editor and terminal</h3>
+                  <p>Monaco and a full terminal sit right next to the agent.</p>
+                  <TerminalViz />
+                </article>
+              </div>
+              <div className="bento__slot" data-rise="1">
+                <article className="bento__cell tilt">
+                  <h3>A copilot at your side</h3>
+                  <p>Ask Clio quick questions while you work on your project.</p>
+                  <CopilotViz />
+                </article>
+              </div>
+              <div className="bento__slot" data-rise="2">
+                <article className="bento__cell tilt">
+                  <h3>Your files stay safe</h3>
+                  <p>Files sync to cloud storage and return when you restart.</p>
+                  <SyncViz />
+                </article>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* PRICING */}
+        <section id="pricing" className="lp__section">
+          <div className="lp__container">
+            <header className="lp__head lp__head--center" data-rise>
+              <p className="lp__eyebrow">Pricing</p>
+              <h2>Start free. Upgrade when you ship.</h2>
+              <p>Every plan includes the coding agent, your own workspace, and a live preview.</p>
+            </header>
+
+            <div className="plans">
+              {PLANS.map((plan, i) => (
+                <div key={plan.id} className="plans__slot" data-rise={i}>
+                  <article className={`plan tilt${plan.popular ? ' plan--popular' : ''}`}>
+                    <div className="plan__top">
+                      <h3>{plan.label}</h3>
+                      {plan.popular && <span className="plan__tag">Most popular</span>}
+                    </div>
+                    <p className="plan__desc">{plan.description}</p>
+                    <p className="plan__price"><strong>{plan.price}</strong> <span>per month</span></p>
+                    <button
+                      type="button"
+                      onClick={handleCtaClick}
+                      className={`btn btn--md ${plan.popular ? 'btn--primary' : 'btn--ghost'}`}
+                    >
+                      {plan.cta} <ArrowRight size={14} />
+                    </button>
+                    <ul>
+                      {plan.highlights.map((item) => (
+                        <li key={item}><Check size={14} /> {item}</li>
+                      ))}
+                    </ul>
+                  </article>
+                </div>
               ))}
             </div>
-          </Reveal>
-        </div>
-      </section>
+          </div>
+        </section>
 
-      {/* FAQ */}
-      <section className="lp__section lp__faq">
-        <div className="lp__container lp__container--narrow">
-          <Reveal>
-            <div className="lp__sect-head lp__sect-head--center">
-              <div className="lp__label">FAQ</div>
-              <h2 className="lp__sect-title">Common questions</h2>
+        {/* FAQ */}
+        <section id="faq" className="lp__section">
+          <div className="lp__container lp__faq">
+            <header className="lp__head" data-rise>
+              <p className="lp__eyebrow">FAQ</p>
+              <h2>Common questions</h2>
+            </header>
+            <div className="faq-list" data-rise="1">
+              {FAQ.map((item, i) => {
+                const open = openFaq === i;
+                return (
+                  <div key={item.q} className={`faq-item${open ? ' faq-item--open' : ''}`}>
+                    <button type="button" className="faq-item__q" aria-expanded={open} onClick={() => setOpenFaq(open ? null : i)}>
+                      {item.q}
+                      <ChevronDown size={16} />
+                    </button>
+                    <div className="faq-item__a"><div><p>{item.a}</p></div></div>
+                  </div>
+                );
+              })}
             </div>
-          </Reveal>
-          <div className="faq-list">
-            {FAQ.map((item, i) => { const open = openFaq === i; return (
-              <Reveal key={i} delay={i * 35}>
-                <div className={`faq-item${open ? ' faq-item--open' : ''}`}>
-                  <button className="faq-item__q" onClick={() => setOpenFaq(open ? null : i)}>
-                    <span className="faq-item__q-text"><span className="faq-q-badge">Q{i + 1}</span>{item.q}</span>
-                    <ChevronDown size={14} className={`faq-chevron${open ? ' faq-chevron--open' : ''}`} />
-                  </button>
-                  <div className="faq-item__a"><div className="faq-item__a-inner">{item.a}</div></div>
-                </div>
-              </Reveal>
-            ); })}
           </div>
-        </div>
-      </section>
+        </section>
 
-      {/* FOOTER */}
-      <footer className="lp__footer">
-        <div className="lp__footer-inner">
-          <div className="lp__footer-brand">
-            <BrandLogo height={18} variant="dark" />
-            <span className="lp__footer-copy">© {new Date().getFullYear()} Taksha CodeSpace Studio</span>
+        {/* FOOTER: the closing moment. The wordmark is forged on scroll and reacts to the cursor. */}
+        <footer className="lp-footer">
+          <div className="lp-footer__glow" aria-hidden="true" />
+          <canvas className="lp-footer__sparks" aria-hidden="true" />
+
+          <div className="lp-footer__top">
+            <div className="lp-footer__cta">
+              <h2 className="lp-kinetic" aria-label="Your next app is one prompt away.">
+                <SplitChars text="Your next app is" />{' '}
+                <span className="lp-footer__accent"><SplitChars text="one prompt" /></span>{' '}
+                <SplitChars text="away." />
+                <span className="lp-footer__caret" aria-hidden="true" />
+              </h2>
+              <button type="button" onClick={handleCtaClick} className="btn btn--primary btn--lg magnetic">
+                Start building free <ArrowRight size={15} />
+              </button>
+            </div>
+
+            <nav className="lp-footer__nav" aria-label="Footer">
+              {NAV_LINKS.map((link) => (
+                <a key={link.id} href={`#${link.id}`} onClick={(e) => handleScrollTo(e, link.id)}>{link.label}</a>
+              ))}
+            </nav>
+
+            <div className="lp-footer__nav">
+              <a href="https://www.linkedin.com/in/sahil-sharma-1a024b330/" target="_blank" rel="noreferrer"><LinkedinIcon size={15} /> LinkedIn</a>
+              <a href="https://github.com/Sahil-coder-30" target="_blank" rel="noreferrer"><GithubIcon size={15} /> GitHub</a>
+            </div>
           </div>
-          <div className="lp__footer-status">
-            <span className="pulse-dot" />
-            <span>All systems operational</span>
+
+          <div className="lp-footer__word" aria-hidden="true">
+            {[...'TAKSHA'].map((letter, i) => (
+              <span key={i} className="lp-letter">
+                <span className="lp-letter__body">
+                  <span className="lp-letter__glow">{letter}</span>
+                  <span className="lp-letter__face">{letter}</span>
+                </span>
+              </span>
+            ))}
           </div>
-          <div className="lp__footer-links">
-            <a href="https://www.linkedin.com/in/sahil-sharma-1a024b330/" target="_blank" rel="noreferrer" aria-label="LinkedIn"><LinkedinIcon size={14} /></a>
-            <a href="https://github.com/Sahil-coder-30" target="_blank" rel="noreferrer" aria-label="GitHub"><GithubIcon size={14} /></a>
-            <span className="lp__footer-by">Built by Sahil Sharma</span>
+          <div className="lp-footer__ember" aria-hidden="true" />
+
+          <div className="lp-footer__bar">
+            <span>© {new Date().getFullYear()} Taksha CodeSpace Studio</span>
+            <span>Built by Sahil Sharma</span>
           </div>
-        </div>
-      </footer>
+        </footer>
+      </div>
     </div>
   );
 }
