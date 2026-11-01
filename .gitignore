@@ -6,3 +6,4 @@
 agent-guardrails/.state/
 launch-video
 .claude
+.DS_Store
