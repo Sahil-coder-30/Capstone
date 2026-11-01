@@ -11,8 +11,16 @@ import { useLandingMotion } from '../Hooks/landing.hooks';
 
 const LandingForge3D = lazy(() => import('./LandingForge3D'));
 
-const FILM_SRC = '/video/taksha-film.mp4';
+const FILM_HD = '/video/taksha-film-hd.mp4';
+const FILM_LIGHT = '/video/taksha-film.mp4';
 const FILM_POSTER = '/video/taksha-film-poster.jpg';
+
+// Large screens get the 60fps film. Phones and slow connections keep the lighter copy.
+function pickFilm() {
+  const { saveData, effectiveType } = navigator.connection ?? {};
+  const slow = saveData || ['slow-2g', '2g', '3g'].includes(effectiveType);
+  return window.matchMedia('(min-width: 901px)').matches && !slow ? FILM_HD : FILM_LIGHT;
+}
 
 function LinkedinIcon({ size = 16 }) {
   return (
@@ -173,6 +181,7 @@ export default function LandingPage({ onNavigateToLogin }) {
   const landingRef = useRef(null);
   const contentRef = useRef(null);
   const filmRef = useRef(null);
+  const [filmSrc] = useState(pickFilm);
   const forgeProgressRef = useRef(0);
 
   const [showLoader, setShowLoader] = useState(() => {
@@ -303,7 +312,7 @@ export default function LandingPage({ onNavigateToLogin }) {
             <div className="lp-hero__bg" aria-hidden="true" />
 
             <div className="lp-hero__media">
-              <video ref={filmRef} className="lp-video" src={FILM_SRC} poster={FILM_POSTER} muted loop playsInline preload="auto" />
+              <video ref={filmRef} className="lp-video" src={filmSrc} poster={FILM_POSTER} muted loop playsInline preload="auto" />
             </div>
 
             <div className="lp-hero__copy">
