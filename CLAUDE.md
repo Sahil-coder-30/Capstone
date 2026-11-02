@@ -11,7 +11,9 @@ All rules and the short project overview live in AGENTS.md, shared by every AI a
 - `.claude/hooks/guard.mjs` checks every Bash, Read, Edit, Write, Grep and Glob call against `agent-guardrails/policy.mjs`. Normal Bash commands run without a prompt. Sensitive ones (AGENTS.md rule 2) ask for approval, even in auto mode.
 - The guard matches secret file names anywhere in a command string, even inside an exclude filter (`grep -v`, `find -not -name`). Leave those names out of commands entirely.
 - When a hook denies a call, report it to the developer. Do not retry the same thing another way.
-- Never offer to commit, push or open a PR. Say the change is ready for the developer to review and commit.
+- After every finished feature or fix, big or small, test it and make one local commit on `main` without being asked. If the work is on another branch, ask the developer before moving it to `main`.
+- Never add Claude as a contributor: no `Co-Authored-By: Claude` trailer and no Claude attribution in any commit or PR.
+- Never push or open a PR unless the developer asks.
 - Use `.env.example` files for config. Never read `.env`.
 
 ---
