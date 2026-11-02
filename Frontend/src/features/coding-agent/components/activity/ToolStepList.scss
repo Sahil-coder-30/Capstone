@@ -1,0 +1,35 @@
+@use '../../styles/orion' as *;
+
+.orion-tool-list {
+  &__toggle {
+    @include row-item;
+    padding-left: 0;
+    width: auto;
+    font-weight: 500;
+
+    &:hover { background: none; }
+  }
+
+  &__failed {
+    color: $tone-error;
+  }
+
+  &__chevron {
+    flex-shrink: 0;
+    transform: rotate(-90deg);
+    transition: transform 0.15s;
+  }
+
+  &--open &__chevron {
+    transform: none;
+  }
+
+  &__rows {
+    max-height: 240px;
+    overflow-y: auto;
+    margin: $space-1 0 0;
+    padding: 0;
+    list-style: none;
+    border-left: 2px solid var(--border);
+  }
+}

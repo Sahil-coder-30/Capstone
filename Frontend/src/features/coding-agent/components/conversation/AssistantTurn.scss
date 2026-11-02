@@ -1,0 +1,21 @@
+@use '../../styles/orion' as *;
+
+.orion-turn {
+  display: flex;
+  flex-direction: column;
+  gap: $space-2;
+  min-width: 0;
+
+  &__report {
+    min-width: 0;
+
+    > :first-child { margin-top: 0; }
+    > :last-child { margin-bottom: 0; }
+  }
+
+  &__blank {
+    margin: 0;
+    font-size: 12px;
+    color: var(--text-muted);
+  }
+}

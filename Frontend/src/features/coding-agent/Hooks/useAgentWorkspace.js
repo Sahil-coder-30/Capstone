@@ -1,0 +1,72 @@
+import { useCallback, useEffect, useRef } from 'react';
+import { useEditor } from '../../editor/Hooks/editor.hooks';
+
+const normalizePath = (path) => path.replace(/^\.\//, '').replace(/^\/workspace\//, '');
+
+/** Connects the panel to the sandbox and editor around each run. */
+export function useAgentWorkspace({
+  projectId,
+  sandboxId,
+  status,
+  isHistoryLoading,
+  sendMessage,
+  clearChatHistory,
+  onSessionReset,
+}) {
+  const { files, fetchFilesList, activeFile, isModified, fetchFileContent } = useEditor();
+  const prevSandboxIdRef = useRef(sandboxId);
+
+  // A run can last minutes, so read the editor state when it ends, not when it starts.
+  const editorStateRef = useRef({ activeFile, isModified });
+  useEffect(() => {
+    editorStateRef.current = { activeFile, isModified };
+  }, [activeFile, isModified]);
+
+  const refreshAfterRun = useCallback(() => {
+    if (!sandboxId) return;
+    fetchFilesList(sandboxId);
+    const editor = editorStateRef.current;
+    if (editor.activeFile && !editor.isModified) fetchFileContent(sandboxId, editor.activeFile, true);
+  }, [sandboxId, fetchFilesList, fetchFileContent]);
+
+  const openFile = useCallback((path) => {
+    if (sandboxId) fetchFileContent(sandboxId, normalizePath(path));
+  }, [sandboxId, fetchFileContent]);
+
+  const readFile = useCallback(async (path) => {
+    if (!sandboxId) return '';
+    try {
+      return (await fetchFileContent(sandboxId, path)) || '';
+    } catch (err) {
+      console.error('Failed to read file content for attachment:', err);
+      return '';
+    }
+  }, [sandboxId, fetchFileContent]);
+
+  // The dashboard hands over a first prompt through session storage.
+  useEffect(() => {
+    if (!projectId || status !== 'running' || isHistoryLoading) return;
+    const key = `initialPrompt_${projectId}`;
+    const initialPrompt = sessionStorage.getItem(key);
+    if (!initialPrompt) return;
+    sessionStorage.removeItem(key);
+    sendMessage(initialPrompt, refreshAfterRun);
+  }, [projectId, status, isHistoryLoading, sendMessage, refreshAfterRun]);
+
+  useEffect(() => {
+    if (status === 'running' && sandboxId) fetchFilesList(sandboxId);
+  }, [status, sandboxId, fetchFilesList]);
+
+  useEffect(() => {
+    const prev = prevSandboxIdRef.current;
+    if (prev && sandboxId && prev !== sandboxId) {
+      clearChatHistory();
+      onSessionReset();
+    }
+    prevSandboxIdRef.current = sandboxId;
+    // Runs only on a sandbox change. The callbacks change with projectId, which must not clear history.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sandboxId]);
+
+  return { files, openFile, readFile, refreshAfterRun };
+}

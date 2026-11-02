@@ -1,0 +1,12 @@
+@use '../../styles/orion' as *;
+
+.orion-messages {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: $space-6;
+  min-height: 0;
+  padding: $space-4 $space-3;
+  overflow-x: hidden;
+  overflow-y: auto;
+}

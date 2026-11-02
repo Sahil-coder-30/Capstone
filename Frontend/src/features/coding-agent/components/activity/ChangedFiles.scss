@@ -1,0 +1,45 @@
+@use '../../styles/orion' as *;
+
+.orion-changed {
+  border: 1px solid var(--border);
+  border-radius: $radius-sm;
+  overflow: hidden;
+
+  &__title {
+    margin: 0;
+    padding: 6px $space-2;
+    border-bottom: 1px solid var(--border);
+    font-size: $font-meta;
+    font-weight: 500;
+    color: var(--text-muted);
+  }
+
+  &__list {
+    margin: 0;
+    padding: 2px;
+    list-style: none;
+  }
+
+  &__row {
+    @include row-item;
+
+    &:disabled {
+      cursor: default;
+      background: none;
+    }
+  }
+
+  &__path {
+    @include truncate;
+    @include mono-text;
+    flex: 1;
+    color: var(--text-secondary);
+  }
+
+  &__tag {
+    @include pill-tag;
+
+    &--create { color: $tone-success; }
+    &--delete { color: $tone-error; }
+  }
+}

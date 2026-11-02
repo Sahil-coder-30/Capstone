@@ -1,0 +1,23 @@
+@use '../../styles/orion' as *;
+
+.orion-status-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 14px;
+  height: 14px;
+  color: var(--text-muted);
+
+  &--running { color: var(--brand-primary); }
+  &--success { color: $tone-success; }
+  &--warning { color: $tone-warning; }
+  &--error { color: $tone-error; }
+
+  &__dot {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: var(--border-strong);
+  }
+}

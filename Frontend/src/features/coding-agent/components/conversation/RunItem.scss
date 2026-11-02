@@ -1,0 +1,49 @@
+@use '../../styles/orion' as *;
+
+.orion-run {
+  display: flex;
+  align-items: flex-start;
+  gap: $space-2;
+  min-width: 0;
+
+  &--selectable {
+    margin: (-$space-2);
+    padding: $space-2;
+    border-radius: $radius-md;
+    cursor: pointer;
+
+    &:hover { background: $color-bg-card; }
+  }
+
+  &--selected {
+    background: $color-bg-card-hover;
+  }
+
+  &__checkbox {
+    @include unstyled-button;
+    @include focus-ring;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 16px;
+    height: 16px;
+    margin-top: 2px;
+    border: 1px solid var(--border-strong);
+    border-radius: 4px;
+    color: #fff;
+  }
+
+  &--selected &__checkbox {
+    background: var(--brand-primary);
+    border-color: var(--brand-primary);
+  }
+
+  &__body {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: $space-3;
+    min-width: 0;
+  }
+}

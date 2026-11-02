@@ -1,0 +1,27 @@
+@use '../../styles/orion' as *;
+
+.orion-tool-step {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  padding: 2px $space-2;
+  font-size: 12px;
+  color: var(--text-muted);
+
+  &--link {
+    @include row-item;
+    gap: 6px;
+    padding: 2px $space-2;
+  }
+
+  &__verb {
+    flex-shrink: 0;
+  }
+
+  &__target {
+    @include truncate;
+    @include mono-text;
+    color: var(--text-secondary);
+  }
+}

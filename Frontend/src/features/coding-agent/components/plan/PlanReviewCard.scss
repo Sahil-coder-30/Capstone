@@ -1,0 +1,103 @@
+@use '../../styles/orion' as *;
+
+.orion-plan-card {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  gap: $space-2;
+  max-height: 60%;
+  min-height: 0;
+  margin: 0 $space-3 $space-2;
+  padding: $space-3;
+  border: 1px solid var(--border-strong);
+  border-radius: $radius-md;
+  background: var(--bg-overlay);
+
+  &__header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: $space-1 $space-2;
+  }
+
+  &__title {
+    margin: 0;
+    font-size: $font-body;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+
+  &__meta {
+    font-size: $font-meta;
+    color: var(--text-muted);
+  }
+
+  &__scroll {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: $space-2;
+    min-height: 0;
+    overflow-y: auto;
+  }
+
+  &__summary {
+    margin: 0;
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--text-secondary);
+    overflow-wrap: anywhere;
+  }
+
+  &__steps {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  &__feedback {
+    display: flex;
+    flex-direction: column;
+    gap: $space-2;
+  }
+
+  &__textarea {
+    @include focus-ring;
+    width: 100%;
+    box-sizing: border-box;
+    padding: $space-2;
+    border: 1px solid var(--border);
+    border-radius: $radius-sm;
+    background: var(--bg-element);
+    color: var(--text-primary);
+    font: inherit;
+    font-size: 12px;
+    resize: vertical;
+
+    &::placeholder { color: var(--text-muted); }
+  }
+
+  &__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: $space-2;
+  }
+
+  &__primary {
+    @include action-button;
+  }
+
+  &__ghost {
+    @include action-button($ghost: true);
+  }
+
+  &__kbd {
+    font-family: inherit;
+    font-size: 10px;
+    opacity: 0.75;
+  }
+
+  @container (max-width: 240px) {
+    &__kbd { display: none; }
+  }
+}

@@ -1,0 +1,74 @@
+@use '../../styles/orion' as *;
+
+.orion-header {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  gap: $space-2;
+  height: 38px;
+  padding: 0 $space-2 0 $space-3;
+  border-bottom: 1px solid var(--border);
+
+  &__title {
+    margin: 0;
+    font-size: $font-body;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+
+  &__state {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: $font-meta;
+    color: var(--text-muted);
+  }
+
+  &__dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--success);
+  }
+
+  &__state--working &__dot {
+    background: var(--brand-primary);
+    animation: dashPulse 1.6s ease-in-out infinite;
+  }
+
+  &__state--waiting &__dot { background: var(--warning); }
+  &__state--offline &__dot { background: var(--border-strong); }
+
+  &__count {
+    flex-shrink: 0;
+    font-size: 12px;
+    color: var(--text-secondary);
+    white-space: nowrap;
+  }
+
+  &__link {
+    @include unstyled-button;
+    @include focus-ring;
+    flex-shrink: 0;
+    font-size: 12px;
+    color: var(--text-muted);
+    white-space: nowrap;
+
+    &:hover { color: var(--text-primary); }
+  }
+
+  &__actions {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    margin-left: auto;
+  }
+
+  &__delete:not(:disabled) {
+    color: $tone-error;
+  }
+
+  @container (max-width: 240px) {
+    &__state { display: none; }
+  }
+}

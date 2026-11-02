@@ -1,0 +1,73 @@
+@use '../../styles/orion' as *;
+
+.orion-composer {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  gap: $space-2;
+  padding: 0 $space-3 $space-3;
+
+  &__box {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: $space-1;
+    padding: $space-2;
+    border: 1px solid var(--border);
+    border-radius: $radius-md;
+    background: var(--bg-element);
+    transition: border-color 0.12s;
+
+    &:focus-within {
+      border-color: var(--border-strong);
+    }
+  }
+
+  &__input {
+    display: block;
+    width: 100%;
+    max-height: 160px;
+    padding: 2px $space-1;
+    box-sizing: border-box;
+    border: none;
+    outline: none;
+    resize: none;
+    overflow-y: auto;
+    background: none;
+    color: var(--text-primary);
+    font-family: var(--font-sans);
+    font-size: $font-body;
+    line-height: 1.5;
+
+    &::placeholder { color: var(--text-muted); }
+    &:disabled { cursor: not-allowed; }
+  }
+
+  &__toolbar {
+    display: flex;
+    align-items: center;
+    gap: $space-1;
+  }
+
+  &__hint {
+    @include truncate;
+    flex: 1;
+    font-size: $font-meta;
+    color: var(--text-muted);
+  }
+
+  &__action {
+    margin-left: auto;
+    color: var(--text-primary);
+
+    &--send:not(:disabled) {
+      background: var(--brand-primary);
+      color: #fff;
+
+      &:hover {
+        background: var(--brand-hover);
+        color: #fff;
+      }
+    }
+  }
+}

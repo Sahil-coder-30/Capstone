@@ -1,0 +1,33 @@
+@use '../../styles/orion' as *;
+
+.orion-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: $space-2;
+  padding: $space-2 $space-3;
+  border-radius: $radius-sm;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-muted);
+  background: $color-bg-card;
+
+  &--error {
+    color: $tone-error;
+    background: var(--error-bg);
+  }
+
+  &--warning {
+    color: $tone-warning;
+    background: var(--warning-bg);
+  }
+
+  &__icon {
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+
+  &__text {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+}

@@ -1,0 +1,117 @@
+// Shared tokens and mixins for the Orion panel. This file emits no CSS, so any
+// component can @use it without adding bytes.
+
+@forward '../../../styles/tokens';
+@use '../../../styles/tokens' as *;
+
+// Status text needs the darker light-theme value where one exists.
+$tone-success: var(--success-text, var(--success));
+$tone-warning: var(--warning-text, var(--warning));
+$tone-error: var(--error-text, var(--error));
+
+$radius-sm: 6px;
+$radius-md: 10px;
+$font-meta: 11px;
+$font-body: 13px;
+
+@mixin focus-ring {
+  &:focus-visible {
+    outline: 2px solid var(--brand-primary);
+    outline-offset: 1px;
+  }
+}
+
+@mixin truncate {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@mixin unstyled-button {
+  appearance: none;
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+// One clickable line in a list.
+@mixin row-item {
+  @include unstyled-button;
+  @include focus-ring;
+  display: flex;
+  align-items: center;
+  gap: $space-2;
+  width: 100%;
+  min-width: 0;
+  padding: $space-1 $space-2;
+  border-radius: $radius-sm;
+  font-size: 12px;
+  color: var(--text-muted);
+  transition: background-color 0.12s, color 0.12s;
+
+  &:hover {
+    background: $color-bg-card-hover;
+    color: var(--text-secondary);
+  }
+}
+
+@mixin pill-tag {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  padding: 1px $space-2;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: 10px;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+@mixin mono-text {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+}
+
+// Filled action button with a ghost variant through $ghost.
+@mixin action-button($ghost: false) {
+  @include unstyled-button;
+  @include focus-ring;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 6px $space-3;
+  border-radius: $radius-sm;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+  transition: background-color 0.12s, border-color 0.12s, color 0.12s;
+
+  @if $ghost {
+    border: 1px solid var(--border);
+    color: var(--text-secondary);
+
+    &:hover:not(:disabled) {
+      background: $color-bg-card-hover;
+      border-color: var(--border-strong);
+    }
+  } @else {
+    background: var(--brand-primary);
+    color: #fff;
+
+    &:hover:not(:disabled) {
+      background: var(--brand-hover);
+    }
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}

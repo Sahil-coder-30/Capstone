@@ -1,0 +1,26 @@
+@use '../../styles/orion' as *;
+
+.orion-user-message {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+
+  &__bubble {
+    max-width: 88%;
+    margin: 0;
+    padding: $space-2 $space-3;
+    border-radius: $radius-md;
+    background: $color-bg-card-hover;
+    font-size: $font-body;
+    line-height: 1.5;
+    color: var(--text-primary);
+    overflow-wrap: anywhere;
+    white-space: pre-wrap;
+  }
+
+  &__time {
+    font-size: 10px;
+    color: var(--text-muted);
+  }
+}

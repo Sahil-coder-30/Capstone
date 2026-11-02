@@ -114,8 +114,3 @@ $bp-tablet: 1024px;
   animation: shimmer 1.5s infinite linear;
   border-radius: 6px;
 }
-
-@keyframes shimmer {
-  0%   { background-position: 200% 0; }
-  100% { background-position: -200% 0; }
-}

@@ -1,0 +1,200 @@
+// Base styles for the shared markdown renderer (Markdown.jsx).
+// Orion and Clio both render this output. The `ai-chat__` class names are kept
+// because Clio's AppAgentFloat.scss overrides them inside its own bubble.
+
+.ai-chat__code-block {
+  margin: 10px 0;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  overflow: hidden;
+  min-width: 0;
+  max-width: 100%;
+  width: 100%;
+  box-sizing: border-box;
+
+  &-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 5px 12px;
+    background: var(--bg-panel);
+    border-bottom: 1px solid var(--border);
+    min-width: 0;
+  }
+
+  &-lang {
+    font-size: 10.5px;
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &-copy {
+    background: none;
+    border: none;
+    color: var(--text-dark);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 10.5px;
+    transition: color 0.2s;
+    padding: 0;
+
+    &:hover { color: var(--text-main); }
+
+    &--copied { color: var(--brand-primary); }
+  }
+
+  pre {
+    margin: 0;
+    padding: 12px;
+    background: var(--bg-main);
+    overflow-x: auto;
+    max-width: 100%;
+    box-sizing: border-box;
+    font-size: 12px;
+    line-height: 1.6;
+    font-family: var(--font-mono);
+    color: var(--text-main);
+  }
+}
+
+.ai-chat__inline-code {
+  background: var(--bg-active);
+  border: 1px solid var(--border);
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: var(--brand-hover);
+  overflow-wrap: anywhere;
+}
+
+.ai-chat__markdown-bold {
+  color: #fff;
+  font-weight: 700;
+}
+
+.ai-chat__markdown-italic {
+  font-style: italic;
+}
+
+.ai-chat__markdown-link {
+  color: var(--accent-hover);
+  text-decoration: none;
+  border-bottom: 1px dashed rgba(165, 180, 252, 0.4);
+  transition: all 0.15s;
+
+  &:hover {
+    color: var(--accent-primary);
+    border-bottom-color: var(--accent-primary);
+  }
+}
+
+.ai-chat__markdown-h1 {
+  font-size: 16px;
+  font-weight: 700;
+  margin: 14px 0 8px;
+  color: #fff;
+}
+
+.ai-chat__markdown-h2 {
+  font-size: 14px;
+  font-weight: 600;
+  margin: 12px 0 6px;
+  color: #fff;
+}
+
+.ai-chat__markdown-h3 {
+  font-size: 12.5px;
+  font-weight: 600;
+  margin: 10px 0 4px;
+  color: #fff;
+}
+
+.ai-chat__markdown-p {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin: 0 0 8px;
+  line-height: 1.6;
+  overflow-wrap: break-word;
+}
+
+.ai-chat__markdown-ul,
+.ai-chat__markdown-ol {
+  margin: 0 0 10px 16px;
+  padding: 0;
+}
+
+.ai-chat__markdown-ul {
+  list-style-type: disc;
+}
+
+.ai-chat__markdown-ol {
+  list-style-type: decimal;
+}
+
+.ai-chat__markdown-li {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-bottom: 4px;
+  line-height: 1.6;
+  overflow-wrap: break-word;
+}
+
+// Light theme values are forced because Clio's scoped dark-bubble rules are more
+// specific. These match what both panels showed before this file existed.
+:root.light-theme {
+  .ai-chat__code-block {
+    border-color: #cbd5e1 !important;
+
+    &-header {
+      background: #f1f5f9 !important;
+      border-bottom: 1px solid #e4e4e7 !important;
+    }
+
+    &-lang {
+      color: #52525b !important;
+    }
+
+    &-copy {
+      color: #64748b !important;
+      &:hover { color: #0f0f12 !important; }
+    }
+
+    pre {
+      background: #f8fafc !important;
+      color: #0f0f12 !important;
+    }
+  }
+
+  .ai-chat__inline-code {
+    background: #ecfdf5 !important;
+    border-color: #a7f3d0 !important;
+    color: #9a3412 !important;
+  }
+
+  .ai-chat__markdown-bold {
+    color: #0f0f12 !important;
+    font-weight: 700;
+  }
+
+  .ai-chat__markdown-link {
+    color: #c2410c !important;
+    text-decoration: underline;
+  }
+
+  .ai-chat__markdown-p,
+  .ai-chat__markdown-li {
+    color: #334155 !important;
+  }
+
+  .ai-chat__markdown-h1,
+  .ai-chat__markdown-h2,
+  .ai-chat__markdown-h3 {
+    color: #0f0f12 !important;
+  }
+}

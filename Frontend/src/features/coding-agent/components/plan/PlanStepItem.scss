@@ -1,0 +1,98 @@
+@use '../../styles/orion' as *;
+
+.orion-plan-step {
+  &__row {
+    @include row-item;
+    color: var(--text-secondary);
+  }
+
+  &__number {
+    flex-shrink: 0;
+    width: 14px;
+    font-size: $font-meta;
+    color: var(--text-muted);
+    text-align: right;
+  }
+
+  &__title {
+    @include truncate;
+    flex: 1;
+  }
+
+  &--open &__title {
+    overflow-wrap: anywhere;
+    white-space: normal;
+  }
+
+  &__action {
+    @include pill-tag;
+  }
+
+  &__risk {
+    flex-shrink: 0;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--border-strong);
+
+    &--medium { background: var(--warning); }
+    &--high { background: var(--error); }
+  }
+
+  &__chevron {
+    flex-shrink: 0;
+    color: var(--text-muted);
+    transform: rotate(-90deg);
+    transition: transform 0.15s;
+  }
+
+  &--open &__chevron {
+    transform: none;
+  }
+
+  &__details {
+    display: flex;
+    flex-direction: column;
+    gap: $space-2;
+    padding: $space-1 $space-2 $space-2 28px;
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--text-muted);
+  }
+
+  &__description {
+    margin: 0;
+    overflow-wrap: anywhere;
+  }
+
+  &__files {
+    display: flex;
+    flex-wrap: wrap;
+    gap: $space-1;
+  }
+
+  &__file {
+    @include unstyled-button;
+    @include focus-ring;
+    @include mono-text;
+    max-width: 100%;
+    padding: 1px 6px;
+    border-radius: 4px;
+    background: $color-bg-card-hover;
+    color: var(--text-secondary);
+    overflow-wrap: anywhere;
+
+    &:hover { color: var(--text-primary); }
+  }
+
+  &__criteria {
+    margin: 0;
+    padding-left: $space-4;
+    list-style: disc;
+  }
+
+  // The title matters more than the tag when the panel is narrow.
+  @container (max-width: 300px) {
+    &__action { display: none; }
+  }
+}

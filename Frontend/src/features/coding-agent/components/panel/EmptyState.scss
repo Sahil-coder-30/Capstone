@@ -1,0 +1,44 @@
+@use '../../styles/orion' as *;
+
+.orion-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: $space-3;
+  margin: auto 0;
+  padding: $space-4 $space-2;
+  text-align: center;
+
+  &__text {
+    max-width: 280px;
+    margin: 0;
+    font-size: $font-body;
+    line-height: 1.5;
+    color: var(--text-muted);
+  }
+
+  &__prompts {
+    display: flex;
+    flex-direction: column;
+    gap: $space-1;
+    width: 100%;
+    max-width: 320px;
+  }
+
+  &__prompt {
+    @include unstyled-button;
+    @include focus-ring;
+    padding: 6px $space-3;
+    border: 1px solid var(--border);
+    border-radius: $radius-sm;
+    font-size: 12px;
+    line-height: 1.4;
+    color: var(--text-secondary);
+    transition: background-color 0.12s, border-color 0.12s;
+
+    &:hover {
+      background: $color-bg-card-hover;
+      border-color: var(--border-strong);
+    }
+  }
+}

@@ -16,7 +16,7 @@ import {
 } from './components/LazyFallback';
 
 // ── Lazy-loaded domain components to eliminate monolithic bundle bloat ──
-const AIChat = lazy(() => import('./features/coding-agent/components/AIChat'));
+const AIChat = lazy(() => import('./features/coding-agent/components/panel/AIChat'));
 const AppAgentFloat = lazy(() => import('./features/copilot/components/AppAgentFloat'));
 const FileExplorer = lazy(() => import('./features/editor/components/FileExplorer'));
 const CodeEditor = lazy(() => import('./features/editor/components/CodeEditor'));
@@ -273,7 +273,7 @@ export default function App() {
       import('./features/editor/components/CodeEditor');
       import('./features/editor/components/TerminalShell');
       import('./features/editor/components/FileExplorer');
-      import('./features/coding-agent/components/AIChat');
+      import('./features/coding-agent/components/panel/AIChat');
       import('./features/copilot/components/AppAgentFloat');
       if (isAuthenticated) {
         import('./features/settings/components/SettingsPage');

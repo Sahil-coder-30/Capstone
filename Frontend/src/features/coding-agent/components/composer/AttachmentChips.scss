@@ -1,0 +1,36 @@
+@use '../../styles/orion' as *;
+
+.orion-attachments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: $space-1;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+
+  &__chip {
+    display: inline-flex;
+    align-items: center;
+    gap: $space-1;
+    max-width: 100%;
+    padding: 2px $space-1 2px 6px;
+    border-radius: $radius-sm;
+    background: $color-bg-card-hover;
+    font-size: $font-meta;
+    color: var(--text-secondary);
+  }
+
+  &__name {
+    @include truncate;
+  }
+
+  &__remove {
+    @include unstyled-button;
+    @include focus-ring;
+    display: inline-flex;
+    flex-shrink: 0;
+    color: var(--text-muted);
+
+    &:hover { color: var(--text-primary); }
+  }
+}

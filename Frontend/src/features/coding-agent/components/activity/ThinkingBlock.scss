@@ -1,0 +1,64 @@
+@use '../../styles/orion' as *;
+
+.orion-thinking {
+  font-size: 12px;
+  color: var(--text-muted);
+
+  &__toggle {
+    @include row-item;
+    padding-left: 0;
+
+    &:hover { background: none; }
+  }
+
+  &__label {
+    flex-shrink: 0;
+    font-weight: 500;
+  }
+
+  &__preview {
+    @include truncate;
+    flex: 1;
+    opacity: 0.75;
+  }
+
+  &__chevron {
+    flex-shrink: 0;
+    margin-left: auto;
+    transform: rotate(-90deg);
+    transition: transform 0.15s;
+  }
+
+  &--open &__chevron {
+    transform: none;
+  }
+
+  &__body {
+    max-height: 220px;
+    overflow-y: auto;
+    margin-top: $space-1;
+    padding-left: $space-3;
+    border-left: 2px solid var(--border);
+    line-height: 1.6;
+  }
+
+  &__para {
+    margin: 0 0 $space-2;
+    overflow-wrap: anywhere;
+    white-space: pre-wrap;
+
+    &:last-child { margin-bottom: 0; }
+
+    .ai-chat__inline-code { font-size: 11px; }
+  }
+
+  &__status {
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
+    margin-bottom: $space-2;
+    color: var(--text-secondary);
+
+    &:last-child { margin-bottom: 0; }
+  }
+}

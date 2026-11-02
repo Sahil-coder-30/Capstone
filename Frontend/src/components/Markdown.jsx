@@ -1,5 +1,6 @@
 
 import { Check, Copy } from 'lucide-react';
+import './Markdown.scss';
 
 // ─── Inline markdown formatter ──────────────────────────────────────────────
 export const formatInline = (line) => {

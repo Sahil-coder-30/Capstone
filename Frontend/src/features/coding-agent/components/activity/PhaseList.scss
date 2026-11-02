@@ -1,0 +1,39 @@
+@use '../../styles/orion' as *;
+
+.orion-phases {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+
+  &__item {
+    display: flex;
+    align-items: flex-start;
+    gap: $space-2;
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--text-muted);
+
+    &--running { color: var(--text-primary); }
+    &--success { color: var(--text-secondary); }
+    &--skipped { opacity: 0.7; }
+  }
+
+  &__copy {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+
+  &__name {
+    overflow-wrap: anywhere;
+  }
+
+  &__detail {
+    font-size: $font-meta;
+    color: var(--text-muted);
+    overflow-wrap: anywhere;
+  }
+}
