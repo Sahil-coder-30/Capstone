@@ -12,9 +12,9 @@ import { BaseChatModel } from "@langchain/core/language_models/chat_models";
 import { AIMessageChunk } from "@langchain/core/messages";
 import { ChatGenerationChunk } from "@langchain/core/outputs";
 
-process.env.MISTRALAI_API_KEY ||= "offline-test-key";
+process.env.NVIDIA_API_KEY ||= "offline-test-key";
 
-const { setModelsForTesting } = await import("../src/agent/model.js");
+const { setModelsForTesting } = await import("../src/agent/llm/model.js");
 const ChatMessage = (await import("../src/models/ChatMessage.model.js")).default;
 const service = await import("../src/services/agentRun.service.js");
 
@@ -57,9 +57,13 @@ class ScriptedModel extends BaseChatModel {
     return { generations: [{ text: String(message.content), message }] };
   }
 
-  async *_streamResponseChunks() {
+  // Real providers report each chunk to the run manager; that is what
+  // turns into on_chat_model_stream events.
+  async *_streamResponseChunks(_messages, _options, runManager) {
     const message = this.nextChunk();
-    yield new ChatGenerationChunk({ text: String(message.content), message });
+    const chunk = new ChatGenerationChunk({ text: String(message.content), message });
+    yield chunk;
+    await runManager?.handleLLMNewToken(chunk.text, undefined, undefined, undefined, undefined, { chunk });
   }
 }
 
@@ -215,4 +219,38 @@ test("coding run streams, pauses for plan review, resumes and finishes honestly"
   assert.equal(saved.at(-1).role, "assistant");
   assert.match(saved.at(-1).content, /Hello component/);
   assert.equal(sub.res.writableEnded, true, "the stream closes after agent:done");
+});
+
+test("a step that changed nothing is retried once with the reason, then finishes", async () => {
+  const retryScript = [
+    { content: "new_feature" },                                                   // router
+    { content: "App.jsx is the root." },                                          // planner inspection
+    { toolCalls: [{ name: "implementation_plan", args: PLAN }] },                 // plan
+    { content: "STATUS: done\nSUMMARY: Everything is already there." },          // coder attempt 1 claims done, wrote nothing
+    { toolCalls: [{ name: "create_file", args: { files: [{ file: "src/Hello.jsx", content: "export default function Hello() { return null; }\n" }] } }] },
+    { content: "STATUS: done\nSUMMARY: Created src/Hello.jsx." },                // coder attempt 2
+    { toolCalls: [{ name: "acceptance_review", args: { pass: true, unmet: [], notes: "ok" } }] },
+    { content: "Added Hello." },                                                  // finalizer
+  ];
+  const model = new ScriptedModel(retryScript);
+  setModelsForTesting(model, model);
+
+  const sub = createSubscriber();
+  const run = await service.startRun({
+    user: { id: "user2" },
+    authToken: "token",
+    projectId: "proj2",
+    sandboxId: "sbx-2",
+    task: "Add a Hello component",
+    autoApprovePlan: true,
+  });
+  service.attachSubscriber(run, sub.req, sub.res, 0);
+  await sub.waitFor("agent:done");
+
+  const steps = sub.events.filter((e) => e.event === "agent:step").map((e) => e.data);
+  assert.equal(steps.length, 1, "only the final attempt is reported");
+  assert.equal(steps[0].status, "done");
+  assert.ok(sub.events.some((e) => e.event === "agent:tool_start" && e.data.toolName === "create_file"), "tool calls stream to the UI");
+  assert.equal(sub.events.find((e) => e.event === "agent:final").data.outcome, "complete");
+  assert.equal(model.calls, retryScript.length);
 });

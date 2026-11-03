@@ -1,39 +1,27 @@
 // planReview.node.js
-// Human-in-the-loop gate. Pauses the graph with interrupt() and waits for
-// the user to approve or reject the plan. The run is resumed with
+// Human-in-the-loop gate. interrupt() pauses the graph until the user
+// approves or rejects the plan; the run resumes with
 //   new Command({ resume: { approved: true } })
 //   new Command({ resume: { approved: false, feedback: "..." } })
-//
-// interrupt() re-runs this node from the top on resume, so the node does
-// nothing before the interrupt call except read state.
+// On resume LangGraph re-runs this node from the top, so nothing before
+// interrupt() may have side effects.
 
 import { interrupt } from "@langchain/langgraph";
 
 export function planReviewNode(state) {
   if (state.autoApprovePlan) {
-    return {
-      planApproved: true,
-      planFeedback: "",
-      lastNodeInvoked: "plan_review",
-      currentSituation: "Plan auto-approved. Starting implementation.",
-    };
+    return { planApproved: true, planFeedback: "", currentSituation: "Plan auto-approved. Starting implementation." };
   }
 
   const decision = interrupt({
     type: "plan_review",
     plan: state.plan,
     taskSubType: state.taskSubType,
-    warnings: state.planWarnings || [],
+    warnings: state.planWarnings,
   });
 
   if (decision?.approved) {
-    return {
-      planApproved: true,
-      planFeedback: "",
-      lastNodeInvoked: "plan_review",
-      taskStatus: "plan_approved",
-      currentSituation: "Plan approved. Starting implementation.",
-    };
+    return { planApproved: true, planFeedback: "", currentSituation: "Plan approved. Starting implementation." };
   }
 
   const feedback = String(decision?.feedback || "").trim() || "The user asked for a different plan.";
@@ -43,12 +31,8 @@ export function planReviewNode(state) {
     plan: null,
     criticFeedback: "",
     planRevisions: 0,
-    lastNodeInvoked: "plan_review",
-    taskStatus: "replanning",
     currentSituation: `Plan rejected. Revising with feedback: "${feedback.slice(0, 120)}"`,
   };
 }
 
-export function planReviewEdge(state) {
-  return state.planApproved ? "coder" : "planner";
-}
+export const planReviewEdge = (state) => (state.planApproved ? "coder" : "planner");

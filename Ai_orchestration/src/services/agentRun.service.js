@@ -16,9 +16,19 @@
 
 import { Command } from "@langchain/langgraph";
 import ChatMessage from "../models/ChatMessage.model.js";
-import { checkAiCredit, recordAiUsage } from "./credit.service.js";
-import { createAgentForModel, onRateLimitEvent, releaseThread } from "../agent/code.agent.js";
-import { contentToText, isToolErrorOutput, truncate } from "../agent/agentUtils.js";
+import { recordAiUsage } from "./credit.service.js";
+import {
+  INTERNAL_TAGS,
+  contentToText,
+  getModelInfo,
+  getOrionGraph,
+  hasModelKey,
+  isToolErrorOutput,
+  onRateLimitEvent,
+  releaseOrionThread,
+  truncate,
+  usageOf,
+} from "../agent/index.js";
 
 const HEARTBEAT_MS = 15_000;
 const RUN_TIMEOUT_MS = 60 * 60 * 1000;      // active work per segment
@@ -31,7 +41,6 @@ const MAX_TOOL_LOGS = 400;
 // Nodes whose model text is the user-facing answer. Text from every other
 // node (planner, coder, debugger, ...) is shown as thinking.
 const ANSWER_NODES = new Set(["general", "finalizer"]);
-const INTERNAL_TAGS = ["nostream", "langsmith:nostream", "orion_internal", "tool_summary_internal"];
 
 const NODE_STATUS = {
   router: { phase: "thinking", title: "Understanding the request" },
@@ -182,9 +191,7 @@ const isTopLevelNodeEvent = (event) =>
   event.metadata?.langgraph_node === event.name &&
   !String(event.metadata?.langgraph_checkpoint_ns || "").includes("|");
 
-const isInternal = (event) =>
-  (event.tags || []).some((t) => INTERNAL_TAGS.includes(t)) ||
-  String(event.name || "").includes("tool_summary_internal");
+const isInternal = (event) => (event.tags || []).some((t) => INTERNAL_TAGS.includes(t));
 
 /**
  * Adds text to the run's thinking stream. Text from a different model call
@@ -232,13 +239,11 @@ const parseToolWriterMessage = (message) => {
 };
 
 const addUsage = (run, output) => {
-  const usage = output?.usage_metadata || output?.response_metadata?.tokenUsage || output?.response_metadata?.usage;
+  const usage = usageOf(output);
   if (!usage) return;
-  const input = usage.input_tokens || usage.prompt_tokens || usage.promptTokens || 0;
-  const out = usage.output_tokens || usage.completion_tokens || usage.completionTokens || 0;
-  run.usage.promptTokens += input;
-  run.usage.completionTokens += out;
-  run.usage.totalTokens += usage.total_tokens || usage.totalTokens || input + out;
+  run.usage.promptTokens += usage.promptTokens;
+  run.usage.completionTokens += usage.completionTokens;
+  run.usage.totalTokens += usage.totalTokens;
 };
 
 const setStatus = (run, status) => {
@@ -248,7 +253,6 @@ const setStatus = (run, status) => {
 
 const classifyError = (error) => {
   const message = String(error?.message || "");
-  if (error?.code === "INSUFFICIENT_CREDITS") return { code: error.code, message };
   if (error?.code === "MODEL_CALL_TIMEOUT") {
     return { code: "MODEL_CALL_TIMEOUT", message: "The AI model did not respond in time. Please retry." };
   }
@@ -258,7 +262,7 @@ const classifyError = (error) => {
   if (error?.status === 402 || /insufficient credits|payment required/i.test(message)) {
     return { code: "PROVIDER_CREDITS", message: "The AI provider account is out of credits." };
   }
-  if (error?.code === "AI_PROVIDER_NOT_CONFIGURED") return { code: error.code, message };
+  if (["AI_PROVIDER_NOT_CONFIGURED", "AI_PROVIDER_AUTH_FAILED"].includes(error?.code)) return { code: error.code, message };
   return { code: error?.code || "AGENT_ERROR", message: message || "Orion hit an unexpected error." };
 };
 
@@ -272,7 +276,7 @@ const handleGraphEvent = (run, event) => {
     const stepHint = event.name === "coder" && run.steps.length
       ? ` (step ${Math.min((event.data?.input?.currentStep ?? 0) + 1, run.steps.length)} of ${run.steps.length})`
       : "";
-    setStatus(run, { ...base, node: event.name, title: `${base.title}${stepHint}`, detail: run.lastStatus?.detail || "" });
+    setStatus(run, { ...base, node: event.name, title: `${base.title}${stepHint}`, detail: "" });
     return;
   }
 
@@ -360,7 +364,7 @@ const graphConfig = (run) => ({
   version: "v2",
   signal: run.abortController.signal,
   recursionLimit: 120,
-  configurable: { thread_id: run.threadId, projectId: run.sandboxId },
+  configurable: { thread_id: run.threadId, sandboxId: run.sandboxId },
   writer: (msg) => {
     const parsed = parseToolWriterMessage(msg);
     run.toolLogs.push(parsed.message);
@@ -420,7 +424,7 @@ const finishRun = async (run, { event, payload, content }) => {
   if (assistantMsgId) publish(run, "agent:msg_created", { role: "assistant", id: assistantMsgId });
   publish(run, event, { ...payload, assistantMsgId });
   closeSubscribers(run);
-  await releaseThread(run.threadId);
+  await releaseOrionThread(run.threadId);
   scheduleCleanup(run);
 };
 
@@ -519,8 +523,9 @@ const formatAttachments = (attachments) => {
 };
 
 /**
- * Validates credits, persists the user message and starts a new run in the
- * background. Throws coded errors the controller turns into SSE errors.
+ * Persists the user message and starts a new run in the background.
+ * Credits are already checked by the creditLedger middleware.
+ * Throws coded errors the controller turns into SSE errors.
  */
 export const startRun = async ({ user, authToken, projectId, sandboxId, task, attachments, autoApprovePlan }) => {
   const key = runKeyFor(user.id, projectId);
@@ -531,17 +536,13 @@ export const startRun = async ({ user, authToken, projectId, sandboxId, task, at
     throw error;
   }
 
-  const { agent, model } = createAgentForModel();
-
-  const isMeteredPlan = user.subscription === "pro" || user.subscription === "max";
-  if (!isMeteredPlan) {
-    const credit = await checkAiCredit({ authToken, company: model.provider });
-    if (!credit?.hasCredit) {
-      const error = new Error("Insufficient AI credits. Free users receive 20 credits per model company. Please upgrade to Pro to continue.");
-      error.code = "INSUFFICIENT_CREDITS";
-      throw error;
-    }
+  if (!hasModelKey()) {
+    const error = new Error("No AI provider key configured. Set NVIDIA_API_KEY.");
+    error.code = "AI_PROVIDER_NOT_CONFIGURED";
+    throw error;
   }
+  const agent = getOrionGraph();
+  const model = getModelInfo();
 
   // History is loaded before saving the new message so the current task is
   // not duplicated in the context.

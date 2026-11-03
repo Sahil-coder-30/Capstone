@@ -1,48 +1,48 @@
 // debugger.node.js
-// Fixes a failed build, failed tests, or unmet acceptance criteria.
-// Always hands back to the tester; it never marks its own fix as verified.
+// Fixes a failed build, failed tests or unmet acceptance criteria, then
+// always hands back to the tester. It never marks its own fix as verified.
 //
-// Escalates (stops retrying) when:
-//   - the agent changed nothing, so another loop would see the same failure
-//   - the same error signature has already been attempted twice
+// It stops (escalates) when another loop can not help:
+//   - it changed nothing, so the tester would see the same failure
+//   - the same error came back after two fix attempts
 
 import { createHash } from "crypto";
-import { createReactAgent } from "@langchain/langgraph/prebuilt";
-import { getAppModel } from "../model.js";
-import { applyGuards, scopeWriteTools } from "../guards.js";
-import {
-  listFiles,
-  readFile,
-  searchCode,
-  patchFile,
-  updateFile,
-  createFile,
-  executeCommand,
-  getViteRuntimeErrors,
-} from "../tool.js";
-import { GROUNDING_RULES, analyzeToolActivity, lastAiText, truncate } from "../agentUtils.js";
+import { getMainModel } from "../llm/model.js";
+import { isFatalModelError } from "../llm/rateLimiter.js";
+import { runToolLoop } from "../core/toolLoop.js";
+import { analyzeToolActivity } from "../core/toolActivity.js";
+import { lastAiText, truncate } from "../core/messages.js";
+import { GROUNDING_RULES, PROJECT_CONTEXT } from "../core/prompts.js";
+import { DEBUGGER_TOOLS } from "../tools/index.js";
+import { combineGuards, shellGuard, writeScopeGuard } from "../tools/guards.js";
+import { LIMITS } from "../graph/orion.state.js";
 
-const DEBUG_RECURSION_LIMIT = 50;
+const MAX_TURNS = 25;
+const INSTALL_COMMAND = /\b(npm|pnpm|yarn)\s+(install|add|i)\b/;
 
-const DEBUGGER_SYSTEM_PROMPT = `You are Orion's Debugger. You find the root cause of a failure in a React + Vite project at /workspace and apply the smallest correct fix.
+const SYSTEM_PROMPT = `You are Orion's Debugger. You find the root cause of a failure and apply the smallest correct fix. ${PROJECT_CONTEXT}
 
-Protocol:
 1. Read the failure output first. Find the exact file, line and message.
-2. read_file the failing file(s) and anything they import that is involved. Use search_code to find where a symbol is defined or used.
+2. read_file the failing file(s) and what they import that is involved. Use search_code to find where a symbol is defined or used.
 3. Fix the root cause, not the symptom. Prefer patch_file with an exact oldStr copied from read_file. Use update_file only if most of the file must change.
 4. Missing npm package? Check package.json, then execute_command "npm install <pkg>".
-5. Re-read the changed file to confirm the fix is in place. Do not run the build yourself; the tester will.
+5. Re-read the changed file to confirm the fix. Do not run the build yourself; the tester will.
 
-Narrate briefly: before each tool call, write one short sentence about what you are checking or fixing.
+Before each tool call write one short sentence on what you are checking or fixing.
+Do not repeat a fix listed under PREVIOUS ATTEMPTS. If it did not work, the cause is somewhere else.
+Only change files listed under ALLOWED FILES. If the real cause is elsewhere, explain it in your final message.
 
-Do not repeat a fix listed under PREVIOUS ATTEMPTS. If that fix did not work, find a different cause.
-You may only change files listed under ALLOWED FILES. If the real cause is elsewhere, explain it in your final message.
-
-When finished, reply with:
+When finished reply with:
 ROOT CAUSE: <one sentence>
 FIX: <what you changed, file by file>
 
 ${GROUNDING_RULES}`;
+
+const STAGE_LABEL = {
+  review: "ACCEPTANCE REVIEW found unmet requirements",
+  tests: "UNIT TESTS failed",
+  build: "PRODUCTION BUILD failed",
+};
 
 const signatureOf = (testResults) =>
   createHash("sha256")
@@ -50,122 +50,85 @@ const signatureOf = (testResults) =>
     .digest("hex")
     .slice(0, 16);
 
-export async function debuggerNode(state, config) {
-  const {
-    testResults,
-    buildLog,
-    flaggedFiles = [],
-    filesTouched = [],
-    attemptedFixes = [],
-    retryCount = 0,
-    maxRetries = 3,
-    plan,
-  } = state;
+const escalate = (state, reason, attempt) => ({
+  escalated: true,
+  escalationReason: reason,
+  retryCount: state.retryCount + 1,
+  ...(attempt && { attemptedFixes: [attempt] }),
+  currentSituation: `Stopping fixes: ${reason}`,
+});
 
-  const signature = signatureOf(testResults);
-  const repeats = attemptedFixes.filter((f) => f.signature === signature).length;
-  if (repeats >= 2) {
-    return {
-      escalated: true,
-      escalationReason: "The same error came back after two different fix attempts.",
-      retryCount: retryCount + 1,
-      lastNodeInvoked: "debugger",
-      taskStatus: "escalated",
-      currentSituation: "Debugger: the same failure persisted after two fixes. Stopping and reporting.",
-    };
-  }
-
-  const allowed = [...new Set([
-    ...flaggedFiles,
-    ...filesTouched,
-    ...(plan?.steps || []).flatMap((s) => s.activeFiles || []),
-    "package.json",
-  ])];
-
-  const stageLabel = testResults?.stage === "review"
-    ? "ACCEPTANCE REVIEW found unmet requirements"
-    : testResults?.stage === "tests"
-      ? "UNIT TESTS failed"
-      : "PRODUCTION BUILD failed";
-
-  const prompt = `${stageLabel}. Attempt ${retryCount + 1} of ${maxRetries}.
+const buildPrompt = (state, allowed) => `${STAGE_LABEL[state.testResults?.stage] || STAGE_LABEL.build}. Attempt ${state.retryCount + 1} of ${LIMITS.maxFixAttempts}.
 
 TASK THE CODE SHOULD IMPLEMENT:
 ${state.task}
 
 FAILURE DETAILS:
-${(testResults?.errorLines || []).map((l) => `- ${l}`).join("\n") || "- (no structured lines, see log)"}
-
-${buildLog ? `OUTPUT LOG:\n${truncate(buildLog, 4_000)}\n` : ""}
-FILES IMPLICATED: ${flaggedFiles.length ? flaggedFiles.join(", ") : "(none parsed, find them from the log)"}
-FILES CHANGED IN THIS RUN: ${filesTouched.join(", ") || "(none)"}
+${(state.testResults?.errorLines || []).map((l) => `- ${l}`).join("\n") || "- (no structured lines, see the log)"}
+${state.buildLog ? `\nOUTPUT LOG:\n${truncate(state.buildLog, 4_000)}\n` : ""}
+FILES IMPLICATED: ${state.flaggedFiles.join(", ") || "(none parsed, find them from the log)"}
+FILES CHANGED IN THIS RUN: ${state.filesTouched.join(", ") || "(none)"}
 
 ALLOWED FILES:
 ${allowed.map((f) => `  - ${f}`).join("\n")}
 
 PREVIOUS ATTEMPTS:
-${attemptedFixes.length ? attemptedFixes.map((f) => `  ${f.attempt}. [${f.stage}] ${f.summary}`).join("\n") : "  (none)"}
+${state.attemptedFixes.map((f) => `  ${f.attempt}. [${f.stage}] ${f.summary}`).join("\n") || "  (none)"}
 
 Find the root cause and fix it now.`;
 
-  const tools = scopeWriteTools(
-    applyGuards([listFiles, readFile, searchCode, getViteRuntimeErrors, executeCommand, patchFile, updateFile, createFile]),
-    allowed,
-  );
-  const agent = createReactAgent({ llm: getAppModel(), tools, prompt: DEBUGGER_SYSTEM_PROMPT });
+export async function debuggerNode(state, config) {
+  const signature = signatureOf(state.testResults);
+  if (state.attemptedFixes.filter((f) => f.signature === signature).length >= 2) {
+    return escalate(state, "the same error came back after two different fix attempts.");
+  }
+
+  const allowed = [...new Set([
+    ...state.flaggedFiles,
+    ...state.filesTouched,
+    ...state.plan.steps.flatMap((s) => s.activeFiles),
+    "package.json",
+  ])];
 
   let messages = [];
   let runError = null;
   try {
-    const result = await agent.invoke(
-      { messages: [{ role: "user", content: prompt }] },
-      { ...config, recursionLimit: DEBUG_RECURSION_LIMIT },
-    );
-    messages = result.messages || [];
+    ({ messages } = await runToolLoop({
+      model: getMainModel(),
+      tools: DEBUGGER_TOOLS,
+      system: SYSTEM_PROMPT,
+      prompt: buildPrompt(state, allowed),
+      config,
+      maxTurns: MAX_TURNS,
+      guard: combineGuards(shellGuard, writeScopeGuard(allowed)),
+    }));
   } catch (err) {
-    if (config?.signal?.aborted) throw err;
+    if (config?.signal?.aborted || isFatalModelError(err)) throw err;
     runError = err.message;
-    console.error("[DebuggerNode] Agent failed:", err.message);
+    console.error("[Debugger] Failed:", err.message);
   }
 
   const activity = analyzeToolActivity(messages);
-  const installedSomething = activity.commands.some((c) => c.ok && /\b(npm|pnpm|yarn)\s+(install|add|i)\b/.test(c.command || ""));
-  const changed = activity.filesWritten.length > 0 || installedSomething;
-  const summary = truncate(lastAiText(messages) || runError || "No explanation returned.", 600);
-
+  const installed = activity.commands.some((c) => c.ok && INSTALL_COMMAND.test(c.command || ""));
   const attempt = {
-    attempt: retryCount + 1,
-    stage: testResults?.stage || "build",
+    attempt: state.retryCount + 1,
+    stage: state.testResults?.stage || "build",
     signature,
-    summary,
+    summary: truncate(lastAiText(messages) || runError || "No explanation returned.", 600),
     filesWritten: activity.filesWritten,
   };
 
-  if (!changed) {
-    return {
-      escalated: true,
-      escalationReason: runError
-        ? `The debugger failed: ${runError}`
-        : "The debugger could not find a safe fix and changed nothing.",
-      attemptedFixes: [attempt],
-      retryCount: retryCount + 1,
-      lastNodeInvoked: "debugger",
-      taskStatus: "escalated",
-      currentSituation: "Debugger: could not apply a fix. Stopping and reporting.",
-    };
+  if (activity.filesWritten.length === 0 && !installed) {
+    return escalate(state, runError ? `the debugger failed: ${runError}` : "no safe fix was found and nothing was changed.", attempt);
   }
 
   return {
     attemptedFixes: [attempt],
     filesTouched: activity.filesWritten,
-    retryCount: retryCount + 1,
+    retryCount: state.retryCount + 1,
     escalated: false,
-    lastNodeInvoked: "debugger",
-    taskStatus: "debugging",
-    currentSituation: `Debugger: applied fix attempt ${retryCount + 1}/${maxRetries} (${activity.filesWritten.length} file(s)). Re-running checks.`,
+    currentSituation: `Applied fix attempt ${state.retryCount + 1}/${LIMITS.maxFixAttempts} (${activity.filesWritten.length} file(s)). Re-running checks.`,
   };
 }
 
-export function debuggerEdge(state) {
-  return state.escalated ? "finalizer" : "tester";
-}
+export const debuggerEdge = (state) => (state.escalated ? "finalizer" : "tester");

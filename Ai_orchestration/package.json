@@ -5,18 +5,18 @@
   "main": "index.js",
   "type": "module",
   "scripts": {
-    "test": "node --test tests/",
-    "dev": "nodemon -L server.js || node --watch server.js"
+    "test": "node --test --test-force-exit \"tests/**/*.test.js\"",
+    "dev": "nodemon -L server.js || node --watch server.js",
+    "check:model": "node scripts/check-model.js",
+    "list:models": "node scripts/list-models.js",
+    "e2e:live": "node scripts/live-e2e.js"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@langchain/cohere": "^1.1.0",
     "@langchain/core": "^1.1.48",
-    "@langchain/google-genai": "^2.2.0",
     "@langchain/langgraph": "^1.3.6",
-    "@langchain/mistralai": "^1.1.0",
     "@langchain/openai": "^1.4.7",
     "@tavily/core": "^0.7.6",
     "axios": "^1.17.0",
@@ -26,12 +26,9 @@
     "faultkit": "^1.1.0",
     "ioredis": "^5.11.1",
     "jsonwebtoken": "^9.0.3",
-    "langchain": "^1.4.4",
     "mongoose": "^9.7.3",
     "morgan": "^1.11.0",
-    "socket.io": "^4.8.3",
-    "socket.io-client": "^4.8.3",
-    "zod": "^4.4.3",
-    "nodemon": "^3.1.14"
+    "nodemon": "^3.1.14",
+    "zod": "^4.4.3"
   }
 }

@@ -26,24 +26,19 @@ spec:
             cpu: "500m"
             memory: "256M"
         env:
-          - name: MISTRALAI_API_KEY
+          - name: NVIDIA_API_KEY
             valueFrom:
               secretKeyRef:
                 name: ai-secret
-                key: MISTRALAI_API_KEY
-                optional: true
-          - name: GOOGLE_API_KEY
+                key: NVIDIA_API_KEY
+          - name: TAVILY_API_KEY
             valueFrom:
               secretKeyRef:
                 name: ai-secret
-                key: GOOGLE_API_KEY
+                key: TAVILY_API_KEY
                 optional: true
-          - name: COHERE_API_KEY
-            valueFrom:
-              secretKeyRef:
-                name: ai-secret
-                key: COHERE_API_KEY
-                optional: true
+          - name: SANDBOX_SERVICE_URL
+            value: "http://sandbox-service"
 
           - name: MONGO_URI
             valueFrom:

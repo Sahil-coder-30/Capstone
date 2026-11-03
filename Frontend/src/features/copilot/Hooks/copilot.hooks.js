@@ -20,7 +20,7 @@ import {
 export const useCopilot = (projectId) => {
   const dispatch = useDispatch();
   const { messages, isOpen, isStreaming } = useSelector((state) => state.copilot);
-  const { sandboxId, status: sandboxStatus } = useSelector((state) => state.sandbox);
+  const { sandboxId } = useSelector((state) => state.sandbox);
   const { tabContents } = useSelector((state) => state.editor);
   const { fetchFilesList, activeFile } = useEditor();
 
@@ -51,8 +51,6 @@ export const useCopilot = (projectId) => {
           userPrompt: text,
           projectId,
           sandboxId,
-          workspacePath: `/workspace/${sandboxId || 'default'}`,
-          agentStatus: sandboxStatus || 'idle',
           activeFile: activeFile || '',
           activeFileContent: activeFile ? (tabContents[activeFile] ?? '') : '',
         }),
@@ -89,14 +87,16 @@ export const useCopilot = (projectId) => {
             if (bl.startsWith('event:')) {
               event = bl.slice('event:'.length).trim();
             } else if (bl.startsWith('data:')) {
-              dataLines.push(bl.slice('data:'.length).trimStart());
+              // SSE spec: drop exactly one space after "data:". Trimming more
+              // would eat spaces between tokens and code indentation.
+              dataLines.push(bl.slice('data:'.length).replace(/^ /, ''));
             } else if (bl.startsWith(': ')) {
               // SSE comment (heartbeat) — skip
             }
           }
 
           // Join multiple data: lines with newline (SSE spec §9.2.6)
-          const dataStr = dataLines.join('\n').trim();
+          const dataStr = dataLines.join('\n');
 
           if (event === 'error') {
             const errObj = JSON.parse(dataStr);

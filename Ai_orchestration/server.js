@@ -1,9 +1,9 @@
+// Must be the first import: other modules read env vars when they load.
+import "dotenv/config";
 import http from "http";
 import app from "./src/app/app.js";
-import dotenv from "dotenv";
 import connectToDb from "./src/config/db.js";
 
-dotenv.config();
 const PORT = process.env.PORT || 3000;
 
 // Agent runs stream over SSE and can stay open for a long time (plan review
@@ -17,9 +17,5 @@ server.headersTimeout = 70_000;
 
 server.listen(PORT, () => {
   console.log(`AI Orchestration service is running on port ${PORT}`);
-
-  // Connect to MongoDB asynchronously
-  connectToDb().catch((err) => {
-    console.error("Database connection failed asynchronously: ", err.message);
-  });
+  connectToDb().catch((err) => console.error("Database connection failed:", err.message));
 });

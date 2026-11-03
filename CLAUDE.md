@@ -44,7 +44,7 @@ Everything below was checked against the code. Where `docs/` or a README disagre
 |---|---|
 | `/api/auth` | auth-service |
 | `/api/payments` | payments-service |
-| `/api/ai` (REST + Socket.IO at `/api/ai/socket.io`) | ai-service |
+| `/api/ai` (REST + SSE) | ai-service |
 | `/api/sandbox` | sandbox-service |
 | host `*.preview.localhost` | router-service, then pod port 80 (Vite app) |
 | host `*.agent.localhost` | router-service, then pod port 3000 (sidecar) |
@@ -81,8 +81,7 @@ Both frontends proxy `/api` to `http://localhost` (the ingress) in dev. `Fronten
 - Delete is soft (trash). Permanent delete removes the Mongo document.
 
 **4. AI agent (Ai_orchestration)**
-- REST: `POST /api/ai/code-agent/invoke`, `/app-agent/invoke`, plus stop, plan-approve, plan-reject and chat history routes.
-- Socket.IO events: `agent:invoke`, `agent:subscribe`, `agent:stop`, `agent:plan_approve`, `agent:plan_reject`. Handshake token from cookie, `auth.token` or `?token=`.
+- REST + SSE only (no Socket.IO): `POST /api/ai/code-agent/invoke` (stream), `GET /code-agent/stream/:projectId` (re-attach), stop, plan-approve, plan-reject, `/app-agent/invoke` (Clio stream), `/app-agent/title`, chat history routes.
 - Middleware order: `identifyUser`, `requireOwnedSandbox`, `aiRateLimiter`, `creditLedger`.
 
 | Middleware | On failure |
@@ -91,9 +90,12 @@ Both frontends proxy `/api` to `http://localhost` (the ingress) in dev. `Fronten
 | `aiRateLimiter` (Redis Lua token bucket) | fails open |
 | `creditLedger` (asks Payments `/api/payments/credit/check`) | fails open, except a real 402 |
 
-- Orion graph (`src/agent/code.agent.js`): router, general, planner, critic, coder, tester, debugger, compactor, finalizer. `interruptBefore: ["critic"]` is the plan review pause. Clio (`clio.agent.js`) is the smaller app/copilot agent.
-- Model: `codestral-latest` through Mistral (`MISTRALAI_API_KEY`, free tier; `mistral-large-latest` needs a paid plan), wrapped with per-model throttle, backoff and a call timeout.
-- Tools (`src/agent/tool.js`) call `http://sandbox-service-<id>:3000/api/agent/*`: list, read, create, update, patch, delete file, search code, exec, Vite runtime errors. `search_internet` uses Tavily.
+- Agent code lives in `src/agent/` (`llm/`, `tools/`, `core/`, `nodes/`, `graph/`). The rest of the service imports only `src/agent/index.js`.
+- Orion graph (`graph/orion.graph.js`): router, general, planner, critic, plan_review (`interrupt()` pause), coder, tester, reviewer, debugger, finalizer. Clio (`graph/clio.graph.js`) is a one-node copilot graph without a checkpointer.
+- Every tool-using node runs `core/toolLoop.js` (own ReAct loop: guards, unknown-tool errors, repeat-call stop, turn budget that keeps finished work).
+- Model: NVIDIA build.nvidia.com via `ChatOpenAI` (`NVIDIA_API_KEY`). Defaults `nvidia/nemotron-3-ultra-550b-a55b` (main) and `nvidia/nemotron-3.5-lightning-30b-a3b` (fast), override with `NVIDIA_MODEL` / `NVIDIA_FAST_MODEL`. `llm/rateLimiter.js` adds pacing, 429 backoff and a call timeout. Many catalog models return 404 for a given account or are end-of-life: check with `npm run list:models` and `npm run check:model`.
+- Tools (`src/agent/tools/`) call `http://sandbox-service-<id>:3000/api/agent/*` through `tools/sandbox.client.js` only: list, read, create, update, patch, delete file, search code, exec, Vite runtime errors. `search_internet` uses Tavily.
+- `npm run e2e:live` runs Orion with the real model against an in-memory fake sandbox (no cluster needed).
 - After a run, usage goes to `POST /api/payments/credit/update` with the user's own token.
 
 **5. Payments**
@@ -118,7 +120,7 @@ Both frontends proxy `/api` to `http://localhost` (the ingress) in dev. `Fronten
 | Auth load test | `k6 run Auth/src/k6/load-test.js` |
 | Guardrail self-test | `node .claude/hooks/test-guardrails.mjs` |
 
-No other service has tests. `fix_frontends.sh` kills Vite, deletes both `node_modules` and clears the npm cache. Do not run it without explicit approval.
+AI service: `cd Ai_orchestration && npm test` is offline (no network, no DB) and safe to run. `fix_frontends.sh` kills Vite, deletes both `node_modules` and clears the npm cache. Do not run it without explicit approval.
 
 ### Conventions
 
@@ -133,11 +135,10 @@ No other service has tests. `fix_frontends.sh` kills Vite, deletes both `node_mo
 
 - **Sidecar has no auth.** Anyone who knows a `sandboxId` can call `/api/agent/exec` through `<id>.agent.localhost`.
 - **Rate limit tier is always `free`.** AI reads `req.user.subscription`, but Auth never puts `subscription` in the token.
-- **AI is single replica.** LangGraph uses an in-memory `MemorySaver`, and active run state lives in `socket.js` memory.
+- **AI is single replica.** LangGraph uses an in-memory `MemorySaver`, and active run state lives in `agentRun.service.js` memory.
 - `Auth/src/routes/credit.routes.js` and its controller are not mounted. Credits moved to Payments (`Payments/scripts/migrate_credits_from_auth.js`).
 - `previewUrl` is hardcoded to `http://<id>.preview.localhost` in `sandbox.controller.js`.
 - `k8s/secrets.yml.example` is out of date with the manifests (for example `aws` vs `aws-secret`, `REDIS_URL` vs `REDIS_URI`, `JWT_SECRET` vs `RSA_PRIVATE_KEY` / `JWT_REFRESH_SECRET`). Rebuild it from the manifests, never from the real file.
-- `k8s/ai-deployment.yml` still injects Google and Cohere keys. The code only uses Mistral and Tavily.
 - Auth needs `certs/public.pem` at startup, and `RSA_PRIVATE_KEY` or `certs/private.pem`. Never open those files.
 - Port defaults in code differ from `.env.example` and k8s (for example Payments JWKS default `localhost:5000`). Always set the env var.
 - `docs/` describes some things that do not exist in code yet: gRPC, HTTP/2 SSE, the Chrome extension, the Admin service, Loki. Check the code before relying on a doc.

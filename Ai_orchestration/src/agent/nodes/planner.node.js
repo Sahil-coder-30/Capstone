@@ -1,179 +1,159 @@
 // planner.node.js
-// Lead Architect node. Two phases:
-//   1. Inspection: a read-only ReAct agent explores the project and writes a
-//      short analysis (streamed to the user as thinking).
-//   2. Plan: a structured-output call turns the task + analysis + real file
-//      list into a validated plan.
-// No fake fallback plan: if planning fails, the run ends with an honest
-// "could not plan" report instead of guessing.
+// Two phases:
+//   1. Inspection: a read-only tool loop explores the project and writes a
+//      short analysis (streamed to the user as thinking). It starts with the
+//      real file list, so it does not have to guess paths.
+//   2. Plan: a structured call turns task + analysis + file list into a
+//      validated plan.
+// No fake fallback plan: if planning fails the run ends with an honest report.
 
 import * as z from "zod";
-import { createReactAgent } from "@langchain/langgraph/prebuilt";
 import { HumanMessage, SystemMessage } from "@langchain/core/messages";
-import { getAppModel } from "../model.js";
-import { readFile, listFiles, searchCode, searchInternetTool } from "../tool.js";
-import { listSandboxFiles } from "../sandboxClient.js";
-import { normalizePath } from "../guards.js";
-import {
-  GROUNDING_RULES,
-  formatChatHistory,
-  invokeStructured,
-  lastAiText,
-  truncate,
-} from "../agentUtils.js";
+import { getMainModel } from "../llm/model.js";
+import { invokeStructured } from "../llm/structured.js";
+import { isFatalModelError } from "../llm/rateLimiter.js";
+import { runToolLoop } from "../core/toolLoop.js";
+import { formatChatHistory, lastAiText, truncate } from "../core/messages.js";
+import { GROUNDING_RULES, PROJECT_CONTEXT } from "../core/prompts.js";
+import { READ_ONLY_TOOLS } from "../tools/index.js";
+import { listFiles } from "../tools/sandbox.client.js";
+import { normalizePath } from "../tools/guards.js";
+import { LIMITS } from "../graph/orion.state.js";
 
-const INSPECTOR_SYSTEM_PROMPT = `You are the Lead Architect on Orion's team inside Taksha, a cloud IDE for React + Vite apps. The user's project lives in /workspace and the Vite dev server already runs on port 5173.
+const INSPECTOR_PROMPT = `You are the Lead Architect on Orion's team. ${PROJECT_CONTEXT}
 
-Your job right now: understand the request and the existing code well enough to plan it. Do NOT write code or change files.
+Your job now: understand the request and the existing code well enough to plan it. Do NOT change files.
 
-Inspection protocol:
-1. list_files to see the structure.
-2. read_file package.json and every file the change will touch or depend on (entry points, routing, the components involved, styles, config).
-3. search_code for existing patterns: component names, hooks, state management, routing, styling approach, API calls.
+1. Start from the file list you were given. Do not guess paths that are not in it.
+2. read_file package.json and every file the change will touch or depend on (entry point, routing, the components involved, styles).
+3. search_code for existing patterns: component names, state management, routing, styling, API calls.
 4. Use search_internet only if the task needs a library you are unsure about.
 
-Before each tool call, write one short sentence saying what you are checking and why.
+Before each tool call write one short sentence on what you are checking.
 
-When you are done, write your analysis in plain prose (no JSON):
-- What the project already has that is relevant (exact file paths, libraries, patterns).
+When done, write your analysis in plain prose (no JSON):
+- What the project already has that is relevant (exact paths, libraries, patterns).
 - What must be created or changed, and where.
 - Risks or open questions.
 
 ${GROUNDING_RULES}`;
 
-const PLAN_SYSTEM_PROMPT = `You turn an inspection analysis into an implementation plan for Orion's Coder.
+const PLAN_PROMPT = `You turn an inspection analysis into an implementation plan for Orion's Coder.
 
 Rules:
-- 1 to 8 steps. Small tasks get 1 or 2 steps. Do not add inspection-only, testing-only or "verify" steps; verification runs automatically after coding.
-- Each step changes at most 5 files and lists every file it will create, modify or delete in activeFiles (workspace-relative, e.g. "src/components/Navbar.jsx", no leading slash).
-- action: "create" when the step only adds new files, "modify" when it edits existing files (it may also add new ones), "delete" when it removes files.
-- A file listed in a "modify" step must exist in the EXISTING FILES list, or be created by an earlier step.
-- acceptanceCriteria: 1-4 concrete, checkable statements about the code (e.g. "Navbar.jsx exports a default Navbar component", "App.jsx renders <Navbar /> above <Routes>"). No vague criteria like "works well".
+- 1 to ${LIMITS.maxPlanSteps} steps. Small tasks get 1 or 2 steps. No inspection-only, test-only or "verify" steps: checks run automatically after coding.
+- Each step changes at most ${LIMITS.maxFilesPerStep} files and lists every one of them in activeFiles (workspace-relative, no leading slash).
+- action: "create" when the step only adds files, "modify" when it edits existing files (it may also add new ones), "delete" when it removes files.
+- A file in a "modify" step must be in EXISTING FILES or be created by an earlier step.
+- acceptanceCriteria: 1-4 concrete, checkable statements about the code, e.g. "App.jsx renders <Navbar /> above <Routes>". Nothing vague like "works well".
 - dependsOn: ids of earlier steps only.
-- riskLevel "high" for auth, payments, secrets, database schema or migrations; "medium" for state/API logic; "low" for UI-only.
-- Use the project's existing libraries and patterns from the analysis. Only add a dependency if the task really needs it, and say so in the step description (the Coder will npm install it).`;
+- riskLevel "high" for auth, payments, secrets or database schema; "medium" for state/API logic; "low" for UI-only.
+- Use the project's existing libraries and patterns. Add a dependency only if really needed and say so in the step description.`;
 
 const PlanSchema = z.object({
   summary: z.string().describe("One sentence describing what the plan achieves"),
-  steps: z
-    .array(
-      z.object({
-        id: z.number().int().describe("1-based step number"),
-        title: z.string().describe("Short action title"),
-        action: z.enum(["create", "modify", "delete"]),
-        description: z.string().describe("Exactly what to do in this step and why"),
-        acceptanceCriteria: z.array(z.string()).describe("1-4 concrete, checkable statements"),
-        activeFiles: z.array(z.string()).describe("Workspace-relative files this step creates, modifies or deletes"),
-        riskLevel: z.enum(["low", "medium", "high"]),
-        dependsOn: z.array(z.number().int()).describe("Ids of earlier steps this step needs"),
-      }),
-    )
-    .describe("Ordered implementation steps"),
+  steps: z.array(
+    z.object({
+      id: z.number().int().describe("1-based step number"),
+      title: z.string().describe("Short action title"),
+      action: z.enum(["create", "modify", "delete"]),
+      description: z.string().describe("Exactly what to do in this step and why"),
+      acceptanceCriteria: z.array(z.string()).describe("1-4 concrete, checkable statements"),
+      activeFiles: z.array(z.string()).describe("Workspace-relative files this step creates, modifies or deletes"),
+      riskLevel: z.enum(["low", "medium", "high"]),
+      dependsOn: z.array(z.number().int()).describe("Ids of earlier steps this step needs"),
+    }),
+  ),
 });
 
+/** Renumbers steps and drops anything malformed the model returned. */
 const normalizePlan = (raw) => {
-  const steps = (raw?.steps || []).slice(0, 8).map((step, i) => ({
+  const steps = (raw?.steps || []).slice(0, LIMITS.maxPlanSteps).map((step, i) => ({
     id: i + 1,
     title: String(step.title || `Step ${i + 1}`).trim(),
-    action: ["create", "modify", "delete"].includes(step.action) ? step.action : "modify",
+    action: step.action,
     description: String(step.description || "").trim(),
-    acceptanceCriteria: (Array.isArray(step.acceptanceCriteria) ? step.acceptanceCriteria : [])
-      .map((c) => String(c).trim())
-      .filter(Boolean)
-      .slice(0, 4),
-    activeFiles: [...new Set((Array.isArray(step.activeFiles) ? step.activeFiles : []).map(normalizePath).filter(Boolean))],
-    riskLevel: ["low", "medium", "high"].includes(step.riskLevel) ? step.riskLevel : "medium",
-    dependsOn: (Array.isArray(step.dependsOn) ? step.dependsOn : []).filter((d) => Number.isInteger(d) && d < i + 1),
+    acceptanceCriteria: (step.acceptanceCriteria || []).map((c) => String(c).trim()).filter(Boolean).slice(0, 4),
+    activeFiles: [...new Set((step.activeFiles || []).map(normalizePath).filter(Boolean))],
+    riskLevel: step.riskLevel,
+    dependsOn: (step.dependsOn || []).filter((d) => Number.isInteger(d) && d >= 1 && d <= i),
     status: "pending",
+    attempts: 0,
   }));
-  return {
-    summary: String(raw?.summary || "").trim(),
-    steps,
-    totalSteps: steps.length,
-  };
+  return { summary: String(raw?.summary || "").trim(), steps, totalSteps: steps.length };
+};
+
+const inspect = async (state, config, existingFiles) => {
+  const history = formatChatHistory(state.messages, 3_000);
+  const { messages } = await runToolLoop({
+    model: getMainModel(),
+    tools: READ_ONLY_TOOLS,
+    system: INSPECTOR_PROMPT,
+    prompt: [
+      history ? `Conversation so far:\n${history}` : "",
+      `Task (${state.taskSubType}):\n${state.task}`,
+      `Project files (${existingFiles.length}):\n${existingFiles.slice(0, 300).join("\n") || "(empty workspace)"}`,
+      "Inspect what you need, then write your analysis.",
+    ].filter(Boolean).join("\n\n"),
+    config,
+    maxTurns: 15,
+  });
+  return lastAiText(messages);
+};
+
+const failed = (planError, analysis) => {
+  console.warn(`[Planner] ${planError}`);
+  return { plan: null, planError, planAnalysis: analysis, currentSituation: planError };
 };
 
 export async function plannerNode(state, config) {
-  const task = String(state.task || "").trim();
-  const history = formatChatHistory(state.messages || [], 3_000);
-  const feedback = [
-    state.planFeedback ? `The user rejected the previous plan with this feedback:\n${state.planFeedback}` : "",
-    state.criticFeedback ? `The plan validator found these problems in the previous plan:\n${state.criticFeedback}` : "",
-  ].filter(Boolean).join("\n\n");
+  const existingFiles = await listFiles(config);
+  if (existingFiles === null) {
+    return failed("Could not read the project files. The sandbox may be stopped. Start it and try again.", "");
+  }
 
-  // ── Phase 1: inspection ──────────────────────────────────────────────────
-  let analysis = state.planAnalysis || "";
+  // The analysis is kept across re-plans; only the plan is rebuilt.
+  let analysis = state.planAnalysis;
   if (!analysis) {
-    const inspector = createReactAgent({
-      llm: getAppModel(),
-      tools: [listFiles, readFile, searchCode, searchInternetTool],
-      prompt: INSPECTOR_SYSTEM_PROMPT,
-    });
     try {
-      const result = await inspector.invoke(
-        {
-          messages: [
-            {
-              role: "user",
-              content: `${history ? `Conversation so far:\n${history}\n\n` : ""}Task (${state.taskSubType || "new_feature"}):\n${task}\n\nInspect the project, then write your analysis.`,
-            },
-          ],
-        },
-        { ...config, recursionLimit: 40 },
-      );
-      analysis = lastAiText(result.messages);
+      analysis = await inspect(state, config, existingFiles);
     } catch (err) {
-      if (config?.signal?.aborted) throw err;
-      console.warn("[PlannerNode] Inspection failed:", err.message);
+      if (config?.signal?.aborted || isFatalModelError(err)) throw err;
+      console.warn("[Planner] Inspection failed:", err.message);
     }
   }
 
-  // ── Phase 2: structured plan ─────────────────────────────────────────────
-  const existingFiles = (await listSandboxFiles(config)) || [];
-  let plan = null;
-  let planError = null;
+  const revision = [
+    state.planFeedback && `The user rejected the previous plan with this feedback:\n${state.planFeedback}`,
+    state.criticFeedback && `The plan validator found these problems in the previous plan:\n${state.criticFeedback}`,
+  ].filter(Boolean).join("\n\n");
 
+  let plan;
   try {
     const raw = await invokeStructured(
-      getAppModel(),
+      getMainModel(),
       PlanSchema,
       "implementation_plan",
       [
-        new SystemMessage(PLAN_SYSTEM_PROMPT),
-        new HumanMessage(
-          [
-            `TASK (${state.taskSubType || "new_feature"}):\n${task}`,
-            `INSPECTION ANALYSIS:\n${truncate(analysis || "(inspection unavailable, rely on the file list)", 12_000)}`,
-            `EXISTING FILES (${existingFiles.length}):\n${existingFiles.slice(0, 400).join("\n") || "(empty workspace or listing failed)"}`,
-            feedback ? `REVISION REQUEST:\n${feedback}` : "",
-          ].filter(Boolean).join("\n\n"),
-        ),
+        new SystemMessage(PLAN_PROMPT),
+        new HumanMessage([
+          `TASK (${state.taskSubType}):\n${state.task}`,
+          `INSPECTION ANALYSIS:\n${truncate(analysis || "(inspection unavailable, rely on the file list)", 12_000)}`,
+          `EXISTING FILES (${existingFiles.length}):\n${existingFiles.slice(0, 400).join("\n") || "(empty workspace)"}`,
+          revision && `REVISION REQUEST:\n${revision}`,
+        ].filter(Boolean).join("\n\n")),
       ],
       config,
     );
     plan = normalizePlan(raw);
-    if (!plan.steps.length) {
-      plan = null;
-      planError = "The planner returned an empty plan.";
-    }
   } catch (err) {
-    if (config?.signal?.aborted) throw err;
-    planError = `Planning failed: ${err.message}`;
+    if (config?.signal?.aborted || isFatalModelError(err)) throw err;
+    return failed(`Planning failed: ${err.message}`, analysis);
   }
 
-  if (!plan) {
-    console.warn(`[PlannerNode] ${planError}`);
-    return {
-      plan: null,
-      planError,
-      planAnalysis: analysis,
-      lastNodeInvoked: "planner",
-      taskStatus: "failed",
-      currentSituation: `Planner: ${planError}`,
-    };
-  }
+  if (!plan.steps.length) return failed("The planner returned an empty plan.", analysis);
 
-  console.log(`[PlannerNode] Plan: ${plan.totalSteps} steps - "${plan.summary}"`);
+  console.log(`[Planner] ${plan.totalSteps} step(s): "${plan.summary}"`);
   return {
     plan,
     planError: null,
@@ -181,12 +161,8 @@ export async function plannerNode(state, config) {
     planApproved: false,
     currentStep: 0,
     existingFiles,
-    lastNodeInvoked: "planner",
-    taskStatus: "planned",
-    currentSituation: `Planner: ${plan.totalSteps}-step plan ready. Validating it before review.`,
+    currentSituation: `${plan.totalSteps}-step plan ready. Validating it before review.`,
   };
 }
 
-export function plannerEdge(state) {
-  return state.plan ? "critic" : "finalizer";
-}
+export const plannerEdge = (state) => (state.plan ? "critic" : "finalizer");

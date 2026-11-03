@@ -11,22 +11,6 @@ const buildAuthHeaders = (authToken) => {
   return headers;
 };
 
-export const checkAiCredit = async ({ authToken, company, provider }) => {
-  const normalizedCompany = company || provider || "unknown";
-  try {
-    const response = await axios.get(`${PAYMENTS_SERVICE_URL}/api/payments/credit/check`, {
-      headers: buildAuthHeaders(authToken),
-      params: { company: normalizedCompany },
-      timeout: 5_000,
-    });
-
-    return response.data;
-  } catch (err) {
-    console.error(`[checkAiCredit] Warning: Failed to check credit with payments service (${err.message}). Allowing request as fallback.`);
-    return { hasCredit: true, fallback: true };
-  }
-};
-
 export const recordAiUsage = async ({
   authToken,
   userId,

@@ -1,157 +1,121 @@
 // tester.node.js
-// Deterministic verification. No LLM call.
-//   1. Unit tests, only when package.json has a test script using vitest/jest.
-//   2. Production build ("npm run build") when a build script exists.
-// Pass/fail comes from the command's exit status, not from regex guessing.
+// Deterministic verification, no model call:
+//   1. unit tests, only when package.json has a vitest/jest test script
+//   2. production build, when a build script exists
+// Pass/fail comes from the command's exit status.
 //
-// Vite builds are written to node_modules/.orion-build-check and removed
-// afterwards, so the user's own dist/ or build/ folders are never touched.
+// Vite builds go to node_modules/.orion-build-check and are removed after,
+// so the user's own dist/ folder is never touched.
 
-import { runSandboxCommand, readSandboxFiles, logToRun } from "../sandboxClient.js";
-import { normalizePath } from "../guards.js";
-import { truncate } from "../agentUtils.js";
+import { logToRun, readFiles, runCommand } from "../tools/sandbox.client.js";
+import { normalizePath } from "../tools/guards.js";
+import { LIMITS } from "../graph/orion.state.js";
 
 const BUILD_CHECK_DIR = "node_modules/.orion-build-check";
-const FILE_REF = /(?:\/workspace\/)?((?:[\w@.-]+\/)*[\w@.-]+\.(?:jsx?|tsx?|mjs|cjs|css|scss|sass|less|json|html|vue|svelte))(?::(\d+))?/g;
+const FILE_REF = /(?:\/workspace\/)?((?:[\w@.-]+\/)*[\w@.-]+\.(?:jsx?|tsx?|mjs|cjs|css|scss|sass|less|json|html|vue|svelte))(?::\d+)?/g;
+const ERROR_LINE = /error|failed|cannot|could not|unexpected|not found|is not defined|does not provide/i;
 
-const combinedOutput = (result) =>
-  [result.stdout, result.stderr, result.error].filter(Boolean).join("\n").trim();
+const outputOf = (result) => [result.stdout, result.stderr, result.error].filter(Boolean).join("\n").trim();
 
 /** Keeps the start and end of long logs, where build tools print errors. */
-const trimLog = (text) =>
-  text.length <= 5_000 ? text : `${text.slice(0, 3_000)}\n...[trimmed]...\n${text.slice(-2_000)}`;
+const trimLog = (text) => (text.length <= 5_000 ? text : `${text.slice(0, 3_000)}\n...[trimmed]...\n${text.slice(-2_000)}`);
 
 const parseErrors = (output) => {
   const errorLines = output
     .split("\n")
     .map((l) => l.trim())
-    .filter((l) => /error|failed|cannot|could not|unexpected|not found|is not defined|does not provide/i.test(l))
-    .filter((l) => !/^\s*at\s/.test(l))
+    .filter((l) => ERROR_LINE.test(l) && !l.startsWith("at "))
     .slice(0, 15);
 
   const flagged = new Set();
   for (const match of output.matchAll(FILE_REF)) {
     const file = normalizePath(match[1]);
-    if (!file || file.startsWith("node_modules/") || file.includes("/node_modules/")) continue;
-    if (file === "package.json" || file === "package-lock.json") continue;
+    if (!file || file.includes("node_modules/") || file === "package-lock.json") continue;
     flagged.add(file);
   }
   return { errorLines, flaggedFiles: [...flagged].slice(0, 10) };
 };
 
 const runLogged = async (config, command, label) => {
-  logToRun(config, `executeCommand: start - command: "${label}"`);
-  const result = await runSandboxCommand(config, command);
-  logToRun(
-    config,
-    result.ok
-      ? `executeCommand: success - "${label}" passed`
-      : `executeCommand: error - "${label}" failed${result.timedOut ? " (timed out)" : ""}`,
-  );
+  logToRun(config, `execute_command: start - "${label}"`);
+  const result = await runCommand(config, command);
+  logToRun(config, `execute_command: ${result.ok ? "success" : "error"} - "${label}"${result.timedOut ? " timed out" : ""}`);
   return result;
 };
 
-const failure = (state, stage, result) => {
-  const output = combinedOutput(result);
-  const { errorLines, flaggedFiles } = parseErrors(output);
+const failure = (stage, output, { timedOut = false, errorLines, flaggedFiles } = {}) => {
+  const parsed = errorLines ? { errorLines, flaggedFiles } : parseErrors(output);
+  const label = stage === "tests" ? "Unit tests" : "Build";
   return {
     testResults: {
       pass: false,
       stage,
-      timedOut: result.timedOut,
-      errorLines,
-      summary: result.timedOut
-        ? `${stage === "tests" ? "Unit tests" : "Build"} timed out.`
-        : `${stage === "tests" ? "Unit tests" : "Build"} failed with ${errorLines.length || "unknown"} error line(s).`,
+      errorLines: parsed.errorLines,
+      summary: timedOut ? `${label} timed out.` : `${label} failed with ${parsed.errorLines.length || "unknown"} error line(s).`,
     },
     buildLog: trimLog(output),
-    flaggedFiles,
-    lastNodeInvoked: "tester",
-    taskStatus: stage === "tests" ? "tests_failed" : "build_failed",
-    currentSituation: `Tester: ${stage === "tests" ? "unit tests" : "build"} failed${flaggedFiles.length ? ` in ${flaggedFiles.slice(0, 3).join(", ")}` : ""}.`,
+    flaggedFiles: parsed.flaggedFiles,
+    currentSituation: `${label} failed${parsed.flaggedFiles.length ? ` in ${parsed.flaggedFiles.slice(0, 3).join(", ")}` : ""}.`,
   };
 };
 
-export async function testerNode(state, config) {
-  const { files } = await readSandboxFiles(config, ["package.json"]);
-  const pkgRaw = files.get("package.json");
+const passed = (summary, stage) => ({
+  testResults: { pass: true, stage, errorLines: [], summary },
+  buildLog: null,
+  flaggedFiles: [],
+  currentSituation: `Checks: ${summary}.`,
+});
 
-  let pkg = null;
-  try {
-    pkg = pkgRaw ? JSON.parse(pkgRaw) : null;
-  } catch (err) {
-    // A broken package.json is itself a failure the debugger should fix.
-    return {
-      testResults: {
-        pass: false,
-        stage: "build",
-        errorLines: [`package.json is not valid JSON: ${err.message}`],
-        summary: "package.json is not valid JSON.",
-      },
-      buildLog: `package.json parse error: ${err.message}`,
-      flaggedFiles: ["package.json"],
-      lastNodeInvoked: "tester",
-      taskStatus: "build_failed",
-      currentSituation: "Tester: package.json is not valid JSON.",
-    };
-  }
-
-  if (!pkg) {
-    return {
-      testResults: { pass: true, stage: "skipped", errorLines: [], summary: "No package.json, nothing to build." },
-      buildLog: null,
-      flaggedFiles: [],
-      lastNodeInvoked: "tester",
-      taskStatus: "tests_skipped",
-      currentSituation: "Tester: no package.json found, skipped build verification.",
-    };
-  }
-
-  const scripts = pkg.scripts || {};
+const testRunner = (pkg) => {
+  const script = String(pkg.scripts?.test || "");
   const deps = { ...pkg.dependencies, ...pkg.devDependencies };
+  if (!script) return null;
+  if (deps.vitest || script.includes("vitest")) return { command: "npx vitest run --passWithNoTests 2>&1", label: "vitest run" };
+  if (deps.jest || script.includes("jest")) return { command: "npx jest --ci --passWithNoTests 2>&1", label: "jest --ci" };
+  return null;
+};
+
+export async function testerNode(_state, config) {
+  const { files, missing } = await readFiles(config, ["package.json"]);
+  const raw = files.get("package.json");
+  if (!raw) {
+    const reason = missing[0]?.error || "no package.json";
+    return passed(`no build verification (${reason})`, "skipped");
+  }
+
+  let pkg;
+  try {
+    pkg = JSON.parse(raw);
+  } catch (err) {
+    const message = `package.json is not valid JSON: ${err.message}`;
+    return failure("build", message, { errorLines: [message], flaggedFiles: ["package.json"] });
+  }
+
   const checks = [];
 
-  // ── 1. Unit tests ────────────────────────────────────────────────────────
-  const testScript = String(scripts.test || "");
-  const runner = deps.vitest || /vitest/.test(testScript) ? "vitest" : deps.jest || /jest/.test(testScript) ? "jest" : null;
-  if (runner && testScript) {
-    const command = runner === "vitest"
-      ? "npx vitest run --passWithNoTests 2>&1"
-      : "npx jest --ci --passWithNoTests 2>&1";
-    const result = await runLogged(config, command, runner === "vitest" ? "vitest run" : "jest --ci");
-    if (!result.ok) return failure(state, "tests", result);
+  const runner = testRunner(pkg);
+  if (runner) {
+    const result = await runLogged(config, runner.command, runner.label);
+    if (!result.ok) return failure("tests", outputOf(result), { timedOut: result.timedOut });
     checks.push("unit tests passed");
   }
 
-  // ── 2. Production build ──────────────────────────────────────────────────
-  const buildScript = String(scripts.build || "");
+  const buildScript = String(pkg.scripts?.build || "");
   if (buildScript) {
-    const endsWithViteBuild = /vite\s+build[^&|;]*$/.test(buildScript);
-    const command = endsWithViteBuild
-      ? `npm run build -- --outDir ${BUILD_CHECK_DIR} --emptyOutDir 2>&1`
-      : "npm run build 2>&1";
+    const isViteBuild = /vite\s+build[^&|;]*$/.test(buildScript);
+    const command = isViteBuild ? `npm run build -- --outDir ${BUILD_CHECK_DIR} --emptyOutDir 2>&1` : "npm run build 2>&1";
     const result = await runLogged(config, command, "npm run build");
-    if (endsWithViteBuild) await runSandboxCommand(config, `rm -rf ${BUILD_CHECK_DIR}`, { timeoutMs: 30_000 });
-    if (!result.ok) return failure(state, "build", result);
+    if (isViteBuild) await runCommand(config, `rm -rf ${BUILD_CHECK_DIR}`, { timeoutMs: 30_000 });
+    if (!result.ok) return failure("build", outputOf(result), { timedOut: result.timedOut });
     checks.push("production build passed");
   }
 
-  const summary = checks.length
-    ? checks.join(", ")
-    : "No test or build script in package.json, nothing to run.";
-
-  return {
-    testResults: { pass: true, stage: checks.length ? "build" : "skipped", errorLines: [], summary: truncate(summary, 200) },
-    buildLog: null,
-    flaggedFiles: [],
-    lastNodeInvoked: "tester",
-    taskStatus: checks.length ? "tests_passed" : "tests_skipped",
-    currentSituation: `Tester: ${summary}.`,
-  };
+  return checks.length
+    ? passed(checks.join(", "), "build")
+    : passed("no test or build script in package.json, nothing to run", "skipped");
 }
 
 export function testerEdge(state) {
   if (state.testResults?.pass) return "reviewer";
-  if ((state.retryCount || 0) >= (state.maxRetries || 3)) return "finalizer";
-  return "debugger";
+  return state.retryCount >= LIMITS.maxFixAttempts ? "finalizer" : "debugger";
 }
