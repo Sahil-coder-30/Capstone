@@ -7,11 +7,6 @@
       "Write",
       "Read"
     ],
-    "ask": [
-      "Bash(rm *)",
-      "Bash(rmdir *)",
-      "Bash(unlink *)"
-    ],
     "deny": [
       "Read(**/.env)",
       "Read(**/.env.*)",

@@ -1,13 +1,13 @@
 #!/usr/bin/env node
-// Two rules for agents in this repo:
-//   1. Nothing outside the project folder (denied).
-//   2. Deleting files asks the developer first. Everything else runs freely.
+// One rule for agents in this repo:
+//   Nothing outside the project folder (denied), except temp folders.
+// Everything else, deletes included, runs without a prompt.
 
 import { readFileSync } from "node:fs";
 import path from "node:path";
 
 const ALLOWED_PATHS = ["/dev/null", "/dev/stdin", "/dev/stdout", "/dev/stderr", "/dev/tty"];
-const FILE_DELETE = /(^|[\s;&|(])(rm|rmdir|unlink|shred|trash)(\s|$)|\bfind\b[^|;&]*\s-delete\b|\bfind\b[^|;&]*-exec\s+rm\b|\b(unlinkSync|rmSync|rmdirSync|fs\.rm|fs\.unlink|fs\.rmdir|shutil\.rmtree|os\.remove|os\.unlink)\b/;
+const TEMP_DIR = /^\/(private\/)?tmp(\/|$)/;
 
 let input;
 try {
@@ -28,7 +28,7 @@ const decide = (permissionDecision, permissionDecisionReason) => {
 
 const isOutside = (target) => {
   const clean = target.replace(/^["']|["']$/g, "");
-  if (ALLOWED_PATHS.includes(clean)) return false;
+  if (ALLOWED_PATHS.includes(clean) || TEMP_DIR.test(clean)) return false;
   if (clean === "~" || clean.startsWith("~/") || /^\$\{?HOME\}?/.test(clean)) return true;
   const rel = path.relative(projectDir, path.resolve(cwd, clean));
   return rel.startsWith("..") || path.isAbsolute(rel);
@@ -47,7 +47,6 @@ if (tool === "Bash") {
   const tokens = command.split(/[\s;&|()<>'"`=]+/).filter(Boolean);
   const outside = tokens.find((t) => looksLikePath(t) && !t.startsWith("//") && isOutside(t));
   if (outside) decide("deny", `"${outside}" is outside ${projectDir}`);
-  if (FILE_DELETE.test(command)) decide("ask", "This command deletes files");
 } else {
   const target = toolInput.file_path || toolInput.path || toolInput.notebook_path;
   if (target && isOutside(String(target))) decide("deny", `"${target}" is outside ${projectDir}`);
