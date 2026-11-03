@@ -45,11 +45,12 @@ spec:
         env:
         - name: PORT
           value: "5051"
-        - name: MONGO_URI
+        # Supabase transaction pooler URL (port 6543).
+        - name: DATABASE_URL
           valueFrom:
             secretKeyRef:
               name: database
-              key: PAYMENT
+              key: PAYMENT_DATABASE_URL
         - name: MQ_URL
           valueFrom:
             secretKeyRef:
@@ -82,8 +83,6 @@ spec:
             secretKeyRef:
               name: razorpay
               key: RAZORPAY_WEBHOOK_SECRET
-        - name: ADMIN_EMAILS
-          value: "sahilsharma3043@gmail.com"
         - name: REDIS_URI
           valueFrom:
             secretKeyRef:

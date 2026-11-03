@@ -27,7 +27,7 @@ Everything below was checked against the code. Where `docs/` or a README disagre
 | Service | Local port | K8s container port | K8s Service | Database |
 |---|---|---|---|---|
 | `Auth/` | 3000 | 3000 | `auth-service:80` | Mongo `auth`, Redis (blacklist) |
-| `Payments/` | 5002 | 5051 (`PORT` env) | `payments-service:80` | Mongo `payments`, Redis (blacklist, cron locks) |
+| `Payments/` | 5002 | 5051 (`PORT` env) | `payments-service:80` | Postgres on Supabase (`DATABASE_URL`, Drizzle), Redis (blacklist, cron lock) |
 | `Ai_orchestration/` | 3000 | 3000 | `ai-service:80` | Mongo `ai`, Redis (rate limit) |
 | `Notification/` | 4000 (hardcoded) | 4000 | `notification-service:80` | none, RabbitMQ only |
 | `Sandbox/server/` | 4000 (`.env.example`) | 3000 | `sandbox-service:80` | Mongo `sandbox`, Redis (sandbox TTL) |
@@ -99,12 +99,15 @@ Both frontends proxy `/api` to `http://localhost` (the ingress) in dev. `Fronten
 - After a run, usage goes to `POST /api/payments/credit/update` with the user's own token.
 
 **5. Payments**
-- Plans in `config/packages.config.js`: free, `pro_regular` (Rs 499), `max_regular` (Rs 999).
-- Checkout: `POST /api/payments/order`, Razorpay modal, then `POST /api/payments/verify` (re-fetches the payment from Razorpay before writing) and/or `POST /api/payments/webhook` (HMAC over `req.rawBody`). `processSubscriptionPayment` is idempotent by `paymentId`.
-- Subscriptions are slots: one active slot plus queued reserved slots. Expiry is promoted lazily on read and by a nightly cron.
-- Credits: a 5-hour window balance on `Account` plus per-provider buckets on `Credit`. `Account._id` equals the user id.
-- Cron jobs (`services/cron.service.js`), each behind a Redis `SET NX` lock: referral settlement hourly, slot promotion daily, credit window refill every 30 min.
-- Emails go out through `payment_notification_queue`.
+- Postgres (Supabase project `Taksha-Payments`) through Drizzle. Schema in `db/schema.js`, migrations in `db/migrations` (`npm run db:generate`, `npm run db:migrate`). Tables: `accounts`, `subscription_slots`, `orders`, `payments`, `invoices`, `transactions`, `usage_events`. RLS on, no policies. Money in paise.
+- `DATABASE_URL` must be the Supabase transaction pooler (port 6543, IPv4). The direct host is IPv6 only and fails from Docker/k8s.
+- Plans in `config/plans.config.js`: free, `pro_regular` (Rs 499), `max_regular` (Rs 999), plus tier limits.
+- Checkout: `POST /api/payments/create/order` (writes an `orders` row), Razorpay modal, then `POST /api/payments/verify` (order must belong to the caller, payment re-fetched from Razorpay) and/or `POST /api/payments/webhook` (HMAC over `req.rawBody`). `processSubscriptionPayment` runs in one transaction with an account row lock; the payment id is the `payments` primary key, so it applies once.
+- Subscriptions are slots: one active slot plus queued slots that keep `remaining_ms`. Expiry is promoted lazily on read and by a nightly cron.
+- Credits: one 5-hour window per user on `accounts` (Free 20, Pro 150, Max 200). Refill is lazy on read. `usage_events` is unique on `(user_id, request_id)`. Providers: `nvidia`, else `unknown`.
+- Only cron job: nightly slot promotion, behind a Redis `SET NX` lock.
+- No referral and no admin routes (removed 2026-11-03).
+- Emails go out through `payment_notification_queue`, to the email saved on the order.
 
 **6. Notification**
 - Consumes `auth_notification_queue` and `payment_notification_queue`, sends mail with nodemailer. Templates in `src/emails/template/`.
@@ -116,7 +119,7 @@ Both frontends proxy `/api` to `http://localhost` (the ingress) in dev. `Fronten
 | Run a backend service | `npm run dev` inside the service folder (nodemon `-L`) |
 | Run a frontend | `npm run dev` / `npm run build` / `npm run lint` |
 | Full cluster dev loop | `skaffold dev` (builds all images, applies `k8s/*.yml`) |
-| Payments tests (**developer only**, they `deleteMany`) | `cd Payments && npm test` |
+| Payments tests (local Postgres only, they truncate tables and refuse non-localhost) | `cd Payments && docker compose up -d && npm test` |
 | Auth load test | `k6 run Auth/src/k6/load-test.js` |
 | Guardrail self-test | `node .claude/hooks/test-guardrails.mjs` |
 
@@ -124,7 +127,7 @@ AI service: `cd Ai_orchestration && npm test` is offline (no network, no DB) and
 
 ### Conventions
 
-- Layout per backend: `server.js` boots, `src/app/app.js` builds Express, then `routes/`, `controllers/`, `services/`, `models/`, `middleware/`, `config/`. Payments has the same folders at its root, without `src/`.
+- Layout per backend: `server.js` boots, `src/app/app.js` builds Express, then `routes/`, `controllers/`, `services/`, `models/`, `middleware/`, `config/`. Payments has its folders at the root, without `src/`, and uses `db/` (Drizzle) and `serializers/` instead of `models/`.
 - Payments and AI throw FaultKit errors (`faultkit`) and end with `createExpressErrorHandler`. Auth and Sandbox return plain `{ status: 'error', message }`.
 - Always take the user id from the verified token (`req.user.id`). Payments rejects a body `userId` that does not match.
 - Payments needs the exact raw body for webhook HMAC (`express.json({ verify })` sets `req.rawBody`). Do not add another body parser before it.
@@ -136,7 +139,8 @@ AI service: `cd Ai_orchestration && npm test` is offline (no network, no DB) and
 - **Sidecar has no auth.** Anyone who knows a `sandboxId` can call `/api/agent/exec` through `<id>.agent.localhost`.
 - **Rate limit tier is always `free`.** AI reads `req.user.subscription`, but Auth never puts `subscription` in the token.
 - **AI is single replica.** LangGraph uses an in-memory `MemorySaver`, and active run state lives in `agentRun.service.js` memory.
-- `Auth/src/routes/credit.routes.js` and its controller are not mounted. Credits moved to Payments (`Payments/scripts/migrate_credits_from_auth.js`).
+- `Auth/src/routes/credit.routes.js` and its controller are not mounted. Credits live in Payments.
+- `Frontend` still calls `PATCH /api/payments/subscription`, which does not exist (see `Payments/fix.md` P1-8).
 - `previewUrl` is hardcoded to `http://<id>.preview.localhost` in `sandbox.controller.js`.
 - `k8s/secrets.yml.example` is out of date with the manifests (for example `aws` vs `aws-secret`, `REDIS_URL` vs `REDIS_URI`, `JWT_SECRET` vs `RSA_PRIVATE_KEY` / `JWT_REFRESH_SECRET`). Rebuild it from the manifests, never from the real file.
 - Auth needs `certs/public.pem` at startup, and `RSA_PRIVATE_KEY` or `certs/private.pem`. Never open those files.
