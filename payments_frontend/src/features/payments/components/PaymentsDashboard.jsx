@@ -207,17 +207,17 @@ export default function PaymentsDashboard() {
     ? credit.windowCreditsRemaining
     : windowCreditsTotal;
 
-  const mistralBucket = credit?.providerCredits?.find(p => p.company?.toLowerCase() === 'mistral') || {
-    company: 'Mistral',
+  const nvidiaBucket = credit?.providerCredits?.find(p => p.company?.toLowerCase() === 'nvidia') || {
+    company: 'NVIDIA',
     totalTokens: credit?.totalTokens || 0,
   };
 
   const providerCredits = [
     {
-      company: 'Mistral AI',
+      company: 'NVIDIA',
       creditsRemaining: windowCreditsRemaining,
       creditsGranted: windowCreditsTotal,
-      totalTokens: mistralBucket.totalTokens || credit?.totalTokens || 0,
+      totalTokens: nvidiaBucket.totalTokens || credit?.totalTokens || 0,
     },
   ];
 
@@ -530,10 +530,7 @@ export default function PaymentsDashboard() {
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
             {(usageAnalytics?.byProvider?.length > 0 ? usageAnalytics.byProvider : [
-              { company: 'google', totalTokens: totals.totalTokens * 0.45 || 1000, requestCount: 12 },
-              { company: 'mistral', totalTokens: totals.totalTokens * 0.25 || 600, requestCount: 8 },
-              { company: 'openai', totalTokens: totals.totalTokens * 0.20 || 400, requestCount: 5 },
-              { company: 'cohere', totalTokens: totals.totalTokens * 0.10 || 200, requestCount: 2 },
+              { company: 'nvidia', totalTokens: totals.totalTokens || 1000, requestCount: 12 },
             ]).map((prov, i) => {
               const totalAll = usageAnalytics?.byProvider?.reduce((acc, p) => acc + (p.totalTokens || 0), 0) || 1;
               const pct = Math.round(((prov.totalTokens || 0) / totalAll) * 100) || 25;

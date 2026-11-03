@@ -14,7 +14,7 @@ export default function PlanDetailModal() {
       DailyTokens: '50,000 tokens / day',
       MonthlyTokens: '1,500,000 max',
       Agents: ['Coding Agent', 'Basic Copilot'],
-      Models: ['Mistral 7B', 'Gemini Flash'],
+      Models: ['NVIDIA Nemotron 3.5 Lightning'],
       Concurrency: '1 parallel task',
     },
     pro_regular: {
@@ -25,7 +25,7 @@ export default function PlanDetailModal() {
       DailyTokens: 'Uncapped Daily',
       MonthlyTokens: '5,000,000 tokens / mo',
       Agents: ['Coding Agent', 'Copilot', 'App Agent', 'Debugger'],
-      Models: ['Claude 3.5 Sonnet', 'GPT-4o', 'Gemini 1.5 Pro', 'Mistral Large'],
+      Models: ['NVIDIA Nemotron 3 Ultra', 'NVIDIA Nemotron 3.5 Lightning'],
       Concurrency: '3 parallel tasks',
     },
     max_regular: {
@@ -36,7 +36,7 @@ export default function PlanDetailModal() {
       DailyTokens: 'Truly Unlimited',
       MonthlyTokens: 'Unlimited (No Throttling)',
       Agents: ['All Agents + Custom Agent Architectures'],
-      Models: ['All Flagship & Custom Fine-tuned LLMs'],
+      Models: ['All NVIDIA-hosted models'],
       Concurrency: '10 parallel tasks',
     },
   };

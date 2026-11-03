@@ -44,7 +44,7 @@ const SPOTLIGHT_ITEMS = [
   {
     id: 1,
     title: 'Multi-Agent Model Orchestration',
-    tagline: 'Gemini, Claude, GPT & Cohere',
+    tagline: 'Powered by NVIDIA Nemotron',
     color: '#4F46E5',
     icon: <Network size={20} />,
     desc: 'Intelligent routing automatically directs complex refactoring, reasoning, or quick inline autocompletion to the optimal AI model tier without latency bottlenecks.',
@@ -110,7 +110,7 @@ const sandbox = await Taksha.createContainer({
     metricLabel: 'Auto-Routed Models',
     badge: 'Multi-Model Core',
     desc: 'Intelligent routing automatically directs complex refactoring, multi-file reasoning, or quick inline autocompletion to the optimal AI model tier without latency bottlenecks.',
-    specs: ['Google Gemini, Claude, GPT & Cohere integration', 'Real-time cost & latency-aware query routing', 'Automated model fallback and failover execution'],
+    specs: ['NVIDIA Nemotron models via build.nvidia.com', 'Real-time cost & latency-aware query routing', 'Automated model fallback and failover execution'],
     codeSnippet: `// Multi-Agent Router Dispatcher
 const response = await Router.dispatch({
   task: 'refactor_ast_and_verify',
@@ -260,7 +260,7 @@ const FAQS = [
   },
   {
     q: 'What AI providers are included?',
-    a: 'All plans include Google Gemini, Mistral, OpenAI, and Cohere. Pro and Max unlock higher quotas and premium model access.',
+    a: 'All plans run on NVIDIA-hosted Nemotron models. Pro and Max unlock higher quotas.',
   },
 ];
 

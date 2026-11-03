@@ -34,8 +34,8 @@ export default function AIRequestsView() {
     {
       _id: 'evt_sample_01',
       createdAt: new Date().toISOString(),
-      company: 'google',
-      modelId: 'gemini-1.5-pro',
+      company: 'nvidia',
+      modelId: 'nvidia/nemotron-3-ultra-550b-a55b',
       agentType: 'codingAgent',
       promptTokens: 1420,
       completionTokens: 380,
@@ -47,8 +47,8 @@ export default function AIRequestsView() {
     {
       _id: 'evt_sample_02',
       createdAt: new Date(Date.now() - 3600000 * 2).toISOString(),
-      company: 'mistral',
-      modelId: 'mistral-large-latest',
+      company: 'nvidia',
+      modelId: 'nvidia/nemotron-3.5-lightning-30b-a3b',
       agentType: 'copilot',
       promptTokens: 820,
       completionTokens: 140,
@@ -60,8 +60,8 @@ export default function AIRequestsView() {
     {
       _id: 'evt_sample_03',
       createdAt: new Date(Date.now() - 3600000 * 5).toISOString(),
-      company: 'openai',
-      modelId: 'gpt-4o',
+      company: 'nvidia',
+      modelId: 'nvidia/nemotron-3-ultra-550b-a55b',
       agentType: 'appAgent',
       promptTokens: 3200,
       completionTokens: 940,
@@ -81,10 +81,7 @@ export default function AIRequestsView() {
 
   const getCompanyColor = (company) => {
     switch (company?.toLowerCase()) {
-      case 'google': return '#FFB347';
-      case 'openai': return '#EA580C';
-      case 'mistral': return '#4F46E5';
-      case 'cohere': return '#F59E0B';
+      case 'nvidia': return '#76B900';
       default: return 'var(--text-muted)';
     }
   };
@@ -157,10 +154,7 @@ export default function AIRequestsView() {
               }}
             >
               <option value="all">All Providers</option>
-              <option value="google">Google Gemini</option>
-              <option value="openai">OpenAI</option>
-              <option value="mistral">Mistral</option>
-              <option value="cohere">Cohere</option>
+              <option value="nvidia">NVIDIA</option>
             </select>
           </div>
 

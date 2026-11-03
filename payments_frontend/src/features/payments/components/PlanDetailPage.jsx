@@ -106,7 +106,7 @@ const PLAN_DATA = {
       {
         icon: <Layers size={20} />,
         title: 'All Agents + Flagship Models',
-        desc: 'Every agent in the Taksha suite plus priority access to flagship LLMs (GPT-4o, Gemini Ultra, Mistral Large). 128K+ context window on all.',
+        desc: 'Every agent in the Taksha suite plus priority access to NVIDIA's flagship Nemotron models. 128K+ context window on all.',
         detail: 'Multi-Agent Orchestrator · 128K+ context · Priority queue',
       },
       {

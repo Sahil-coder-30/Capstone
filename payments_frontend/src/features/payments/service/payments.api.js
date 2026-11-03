@@ -54,7 +54,7 @@ export const fetchCreditAPI = async () => {
         windowCreditsRemaining: 20,
         subscription: 'free',
         providerCredits: [
-          { company: 'mistral', creditsRemaining: 20, creditsGranted: 20, totalTokens: 0 },
+          { company: 'nvidia', creditsRemaining: 20, creditsGranted: 20, totalTokens: 0 },
         ],
         promptTokens: 0,
         completionTokens: 0,

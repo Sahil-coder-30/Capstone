@@ -58,7 +58,7 @@ const FACTS = [
 
 const STATEMENT = 'Most AI tools hand you code and wish you luck. Taksha hands you a running app, with the errors already fixed.';
 
-const STACK = ['Kubernetes', 'LangGraph', 'Mistral Codestral', 'React', 'Vite', 'Monaco Editor', 'xterm.js', 'MongoDB', 'Redis'];
+const STACK = ['Kubernetes', 'LangGraph', 'NVIDIA Nemotron', 'React', 'Vite', 'Monaco Editor', 'xterm.js', 'MongoDB', 'Redis'];
 
 const STAGES = [
   {

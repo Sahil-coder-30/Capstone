@@ -23,7 +23,7 @@ const initialState = {
       wordWrap: true
     },
     copilot: {
-      modelPreference: 'gemini-2.5-flash',
+      modelPreference: 'nvidia/nemotron-3-ultra-550b-a55b',
       autoSuggest: true,
       interactiveMode: 'detailed'
     },

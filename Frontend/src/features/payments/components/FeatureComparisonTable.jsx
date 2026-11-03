@@ -5,7 +5,7 @@ export default function FeatureComparisonTable() {
     {
       category: 'Productivity & AI Models',
       rows: [
-        { feature: 'Supported AI Models', free: 'Gemini 3.1 Flash & Copilot', pro: 'Gemini 3.1 Pro + Claude 3.5 Sonnet', max: 'All Flagship LLMs (Deep Think, GPT-4o, Sonnet, DeepSeek)' },
+        { feature: 'Supported AI Models', free: 'NVIDIA Nemotron 3.5 Lightning', pro: 'NVIDIA Nemotron 3 Ultra', max: 'All NVIDIA-hosted models' },
         { feature: 'Daily & Monthly Token Quotas', free: '50,000 / day cap', pro: '5,000,000 / month cap', max: 'Truly Unlimited (Uncapped)' },
         { feature: 'Agentic Code Execution', free: 'Single-file Copilot', pro: 'Full Coding Agent + App Agent', max: 'Multi-Agent Swarm & Auto Browse' },
         { feature: 'Deep Repository Search', free: 'Basic context search', pro: 'Full repo index & symbols', max: 'Deep Research Agent & security audit' },

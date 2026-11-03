@@ -53,17 +53,17 @@ export default function SubscriptionDashboard() {
     ? credit.windowCreditsRemaining
     : windowCreditsTotal;
 
-  const mistralBucket = credit?.providerCredits?.find(p => p.company?.toLowerCase() === 'mistral') || {
-    company: 'Mistral',
+  const nvidiaBucket = credit?.providerCredits?.find(p => p.company?.toLowerCase() === 'nvidia') || {
+    company: 'NVIDIA',
     totalTokens: credit?.totalTokens || 0,
   };
 
   const providerCredits = [
     {
-      company: 'Mistral AI',
+      company: 'NVIDIA',
       creditsRemaining: windowCreditsRemaining,
       creditsGranted: windowCreditsTotal,
-      totalTokens: mistralBucket.totalTokens || credit?.totalTokens || 0,
+      totalTokens: nvidiaBucket.totalTokens || credit?.totalTokens || 0,
     },
   ];
 
