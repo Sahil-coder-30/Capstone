@@ -1,152 +1,104 @@
 /**
- * Credit Service — Admin Credit Management
+ * Credit service: the 5-hour AI credit window.
  *
- * Handles admin-only write operations that affect user credit balances.
- * Each mutation writes an immutable Transaction document (double-entry ledger).
+ *  - checkCredit:  can this user send an AI request right now?
+ *  - recordUsage:  log one AI request and take its credits from the window,
+ *                  in one transaction. Same (user, requestId) twice is a no-op.
  *
- * NOTE: Subscription payment processing is handled by subscription.service.js,
- * not here. This file only covers admin grants, resets, and manual operations.
+ * 1 credit = TOKENS_PER_CREDIT tokens. When the balance drops below the
+ * tier's lower limit, the window locks and refills `windowHours` later.
  */
 
-import mongoose from 'mongoose';
-import Credit, { CREDIT_COMPANIES } from '../models/credit.model.js';
-import Transaction from '../models/transaction.model.js';
-import { BadRequestError } from 'faultkit';
+import { eq, sql } from 'drizzle-orm';
+import { db } from '../db/client.js';
+import { accounts, usageEvents } from '../db/schema.js';
+import { refreshWindow } from './account.service.js';
+import { promoteIfExpired } from './subscription.service.js';
+import { getTierLimits, TOKENS_PER_CREDIT } from '../config/plans.config.js';
 
-const FREE_CREDITS_PER_COMPANY = 20;
+// The AI service only uses NVIDIA-hosted models. Anything else is stored
+// as 'unknown' so usage is still recorded and billed.
+export const PROVIDERS = ['nvidia', 'unknown'];
 
+export const AGENT_TYPES = ['codingAgent', 'copilot', 'appAgent', 'title', 'unknown'];
 
-/**
- * Admin: Manually grant credits to a user
- *
- * @param {Object} params
- * @param {string} params.userId          - Target user ObjectId string
- * @param {string} params.company         - Provider company ('mistral', 'google', etc.) or 'all'
- * @param {number} params.creditsToGrant  - Number of credits to add
- * @param {string} [params.adminId]       - Admin user ID performing the action
- * @param {string} [params.note]          - Reason / support ticket reference
- */
-export async function adminGrantCredits({
-    userId,
-    company,
-    creditsToGrant,
-    adminId,
-    note = '',
-}) {
-    if (!userId || !company || !creditsToGrant) {
-        throw new BadRequestError('[credit.service] userId, company, and creditsToGrant are required');
-    }
+export function normalizeProvider(value) {
+    const v = String(value || '').trim().toLowerCase();
+    return PROVIDERS.includes(v) ? v : 'unknown';
+}
 
-    const session = await mongoose.startSession();
-    session.startTransaction();
+export function normalizeAgentType(value) {
+    const v = String(value || '').trim();
+    return AGENT_TYPES.includes(v) ? v : 'unknown';
+}
 
-    try {
-        let credit = await Credit.findOne({ userId }).session(session);
-        if (!credit) {
-            credit = new Credit({ userId });
-        }
+export const creditsForTokens = (tokens) => Math.round((tokens / TOKENS_PER_CREDIT) * 1000) / 1000;
 
-        const grantedTo = [];
+/** Window state shaped for API responses. */
+export function windowState(account) {
+    const limits = getTierLimits(account.tier);
+    const remaining = Number(account.windowCreditsRemaining);
+    const refillAt = account.windowRefillAt ? new Date(account.windowRefillAt) : null;
+    return {
+        tier: account.tier,
+        canQuery: remaining >= limits.creditLowerLimit,
+        windowCreditsTotal: Number(account.windowCreditsTotal),
+        windowCreditsRemaining: remaining,
+        creditLowerLimit: limits.creditLowerLimit,
+        windowRefillAt: refillAt,
+        windowExhaustedAt: account.windowExhaustedAt || null,
+        timeUntilRefillMs: refillAt ? Math.max(0, refillAt.getTime() - Date.now()) : null,
+    };
+}
 
-        if (company === 'all') {
-            CREDIT_COMPANIES.filter(c => c !== 'unknown').forEach(c => {
-                const bucket = credit.ensureProviderBucket(c);
-                bucket.creditsGranted += creditsToGrant;
-                bucket.creditsRemaining += creditsToGrant;
-                grantedTo.push(c);
-            });
-        } else {
-            const bucket = credit.ensureProviderBucket(company);
-            bucket.creditsGranted += creditsToGrant;
-            bucket.creditsRemaining += creditsToGrant;
-            grantedTo.push(company);
-        }
-
-        await credit.save({ session });
-
-        await Transaction.create(
-            [{
-                userId,
-                type: 'ADMIN_GRANT',
-                amountPaise: 0,
-                creditsDelta: creditsToGrant,
-                status: 'SUCCESS',
-                aggregator: 'ADMIN',
-                description: `Admin granted ${creditsToGrant} credits (${company})`,
-                metadata: { adminId, company, grantedTo, note },
-            }],
-            { session }
-        );
-
-        await session.commitTransaction();
-        console.log(`[Credit Service] Admin granted ${creditsToGrant} credits to user ${userId} for ${company}`);
-        return { status: 'success', grantedTo, creditsGranted: creditsToGrant };
-    } catch (err) {
-        await session.abortTransaction();
-        throw err;
-    } finally {
-        session.endSession();
-    }
+/** Promotes an expired plan, refills a due window, then returns the window. */
+export async function checkCredit(userId) {
+    await promoteIfExpired(userId);
+    const account = await refreshWindow(userId);
+    return windowState(account);
 }
 
 /**
- * Admin: Reset a user's provider credit buckets to default values
- *
- * @param {Object} params
- * @param {string} params.userId    - Target user ObjectId string
- * @param {string} [params.adminId] - Admin performing the reset
- * @param {string} [params.note]    - Reason for reset
+ * Records one AI request and deducts its credits atomically.
+ * @returns {{ duplicate: boolean, creditsDeducted: number, account }}
  */
-export async function adminResetCredits({ userId, adminId, note = '' }) {
-    if (!userId) throw new BadRequestError('[credit.service] userId is required');
+export async function recordUsage(userId, usage) {
+    await promoteIfExpired(userId);
 
-    const session = await mongoose.startSession();
-    session.startTransaction();
+    return db.transaction(async (tx) => {
+        const account = await refreshWindow(userId, tx);
+        const limits = getTierLimits(account.tier);
+        const creditsDeducted = creditsForTokens(usage.totalTokens);
 
-    try {
-        let credit = await Credit.findOne({ userId }).session(session);
-        if (!credit) {
-            credit = new Credit({ userId });
+        const [event] = await tx.insert(usageEvents).values({
+            userId,
+            requestId: usage.requestId,
+            provider: usage.provider,
+            modelId: usage.modelId,
+            agentType: usage.agentType,
+            projectId: usage.projectId,
+            chatId: usage.chatId,
+            tier: account.tier,
+            promptTokens: usage.promptTokens,
+            completionTokens: usage.completionTokens,
+            totalTokens: usage.totalTokens,
+            creditsDeducted,
+        }).onConflictDoNothing({ target: [usageEvents.userId, usageEvents.requestId] }).returning();
+
+        if (!event) {
+            return { duplicate: true, creditsDeducted: 0, account };
         }
 
-        // Reset all provider buckets to default (20 credits each)
-        credit.providerCredits = CREDIT_COMPANIES
-            .filter(c => c !== 'unknown')
-            .map(c => ({
-                company: c,
-                creditsGranted: FREE_CREDITS_PER_COMPANY,
-                creditsRemaining: FREE_CREDITS_PER_COMPANY,
-                promptTokens: 0,
-                completionTokens: 0,
-                totalTokens: 0,
-                billableTokens: 0,
-                billableCents: 0,
-                requestCount: 0,
-            }));
+        // All right-hand sides read the OLD row values, so the "crossed the
+        // lower limit" test compares before and after in one statement.
+        const after = sql`greatest(0, ${accounts.windowCreditsRemaining} - ${creditsDeducted})`;
+        const crossed = sql`${accounts.windowCreditsRemaining} >= ${limits.creditLowerLimit} and ${after} < ${limits.creditLowerLimit}`;
+        const [updated] = await tx.update(accounts).set({
+            windowCreditsRemaining: after,
+            windowExhaustedAt: sql`case when ${crossed} then now() else ${accounts.windowExhaustedAt} end`,
+            windowRefillAt: sql`case when ${crossed} then now() + make_interval(hours => ${limits.windowHours}) else ${accounts.windowRefillAt} end`,
+        }).where(eq(accounts.userId, userId)).returning();
 
-        await credit.save({ session });
-
-        await Transaction.create(
-            [{
-                userId,
-                type: 'RESET',
-                amountPaise: 0,
-                creditsDelta: FREE_CREDITS_PER_COMPANY * CREDIT_COMPANIES.filter(c => c !== 'unknown').length,
-                status: 'SUCCESS',
-                aggregator: 'ADMIN',
-                description: 'Admin reset all provider credit buckets to default',
-                metadata: { adminId, note },
-            }],
-            { session }
-        );
-
-        await session.commitTransaction();
-        console.log(`[Credit Service] Admin reset credits for user ${userId}`);
-        return { status: 'success', message: 'All provider buckets reset to default' };
-    } catch (err) {
-        await session.abortTransaction();
-        throw err;
-    } finally {
-        session.endSession();
-    }
+        return { duplicate: false, creditsDeducted, account: updated, event };
+    });
 }

@@ -1,35 +1,36 @@
+/**
+ * /api/payments/*
+ * Checkout (payments_frontend), Razorpay webhook and the payments dashboard.
+ */
+
 import { Router } from 'express';
 import { identifyUser } from '../middleware/identifyUser.middleware.js';
+import { createOrder, verifyPayment } from '../controllers/payment.controller.js';
+import { razorpayWebhook } from '../controllers/webhook.controller.js';
 import {
-    createOrderController,
-    verifyPaymentController,
-} from '../controllers/payment.controller.js';
-import { webhookController } from '../controllers/webhook.controller.js';
-import subscriptionRouter from './subscription.routes.js';
+    getDashboardOverview,
+    getSubscription,
+    getTransactionById,
+    getTransactions,
+    getUsageEvents,
+    getUsageEventsAnalytics,
+} from '../controllers/subscription.controller.js';
 
-const paymentRouter = Router();
+const router = Router();
 
-// ── Order creation ──────────────────────────────────────────────────────────
-// Both endpoints are kept for backward compatibility
-paymentRouter.post('/create/order', identifyUser, createOrderController);
-paymentRouter.post('/order',        identifyUser, createOrderController);
+// Server to server, authenticated by HMAC signature instead of a JWT.
+router.post('/webhook', razorpayWebhook);
 
-// ── Payment verification ─────────────────────────────────────────────────────
-// Called by react-razorpay's onSuccess handler after the user completes checkout.
-// No webhook needed — razorpay.service.verifyPaymentSignature() calls
-// fetchPayment(paymentId) directly against Razorpay's API to confirm capture
-// status server-side before any DB write. This is the ground-truth check.
-paymentRouter.post('/verify',  identifyUser, verifyPaymentController);
-paymentRouter.post('/confirm', identifyUser, verifyPaymentController);
+router.use(identifyUser);
 
-// ── Razorpay Webhook (Server-to-Server HMAC verification) ────────────────────
-paymentRouter.post('/webhook', webhookController);
+router.post('/create/order', createOrder);
+router.post('/verify', verifyPayment);
 
-// ── Subscription & Transaction history routes ───────────────────────────────
-// GET /api/payments/subscription
-// GET /api/payments/transactions
-// GET /api/payments/usage-events
-// GET /api/payments/dashboard/overview
-paymentRouter.use('/', subscriptionRouter);
+router.get('/subscription', getSubscription);
+router.get('/transactions', getTransactions);
+router.get('/transactions/:id', getTransactionById);
+router.get('/usage-events', getUsageEvents);
+router.get('/usage-events/analytics', getUsageEventsAnalytics);
+router.get('/dashboard/overview', getDashboardOverview);
 
-export default paymentRouter;
+export default router;

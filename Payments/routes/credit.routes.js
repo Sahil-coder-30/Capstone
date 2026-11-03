@@ -1,38 +1,30 @@
-import express from 'express';
+/**
+ * /api/payments/credit/*
+ * Called by Ai_orchestration (check, update) and the Frontend app.
+ */
+
+import { Router } from 'express';
 import { identifyUser } from '../middleware/identifyUser.middleware.js';
 import {
-    getCreditController,
-    checkCreditController,
-    updateCreditController,
-    updateSubscriptionController,
-    getTransactionsController,
-    getTransactionSummaryController,
-    getAnalyticsController,
-    getPackagesController,
+    getCredit,
+    getCreditAnalytics,
+    getCreditCheck,
+    getCreditTransactions,
+    getCreditTransactionSummary,
+    getPackages,
+    postCreditUpdate,
 } from '../controllers/credit.controller.js';
 
-const router = express.Router();
+const router = Router();
 
-// ── Public Routes (no auth required) ─────────────────────────────────────────
-// Returns subscription plans for the pricing page
-router.get('/packages', getPackagesController);
+router.get('/packages', getPackages);
 
-// ── Authenticated Routes ──────────────────────────────────────────────────────
 router.use(identifyUser);
-
-// Credit balance & provider buckets
-router.get('/', getCreditController);
-router.get('/check', checkCreditController);
-router.post('/update', updateCreditController);
-
-// Subscription tier management
-router.patch('/subscription', updateSubscriptionController);
-
-// Transaction history & summary
-router.get('/transactions', getTransactionsController);
-router.get('/transactions/summary', getTransactionSummaryController);
-
-// Usage analytics
-router.get('/analytics', getAnalyticsController);
+router.get('/', getCredit);
+router.get('/check', getCreditCheck);
+router.post('/update', postCreditUpdate);
+router.get('/transactions', getCreditTransactions);
+router.get('/transactions/summary', getCreditTransactionSummary);
+router.get('/analytics', getCreditAnalytics);
 
 export default router;

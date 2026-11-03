@@ -4,60 +4,52 @@ import morgan from 'morgan';
 import { createExpressErrorHandler } from 'faultkit/express';
 import { logger, NotFoundError, ServiceUnavailableError } from 'faultkit';
 import creditRouter from '../routes/credit.routes.js';
-import adminRouter from '../routes/admin.routes.js';
-import paymentRouter from '../routes/payments.routes.js';
+import paymentsRouter from '../routes/payments.routes.js';
+import { checkDbConnection } from '../db/client.js';
 
 const app = express();
 
-// ── Core Middleware ───────────────────────────────────────────────────────────
+// The webhook HMAC is computed over the exact request bytes, so keep them.
+// Do not add another body parser before this one.
 app.use(express.json({
+    limit: '256kb',
     verify: (req, _res, buf) => {
         req.rawBody = buf;
-    }
+    },
 }));
 app.use(cookieParser());
-app.use(morgan('dev'));
+if (process.env.NODE_ENV !== 'test') app.use(morgan('dev'));
 
-// ── Routes ────────────────────────────────────────────────────────────────────
-
-// Credit, token tracking, subscription, analytics, packages
-// /api/payments/credit/*
-app.use('/api/payments/credit', creditRouter);
-
-// Admin-only: user management, grant/reset credits, full transaction audit
-// /api/payments/admin/*
-app.use('/api/payments/admin', adminRouter);
-
-app.use('/api/payments', paymentRouter);
-
-// ── Health Probes ─────────────────────────────────────────────────────────────
 app.get('/healthz', (_req, res) => {
-    res.status(200).json({ status: 'ok', service: 'payments', message: 'Payment service is healthy' });
+    res.json({ status: 'ok', service: 'payments' });
 });
 
-app.get('/readyz', (_req, res) => {
-    res.status(200).json({ status: 'ok', service: 'payments', message: 'Payment service is ready' });
+app.get('/readyz', async (_req, res) => {
+    try {
+        await checkDbConnection();
+        res.json({ status: 'ok', service: 'payments', db: 'up' });
+    } catch {
+        res.status(503).json({ status: 'error', service: 'payments', db: 'down' });
+    }
 });
 
-// ── 404 Handler ───────────────────────────────────────────────────────────────
+app.use('/api/payments/credit', creditRouter);
+app.use('/api/payments', paymentsRouter);
+
 app.use((req, _res, next) => {
     next(new NotFoundError(`Route ${req.method} ${req.path} not found`));
 });
 
-// ── Global Error Handler (FaultKit) ──────────────────────────────────────────
-// Framework-agnostic, OpenAPI-compliant error response contract:
-// { success: false, error: { code, message, details, requestId } }
+// FaultKit error contract: { success: false, error: { code, message, details, requestId } }
 app.use(createExpressErrorHandler({
     logger,
     genericServerErrorMessage: 'An unexpected error occurred in Payments service.',
     includeStackInLog: process.env.NODE_ENV !== 'production',
     includeRequestId: true,
     errorCoercer: (err) => {
-        if (err && typeof err === 'object') {
-            const statusCode = err.statusCode || err.status;
-            if (statusCode === 502 || statusCode === 503 || statusCode === 504) {
-                return new ServiceUnavailableError(err.error?.description || err.message || 'Payment gateway service temporarily unavailable');
-            }
+        const status = err?.statusCode || err?.status;
+        if (status === 502 || status === 503 || status === 504) {
+            return new ServiceUnavailableError(err.error?.description || err.message || 'Payment gateway temporarily unavailable');
         }
     },
 }));

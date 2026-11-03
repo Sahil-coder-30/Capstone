@@ -1,176 +1,89 @@
 /**
- * identifyUser Middleware — Payments Service
+ * identifyUser: verifies the Auth access token and loads the account.
  *
- * Architecture: Dynamic JWKS Key Discovery from Auth Service
- * - NO local keys or certs. Public key fetched from /.well-known/jwks.json.
- * - Key cache: stores the raw JWK array (not a single PEM) so keys are looked
- *   up by kid on every request. Supports key rotation overlap windows.
- * - Blacklist check: Payments is the ONLY non-Auth service that hits Redis on
- *   every request. Reason: financial operations cannot tolerate a logged-out
- *   token remaining valid for up to 15 minutes.
- * - Auto-provision Account: Ensures an Account document is immediately created/hydrated
- *   in MongoDB for any existing or new user on their first authenticated request.
+ * - Public key comes from Auth's JWKS, picked by the token's `kid`,
+ *   cached 24h, refetched once when an unknown kid shows up.
+ * - Logged-out tokens are rejected via the Redis blacklist.
+ * - The account row is created on first request (fresh users start Free).
+ *
+ * Sets: req.user (claims, with req.user.id = user id), req.account, req.authToken.
  */
 
 import jwt from 'jsonwebtoken';
-import mongoose from 'mongoose';
 import { createPublicKey } from 'crypto';
-import { isTokenBlacklisted } from '../config/redis.js';
-import Account from '../models/account.model.js';
 import {
-    UnauthorizedError,
+    AppError,
+    ServiceUnavailableError,
     TokenExpiredError,
     TokenInvalidError,
-    ServiceUnavailableError,
-    AppError,
+    UnauthorizedError,
 } from 'faultkit';
-
-const AUTH_JWKS_URI = process.env.AUTH_JWKS_URI || 'http://localhost:5000/.well-known/jwks.json';
+import { isTokenBlacklisted } from '../config/redis.js';
+import { ensureAccount } from '../services/account.service.js';
 
 const JWT_VERIFY_OPTIONS = {
     algorithms: ['RS256'],
-    issuer:    'auth.takshacodespace.in',
-    audience:  'takshacodespace-services',
+    issuer: 'auth.takshacodespace.in',
+    audience: 'takshacodespace-services',
 };
 
-// ── JWKS key cache ────────────────────────────────────────────────────────────
-let cachedJwks     = null;
-let lastFetchedTime = 0;
-const CACHE_TTL_MS  = 24 * 60 * 60 * 1000; // 24 hours
+const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+const USER_ID_RE = /^[a-zA-Z0-9_-]{1,64}$/;
 
-/**
- * Fetch (or return cached) JWK array.
- * @param {boolean} forceRefresh - bypass cache and refetch immediately
- */
-async function fetchJwks(forceRefresh = false) {
-    const now = Date.now();
-    if (!forceRefresh && cachedJwks && (now - lastFetchedTime < CACHE_TTL_MS)) {
-        return cachedJwks;
-    }
+let cachedKeys = null;
+let fetchedAt = 0;
 
+const jwksUri = () => process.env.AUTH_JWKS_URI || 'http://auth-service/.well-known/jwks.json';
+
+async function fetchJwks(force = false) {
+    if (!force && cachedKeys && Date.now() - fetchedAt < CACHE_TTL_MS) return cachedKeys;
     try {
-        const response = await fetch(AUTH_JWKS_URI);
-        if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-
+        const response = await fetch(jwksUri());
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
         const data = await response.json();
-        if (!data.keys || data.keys.length === 0) throw new Error('JWKS response contained no keys');
-
-        cachedJwks      = data.keys;
-        lastFetchedTime = now;
-        return cachedJwks;
+        if (!data.keys?.length) throw new Error('JWKS has no keys');
+        cachedKeys = data.keys;
+        fetchedAt = Date.now();
+        return cachedKeys;
     } catch (err) {
-        if (cachedJwks) return cachedJwks;
-        throw new ServiceUnavailableError(`Failed to fetch JWKS from Auth Service (${AUTH_JWKS_URI}): ${err.message}`);
+        if (cachedKeys) return cachedKeys;
+        throw new ServiceUnavailableError(`Could not fetch JWKS from Auth: ${err.message}`);
     }
 }
 
-/**
- * Resolve the correct public key PEM for the given token's kid.
- */
-async function resolvePublicKey(token) {
-    const header = jwt.decode(token, { complete: true })?.header;
-    if (!header?.kid) throw new TokenInvalidError('Token is missing the kid (key ID) header claim');
+async function publicKeyFor(token) {
+    const kid = jwt.decode(token, { complete: true })?.header?.kid;
+    if (!kid) throw new TokenInvalidError('Token has no kid header');
 
-    let keys = await fetchJwks();
-    let jwk = keys.find(k => k.kid === header.kid);
-
-    if (!jwk) {
-        keys = await fetchJwks(true); // forceRefresh
-        jwk  = keys.find(k => k.kid === header.kid);
-    }
-
-    if (!jwk) throw new TokenInvalidError(`No JWKS entry found for kid="${header.kid}"`);
+    let jwk = (await fetchJwks()).find((k) => k.kid === kid);
+    if (!jwk) jwk = (await fetchJwks(true)).find((k) => k.kid === kid);
+    if (!jwk) throw new TokenInvalidError(`Unknown signing key kid="${kid}"`);
 
     return createPublicKey({ key: jwk, format: 'jwk' }).export({ type: 'spki', format: 'pem' });
 }
 
-/**
- * Ensure an Account document exists for the user in MongoDB.
- * Auto-creates the Account document if this is the user's first time interacting with Payments.
- * Sets Account._id = user_id to maintain 1:1 identity consistency across all collections.
- */
-export async function ensureAccount(userId, initialStatus = 'free') {
-    if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
-        return null;
-    }
-    const userObjId = new mongoose.Types.ObjectId(userId);
-
+export async function identifyUser(req, _res, next) {
     try {
-        let account = await Account.findOne({
-            $or: [{ user_id: userObjId }, { _id: userObjId }],
-        });
+        const header = req.headers.authorization || '';
+        const token = header.startsWith('Bearer ') ? header.slice(7).trim() : '';
+        if (!token) throw new UnauthorizedError('Missing Authorization: Bearer <token> header');
 
-        if (!account) {
-            account = await Account.create({
-                _id: userObjId,
-                user_id: userObjId,
-                subscription_status: initialStatus,
-                is_active: true,
-            });
-            console.log(`[Payments Account] Auto-provisioned new Account document for user_id=${userObjId}`);
+        if (await isTokenBlacklisted(token)) {
+            throw new UnauthorizedError('Token has been revoked. Please log in again.');
         }
 
-        return account;
+        const claims = jwt.verify(token, await publicKeyFor(token), JWT_VERIFY_OPTIONS);
+        const userId = String(claims.sub || claims.id || '');
+        if (!USER_ID_RE.test(userId)) throw new UnauthorizedError('Token has no valid user id');
+
+        req.user = { ...claims, id: userId };
+        req.authToken = token;
+        req.account = await ensureAccount(userId, { email: claims.email });
+        next();
     } catch (err) {
-        if (err.code === 11000) {
-            return await Account.findOne({
-                $or: [{ user_id: userObjId }, { _id: userObjId }],
-            });
-        }
-        console.warn(`[Payments Account] ensureAccount error for ${userId}: ${err.message}`);
-        return null;
+        if (err instanceof AppError) return next(err);
+        if (err.name === 'TokenExpiredError') return next(new TokenExpiredError('Access token expired. Please refresh.'));
+        if (err.name === 'JsonWebTokenError') return next(new TokenInvalidError(`Invalid token: ${err.message}`));
+        next(err);
     }
 }
-
-// ── Middleware ────────────────────────────────────────────────────────────────
-
-export const identifyUser = async (req, res, next) => {
-    try {
-        const authHeader = req.headers?.authorization;
-        if (!authHeader || !authHeader.startsWith('Bearer ')) {
-            throw new UnauthorizedError('Unauthorized: Missing Authorization header. Expected: Bearer <JWT>');
-        }
-        const token = authHeader.split(' ')[1];
-        if (!token) {
-            throw new UnauthorizedError('Unauthorized: Bearer token value is empty.');
-        }
-
-        // ── 1. Blacklist check (Payments-only) ────────────────────────────────
-        const blacklisted = await isTokenBlacklisted(token);
-        if (blacklisted) {
-            throw new UnauthorizedError('Unauthorized: Token has been revoked. Please log in again.');
-        }
-
-        // ── 2. Signature verification (kid-aware) ─────────────────────────────
-        const publicKeyPem = await resolvePublicKey(token);
-        const decodedToken = jwt.verify(token, publicKeyPem, JWT_VERIFY_OPTIONS);
-
-        // ── 3. Identity claim validation ──────────────────────────────────────
-        const userId = decodedToken?.sub || decodedToken?.id || decodedToken?._id;
-        if (!decodedToken || !userId) {
-            throw new UnauthorizedError('Unauthorized: Token payload is missing required identity claims (sub / id).');
-        }
-
-        // ── 4. Auto-Provision / Hydrate Account Document in MongoDB ───────────
-        const account = await ensureAccount(userId, decodedToken?.subscription || 'free');
-
-        req.user      = decodedToken;
-        req.user.id   = userId;
-        req.account   = account;
-        req.accountId = account ? account._id.toString() : userId;
-        req.authToken = token;
-        next();
-
-    } catch (error) {
-        if (error instanceof AppError) {
-            return next(error);
-        }
-        if (error.name === 'TokenExpiredError') {
-            return next(new TokenExpiredError('Unauthorized: Access token expired. Please refresh.'));
-        }
-        if (error.name === 'JsonWebTokenError') {
-            return next(new TokenInvalidError(`Unauthorized: Invalid token signature or claim (${error.message})`));
-        }
-        return next(new UnauthorizedError(`Unauthorized: ${error.message}`));
-    }
-};

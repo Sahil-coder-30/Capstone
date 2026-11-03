@@ -1,155 +1,38 @@
 /**
- * Webhook Controller — Payments Service
+ * POST /api/payments/webhook (Razorpay, server to server)
  *
- * Official Razorpay SDK Handlers:
- *   POST /api/payments/webhook  — Receive Razorpay payment confirmation (HMAC-verified)
- *
- * Built using official `razorpay` npm package: https://www.npmjs.com/package/razorpay
+ * The HMAC is checked over req.rawBody, the exact bytes Razorpay signed
+ * (set by express.json's verify hook in app.js).
  */
 
-import razorpayService from '../services/razorpay.service.js';
-import { processSubscriptionPayment } from '../services/subscription.service.js';
-import { notifyPaymentEvent } from '../services/payment.service.js';
-import { BadRequestError, logger, toErrorResponse } from 'faultkit';
+import { BadRequestError, logger } from 'faultkit';
+import { isWebhookSignatureValid } from '../services/razorpay.service.js';
+import { handleWebhookEvent } from '../services/checkout.service.js';
 
-// Re-export order & verification controllers from payment.controller for full backward compatibility
-export { createOrderController, verifyPaymentController } from './payment.controller.js';
+const HANDLED = new Set(['payment.captured', 'order.paid', 'payment.failed']);
 
-// ─── POST /api/payments/webhook ───────────────────────────────────────────────
+export async function razorpayWebhook(req, res) {
+    const rawBody = Buffer.isBuffer(req.rawBody) ? req.rawBody.toString('utf8') : null;
+    if (!rawBody) throw new BadRequestError('Webhook raw body is unavailable');
 
-/**
- * Razorpay Webhook — Server-to-Server Payment Confirmation
- * Verified using validateWebhookSignature from the official `razorpay` package.
- */
-export async function webhookController(req, res, next) {
-    const sendError = (err) => {
-        if (typeof next === 'function') return next(err);
-        return res.status(err.statusCode || 400).json(toErrorResponse(err));
-    };
-
-    // express.json's verify hook stores the exact bytes Razorpay signed as a
-    // Buffer. The HMAC must be computed over those bytes, not a re-serialised
-    // object, so normalise to a UTF-8 string before verifying or parsing.
-    const source = req.rawBody ?? req.body;
-    const rawBody = Buffer.isBuffer(source) ? source.toString('utf8') : source;
-    if (typeof rawBody !== 'string') {
-        return sendError(new BadRequestError('Webhook raw body is unavailable'));
+    const signature = req.headers['x-razorpay-signature'];
+    if (!isWebhookSignatureValid({ rawBody, signature })) {
+        throw new BadRequestError('Webhook signature verification failed');
     }
 
-    let payload;
-    try {
-        payload = JSON.parse(rawBody);
-    } catch {
-        return sendError(new BadRequestError('Malformed JSON payload'));
-    }
-
-    const signature = req.headers?.['x-razorpay-signature'];
-    if (!signature) {
-        return sendError(new BadRequestError('Missing X-Razorpay-Signature header'));
-    }
-
-    // Verify webhook signature using official SDK utility
-    const isValid = razorpayService.verifyWebhookSignature({
-        rawBody,
-        signature,
-    });
-
-    if (!isValid) {
-        logger.warn('[webhookController] Webhook signature verification failed');
-        return sendError(new BadRequestError('Webhook signature verification failed'));
-    }
-
-    // Acknowledge webhook receipt to Razorpay immediately
-    res.status(200).json({ status: 'received' });
-
+    const payload = JSON.parse(rawBody);
     const event = payload?.event;
-    logger.info(`[webhookController] Received verified Razorpay event: ${event}`);
+    if (!HANDLED.has(event)) {
+        return res.json({ status: 'ignored' });
+    }
 
+    // Process before replying: a 5xx makes Razorpay retry, and the payment id
+    // primary key makes a retry safe.
     try {
-        if (event === 'payment.captured' || event === 'order.paid') {
-            await _handlePaymentCaptured(payload?.payload?.payment?.entity);
-        } else if (event === 'payment.failed') {
-            await _handlePaymentFailed(payload?.payload?.payment?.entity);
-        }
+        await handleWebhookEvent(event, payload?.payload?.payment?.entity);
     } catch (err) {
-        logger.error({ err }, `[webhookController] Error processing event ${event}: ${err.message}`);
+        logger.error({ err, event }, '[webhook] processing failed');
+        throw err;
     }
-}
-
-// ── Private event handlers ────────────────────────────────────────────────────
-
-async function _handlePaymentCaptured(payment) {
-    if (!payment) return;
-
-    const {
-        id: paymentId,
-        order_id: orderId,
-        amount: amountPaise,
-        notes,
-    } = payment;
-
-    const accountId = notes?.accountId;
-    const packageId = notes?.packageId;
-
-    if (!accountId || !packageId) {
-        logger.error({ notes }, '[webhookController] payment.captured missing accountId or packageId in notes');
-        return;
-    }
-
-    const result = await processSubscriptionPayment({
-        accountId,
-        packageId,
-        paymentId,
-        orderId,
-        signature: payment.razorpay_signature || null,
-        amountPaise,
-    });
-
-    if (result.status === 'already_processed') {
-        logger.info({ paymentId }, '[webhookController] Duplicate webhook for paymentId. Safely ignored.');
-        return;
-    }
-
-    logger.info({
-        activeTier: result.activeTier,
-        validUntil: result.validUntil?.toDateString(),
-    }, '[webhookController] ✓ Subscription activated via webhook');
-
-    try {
-        await notifyPaymentEvent({
-            action: 'payment_success',
-            email:    notes?.email    ?? 'user@unknown.com',
-            username: notes?.username ?? 'Valued Customer',
-            transactionDetails: {
-                paymentId,
-                orderId,
-                amountPaise,
-                packageId,
-                tier:        result.activeTier,
-                validUntil:  result.validUntil,
-                carriedDays: result.carriedDays,
-            },
-        });
-    } catch (notifyErr) {
-        logger.warn({ err: notifyErr }, '[webhookController] Failed to send payment confirmation email');
-    }
-}
-
-async function _handlePaymentFailed(payment) {
-    if (!payment) return;
-    const { id: paymentId, order_id: orderId, notes } = payment;
-
-    logger.warn({ paymentId, orderId }, '[webhookController] Payment failed');
-
-    try {
-        await notifyPaymentEvent({
-            action: 'payment_failed',
-            email:    notes?.email    ?? 'user@unknown.com',
-            username: notes?.username ?? 'Valued Customer',
-            transactionDetails: { paymentId, orderId },
-            errorReason: payment.error_description ?? 'Payment could not be processed.',
-        });
-    } catch (notifyErr) {
-        logger.warn({ err: notifyErr }, '[webhookController] Failed to send payment failure email');
-    }
+    res.json({ status: 'received' });
 }
