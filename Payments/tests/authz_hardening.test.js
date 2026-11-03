@@ -59,7 +59,7 @@ test('2. credit/update: body userId for another account is rejected', async () =
         user: { id: new mongoose.Types.ObjectId().toString() },
         body: {
             userId: new mongoose.Types.ObjectId().toString(),
-            company: 'mistral',
+            company: 'nvidia',
             totalTokens: 1000,
         },
     });

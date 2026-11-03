@@ -90,9 +90,7 @@ test.before(async () => {
         accountId: TEST_ACCOUNT_ID,
         subscription: 'free',
         providerCredits: [
-            { company: 'mistral', creditsGranted: 20, creditsRemaining: 20 },
-            { company: 'google', creditsGranted: 20, creditsRemaining: 20 },
-            { company: 'openai', creditsGranted: 20, creditsRemaining: 20 },
+            { company: 'nvidia', creditsGranted: 20, creditsRemaining: 20 },
         ],
     });
 });
@@ -505,8 +503,8 @@ test('11. UsageEvent Aggregation: getUsageAnalytics calculates accurate provider
         {
             accountId: TEST_ACCOUNT_ID,
             chatId: validChatId1,
-            company: 'google',
-            modelId: 'gemini-1.5-pro',
+            company: 'nvidia',
+            modelId: 'nvidia/nemotron-3-ultra-550b-a55b',
             agentType: 'codingAgent',
             promptTokens: 1000,
             completionTokens: 500,
@@ -517,8 +515,8 @@ test('11. UsageEvent Aggregation: getUsageAnalytics calculates accurate provider
         {
             accountId: TEST_ACCOUNT_ID,
             chatId: validChatId2,
-            company: 'mistral',
-            modelId: 'devstral-24b',
+            company: 'nvidia',
+            modelId: 'nvidia/nemotron-3.5-lightning-30b-a3b',
             agentType: 'appAgent',
             promptTokens: 2000,
             completionTokens: 1000,
@@ -535,14 +533,10 @@ test('11. UsageEvent Aggregation: getUsageAnalytics calculates accurate provider
     assert.ok(analytics.totals.promptTokens >= 3000);
     assert.ok(analytics.totals.completionTokens >= 1500);
 
-    // Provider breakdown
-    const googleProv = analytics.byProvider.find(p => p.company === 'google');
-    assert.ok(googleProv);
-    assert.ok(googleProv.totalTokens >= 1500);
-
-    const mistralProv = analytics.byProvider.find(p => p.company === 'mistral');
-    assert.ok(mistralProv);
-    assert.ok(mistralProv.totalTokens >= 3000);
+    // Provider breakdown: both events are NVIDIA, so they land in one bucket
+    const nvidiaProv = analytics.byProvider.find(p => p.company === 'nvidia');
+    assert.ok(nvidiaProv);
+    assert.ok(nvidiaProv.totalTokens >= 4500);
 
     // Timeline grouping (at least 1 or 2 distinct day buckets)
     assert.ok(analytics.timeline.length >= 1);

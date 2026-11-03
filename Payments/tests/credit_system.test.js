@@ -79,7 +79,7 @@ test('2. Initial Pre-flight Check for New Account (Free Tier)', async () => {
         userId: TEST_ACCOUNT_ID,
         accountId: TEST_ACCOUNT_ID,
         subscription: 'free',
-        providerCredits: [{ company: 'mistral', creditsRemaining: 20 }],
+        providerCredits: [{ company: 'nvidia', creditsRemaining: 20 }],
     });
 
     const req = { accountId: TEST_ACCOUNT_ID.toString() };
@@ -102,8 +102,8 @@ test('3. Token Usage Decrements Window Credits (updateCreditController)', async 
         accountId: TEST_ACCOUNT_ID.toString(),
         body: {
             userId: TEST_ACCOUNT_ID.toString(),
-            company: 'mistral',
-            modelId: 'mistral-large',
+            company: 'nvidia',
+            modelId: 'nvidia/nemotron-3-ultra-550b-a55b',
             agentType: 'codingAgent',
             promptTokens: 3000,
             completionTokens: 2000,
@@ -131,8 +131,8 @@ test('4. Credit Exhaustion Below 5 Triggers 5-Hour Lockout & Refill Timestamp', 
         accountId: TEST_ACCOUNT_ID.toString(),
         body: {
             userId: TEST_ACCOUNT_ID.toString(),
-            company: 'mistral',
-            modelId: 'mistral-large',
+            company: 'nvidia',
+            modelId: 'nvidia/nemotron-3-ultra-550b-a55b',
             agentType: 'codingAgent',
             totalTokens: 12000,
         },

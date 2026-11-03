@@ -123,7 +123,7 @@ test('5. FaultKit: credit validation errors throw concrete BadRequestError', asy
         {
             accountId: new mongoose.Types.ObjectId().toString(),
             body: {
-                company: 'mistral',
+                company: 'nvidia',
                 promptTokens: 100,
                 completionTokens: 200,
                 totalTokens: 50, // invalid: less than sum

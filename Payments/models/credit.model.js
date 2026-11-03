@@ -1,6 +1,8 @@
 import mongoose from 'mongoose';
 
-export const CREDIT_COMPANIES = ['openrouter', 'mistral', 'google', 'cohere', 'openai', 'anthropic', 'unknown'];
+// The AI service only uses NVIDIA-hosted models. Documents saved with an
+// old provider name fail validation, so clear old credit data after this change.
+export const CREDIT_COMPANIES = ['nvidia', 'unknown'];
 export const SUBSCRIPTION_TIERS = ['free', 'pro', 'max'];
 export const AGENT_TYPES = ['codingAgent', 'copilot', 'appAgent', 'title', 'unknown'];
 

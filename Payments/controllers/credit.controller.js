@@ -21,9 +21,6 @@ const BILLING_CENTS_PER_1K_TOKENS = Number(process.env.AI_BILLING_CENTS_PER_1K_T
 // ── Helpers ──────────────────────────────────────────────────────────────────
 const normalizeCompany = (company) => {
     const normalized = String(company || '').trim().toLowerCase();
-    if (normalized === 'mistralai') return 'mistral';
-    if (normalized === 'googleai' || normalized === 'gemini') return 'google';
-    if (normalized === 'openrouter.ai') return 'openrouter';
     if (CREDIT_COMPANIES.includes(normalized)) return normalized;
     return 'unknown';
 };

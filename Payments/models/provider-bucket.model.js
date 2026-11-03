@@ -134,7 +134,7 @@ ProviderBucketSchema.index({ refillAt: 1 }, { sparse: true });
  * Find a bucket or create it with plan-correct defaults.
  *
  * @param {string} accountId
- * @param {string} company       - 'gemini' | 'mistral'
+ * @param {string} company       - 'nvidia'
  * @param {string} [plan='free'] - Used to seed capacity if the bucket is new.
  * @returns {Promise<Document>}
  */
