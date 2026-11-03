@@ -29,16 +29,12 @@
 
 </div>
 
----
-
 ## What it is
 
 - **Every project gets its own sandbox.** A Kubernetes pod with a live Vite preview, a terminal and files saved to S3.
 - **Orion, the coding agent,** turns a prompt into a plan, waits for your approval, then edits, builds and fixes the code in that sandbox.
 - **Clio, the copilot,** explains code and makes small edits to the file you have open.
 - **Results are checked, not guessed.** A step passes only when the tool results and the build exit code say so.
-
----
 
 ## Features
 
@@ -51,59 +47,59 @@
 | **Billing** | Razorpay checkout, verified webhooks, subscription slots, credit windows, referrals |
 | **Emails** | Welcome and payment emails through RabbitMQ and Nodemailer |
 
----
-
 ## Architecture
 
 ```mermaid
+%%{init: {"theme": "base", "themeVariables": {"background": "transparent", "primaryColor": "transparent", "secondaryColor": "transparent", "tertiaryColor": "transparent", "mainBkg": "transparent", "clusterBkg": "transparent", "clusterBorder": "#768390", "edgeLabelBackground": "transparent", "primaryBorderColor": "#FF6A2B", "lineColor": "#768390", "primaryTextColor": "#768390", "textColor": "#768390", "titleColor": "#768390"}}}%%
 flowchart LR
-    subgraph Clients
-        FE["Frontend<br/>IDE :5173"]
-        PF["Checkout<br/>:5174"]
+    FE["Frontend IDE<br/>:5173"] --> ING
+    PF["Checkout app<br/>:5174"] --> ING
+    ING{{"NGINX<br/>Ingress"}}
+
+    subgraph Core["Core services"]
+        AUTH["Auth<br/><small>/api/auth</small>"]
+        PAY["Payments<br/><small>/api/payments</small>"]
+        AI["AI Orchestration<br/><small>/api/ai</small>"]
+        SBX["Sandbox server<br/><small>/api/sandbox</small>"]
+        RT["Router<br/><small>*.preview, *.agent</small>"]
     end
 
-    ING{{"NGINX Ingress"}}
+    ING --> AUTH & PAY & AI & SBX & RT
 
-    subgraph Services
-        AUTH["Auth"]
-        AI["AI Orchestration<br/>Orion + Clio"]
-        PAY["Payments"]
-        SBX["Sandbox server"]
-        RT["Sandbox router"]
-        NOTI["Notification"]
-    end
+    MQ[("RabbitMQ")] --> NOTI["Notification<br/><small>emails</small>"]
+    AUTH -.-> MQ
+    PAY -.-> MQ
 
-    subgraph Pod["Sandbox pod (one per project)"]
-        VITE["Vite app"]
+    AI --> LLM(["NVIDIA LLM API"])
+
+    subgraph Pod["Sandbox pod (per project)"]
         AGENT["Sidecar :3000"]
+        VITE["Vite app"]
         SYNC["sync-agent"]
     end
 
-    MQ[("RabbitMQ")]
-    S3[("S3")]
-    LLM(["NVIDIA LLM API"])
+    AI --> AGENT
+    SBX --> Pod
+    RT --> AGENT
+    RT --> VITE
+    SYNC --> S3[("AWS S3")]
 
-    FE & PF --> ING
-    ING -->|/api/auth| AUTH
-    ING -->|/api/ai| AI
-    ING -->|/api/payments| PAY
-    ING -->|/api/sandbox| SBX
-    ING -->|*.preview / *.agent| RT
-
-    AI -->|tools| AGENT
-    AI -->|credits| PAY
-    AI --> LLM
-    SBX -->|create / delete| Pod
-    RT --> VITE & AGENT
-    SYNC --> S3
-    AUTH & PAY -.->|events| MQ -.-> NOTI
+    classDef default fill:transparent,stroke:#FF6A2B,stroke-width:1.5px,color:#768390
+    style Core fill:transparent,stroke:#768390,stroke-dasharray:4 4,color:#768390
+    style Pod fill:transparent,stroke:#768390,stroke-dasharray:4 4,color:#768390
 ```
+
+| Link | What happens |
+|---|---|
+| Sandbox server to pod | Creates one pod and one Service per running project, deletes them when idle |
+| AI Orchestration to sidecar | Agent tools read and write files and run commands inside the pod |
+| AI Orchestration to Payments | Checks credits before a run, reports token usage after it (not drawn) |
+| Router to pod | `*.preview` goes to the Vite app, `*.agent` goes to the sidecar |
+| Auth, Payments to RabbitMQ | Dotted lines: email events, sent to users by Notification |
 
 Each backend owns its own MongoDB database. Redis handles the token blacklist, rate limits, cron locks and sandbox TTLs.
 
 Full flows (login, sandbox lifecycle, agent run, payments): **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)**
-
----
 
 ## Services
 
@@ -121,8 +117,6 @@ Full flows (login, sandbox lifecycle, agent run, payments): **[docs/ARCHITECTURE
 | `Frontend/` | The cloud IDE | React 19, Redux Toolkit, Monaco, Dexie | [Read](Frontend/README.md) |
 | `payments_frontend/` | Pricing and checkout app | React 19, react-razorpay | [Read](payments_frontend/README.md) |
 | `Admin/` | Planned, no code yet | n/a | [Read](Admin/README.md) |
-
----
 
 ## Quick start
 
@@ -175,8 +169,6 @@ Both proxy `/api` to the ingress at `http://localhost`.
 > [!WARNING]
 > `cd Payments && npm test` clears collections in its database. Run it only against a throwaway database.
 
----
-
 ## Project layout
 
 ```
@@ -199,8 +191,6 @@ Capstone/
 └── skaffold.yml          dev loop for the cluster
 ```
 
----
-
 ## Documentation
 
 | Doc | Topic |
@@ -214,8 +204,6 @@ Capstone/
 
 > [!NOTE]
 > Some pages in `docs/` describe planned work (gRPC, the Chrome extension, Loki, Admin). When a doc and the code disagree, the code is right. Current gaps are listed in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#known-gaps).
-
----
 
 <div align="center">
 

@@ -4,8 +4,6 @@ How the services of Taksha CodeSpace fit together. Each section links to the ser
 
 [Back to the main README](../Readme.md)
 
----
-
 ## Contents
 
 - [Ports and routing](#ports-and-routing)
@@ -15,8 +13,6 @@ How the services of Taksha CodeSpace fit together. Each section links to the ser
 - [Payments and credits](#payments-and-credits)
 - [Emails](#emails)
 - [Known gaps](#known-gaps)
-
----
 
 ## Ports and routing
 
@@ -45,8 +41,6 @@ NGINX Ingress ([`k8s/ingress.yml`](../k8s/ingress.yml)):
 
 Both frontends proxy `/api` to the ingress at `http://localhost` in dev.
 
----
-
 ## Login and tokens
 
 Details: [Auth/README.md](../Auth/README.md)
@@ -66,13 +60,12 @@ How other services check the token:
 | Sandbox server | JWKS | no |
 | Sandbox sidecar | none | no |
 
----
-
 ## Project and sandbox lifecycle
 
 Details: [Sandbox/server](../Sandbox/server/README.md), [router](../Sandbox/router/README.md), [sidecar](../Sandbox/Agent/README.md), [sync-agent](../Sandbox/sync-agent/README.md), [template](../Sandbox/template/README.md)
 
 ```mermaid
+%%{init: {"theme": "base", "themeVariables": {"background": "transparent", "actorBkg": "transparent", "actorBorder": "#FF6A2B", "actorTextColor": "#768390", "actorLineColor": "#768390", "signalColor": "#768390", "signalTextColor": "#768390", "labelBoxBkgColor": "transparent", "labelBoxBorderColor": "#768390", "labelTextColor": "#768390", "noteBkgColor": "transparent", "noteBorderColor": "#768390", "noteTextColor": "#768390"}}}%%
 sequenceDiagram
     participant U as Frontend
     participant S as Sandbox server
@@ -93,8 +86,6 @@ sequenceDiagram
 - Two init containers run first: one copies the seed files, one restores the last S3 snapshot.
 - `GET /api/sandbox/projects` matches the DB status with the real pod phase.
 - Delete is soft (trash). Permanent delete removes the record.
-
----
 
 ## AI agent run
 
@@ -127,8 +118,6 @@ Request pipeline:
 - **Grounding:** step status comes from real tool results, and build pass or fail comes from the exit code, not from the model.
 - After a run, token usage is sent to Payments `/credit/update`.
 
----
-
 ## Payments and credits
 
 Details: [Payments/README.md](../Payments/README.md), [payments_frontend/README.md](../payments_frontend/README.md)
@@ -145,16 +134,12 @@ Details: [Payments/README.md](../Payments/README.md), [payments_frontend/README.
 - **Cron jobs**, each behind a Redis lock: referral settlement (hourly), slot promotion (daily), credit refill (every 30 min).
 - A Postgres schema (Drizzle) is in progress in `Payments/db/`. The running code still uses MongoDB.
 
----
-
 ## Emails
 
 Details: [Notification/README.md](../Notification/README.md)
 
 - Consumes `auth_notification_queue` and `payment_notification_queue` from RabbitMQ.
 - Sends mail with Nodemailer. Templates live in `Notification/src/emails/template/`.
-
----
 
 ## Known gaps
 
