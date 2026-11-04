@@ -24,7 +24,10 @@
       filter: blur(140px);
       opacity: 0.75;
       mix-blend-mode: screen;
-      will-change: transform, border-radius;
+      // Only transform animates, so the blurred layer is painted once and
+      // then moved by the GPU. Animating border-radius here forced a full
+      // repaint of a 140px blur on every frame.
+      will-change: transform;
       pointer-events: none;
     }
 
@@ -1459,7 +1462,8 @@
 .playground-orbs__orb {
   position: absolute;
   border-radius: 50%;
-  will-change: transform, border-radius, opacity;
+  // Transform and opacity only: both run on the GPU without a repaint.
+  will-change: transform, opacity;
   pointer-events: none;
   mix-blend-mode: screen;
   filter: blur(90px);
@@ -1536,27 +1540,22 @@
 @keyframes pgOrb1 {
   0% {
     transform: translate(0, 0) scale(1);
-    border-radius: 40% 60% 70% 30% / 40% 50% 60% 50%;
     opacity: 0.85;
   }
   25% {
     transform: translate(140px, 90px) scale(1.18);
-    border-radius: 70% 30% 50% 50% / 60% 40% 60% 40%;
     opacity: 1;
   }
   50% {
     transform: translate(80px, 180px) scale(0.92);
-    border-radius: 50% 50% 30% 70% / 50% 60% 40% 50%;
     opacity: 0.75;
   }
   75% {
     transform: translate(-110px, 100px) scale(1.10);
-    border-radius: 60% 40% 60% 40% / 50% 60% 40% 50%;
     opacity: 0.9;
   }
   100% {
     transform: translate(0, 0) scale(1);
-    border-radius: 40% 60% 70% 30% / 40% 50% 60% 50%;
     opacity: 0.85;
   }
 }
@@ -1564,22 +1563,18 @@
 @keyframes pgOrb2 {
   0% {
     transform: translate(0, 0) scale(1);
-    border-radius: 50% 50% 30% 70% / 50% 60% 40% 50%;
     opacity: 0.9;
   }
   33% {
     transform: translate(-160px, -120px) scale(0.88);
-    border-radius: 40% 60% 70% 30% / 40% 50% 60% 50%;
     opacity: 0.65;
   }
   66% {
     transform: translate(130px, -160px) scale(1.22);
-    border-radius: 70% 30% 50% 50% / 60% 40% 60% 40%;
     opacity: 1;
   }
   100% {
     transform: translate(0, 0) scale(1);
-    border-radius: 50% 50% 30% 70% / 50% 60% 40% 50%;
     opacity: 0.9;
   }
 }
@@ -1587,17 +1582,14 @@
 @keyframes pgOrb3 {
   0% {
     transform: translate(0, 0) scale(1);
-    border-radius: 60% 40% 60% 40% / 50% 60% 40% 50%;
     opacity: 0.8;
   }
   50% {
     transform: translate(-180px, 130px) scale(1.20);
-    border-radius: 40% 60% 40% 60% / 60% 40% 60% 40%;
     opacity: 1;
   }
   100% {
     transform: translate(0, 0) scale(1);
-    border-radius: 60% 40% 60% 40% / 50% 60% 40% 50%;
     opacity: 0.8;
   }
 }
@@ -1663,16 +1655,33 @@
   // Base dim rail — always visible border track
   background: rgba(255, 255, 255, 0.06);
 
-  // ── ::before — SNAKE 1 (clockwise, emerald → white) ────────────────────────
-  &::before {
+  // ── Snake geometry (shared by ::before and ::after) ───────────────────────
+  // Each snake is a big square conic gradient centered on the card and spun
+  // with transform: rotate(). The card's overflow: hidden clips it to the
+  // 2px border ring. Rotating a centered conic gradient looks exactly like
+  // animating its `from` angle, but transform runs on the GPU compositor,
+  // so the snake stays smooth even when the main thread is busy.
+  // (The old @property --border-angle animation repainted on the main
+  // thread every frame and stuttered.)
+  &::before,
+  &::after {
     content: '';
     position: absolute;
-    inset: -1px;
-    border-radius: 17px;
+    top: 50%;
+    left: 50%;
+    // Must stay larger than the card's diagonal (textarea grows to 280px).
+    width: calc(100% + 400px);
+    aspect-ratio: 1;
     z-index: 0;
     pointer-events: none;
+    transform: translate(-50%, -50%) rotate(0deg);
+    will-change: transform;
+  }
+
+  // ── ::before — SNAKE 1 (clockwise, emerald → white) ────────────────────────
+  &::before {
     background: conic-gradient(
-      from var(--border-angle, 0deg),
+      from 0deg,
       transparent                  0deg,
       transparent                 220deg,
       rgba(234, 88, 12, 0.15)    260deg,
@@ -1683,23 +1692,16 @@
       transparent                 360deg
     );
     animation: snakeRotate 4s linear infinite;
-    filter: blur(0.5px);
     transition: opacity 0.3s;
   }
 
-  // ── ::after — SNAKE 2 (counter-clockwise, cyan → violet → white) ───────────
+  // ── ::after — SNAKE 2 (cyan → violet → white) ─────────────────────────────
   // Hidden by default; activated by .is-typing class
   &::after {
-    content: '';
-    position: absolute;
-    inset: -1px;
-    border-radius: 17px;
-    z-index: 0;
-    pointer-events: none;
-    // Snake 2 uses the same rotating angle but trails 180° behind snake 1.
-    // calc() on the `from` value keeps both snakes locked in a follow formation.
+    // Snake 2 starts 180° offset and spins with the same keyframes, so it
+    // stays locked 180° behind snake 1.
     background: conic-gradient(
-      from calc(var(--border-angle, 0deg) - 180deg),
+      from 180deg,
       transparent                  0deg,
       transparent                 220deg,
       rgba(6, 182, 212, 0.10)     255deg,
@@ -1710,7 +1712,6 @@
       transparent                 360deg
     );
     animation: snakeRotate 4s linear infinite; // same animation as ::before
-    filter: blur(0.5px);
     opacity: 0;
     transition: opacity 0.5s cubic-bezier(0.16, 1, 0.3, 1);
   }
@@ -1724,7 +1725,7 @@
 
     &::before {
       background: conic-gradient(
-        from var(--border-angle, 0deg),
+        from 0deg,
         transparent                  0deg,
         transparent                 200deg,
         rgba(234, 88, 12, 0.20)    240deg,
@@ -1735,7 +1736,6 @@
         transparent                 360deg
       );
       animation: snakeRotate 2.5s linear infinite;
-      filter: blur(0px);
     }
   }
 
@@ -1749,7 +1749,7 @@
 
     &::before {
       background: conic-gradient(
-        from var(--border-angle, 0deg),
+        from 0deg,
         transparent                  0deg,
         transparent                 160deg,
         rgba(234, 88, 12, 0.12)    190deg,
@@ -1762,7 +1762,6 @@
         transparent                 360deg
       );
       animation: snakeRotate 1.8s linear infinite;
-      filter: blur(0.3px);
     }
   }
 
@@ -1778,7 +1777,7 @@
     // Snake 1 (leader) — vivid emerald→indigo→white tip
     &::before {
       background: conic-gradient(
-        from var(--border-angle, 0deg),
+        from 0deg,
         transparent                  0deg,
         transparent                 150deg,
         rgba(234, 88, 12, 0.15)    185deg,
@@ -1789,15 +1788,14 @@
         transparent                 360deg
       );
       animation: snakeRotate 1.2s linear infinite;
-      filter: blur(0px);
     }
 
     // Snake 2 (follower) — trails 180° behind snake 1, same direction & speed.
-    // Using calc(--border-angle - 180deg) on the `from` keeps the gap fixed.
+    // The 180deg `from` offset plus the shared keyframes keeps the gap fixed.
     &::after {
       opacity: 1;
       background: conic-gradient(
-        from calc(var(--border-angle, 0deg) - 180deg),
+        from 180deg,
         transparent                  0deg,
         transparent                 150deg,
         rgba(6, 182, 212, 0.12)     185deg,
@@ -1808,20 +1806,14 @@
         transparent                 360deg
       );
       animation: snakeRotate 1.2s linear infinite; // same speed = fixed gap
-      filter: blur(0px);
     }
   }
 }
 
-// ── @property declarations ────────────────────────────────────────────────────
-@property --border-angle {
-  syntax: '<angle>';
-  inherits: false;
-  initial-value: 0deg;
-}
-
+// GPU-only spin for the snake pseudo-elements (keeps the centering translate).
 @keyframes snakeRotate {
-  to { --border-angle: 360deg; }
+  from { transform: translate(-50%, -50%) rotate(0deg); }
+  to   { transform: translate(-50%, -50%) rotate(360deg); }
 }
 
 
@@ -2076,53 +2068,42 @@
 @keyframes orbMorph1 {
   0% {
     transform: translate(0, 0) scale(1) rotate(0deg);
-    border-radius: 40% 60% 70% 30% / 40% 50% 60% 50%;
   }
   33% {
     transform: translate(120px, 80px) scale(1.1) rotate(120deg);
-    border-radius: 70% 30% 50% 50% / 60% 40% 60% 40%;
   }
   66% {
     transform: translate(-60px, 140px) scale(0.9) rotate(240deg);
-    border-radius: 50% 50% 30% 70% / 50% 60% 40% 50%;
   }
   100% {
     transform: translate(0, 0) scale(1) rotate(360deg);
-    border-radius: 40% 60% 70% 30% / 40% 50% 60% 50%;
   }
 }
 
 @keyframes orbMorph2 {
   0% {
     transform: translate(0, 0) scale(1) rotate(0deg);
-    border-radius: 50% 50% 30% 70% / 50% 60% 40% 50%;
   }
   33% {
     transform: translate(-100px, -80px) scale(0.9) rotate(-120deg);
-    border-radius: 40% 60% 70% 30% / 40% 50% 60% 50%;
   }
   66% {
     transform: translate(80px, -120px) scale(1.15) rotate(-240deg);
-    border-radius: 70% 30% 50% 50% / 60% 40% 60% 40%;
   }
   100% {
     transform: translate(0, 0) scale(1) rotate(-360deg);
-    border-radius: 50% 50% 30% 70% / 50% 60% 40% 50%;
   }
 }
 
 @keyframes orbMorph3 {
   0% {
     transform: translate(0, 0) scale(1) rotate(0deg);
-    border-radius: 60% 40% 60% 40% / 50% 60% 40% 50%;
   }
   50% {
     transform: translate(-80px, 60px) scale(1.1) rotate(180deg);
-    border-radius: 40% 60% 40% 60% / 60% 40% 60% 40%;
   }
   100% {
     transform: translate(0, 0) scale(1) rotate(360deg);
-    border-radius: 60% 40% 60% 40% / 50% 60% 40% 50%;
   }
 }
 
@@ -2198,7 +2179,7 @@
 
       &::before {
         background: conic-gradient(
-          from var(--border-angle, 0deg),
+          from 0deg,
           transparent 0deg,
           transparent 160deg,
           rgba(194, 65, 12, 0.3) 220deg,
