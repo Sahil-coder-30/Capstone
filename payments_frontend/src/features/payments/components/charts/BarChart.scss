@@ -1,0 +1,85 @@
+.chart {
+  position: relative;
+  width: 100%;
+
+  svg {
+    display: block;
+    overflow: visible;
+  }
+
+  &__grid { stroke: var(--chart-grid); stroke-width: 1; }
+  &__baseline { stroke: var(--line-strong); stroke-width: 1; }
+
+  &__tick {
+    font-size: 11px;
+    fill: var(--ink-3);
+  }
+
+  &__bar {
+    fill: var(--chart-1);
+
+    &.series-2 { fill: var(--chart-2); }
+  }
+
+  g { transition: opacity 0.12s ease; }
+  g.is-dim { opacity: 0.4; }
+
+  &__empty {
+    position: absolute;
+    inset: 0 0 24px 46px;
+    display: grid;
+    place-items: center;
+    font-size: 12.5px;
+    color: var(--ink-3);
+    pointer-events: none;
+  }
+
+  &__tooltip {
+    position: absolute;
+    z-index: 3;
+    width: 180px;
+    padding: 10px 12px;
+    border-radius: var(--radius-sm);
+    background: var(--surface);
+    box-shadow: var(--shadow-pop);
+    font-size: 12px;
+    pointer-events: none;
+  }
+
+  &__tooltip-date {
+    margin-bottom: 6px;
+    font-weight: 600;
+  }
+
+  &__tooltip-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    line-height: 1.75;
+    color: var(--ink-3);
+
+    span { display: inline-flex; align-items: center; gap: 6px; }
+    strong { color: var(--ink); font-weight: 600; }
+  }
+}
+
+.swatch {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 3px;
+  flex-shrink: 0;
+
+  &.series-1 { background: var(--chart-1); }
+  &.series-2 { background: var(--chart-2); }
+}
+
+.chart-legend {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  font-size: 12px;
+  color: var(--ink-2);
+
+  span { display: inline-flex; align-items: center; gap: 6px; }
+}

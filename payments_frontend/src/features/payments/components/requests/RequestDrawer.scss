@@ -1,0 +1,28 @@
+.reqdrawer {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+
+  &__total {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+
+    strong {
+      font-size: 28px;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+    }
+
+    span { font-size: 13px; color: var(--ink-3); }
+  }
+
+  &__heading {
+    margin-top: 6px;
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+  }
+}

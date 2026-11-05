@@ -1,0 +1,51 @@
+.panel {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  animation: fade-up 0.35s ease both;
+
+  &__head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+    padding: 18px 20px 0;
+  }
+
+  &__heading { min-width: 0; }
+
+  &__title {
+    font-size: 14.5px;
+    font-weight: 600;
+  }
+
+  &__desc {
+    margin-top: 2px;
+    font-size: 12.5px;
+    color: var(--ink-3);
+  }
+
+  &__action {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  &__body {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-width: 0;
+    padding: 16px 20px 20px;
+  }
+
+  // Tables run edge to edge.
+  &--flush &__body {
+    padding: 14px 0 4px;
+  }
+}

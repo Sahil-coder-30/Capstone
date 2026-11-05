@@ -1,0 +1,18 @@
+.usage {
+  &__empty {
+    padding: 24px 20px;
+    font-size: 13px;
+    color: var(--ink-3);
+  }
+
+  .grid > .panel { height: 100%; }
+
+  &__stack {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    min-width: 0;
+
+    > .panel:last-child { flex: 1; }
+  }
+}

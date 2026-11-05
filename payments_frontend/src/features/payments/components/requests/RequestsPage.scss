@@ -1,0 +1,24 @@
+@use '../../../../styles/tokens' as *;
+
+.requests {
+  &__alert { margin-bottom: 16px; }
+
+  &__filters {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+
+    @include below($bp-sm) {
+      width: 100%;
+
+      .field { flex: 1; min-width: 0; }
+      .field--search { flex-basis: 100%; }
+    }
+  }
+
+  &__table {
+    transition: opacity 0.15s;
+
+    &.is-busy { opacity: 0.55; }
+  }
+}

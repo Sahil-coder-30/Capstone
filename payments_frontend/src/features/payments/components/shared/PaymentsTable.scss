@@ -1,0 +1,10 @@
+.paytable__dl {
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  color: var(--ink-3);
+
+  &:hover { background: var(--surface-3); color: var(--ink); }
+}

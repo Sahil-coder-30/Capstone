@@ -4,308 +4,77 @@ import {
   fetchDashboardOverviewAPI,
   fetchSubscriptionAPI,
   fetchCreditAPI,
-  updateSubscriptionAPI,
-  fetchPackagesAPI,
+  fetchSpendSummaryAPI,
   fetchTransactionsAPI,
-  fetchTransactionByIdAPI,
   fetchUsageEventsAPI,
   fetchUsageAnalyticsAPI,
-  fetchTransactionSummaryAPI,
-  fetchAnalyticsAPI,
-  createCheckoutSessionAPI,
-  verifyPaymentAPI,
-  checkCreditAvailabilityAPI,
 } from '../service/payments.api';
 import {
   setSubscription,
   setCredit,
   setDashboardOverview,
-  setUsageEvents,
   setUsageAnalytics,
-  setPackages,
-  setTransactions,
-  setSelectedTransaction,
+  setUsageEvents,
+  setUsageSample,
+  setPaymentHistory,
   setSummary,
-  setAnalytics,
-  setLoading,
-  setError,
-  setSelectedPlanId,
-  setBillingCycle,
-  setActiveView,
-  setDetailPlanId,
   setTheme,
-  setCreditAvailability,
 } from '../slice/payments.slice';
+
+/** Runs an API call, stores `pick(body)` with `action`, and returns it (null on failure). */
+async function run(dispatch, call, pick, action) {
+  try {
+    const body = await call();
+    const data = pick(body);
+    if (data == null) return null;
+    dispatch(action(data));
+    return data;
+  } catch (err) {
+    console.warn('[payments]', err?.response?.data?.message || err.message);
+    return null;
+  }
+}
+
+export const applyTheme = (theme) => {
+  document.documentElement.classList.toggle('light-theme', theme === 'light');
+  try {
+    localStorage.setItem('theme', theme);
+  } catch {
+    // Private mode: the theme still applies for this visit.
+  }
+};
 
 export const usePayments = () => {
   const dispatch = useDispatch();
-  const state = useSelector((reduxState) => reduxState.payments);
+  const state = useSelector((s) => s.payments);
 
-  const loadDashboardOverview = useCallback(async () => {
-    try {
-      dispatch(setLoading(true));
-      const res = await fetchDashboardOverviewAPI();
-      if (res && res.data) {
-        dispatch(setDashboardOverview(res.data));
-        return res.data;
-      }
-      return null;
-    } catch (err) {
-      dispatch(setError(err.message));
-    } finally {
-      dispatch(setLoading(false));
-    }
-  }, [dispatch]);
+  const loadDashboardOverview = useCallback(
+    () => run(dispatch, fetchDashboardOverviewAPI, (b) => b?.data, setDashboardOverview), [dispatch]);
+  const loadSubscription = useCallback(
+    () => run(dispatch, fetchSubscriptionAPI, (b) => b?.data, setSubscription), [dispatch]);
+  const loadCredit = useCallback(
+    () => run(dispatch, fetchCreditAPI, (b) => b?.credit, setCredit), [dispatch]);
+  const loadSummary = useCallback(
+    () => run(dispatch, fetchSpendSummaryAPI, (b) => b?.summary, setSummary), [dispatch]);
+  const loadUsageAnalytics = useCallback(
+    (days = 30) => run(dispatch, () => fetchUsageAnalyticsAPI(days), (b) => b?.data, setUsageAnalytics), [dispatch]);
+  const loadUsageEvents = useCallback(
+    (filters) => run(dispatch, () => fetchUsageEventsAPI(filters), (b) => b?.data, setUsageEvents), [dispatch]);
+  const loadUsageSample = useCallback(
+    () => run(dispatch, () => fetchUsageEventsAPI({ page: 1, limit: 100 }), (b) => b?.data, setUsageSample), [dispatch]);
+  const loadPaymentHistory = useCallback(
+    () => run(dispatch, () => fetchTransactionsAPI({ page: 1, limit: 100 }), (b) => b?.data, setPaymentHistory), [dispatch]);
 
-  const loadSubscription = useCallback(async () => {
-    try {
-      dispatch(setLoading(true));
-      const res = await fetchSubscriptionAPI();
-      if (res && res.data) {
-        dispatch(setSubscription(res.data));
-        return res.data;
-      }
-      return null;
-    } catch (err) {
-      dispatch(setError(err.message));
-    } finally {
-      dispatch(setLoading(false));
-    }
-  }, [dispatch]);
-
-  const loadCredit = useCallback(async () => {
-    try {
-      dispatch(setLoading(true));
-      const data = await fetchCreditAPI();
-      if (data && data.credit) {
-        dispatch(setCredit(data.credit));
-      }
-      return data;
-    } catch (err) {
-      dispatch(setError(err.message));
-    } finally {
-      dispatch(setLoading(false));
-    }
-  }, [dispatch]);
-
-  const loadPackages = useCallback(async () => {
-    try {
-      dispatch(setLoading(true));
-      const data = await fetchPackagesAPI();
-      if (data && data.packages) {
-        dispatch(setPackages(data.packages));
-      }
-      return data;
-    } catch (err) {
-      dispatch(setError(err.message));
-    } finally {
-      dispatch(setLoading(false));
-    }
-  }, [dispatch]);
-
-  const loadTransactions = useCallback(async (filters = {}) => {
-    try {
-      dispatch(setLoading(true));
-      const res = await fetchTransactionsAPI(typeof filters === 'number' ? { page: filters } : filters);
-      if (res && res.data) {
-        dispatch(setTransactions(res.data));
-      }
-      return res?.data;
-    } catch (err) {
-      dispatch(setError(err.message));
-    } finally {
-      dispatch(setLoading(false));
-    }
-  }, [dispatch]);
-
-  const loadTransactionDetail = useCallback(async (transactionId) => {
-    try {
-      dispatch(setLoading(true));
-      const res = await fetchTransactionByIdAPI(transactionId);
-      if (res && res.data) {
-        dispatch(setSelectedTransaction(res.data));
-        return res.data;
-      }
-      return null;
-    } catch (err) {
-      dispatch(setError(err.message));
-    } finally {
-      dispatch(setLoading(false));
-    }
-  }, [dispatch]);
-
-  const loadUsageEvents = useCallback(async (filters = {}) => {
-    try {
-      dispatch(setLoading(true));
-      const res = await fetchUsageEventsAPI(filters);
-      if (res && res.data) {
-        dispatch(setUsageEvents(res.data));
-        return res.data;
-      }
-      return null;
-    } catch (err) {
-      dispatch(setError(err.message));
-    } finally {
-      dispatch(setLoading(false));
-    }
-  }, [dispatch]);
-
-  const loadUsageAnalytics = useCallback(async (days = 30) => {
-    try {
-      dispatch(setLoading(true));
-      const res = await fetchUsageAnalyticsAPI(days);
-      if (res && res.data) {
-        dispatch(setUsageAnalytics(res.data));
-        return res.data;
-      }
-      return null;
-    } catch (err) {
-      dispatch(setError(err.message));
-    } finally {
-      dispatch(setLoading(false));
-    }
-  }, [dispatch]);
-
-  const loadSummary = useCallback(async () => {
-    try {
-      const data = await fetchTransactionSummaryAPI();
-      if (data && data.summary) {
-        dispatch(setSummary(data.summary));
-      }
-      return data;
-    } catch (err) {
-      dispatch(setError(err.message));
-    }
-  }, [dispatch]);
-
-  const loadAnalytics = useCallback(async () => {
-    try {
-      const data = await fetchAnalyticsAPI();
-      if (data && data.analytics) {
-        dispatch(setAnalytics(data.analytics));
-      }
-      return data;
-    } catch (err) {
-      dispatch(setError(err.message));
-    }
-  }, [dispatch]);
-
-  const changeSubscription = useCallback(async (tier) => {
-    try {
-      dispatch(setLoading(true));
-      const data = await updateSubscriptionAPI(tier);
-      await Promise.all([
-        loadSubscription(),
-        loadCredit(),
-        loadTransactions(),
-        loadSummary(),
-        loadDashboardOverview(),
-      ]);
-      return data;
-    } catch (err) {
-      dispatch(setError(err.message));
-      throw err;
-    } finally {
-      dispatch(setLoading(false));
-    }
-  }, [dispatch, loadSubscription, loadCredit, loadTransactions, loadSummary, loadDashboardOverview]);
-
-  const verifyPayment = useCallback(async ({ paymentId, orderId, signature, packageId }) => {
-    try {
-      dispatch(setLoading(true));
-      const data = await verifyPaymentAPI({ paymentId, orderId, signature, packageId });
-      await Promise.all([
-        loadSubscription(),
-        loadCredit(),
-        loadTransactions(),
-        loadSummary(),
-        loadDashboardOverview(),
-      ]);
-      return data;
-    } catch (err) {
-      dispatch(setError(err.message));
-      throw err;
-    } finally {
-      dispatch(setLoading(false));
-    }
-  }, [dispatch, loadSubscription, loadCredit, loadTransactions, loadSummary, loadDashboardOverview]);
-
-  const initiateCheckout = useCallback(async (planId, billingCycle = 'monthly') => {
-
-    try {
-      dispatch(setLoading(true));
-      const orderData = await createCheckoutSessionAPI(planId);
-      dispatch(setSelectedPlanId(planId));
-      dispatch(setBillingCycle(billingCycle));
-      return orderData;
-    } catch (err) {
-      dispatch(setError(err.message));
-      throw err;
-    } finally {
-      dispatch(setLoading(false));
-    }
-  }, [dispatch]);
-
-  /**
-   * checkCreditAvailability
-   * Pre-flight hook for the AI chat Send button.
-   *
-   * Usage in a component:
-   *   const { checkCreditAvailability, creditAvailability } = usePayments();
-   *   useEffect(() => { checkCreditAvailability(); }, []);
-   *   // or poll every 30s: setInterval(checkCreditAvailability, 30_000)
-   *
-   *   if (!creditAvailability.canQuery) {
-   *     // Disable Send button, show countdown using creditAvailability.nextRefillAt
-   *   }
-   */
-  const checkCreditAvailability = useCallback(async () => {
-    dispatch(setCreditAvailability({ isLoading: true }));
-    try {
-      const data = await checkCreditAvailabilityAPI();
-      if (data) {
-        dispatch(setCreditAvailability({
-          canQuery:           data.canQuery           ?? true,
-          creditsRemaining:   data.creditsRemaining   ?? null,
-          windowCreditsTotal: data.windowCreditsTotal ?? null,
-          creditLowerLimit:   data.creditLowerLimit   ?? 5,
-          nextRefillAt:       data.nextRefillAt       ?? null,
-          windowExhaustedAt:  data.windowExhaustedAt  ?? null,
-          timeUntilRefillMs:  data.timeUntilRefillMs  ?? null,
-          subscription:       data.subscription       ?? 'free',
-          isLoading: false,
-        }));
-        return data;
-      }
-    } catch (err) {
-      dispatch(setCreditAvailability({ isLoading: false }));
-      dispatch(setError(err.message));
-    }
-  }, [dispatch]);
-
-  const selectPlan = useCallback((planId) => {
-    dispatch(setSelectedPlanId(planId));
-  }, [dispatch]);
-
-  const selectBillingCycle = useCallback((cycle) => {
-    dispatch(setBillingCycle(cycle));
-  }, [dispatch]);
-
-  const switchView = useCallback((viewName) => {
-    dispatch(setActiveView(viewName));
-  }, [dispatch]);
-
-  const openPlanDetail = useCallback((planId) => {
-    dispatch(setDetailPlanId(planId));
-  }, [dispatch]);
-
-  const closePlanDetail = useCallback(() => {
-    dispatch(setDetailPlanId(null));
-  }, [dispatch]);
+  /** Re-read everything a purchase changes. */
+  const refreshAfterPayment = useCallback(
+    () => Promise.all([loadDashboardOverview(), loadPaymentHistory(), loadSummary()]),
+    [loadDashboardOverview, loadPaymentHistory, loadSummary],
+  );
 
   const toggleTheme = useCallback(() => {
-    const nextTheme = state.theme === 'light' ? 'dark' : 'light';
-    dispatch(setTheme(nextTheme));
+    const next = state.theme === 'light' ? 'dark' : 'light';
+    applyTheme(next);
+    dispatch(setTheme(next));
   }, [dispatch, state.theme]);
 
   return {
@@ -313,22 +82,12 @@ export const usePayments = () => {
     loadDashboardOverview,
     loadSubscription,
     loadCredit,
-    loadPackages,
-    loadTransactions,
-    loadTransactionDetail,
-    loadUsageEvents,
-    loadUsageAnalytics,
     loadSummary,
-    loadAnalytics,
-    changeSubscription,
-    verifyPayment,
-    initiateCheckout,
-    checkCreditAvailability,
-    selectPlan,
-    selectBillingCycle,
-    switchView,
-    openPlanDetail,
-    closePlanDetail,
+    loadUsageAnalytics,
+    loadUsageEvents,
+    loadUsageSample,
+    loadPaymentHistory,
+    refreshAfterPayment,
     toggleTheme,
   };
 };

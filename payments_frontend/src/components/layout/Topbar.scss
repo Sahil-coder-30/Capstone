@@ -1,0 +1,90 @@
+@use '../../styles/tokens' as *;
+
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: var(--topbar-h);
+  padding: 0 28px;
+  background: color-mix(in srgb, var(--bg) 82%, transparent);
+  backdrop-filter: saturate(160%) blur(10px);
+  -webkit-backdrop-filter: saturate(160%) blur(10px);
+  border-bottom: 1px solid var(--line);
+
+  @include below($bp-sm) { padding: 0 16px; }
+
+  &__menu {
+    display: none;
+    place-items: center;
+    width: 34px;
+    height: 34px;
+    margin-left: -6px;
+    border-radius: var(--radius-sm);
+    color: var(--ink-2);
+
+    &:hover { background: var(--surface-2); }
+
+    @include below($bp-lg) { display: grid; }
+  }
+
+  &__crumbs {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    font-size: 13px;
+    color: var(--ink-3);
+
+    strong {
+      font-weight: 500;
+      color: var(--ink);
+      @include truncate;
+    }
+  }
+
+  &__right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-left: auto;
+  }
+
+  &__plan {
+    display: inline-flex;
+    align-items: center;
+    height: 26px;
+    padding: 0 10px;
+    border-radius: 999px;
+    border: 1px solid var(--line-strong);
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--ink-2);
+
+    &:hover { color: var(--ink); background: var(--surface-2); }
+
+    &--pro, &--max {
+      border-color: transparent;
+      background: var(--accent-soft);
+      color: var(--ink);
+    }
+  }
+
+  &__ide {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    height: 30px;
+    padding: 0 10px;
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--ink-2);
+
+    &:hover { background: var(--surface-2); color: var(--ink); }
+
+    @include below($bp-sm) { display: none; }
+  }
+}

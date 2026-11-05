@@ -1,0 +1,40 @@
+.splitbar {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+
+  &__bar {
+    display: flex;
+    gap: 2px; // surface gap between the two parts
+    height: 12px;
+  }
+
+  &__seg {
+    height: 100%;
+    transition: width 0.5s cubic-bezier(0.2, 0.8, 0.2, 1);
+
+    &.series-1 { background: var(--chart-1); border-radius: 4px 0 0 4px; }
+    &.series-2 { background: var(--chart-2); border-radius: 0 4px 4px 0; }
+  }
+
+  &__legend {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+
+    li {
+      display: grid;
+      grid-template-columns: 10px 1fr auto 64px;
+      align-items: center;
+      gap: 10px;
+      font-size: 13px;
+    }
+  }
+
+  &__pct { font-weight: 600; }
+
+  &__val {
+    text-align: right;
+    color: var(--ink-3);
+  }
+}

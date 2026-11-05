@@ -1,0 +1,26 @@
+.kv {
+  display: flex;
+  flex-direction: column;
+
+  &__row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 16px;
+    padding: 9px 0;
+    font-size: 13px;
+
+    & + & { border-top: 1px solid var(--line); }
+  }
+
+  dt { color: var(--ink-3); flex-shrink: 0; }
+
+  dd {
+    min-width: 0;
+    font-weight: 500;
+    text-align: right;
+    overflow-wrap: anywhere;
+  }
+
+  &--dense &__row { padding: 6px 0; }
+}

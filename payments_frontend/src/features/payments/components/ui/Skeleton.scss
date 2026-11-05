@@ -1,0 +1,91 @@
+@use '../../../../styles/tokens' as *;
+
+.skel {
+  display: block;
+  flex-shrink: 0;
+  background: linear-gradient(90deg, var(--skeleton) 25%, var(--skeleton-shine) 50%, var(--skeleton) 75%);
+  background-size: 200% 100%;
+  animation: skel-shine 1.4s ease-in-out infinite;
+}
+
+@keyframes skel-shine {
+  from { background-position: 150% 0; }
+  to { background-position: -50% 0; }
+}
+
+.skel-kpis {
+  display: grid;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  overflow: hidden;
+
+  &--3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  &--4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  &--5 { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+  &--6 { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+
+  @include below($bp-xl) { &--5, &--6 { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+  @include below($bp-lg) { &--4 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  @include below($bp-sm) { &--3, &--4, &--5, &--6 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+  &__tile {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 18px;
+    box-shadow: -1px 0 0 var(--line), 0 -1px 0 var(--line);
+  }
+}
+
+.skel-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 18px 20px 20px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+
+  &__head {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  &__chart {
+    display: flex;
+    align-items: flex-end;
+    gap: 6px;
+    padding-left: 40px;
+    border-bottom: 1px solid var(--line);
+
+    .skel { flex: 1; border-radius: 3px 3px 0 0 !important; }
+  }
+
+  &__list {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  &__row {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 8px;
+  }
+}
+
+.skel-table {
+  display: flex;
+  flex-direction: column;
+
+  &__row {
+    display: grid;
+    gap: 16px;
+    align-items: center;
+    padding: 15px 20px;
+
+    & + & { border-top: 1px solid var(--line); }
+  }
+}

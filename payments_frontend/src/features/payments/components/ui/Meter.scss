@@ -1,0 +1,21 @@
+.meter {
+  width: 100%;
+  border-radius: 999px;
+  background: var(--surface-3);
+  overflow: hidden;
+
+  &--sm { height: 4px; }
+  &--md { height: 6px; }
+  &--lg { height: 10px; }
+
+  &__fill {
+    height: 100%;
+    border-radius: 999px;
+    transition: width 0.5s cubic-bezier(0.2, 0.8, 0.2, 1);
+
+    &--brand { background: var(--chart-1); }
+    &--neutral { background: var(--ink-3); }
+    &--warn { background: var(--warn); }
+    &--bad { background: var(--bad); }
+  }
+}

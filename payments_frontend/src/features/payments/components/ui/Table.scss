@@ -1,0 +1,61 @@
+@use '../../../../styles/tokens' as *;
+
+.table-wrap {
+  // Positioned so absolutely placed children (sr-only labels) stay inside the
+  // scroll area instead of widening the page.
+  position: relative;
+  width: 100%;
+  overflow-x: auto;
+  // Columns can hide based on the table's own width, not the viewport.
+  container-type: inline-size;
+}
+
+@container (max-width: 620px) {
+  .table .hide-narrow { display: none; }
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+
+  th {
+    padding: 9px 20px;
+    text-align: left;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--ink-3);
+    background: var(--surface-2);
+    border-top: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
+    white-space: nowrap;
+  }
+
+  td {
+    padding: 12px 20px;
+    vertical-align: middle;
+  }
+
+  th + th, td + td { padding-left: 8px; }
+
+  tbody tr + tr td { border-top: 1px solid var(--line); }
+
+  .is-right { text-align: right; }
+
+  &--clickable tbody tr {
+    cursor: pointer;
+    transition: background-color 0.12s;
+
+    &:hover { background: var(--surface-2); }
+  }
+
+  // Shared cell helpers.
+  .cell-main { display: block; font-weight: 500; }
+  .cell-sub { display: block; margin-top: 2px; font-size: 12px; color: var(--ink-3); }
+  .cell-mono { font-family: var(--font-mono); font-size: 12px; color: var(--ink-2); }
+  .cell-num { text-align: right; font-weight: 500; white-space: nowrap; }
+  .cell-dim { color: var(--ink-2); white-space: nowrap; }
+
+  @include below($bp-md) { .hide-md { display: none; } }
+  @include below($bp-sm) { .hide-sm { display: none; } }
+}

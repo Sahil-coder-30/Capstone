@@ -1,0 +1,92 @@
+@use '../../../../styles/tokens' as *;
+
+.kpis {
+  display: grid;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  overflow: hidden;
+  animation: fade-up 0.35s ease both;
+
+  &--3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  &--4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  &--5 { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+  &--6 { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+
+  @include below($bp-xl) {
+    &--5, &--6 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  }
+
+  @include below($bp-lg) {
+    &--4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+
+  @include below($bp-sm) {
+    &--3, &--4, &--5, &--6 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+}
+
+.kpi {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  padding: 16px 18px;
+  // Hairlines that still line up when the grid wraps.
+  box-shadow: -1px 0 0 var(--line), 0 -1px 0 var(--line);
+
+  &__label {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12.5px;
+    color: var(--ink-3);
+    @include truncate;
+
+    svg { flex-shrink: 0; }
+  }
+
+  &__value {
+    font-size: 24px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    line-height: 1.15;
+    @include truncate;
+  }
+
+  &__unit {
+    margin-left: 4px;
+    font-size: 14px;
+    font-weight: 500;
+    letter-spacing: 0;
+    color: var(--ink-3);
+  }
+
+  &__foot {
+    margin-top: auto;
+    font-size: 12px;
+    color: var(--ink-3);
+    @include truncate;
+  }
+
+  @include below($bp-sm) {
+    padding: 14px;
+
+    &__value { font-size: 20px; }
+
+    // Narrow tiles: let the helper lines wrap instead of cutting them off.
+    &__label, &__foot {
+      white-space: normal;
+      overflow: visible;
+    }
+  }
+}
+
+.delta {
+  &__value {
+    font-weight: 600;
+    color: var(--ink);
+
+    &.is-up, &.is-down { color: var(--ink); }
+  }
+}

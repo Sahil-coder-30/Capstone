@@ -1,117 +1,95 @@
-import React, { useState, useEffect } from 'react';
-import { Routes, Route, useNavigate } from 'react-router-dom';
-import Header from './components/Header';
-import PaymentsLandingPage from './features/payments/components/PaymentsLandingPage';
-import PaymentsDashboard from './features/payments/components/PaymentsDashboard';
-import AIRequestsView from './features/payments/components/AIRequestsView';
-import InvoicesView from './features/payments/components/InvoicesView';
-import CheckoutModal from './features/payments/components/CheckoutModal';
-import PlanDetailPage from './features/payments/components/PlanDetailPage';
-import CompareTablePage from './features/payments/components/CompareTablePage';
-import AmbientOrbs from './components/AmbientOrbs';
-import PaymentsIntroLoader from './features/payments/components/PaymentsIntroLoader';
-import { usePayments } from './features/payments/Hooks/payments.hooks';
+import { useEffect, useState } from 'react';
+import { Navigate, Route, Routes, useNavigate, useParams } from 'react-router-dom';
+import AppShell from './components/layout/AppShell';
+import RequireAuth from './components/layout/RequireAuth';
+import PaymentsIntroLoader from './features/payments/components/intro/PaymentsIntroLoader';
+import DashboardPage from './features/payments/components/dashboard/DashboardPage';
+import UsagePage from './features/payments/components/usage/UsagePage';
+import RequestsPage from './features/payments/components/requests/RequestsPage';
+import PlansPage from './features/payments/components/plans/PlansPage';
+import CheckoutPage from './features/payments/components/checkout/CheckoutPage';
+import InvoicesPage from './features/payments/components/invoices/InvoicesPage';
+import { applyTheme, usePayments } from './features/payments/Hooks/payments.hooks';
 import api, { setAccessToken } from './services/api';
 import './styles/index.scss';
 
+const INTRO_KEY = 'taksha_payments_intro_v10_clip';
+
+const readIntroSeen = () => {
+  try {
+    return sessionStorage.getItem(INTRO_KEY) === 'true';
+  } catch {
+    return true;
+  }
+};
+
+/** Old /plans/:planId links now go straight to checkout. */
+function PlanRedirect() {
+  const { planId } = useParams();
+  return <Navigate to={`/checkout/${planId}`} replace />;
+}
+
 export default function App() {
   const { theme } = usePayments();
+  const navigate = useNavigate();
+  const forceIntro = new URLSearchParams(window.location.search).get('forceLoader') === 'true';
+  const [showIntro, setShowIntro] = useState(() => forceIntro || !readIntroSeen());
   const [user, setUser] = useState(null);
   const [authChecked, setAuthChecked] = useState(false);
-  const navigate = useNavigate();
-  const isForcePlay = new URLSearchParams(window.location.search).get('forceLoader') === 'true';
-  const [showIntro, setShowIntro] = useState(() => {
-    if (isForcePlay) return true;
-    return !sessionStorage.getItem('taksha_payments_intro_v10_clip');
-  });
 
-  const handleIntroComplete = () => {
+  useEffect(() => { applyTheme(theme); }, [theme]);
+
+  // Session check: the access token lives in memory only, getMe restores it.
+  useEffect(() => {
+    let active = true;
+    api.get('/api/auth/getMe', { baseURL: '', timeout: 5000 })
+      .then((res) => {
+        if (!active) return;
+        if (res.data?.accessToken) setAccessToken(res.data.accessToken);
+        setUser(res.data?.user || null);
+      })
+      .catch(() => { if (active) setUser(null); })
+      .finally(() => { if (active) setAuthChecked(true); });
+    return () => { active = false; };
+  }, []);
+
+  // Links from the IDE use ?route=...; map them to real paths.
+  useEffect(() => {
+    const route = new URLSearchParams(window.location.search).get('route');
+    const target = { invoices: '/invoices', status: '/', dashboard: '/', requests: '/requests', logs: '/requests', usage: '/usage', checkout: '/checkout/pro_regular', plans: '/plans' }[route];
+    if (target) navigate(target, { replace: true });
+  }, [navigate]);
+
+  const finishIntro = () => {
     setShowIntro(false);
-    if (window.location.search.includes('forceLoader')) {
+    if (forceIntro) {
       const url = new URL(window.location.href);
       url.searchParams.delete('forceLoader');
-      window.history.replaceState({}, '', url.pathname + (url.search ? url.search : ''));
+      window.history.replaceState({}, '', url.pathname + url.search);
     }
   };
 
-  // ── Theme boot on load before paint ────────────────────────────────────────
-  useEffect(() => {
-    const savedTheme = localStorage.getItem('theme') || 'light';
-    if (savedTheme === 'light') {
-      document.documentElement.classList.add('light-theme');
-    } else {
-      document.documentElement.classList.remove('light-theme');
-    }
-  }, []);
-
-  // ── Session Verification on App Boot ───────────────────────────────────────
-  useEffect(() => {
-    let isMounted = true;
-
-    const verifySession = async () => {
-      try {
-        const res = await api.get('/api/auth/getMe', { baseURL: '', timeout: 3000 });
-        if (isMounted && res.data?.user) {
-          if (res.data?.accessToken) {
-            setAccessToken(res.data.accessToken);
-          }
-          setUser(res.data.user);
-        }
-      } catch (err) {
-        if (isMounted) {
-          setUser(null);
-        }
-      } finally {
-        if (isMounted) {
-          setAuthChecked(true);
-        }
-      }
-    };
-
-    verifySession();
-    return () => { isMounted = false; };
-  }, []);
-
-  // ── Legacy URL search param redirect ───────────────────────────────────────
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const route = params.get('route');
-
-    if (route === 'invoices') {
-      navigate('/invoices', { replace: true });
-    } else if (route === 'status' || route === 'dashboard') {
-      navigate('/dashboard', { replace: true });
-    } else if (route === 'requests' || route === 'logs') {
-      navigate('/requests', { replace: true });
-    } else if (route === 'checkout') {
-      navigate('/checkout/pro_regular', { replace: true });
-    }
-  }, [navigate]);
-
   return (
-    <div className="payments-app-wrapper" style={{ minHeight: '100vh', background: 'var(--bg-canvas)', position: 'relative' }}>
-      {showIntro && (
-        <PaymentsIntroLoader
-          forcePlay={isForcePlay}
-          onComplete={handleIntroComplete}
-        />
-      )}
-      {/* Space ambient background */}
-      <AmbientOrbs showMeteors={true} opacity={1} />
-      <div id="payments-main-content" style={{ position: 'relative', zIndex: 1 }}>
-        <Header user={user} />
-        <Routes>
-          <Route path="/"                 element={<PaymentsLandingPage user={user} authChecked={authChecked} />} />
-          <Route path="/dashboard"        element={<PaymentsDashboard />} />
-          <Route path="/status"           element={<PaymentsDashboard />} />
-          <Route path="/requests"         element={<AIRequestsView />} />
-          <Route path="/invoices"         element={<InvoicesView />} />
-          <Route path="/checkout/:planId" element={<CheckoutModal user={user} />} />
+    <>
+      {showIntro && <PaymentsIntroLoader forcePlay={forceIntro} onComplete={finishIntro} />}
+      <Routes>
+        <Route element={<AppShell user={user} authChecked={authChecked} />}>
+          <Route index element={<RequireAuth><DashboardPage /></RequireAuth>} />
+          <Route path="usage" element={<RequireAuth><UsagePage /></RequireAuth>} />
+          <Route path="requests" element={<RequireAuth><RequestsPage /></RequireAuth>} />
+          <Route path="plans" element={<PlansPage />} />
+          <Route path="checkout" element={<Navigate to="/checkout/pro_regular" replace />} />
+          <Route path="checkout/:planId" element={<RequireAuth><CheckoutPage /></RequireAuth>} />
+          <Route path="invoices" element={<RequireAuth><InvoicesPage /></RequireAuth>} />
 
-          <Route path="/plans/:planId"    element={<PlanDetailPage />} />
-          <Route path="/compare"          element={<CompareTablePage />} />
-        </Routes>
-      </div>
-    </div>
+          {/* Old paths from the previous layout. */}
+          <Route path="dashboard" element={<Navigate to="/" replace />} />
+          <Route path="status" element={<Navigate to="/" replace />} />
+          <Route path="compare" element={<Navigate to="/plans" replace />} />
+          <Route path="plans/:planId" element={<PlanRedirect />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Route>
+      </Routes>
+    </>
   );
 }

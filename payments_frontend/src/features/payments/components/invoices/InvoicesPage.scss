@@ -1,0 +1,19 @@
+@use '../../../../styles/tokens' as *;
+
+.invoices {
+  &__alert { margin-bottom: 16px; }
+
+  &__table { margin-top: 16px; }
+
+  &__filters {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+
+    @include below($bp-sm) {
+      width: 100%;
+
+      .field { flex: 1; min-width: 0; }
+    }
+  }
+}

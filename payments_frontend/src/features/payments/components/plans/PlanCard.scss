@@ -1,0 +1,77 @@
+.plancard {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 22px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  animation: fade-up 0.35s ease both;
+  transition: border-color 0.15s;
+
+  &:hover { border-color: var(--line-strong); }
+
+  &.is-current {
+    border-color: var(--accent);
+    box-shadow: inset 0 0 0 1px var(--accent);
+  }
+
+  &__top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  &__name { font-size: 16px; }
+
+  &__summary {
+    margin-top: -10px;
+    font-size: 13px;
+    color: var(--ink-3);
+  }
+
+  &__price {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+  }
+
+  &__amount {
+    font-size: 32px;
+    font-weight: 600;
+    letter-spacing: -0.03em;
+    line-height: 1;
+  }
+
+  &__period { font-size: 13px; color: var(--ink-3); }
+
+  &__limits {
+    display: flex;
+    flex-direction: column;
+    border-top: 1px solid var(--line);
+
+    div {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 9px 0;
+      font-size: 13px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    dt { color: var(--ink-3); }
+    dd { font-weight: 500; text-align: right; }
+  }
+
+  &__features {
+    display: flex;
+    flex-direction: column;
+    gap: 9px;
+    font-size: 13px;
+    color: var(--ink-2);
+
+    li { display: flex; align-items: center; gap: 8px; }
+    svg { color: var(--ok); flex-shrink: 0; }
+  }
+}

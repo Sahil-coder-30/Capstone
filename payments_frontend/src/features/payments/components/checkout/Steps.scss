@@ -1,0 +1,60 @@
+@use '../../../../styles/tokens' as *;
+
+.steps {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 20px;
+
+  &__item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1;
+    font-size: 13px;
+    color: var(--ink-3);
+
+    &:not(:last-child)::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      margin-left: 4px;
+      background: var(--line-strong);
+    }
+
+    &.is-done::after { background: var(--accent); }
+    &.is-current { color: var(--ink); font-weight: 500; }
+    &.is-done { color: var(--ink-2); }
+  }
+
+  &__dot {
+    display: grid;
+    place-items: center;
+    width: 24px;
+    height: 24px;
+    flex-shrink: 0;
+    border-radius: 50%;
+    border: 1px solid var(--line-strong);
+    font-size: 12px;
+    font-weight: 600;
+
+    .is-current & {
+      border-color: var(--accent);
+      color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-soft);
+    }
+
+    .is-done & {
+      border-color: var(--accent);
+      background: var(--accent);
+      color: var(--accent-ink);
+    }
+  }
+
+  &__label { white-space: nowrap; }
+
+  @include below($bp-sm) {
+    &__label { display: none; }
+    .is-current .steps__label { display: inline; }
+  }
+}

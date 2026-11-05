@@ -1,0 +1,24 @@
+.creditcard {
+  .panel__body { gap: 14px; }
+
+  &__big {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+
+    strong {
+      font-size: 32px;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+      line-height: 1;
+    }
+
+    span { font-size: 13px; color: var(--ink-3); }
+  }
+
+  &__note {
+    margin-top: auto;
+    font-size: 12px;
+    color: var(--ink-3);
+  }
+}

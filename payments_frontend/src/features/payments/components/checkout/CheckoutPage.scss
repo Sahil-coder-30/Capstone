@@ -1,0 +1,57 @@
+@use '../../../../styles/tokens' as *;
+
+.checkout {
+  max-width: 1080px;
+
+  &__back { margin: -6px 0 10px -10px; }
+
+  &__grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 360px;
+    align-items: start;
+    gap: 16px;
+
+    @include below($bp-md) { grid-template-columns: minmax(0, 1fr); }
+  }
+
+  &__main {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    min-width: 0;
+  }
+
+  &__effect {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 8px;
+
+    strong { font-size: 14px; font-weight: 600; }
+
+    p {
+      margin-top: 2px;
+      font-size: 13px;
+      color: var(--ink-3);
+    }
+  }
+
+  &__effect-icon {
+    display: grid;
+    place-items: center;
+    width: 36px;
+    height: 36px;
+    flex-shrink: 0;
+    border-radius: var(--radius-sm);
+    background: var(--accent-soft);
+    color: var(--accent);
+  }
+
+  &__hint {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 10px;
+    font-size: 12px;
+    color: var(--ink-3);
+  }
+}

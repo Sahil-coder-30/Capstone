@@ -28,10 +28,6 @@ export default defineConfig({
       'axios',
       'lucide-react',
       'gsap',
-      '@gsap/react',
-      'lenis',
-      'motion',
-      'ogl',
     ],
   },
   server: {

@@ -1,0 +1,12 @@
+.dash {
+  &__alert { margin-bottom: 16px; }
+
+  &__mix {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+  }
+
+  // Panels in one row share a height; their bodies stretch.
+  .grid > .panel { height: 100%; }
+}
