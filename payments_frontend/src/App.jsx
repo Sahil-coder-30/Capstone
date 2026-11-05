@@ -101,7 +101,7 @@ export default function App() {
       <div id="payments-main-content" style={{ position: 'relative', zIndex: 1 }}>
         <Header user={user} />
         <Routes>
-          <Route path="/"                 element={<PaymentsLandingPage user={user} />} />
+          <Route path="/"                 element={<PaymentsLandingPage user={user} authChecked={authChecked} />} />
           <Route path="/dashboard"        element={<PaymentsDashboard />} />
           <Route path="/status"           element={<PaymentsDashboard />} />
           <Route path="/requests"         element={<AIRequestsView />} />

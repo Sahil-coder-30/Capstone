@@ -7,7 +7,7 @@ import { usePayments } from '../features/payments/Hooks/payments.hooks';
 import { Menu, X, ArrowLeft } from 'lucide-react';
 
 const NAV_LINKS = [
-  { to: '/',          label: 'Plans',        end: true },
+  { to: '/',          label: 'Overview',     end: true },
   { to: '/dashboard',  label: 'Dashboard',    end: false },
   { to: '/requests',   label: 'AI Logs',      end: false },
   { to: '/invoices',   label: 'Invoices',     end: false },
