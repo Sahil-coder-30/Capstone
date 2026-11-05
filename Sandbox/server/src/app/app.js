@@ -38,7 +38,7 @@ app.post("/api/sandbox/start", identifyUser, async (req, res, next) => {
         const userId = req.user.id; // Populated by identifyUser after JWT verification
 
         await Promise.all([
-            createPod(sandboxId),
+            createPod(sandboxId, undefined, userId),
             createService(sandboxId),
             createSandboxKey(sandboxId)
         ]);

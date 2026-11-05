@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useCallback } from 'react';
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { io } from 'socket.io-client';
+import { resetTokenRetry, retryWithFreshToken, sandboxSocketAuth } from '../../../services/sandboxSocketAuth';
 import { useSandbox } from '../../sandbox/Hooks/sandbox.hooks';
 import { Terminal as TerminalIcon, AlertCircle, RefreshCw } from 'lucide-react';
 import '@xterm/xterm/css/xterm.css';
@@ -66,6 +67,7 @@ export default function TerminalShell() {
     const socket = io('/', {
       path: '/api/terminal-proxy/socket.io',
       query: { sandboxId: id },
+      auth: sandboxSocketAuth,
       /**
        * Use socket.io's DEFAULT transport strategy:
        *   1. HTTP long-polling  — establishes the session (works through ANY proxy)
@@ -89,6 +91,7 @@ export default function TerminalShell() {
     socketRef.current = socket;
 
     socket.on('connect', () => {
+      resetTokenRetry(socket);
       term.writeln('\x1b[1;32m✓ Connected to sandbox terminal\x1b[0m\r\n');
       term.focus();
       socket.emit('terminal-resize', { cols: term.cols, rows: term.rows });
@@ -101,6 +104,7 @@ export default function TerminalShell() {
     });
 
     socket.on('connect_error', (err) => {
+      if (retryWithFreshToken(socket, err)) return;
       term.writeln(`\r\n\x1b[1;31m✖ Connection error: ${err.message}\x1b[0m`);
     });
 

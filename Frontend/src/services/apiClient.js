@@ -14,6 +14,27 @@ export const clearAccessToken = () => {
 };
 export const getAccessToken = () => _accessToken;
 
+let refreshPromise = null;
+
+/**
+ * Gets a new access token from the refresh cookie and stores it.
+ * Concurrent callers (axios retries, sandbox sockets) share one request.
+ */
+export const refreshAccessToken = () => {
+  refreshPromise ??= axios
+    .post('/api/auth/refresh', {}, { withCredentials: true, timeout: 6000 })
+    .then((res) => {
+      const token = res.data?.accessToken;
+      if (!token) throw new Error('Refresh response had no access token');
+      setAccessToken(token);
+      return token;
+    })
+    .finally(() => {
+      refreshPromise = null;
+    });
+  return refreshPromise;
+};
+
 /**
  * Standardized FaultKit Client Error Class
  * Represents normalized errors conforming to the FaultKit OpenAPI schema:
@@ -203,9 +224,7 @@ apiClient.interceptors.response.use(
       isRefreshing = true;
 
       try {
-        const refreshRes = await axios.post('/api/auth/refresh', {}, { withCredentials: true, timeout: 6000 });
-        const newToken = refreshRes.data?.accessToken;
-        setAccessToken(newToken);
+        const newToken = await refreshAccessToken();
         processQueue(null, newToken);
 
         originalRequest.headers = originalRequest.headers || {};

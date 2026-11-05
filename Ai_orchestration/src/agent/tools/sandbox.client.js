@@ -6,6 +6,7 @@
 // nodes can turn failures into honest messages.
 
 import axios from "axios";
+import { sandboxTokenFor } from "./sandboxAuth.js";
 
 // The sandbox id ends up in a hostname. Only a plain DNS label is accepted,
 // so a crafted id can never point a request at another internal host.
@@ -33,16 +34,22 @@ const errorText = (data) => {
  * Returns { ok, status, data } on success or { ok: false, error, timedOut } on failure.
  */
 export async function callSandbox(config, { method = "get", path, query, body, timeoutMs = 30_000 }) {
+  const token = sandboxTokenFor(config);
+  if (!token) return { ok: false, error: "No sandbox credentials for this run. Start the request again." };
   try {
     const qs = query ? `?${new URLSearchParams(query)}` : "";
     const res = await axios({
       method,
       url: `${baseUrl(sandboxIdFrom(config))}/${path}${qs}`,
       data: body,
+      headers: { Authorization: `Bearer ${token}` },
       timeout: timeoutMs,
       signal: config?.signal,
       validateStatus: () => true,
     });
+    if (res.status === 401 || res.status === 403) {
+      return { ok: false, status: res.status, error: `The sandbox rejected the request: ${errorText(res.data) || `HTTP ${res.status}`}` };
+    }
     if (res.status >= 400) {
       return { ok: false, status: res.status, error: errorText(res.data) || `Sandbox returned HTTP ${res.status}` };
     }

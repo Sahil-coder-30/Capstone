@@ -96,10 +96,20 @@ const script = [
 // ── Fake sandbox sidecar ────────────────────────────────────────────────────
 
 const sandboxCalls = [];
+const sandboxAuthHeaders = new Set();
+const mintedFor = [];
 axios.defaults.adapter = async (config) => {
   const url = new URL(config.url);
-  sandboxCalls.push(`${config.method} ${url.pathname}`);
   const reply = (data) => ({ data, status: 200, statusText: "OK", headers: {}, config, request: {} });
+
+  if (url.host === "auth-service") {
+    const { sandboxId } = JSON.parse(config.data);
+    mintedFor.push({ sandboxId, userToken: config.headers.Authorization });
+    return reply({ status: "success", token: `sandbox-token-for-${sandboxId}`, expiresIn: 7200 });
+  }
+
+  sandboxCalls.push(`${config.method} ${url.pathname}`);
+  sandboxAuthHeaders.add(config.headers.Authorization);
 
   switch (url.pathname) {
     case "/api/agent/list-files":
@@ -200,7 +210,7 @@ test("coding run streams, pauses for plan review, resumes and finishes honestly"
   assert.match(thinking, /App.jsx is the root/, "planner text streams as thinking, not as the answer");
   assert.equal(sub.events.filter((e) => e.event === "agent:message").length, 0, "no answer text before the run ends");
 
-  assert.equal(service.approvePlan(run), true);
+  assert.equal(service.approvePlan(run, "fresh-token"), true);
   await sub.waitFor("agent:done");
 
   const step = sub.events.find((e) => e.event === "agent:step").data;
@@ -215,6 +225,10 @@ test("coding run streams, pauses for plan review, resumes and finishes honestly"
   assert.deepEqual(done.filesTouched, ["src/Hello.jsx"]);
 
   assert.ok(sandboxCalls.includes("post /api/agent/exec"), "the build check ran");
+  assert.deepEqual(mintedFor[0], { sandboxId: "sbx-1", userToken: "Bearer token" }, "a sandbox token was minted with the user's token");
+  assert.deepEqual(mintedFor[1], { sandboxId: "sbx-1", userToken: "Bearer fresh-token" }, "approving the plan renews the sandbox token");
+  assert.equal(run.authToken, "fresh-token", "usage is billed with the fresher token");
+  assert.deepEqual([...sandboxAuthHeaders], ["Bearer sandbox-token-for-sbx-1"], "every sandbox call carried the sandbox token");
   assert.equal(model.calls, script.length, "every scripted model call was used, no extra calls");
   assert.equal(saved.at(-1).role, "assistant");
   assert.match(saved.at(-1).content, /Hello component/);

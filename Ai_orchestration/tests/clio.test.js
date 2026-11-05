@@ -48,6 +48,10 @@ class ScriptedModel extends BaseChatModel {
 const sandboxCalls = [];
 axios.defaults.adapter = async (config) => {
   const url = new URL(config.url);
+  if (url.host === "auth-service") {
+    return { data: { token: "clio-sandbox-token", expiresIn: 7200 }, status: 200, headers: {}, config };
+  }
+  assert.equal(config.headers.Authorization, "Bearer clio-sandbox-token");
   sandboxCalls.push(`${url.host} ${url.pathname}`);
   const files = (url.searchParams.get("files") || "").split(",");
   return { data: { status: "ok", files: files.map((file) => ({ file, content: "const a = 1;\n" })) }, status: 200, headers: {}, config };

@@ -24,6 +24,8 @@ import {
   getOrionGraph,
   hasModelKey,
   isToolErrorOutput,
+  issueSandboxCredential,
+  releaseSandboxCredential,
   onRateLimitEvent,
   releaseOrionThread,
   truncate,
@@ -364,7 +366,7 @@ const graphConfig = (run) => ({
   version: "v2",
   signal: run.abortController.signal,
   recursionLimit: 120,
-  configurable: { thread_id: run.threadId, sandboxId: run.sandboxId },
+  configurable: { thread_id: run.threadId, sandboxId: run.sandboxId, credentialKey: run.threadId },
   writer: (msg) => {
     const parsed = parseToolWriterMessage(msg);
     run.toolLogs.push(parsed.message);
@@ -424,6 +426,7 @@ const finishRun = async (run, { event, payload, content }) => {
   if (assistantMsgId) publish(run, "agent:msg_created", { role: "assistant", id: assistantMsgId });
   publish(run, event, { ...payload, assistantMsgId });
   closeSubscribers(run);
+  releaseSandboxCredential(run.threadId);
   await releaseOrionThread(run.threadId);
   scheduleCleanup(run);
 };
@@ -544,6 +547,11 @@ export const startRun = async ({ user, authToken, projectId, sandboxId, task, at
   const agent = getOrionGraph();
   const model = getModelInfo();
 
+  // The sidecar only accepts the owner's token; get a sandbox token that
+  // outlives the 15-minute access token. Fails before anything is saved.
+  const threadId = `${sandboxId}:${Date.now()}`;
+  await issueSandboxCredential(threadId, { userToken: authToken, sandboxId });
+
   // History is loaded before saving the new message so the current task is
   // not duplicated in the context.
   const history = await ChatMessage.find({
@@ -576,7 +584,7 @@ export const startRun = async ({ user, authToken, projectId, sandboxId, task, at
     task,
     model,
     agent,
-    threadId: `${sandboxId}:${Date.now()}`,
+    threadId,
     status: "starting",
     abortController: new AbortController(),
     subscribers: new Set(),
@@ -613,18 +621,34 @@ export const startRun = async ({ user, authToken, projectId, sandboxId, task, at
   return run;
 };
 
-export const approvePlan = (run) => {
+/**
+ * Resumes a paused run. The approve/reject request carries a fresh user
+ * token, so the sandbox token and the billing token are renewed first.
+ */
+const resume = async (run, command, authToken) => {
+  if (authToken) {
+    run.authToken = authToken;
+    try {
+      await issueSandboxCredential(run.threadId, { userToken: authToken, sandboxId: run.sandboxId });
+    } catch (err) {
+      console.warn(`[AgentRun] ${run.key}: could not renew the sandbox token, keeping the old one:`, err.message);
+    }
+  }
+  await executeSegment(run, command);
+};
+
+export const approvePlan = (run, authToken) => {
   if (run.status !== "awaiting_review") return false;
   clearTimeout(run.reviewTimer);
   run.pendingReview = null;
   setStatus(run, { phase: "coder", title: "Plan approved", detail: "Starting implementation", status: "running" });
-  executeSegment(run, new Command({ resume: { approved: true } })).catch((err) =>
+  resume(run, new Command({ resume: { approved: true } }), authToken).catch((err) =>
     console.error("[AgentRun] Unhandled resume error:", err),
   );
   return true;
 };
 
-export const rejectPlan = (run, feedback) => {
+export const rejectPlan = (run, feedback, authToken) => {
   if (run.status !== "awaiting_review") return false;
   clearTimeout(run.reviewTimer);
   run.pendingReview = null;
@@ -634,7 +658,7 @@ export const rejectPlan = (run, feedback) => {
     detail: feedback ? `Feedback: "${truncate(feedback, 120)}"` : "Re-planning",
     status: "running",
   });
-  executeSegment(run, new Command({ resume: { approved: false, feedback: String(feedback || "") } })).catch((err) =>
+  resume(run, new Command({ resume: { approved: false, feedback: String(feedback || "") } }), authToken).catch((err) =>
     console.error("[AgentRun] Unhandled resume error:", err),
   );
   return true;

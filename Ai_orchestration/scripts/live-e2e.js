@@ -58,6 +58,11 @@ const reply = (config, data, status = 200) => ({ data, status, statusText: "OK",
 axios.defaults.adapter = async (config) => {
   const url = new URL(config.url);
   const body = config.data ? JSON.parse(config.data) : {};
+  // Stand-in for Auth's sandbox token endpoint.
+  if (url.host === "auth-service") return reply(config, { token: "local-sandbox-token", expiresIn: 7200 });
+  if (config.headers.Authorization !== "Bearer local-sandbox-token") {
+    return reply(config, { status: "error", message: "Missing sandbox token" }, 401);
+  }
   const route = url.pathname.replace("/api/agent/", "");
   switch (`${config.method} ${route}`) {
     case "get list-files":

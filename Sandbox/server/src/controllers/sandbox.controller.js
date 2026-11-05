@@ -227,7 +227,7 @@ export const startSandboxController = async (req, res, next) => {
 
         try {
             await Promise.all([
-                createPod(sandboxId, project._id.toString()),
+                createPod(sandboxId, project._id.toString(), project.user),
                 createService(sandboxId),
                 createSandboxKey(sandboxId),
             ]);

@@ -1,6 +1,15 @@
 import { k8sCoreV1Api } from "./config.js";
 
-export async function createPod(sandboxId, projectId) {
+// The sidecar only accepts tokens of the sandbox owner (see Sandbox/Agent/src/auth).
+const agentAuthEnv = (sandboxId, ownerId) => [
+  { name: "SANDBOX_ID", value: sandboxId },
+  { name: "OWNER_USER_ID", value: String(ownerId) },
+  { name: "AUTH_JWKS_URI", value: process.env.AUTH_JWKS_URI || "http://auth-service/.well-known/jwks.json" },
+  { name: "CLIENT_URL", value: process.env.CLIENT_URL || "http://localhost:5173" },
+];
+
+export async function createPod(sandboxId, projectId, ownerId) {
+  if (!ownerId) throw new Error(`createPod(${sandboxId}): ownerId is required`);
   const podManifest = {
     metadata: {
       name: `sandbox-pod-${sandboxId}`,
@@ -123,6 +132,7 @@ export async function createPod(sandboxId, projectId) {
           imagePullPolicy: "IfNotPresent",
           name: "agent-container",
           ports: [{ containerPort: 3000, name: "agent-http" }],
+          env: agentAuthEnv(sandboxId, ownerId),
           resources: {
             limits: {
               cpu: "500m",

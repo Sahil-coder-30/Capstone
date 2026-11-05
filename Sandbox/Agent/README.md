@@ -170,7 +170,14 @@ skaffold dev
 - **Tracing / Metrics:** Not implemented.
 
 ### Security & compliance
-- **AuthN/AuthZ:** No authentication on the sidecar REST API — it relies on the Router Service to only forward traffic from the correct authenticated session. Traffic reaches the sidecar via `*.agent.<domain>` which is a non-guessable subdomain formed from the sandboxId. A JWT check on each request would be the correct hardening step.
+- **AuthN/AuthZ:** every REST route and the Socket.IO handshake (terminal, file sync) need the **sandbox owner's** token, checked inside the sidecar ([`src/auth/`](./src/auth/)). The check runs here and not in the router, because the preview app's Vite proxy can also reach port 3000.
+
+  | Token | Sent by | Rule |
+  |---|---|---|
+  | Access token (`aud: takshacodespace-services`) | Frontend editor, logs panel, terminal | `sub` must be `OWNER_USER_ID` |
+  | Sandbox token (`aud: taksha-sandbox`, from `POST /api/auth/sandbox-token`) | AI service, for one agent run | `sbx` must be `SANDBOX_ID`, `sub` must be the owner |
+
+  Only RS256 with a key from `AUTH_JWKS_URI` is accepted. Without `OWNER_USER_ID` every protected request gets 503 (fail closed). Open routes: `health`, `ready`, and `report-error` (the preview app posts browser errors without a token). CORS allows only `CLIENT_URL`. The Sandbox server sets `SANDBOX_ID`, `OWNER_USER_ID`, `AUTH_JWKS_URI` and `CLIENT_URL` when it creates the pod. Tests: `npm test` (offline, throwaway key).
 - **Command execution:** `POST /api/agent/execute` runs arbitrary shell commands inside the container. This is intentional (AI agent needs to run build tools, git commands, etc.) and is scoped to the container — which is single-user. The risk surface is the same as giving the user a terminal.
 - **Secrets management:** No secrets held by the sidecar itself.
 

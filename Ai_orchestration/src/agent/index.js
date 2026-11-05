@@ -16,3 +16,4 @@ export { INTERNAL_TAGS } from "./llm/structured.js";
 export { contentToText, truncate, usageOf } from "./core/messages.js";
 export { isToolErrorOutput } from "./core/toolActivity.js";
 export { isValidSandboxId } from "./tools/sandbox.client.js";
+export { issueSandboxCredential, releaseSandboxCredential } from "./tools/sandboxAuth.js";

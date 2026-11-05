@@ -39,6 +39,9 @@ spec:
                 optional: true
           - name: SANDBOX_SERVICE_URL
             value: "http://sandbox-service"
+          # Mints the per-run sandbox token (POST /api/auth/sandbox-token).
+          - name: AUTH_SERVICE_URL
+            value: "http://auth-service"
 
           - name: MONGO_URI
             valueFrom:

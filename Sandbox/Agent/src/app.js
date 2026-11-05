@@ -9,12 +9,17 @@ import http from 'http';
 import pty from 'node-pty';
 import os from 'os';
 import chokidar from 'chokidar';
+import { allowedOrigins, corsForEditor, requireOwner, requireOwnerSocket } from './auth/middleware.js';
 
 
 const app = express();
+app.use(morgan("combined"));
+// Auth runs before body parsing, so unauthenticated requests are rejected
+// without reading their bodies. See auth/middleware.js for the open routes.
+app.use(corsForEditor);
+app.use(requireOwner);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use(morgan("combined"));
 
 const httpServer = http.createServer(app);
 
@@ -190,10 +195,14 @@ app.post("/api/agent/report-error", (req, res) => {
 
 const io = new Server(httpServer,{
   cors : {
-    origin : "*",
+    origin : allowedOrigins(),
+    credentials: true,
     methods: ["GET", "POST" , "PATCH"]
   }
 })
+
+// Terminal and file-sync sockets need the owner's token, like the REST API.
+io.use(requireOwnerSocket);
 
 // Initialize chokidar watcher on WORKING_DIR
 const watcher = chokidar.watch(WORKING_DIR, {

@@ -133,13 +133,13 @@ export const codeAgentStop = withRun(async (_req, res, run) => {
 });
 
 // POST /code-agent/plan-approve
-export const codeAgentPlanApprove = withRun((_req, res, run) =>
-  approvePlan(run)
+export const codeAgentPlanApprove = withRun((req, res, run) =>
+  approvePlan(run, req.authToken)
     ? res.status(202).json({ status: "ok", message: "Plan approved. Progress continues on the run stream." })
     : noPlanPending(res));
 
 // POST /code-agent/plan-reject
 export const codeAgentPlanReject = withRun((req, res, run) =>
-  rejectPlan(run, req.body?.feedback)
+  rejectPlan(run, req.body?.feedback, req.authToken)
     ? res.status(202).json({ status: "ok", message: "Re-planning. Progress continues on the run stream." })
     : noPlanPending(res));

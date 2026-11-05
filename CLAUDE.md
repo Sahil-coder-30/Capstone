@@ -68,7 +68,7 @@ Both frontends proxy `/api` to `http://localhost` (the ingress) in dev. `Fronten
 | Payments | JWKS, keyed by `kid`, cached 24h | yes |
 | AI | JWKS, plus HS256 `JWT_ACCESS_SECRET` fallback for local tests | no |
 | Sandbox server | JWKS | no |
-| Sandbox sidecar | **none, no auth at all** | no |
+| Sandbox sidecar | JWKS (`AUTH_JWKS_URI`); owner only: `sub == OWNER_USER_ID`; also accepts a sandbox token (`aud: taksha-sandbox`, `sbx == SANDBOX_ID`) | no |
 
 **3. Project and sandbox (Sandbox/server)**
 - `POST /api/sandbox/create-project`: max 5 projects per user, allocates a UUIDv7 `sandboxId`, status `not_started`.
@@ -136,7 +136,7 @@ AI service: `cd Ai_orchestration && npm test` is offline (no network, no DB) and
 
 ### Known gaps and traps
 
-- **Sidecar has no auth.** Anyone who knows a `sandboxId` can call `/api/agent/exec` through `<id>.agent.localhost`.
+- **Sidecar auth lives in the sidecar, not the router** (`Sandbox/Agent/src/auth/`). The preview app's Vite proxy (`Sandbox/template/vite.config.js`) also reaches port 3000, so never trust "came from localhost". Open routes: `health`, `ready`, `report-error`. The AI service gets a 2-hour sandbox token from `POST /api/auth/sandbox-token` per run (`Ai_orchestration/src/agent/tools/sandboxAuth.js`), renewed on plan approve.
 - **Rate limit tier is always `free`.** AI reads `req.user.subscription`, but Auth never puts `subscription` in the token.
 - **AI is single replica.** LangGraph uses an in-memory `MemorySaver`, and active run state lives in `agentRun.service.js` memory.
 - `Auth/src/routes/credit.routes.js` and its controller are not mounted. Credits live in Payments.

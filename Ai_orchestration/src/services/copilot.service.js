@@ -1,6 +1,7 @@
 // copilot.service.js
 // Runs Clio (the editor copilot) and the project-title helper.
 
+import { randomUUID } from "crypto";
 import { HumanMessage, SystemMessage } from "@langchain/core/messages";
 import CopilotChatMessage from "../models/CopilotChatMessage.model.js";
 import { recordAiUsage } from "./credit.service.js";
@@ -10,6 +11,8 @@ import {
   getClioGraph,
   getFastModel,
   getModelInfo,
+  issueSandboxCredential,
+  releaseSandboxCredential,
   truncate,
   usageOf,
 } from "../agent/index.js";
@@ -46,6 +49,10 @@ export async function runCopilot({ user, authToken, projectId, sandboxId, prompt
   const file = String(activeFile || "").replace(/^\/+/, "");
   const chatKey = file ? `${projectId}:${file}` : projectId;
 
+  // One sandbox token per Clio turn, released when the turn ends.
+  const credentialKey = `clio:${randomUUID()}`;
+  await issueSandboxCredential(credentialKey, { userToken: authToken, sandboxId });
+
   const history = await loadHistory(chatKey, user.id);
   await CopilotChatMessage.create({ projectId: chatKey, userId: user.id, role: "user", content: prompt, file });
 
@@ -58,7 +65,7 @@ export async function runCopilot({ user, authToken, projectId, sandboxId, prompt
   try {
     const events = getClioGraph().streamEvents(
       { prompt, history, activeFile: file, activeFileContent: activeFileContent || "" },
-      { version: "v2", signal: abort.signal, configurable: { sandboxId } },
+      { version: "v2", signal: abort.signal, configurable: { sandboxId, credentialKey } },
     );
     for await (const event of events) {
       if (event.event === "on_chat_model_stream" && !(event.tags || []).some((t) => INTERNAL_TAGS.includes(t))) {
@@ -74,6 +81,7 @@ export async function runCopilot({ user, authToken, projectId, sandboxId, prompt
     throw abort.signal.aborted ? abort.signal.reason : err;
   } finally {
     clearTimeout(timer);
+    releaseSandboxCredential(credentialKey);
     if (usage.totalTokens > 0) {
       recordAiUsage({ authToken, userId: user.id, company: model.provider, modelId: model.modelId, agentType: "copilot", projectId, ...usage })
         .catch((err) => console.error("[Copilot] Failed to record usage:", err.message));

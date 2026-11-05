@@ -1,16 +1,4 @@
-import axios from 'axios';
-
-const getAgentClient = (sandboxId) => {
-  const isDev = window.location.port === '5173';
-  const baseURL = isDev ? '/api/agent-proxy' : `http://${sandboxId}.agent.localhost`;
-  const headers = isDev ? { 'x-sandbox-id': sandboxId } : {};
-
-  return axios.create({
-    baseURL,
-    headers,
-    timeout: 30000,
-  });
-};
+import { getSandboxAgentClient as getAgentClient } from '../../../services/sandboxAgentClient';
 
 export const listFilesAPI = async (sandboxId) => {
   const client = getAgentClient(sandboxId);

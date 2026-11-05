@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { io } from 'socket.io-client';
+import { resetTokenRetry, retryWithFreshToken, sandboxSocketAuth } from '../../../services/sandboxSocketAuth';
 import { useDispatch } from 'react-redux';
 import { useSandbox } from '../../sandbox/Hooks/sandbox.hooks';
 import { useEditor } from './editor.hooks';
@@ -50,6 +51,7 @@ export function useWorkspaceSync() {
     const socket = io('/', {
       path: '/api/terminal-proxy/socket.io',
       query: { sandboxId },
+      auth: sandboxSocketAuth,
       transports: ['polling', 'websocket'],
       upgrade: true,
       reconnection: true,
@@ -58,7 +60,13 @@ export function useWorkspaceSync() {
     });
 
     socket.on('connect', () => {
+      resetTokenRetry(socket);
       console.log('[WorkspaceSync] Connected to sandbox file watch channel.');
+    });
+
+    socket.on('connect_error', (err) => {
+      if (retryWithFreshToken(socket, err)) return;
+      console.warn('[WorkspaceSync] Connection error:', err.message);
     });
 
     const refreshOpenFile = async (currentSandboxId, filePath) => {
