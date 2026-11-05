@@ -60,6 +60,7 @@ Auth Service is the single identity gateway for the entire platform. It handles 
 - `GET /api/auth/getMe` — Returns the authenticated user's profile, preferences, and credit summary — ✅ done
 - `POST /api/auth/refresh` — Validates refresh token from cookie, issues a new access token — ✅ done
 - `POST /api/auth/logout` — Clears session cookies and publishes a logout event to RabbitMQ — ✅ done
+- `POST /api/auth/sandbox-token` `{ sandboxId }` — Issues a 2-hour RS256 token for one sandbox (`aud: taksha-sandbox`, `sbx` claim). The AI service uses it to call a user's sandbox for a whole agent run; no other service accepts it. Rate limited to 30 per user per minute. Tests: `npm test` (offline, throwaway key) — ✅ done
 - `GET /api/auth/credit` — Returns current AI credit balance for the authenticated user — ✅ done
 - `GET /api/auth/credit/check` — Lightweight boolean: does this user have credits remaining? — ✅ done
 - `POST /api/auth/credit/update` — Deducts tokens after an AI invocation — ✅ done

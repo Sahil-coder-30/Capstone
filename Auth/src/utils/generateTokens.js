@@ -52,6 +52,19 @@ export const signAccessToken = (user) => jwt.sign(
     { ...JWT_OPTIONS, expiresIn: '15m' }
 );
 
+// ── Sandbox token ─────────────────────────────────────────────────────────────
+// Lets the AI service call one user's sandbox for a whole agent run (runs last
+// longer than the 15-minute access token). It has its own audience, so no
+// other service accepts it, and the `sbx` claim limits it to one sandbox.
+export const SANDBOX_TOKEN_AUDIENCE = 'taksha-sandbox';
+export const SANDBOX_TOKEN_TTL_SECONDS = 2 * 60 * 60;
+
+export const signSandboxToken = ({ userId, sandboxId }) => jwt.sign(
+    { sub: String(userId), id: String(userId), sbx: sandboxId },
+    PRIVATE_KEY,
+    { ...JWT_OPTIONS, audience: SANDBOX_TOKEN_AUDIENCE, expiresIn: SANDBOX_TOKEN_TTL_SECONDS }
+);
+
 /**
  * Issues a new Access Token + Rotating Refresh Token pair.
  * Stores the SHA256 hash of the refresh token and its rotation familyId in MongoDB.

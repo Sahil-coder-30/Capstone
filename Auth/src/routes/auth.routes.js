@@ -7,6 +7,7 @@ import {
     authGenerateAccessToken,
 } from '../controllers/auth.controller.js';
 import { identifyUser } from '../middleware/auth.middleware.js';
+import { sandboxTokenController } from '../controllers/sandboxToken.controller.js';
 
 const authRouter = Router();
 
@@ -23,6 +24,9 @@ authRouter.get('/getMe', identifyUser, authGetMeController);
 
 // ── Token Refresh ──
 authRouter.post('/refresh', authGenerateAccessToken);
+
+// ── Sandbox token (AI service, for one agent run) ──
+authRouter.post('/sandbox-token', identifyUser, sandboxTokenController);
 
 // ── Logout ──
 authRouter.post('/logout', identifyUser, authLogoutController);
