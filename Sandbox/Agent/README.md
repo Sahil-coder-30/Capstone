@@ -137,14 +137,31 @@ skaffold dev
 ## 🔌 Communication & Contracts
 
 ### Synchronous (REST) — File API
-| Direction | Protocol | Endpoint | Counterpart |
-|---|---|---|---|
-| Inbound | REST | `GET /api/agent/files` | AI Orchestration tool layer (via Router agent subdomain) |
-| Inbound | REST | `GET /api/agent/file?path=<path>` | AI Orchestration tool layer |
-| Inbound | REST | `POST /api/agent/create-file` | AI Orchestration tool layer |
-| Inbound | REST | `PATCH /api/agent/update-file` | AI Orchestration tool layer + Frontend Monaco editor |
-| Inbound | REST | `DELETE /api/agent/delete-file` | AI Orchestration tool layer |
-| Inbound | REST | `POST /api/agent/execute` | AI Orchestration tool layer (shell command execution) |
+All routes need the owner's token (see Security), except the ones marked open.
+
+| Endpoint | Used by |
+|---|---|
+| `GET /api/agent/health`, `GET /api/agent/ready` (open) | Kubernetes probes |
+| `POST /api/agent/report-error` (open, rate limited) | Preview app error reporter |
+| `GET /api/agent/list-files` | Frontend file tree |
+| `GET /api/agent/read-file?files=a,b` | Frontend editor |
+| `POST /api/agent/create-file`, `PATCH /api/agent/update-file`, `DELETE /api/agent/delete-file`, `POST /api/agent/patch-file` | Frontend editor |
+| `GET /api/agent/search-code`, `POST /api/agent/exec` | (AI service uses them through MCP) |
+| `GET /api/agent/vite-runtime-errors` | Frontend logs panel |
+
+### MCP — `POST /mcp`
+The same handlers as REST, exposed as **certified MCP tools** for the AI service (Orion, Clio) and, later, external agents.
+
+| Rule | Where |
+|---|---|
+| Only a fixed, frozen list of 9 tools: `list_files`, `read_file`, `create_file`, `update_file`, `patch_file`, `delete_file`, `search_code`, `execute_command`, `get_vite_runtime_errors`. Nothing registers at runtime. | [`src/mcp/tools.js`](./src/mcp/tools.js) |
+| Each tool calls the REST handler in-process, so results have the REST JSON shape. Failures set `isError`. | [`src/mcp/invokeRoute.js`](./src/mcp/invokeRoute.js) |
+| `execute_command` refuses file commands (`cat`, `sed`, ...) and dev servers | `shellCommandProblem` in `tools.js` |
+| Stateless Streamable HTTP (fresh server per request), JSON responses, `GET`/`DELETE` give 405 | [`src/mcp/server.js`](./src/mcp/server.js) |
+| DNS-rebinding protection: Host must be `sandbox-service-<id>:3000`, `<id>.agent.localhost`, localhost, or `MCP_ALLOWED_HOSTS` | `server.js` |
+| Owner token required, same as REST | `src/auth/` |
+
+Try it: `npx @modelcontextprotocol/inspector` against a port-forwarded `:3000/mcp` with `Authorization: Bearer <your access token>`. Tests: `npm test` runs the real app against a temp workspace with the SDK client.
 
 ### Asynchronous (Socket.io)
 | Event | Direction | Description |

@@ -12,6 +12,7 @@ import { allowedOrigins, corsForEditor, requireOwner, requireOwnerSocket } from 
 import { WORKING_DIR, isInsideWorkspace, safeResolve, stripWorkspace } from './workspace/paths.js';
 import { readViteLogTail } from './workspace/logs.js';
 import { cleanErrorReport, createReportLimiter } from './workspace/errorReports.js';
+import { mountMcpServer } from './mcp/server.js';
 
 
 const app = express();
@@ -20,8 +21,12 @@ app.use(morgan("combined"));
 // without reading their bodies. See auth/middleware.js for the open routes.
 app.use(corsForEditor);
 app.use(requireOwner);
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+// 5 MB: whole files are written through create-file / update-file and MCP.
+app.use(express.json({ limit: "5mb" }));
+app.use(express.urlencoded({ extended: true, limit: "5mb" }));
+
+// REST handlers by name, so the MCP server (mcp/server.js) runs the same code.
+const routes = {};
 
 const httpServer = http.createServer(app);
 
@@ -221,7 +226,7 @@ const ptyProcess = pty.spawn(shell, [], {
   name: 'xterm-color',
   cols: 80,
   rows: 30,
-  cwd: "/workspace",
+  cwd: WORKING_DIR,
   env: process.env
 });
 
@@ -260,7 +265,7 @@ io.on("connection",(socket) => {
 })
 
 
-app.get("/api/agent/list-files", async (req, res) => {
+app.get("/api/agent/list-files", routes.listFiles = async (req, res) => {
   const listFiles = async (dir, basePath = "") => {
     let entries;
     try {
@@ -356,7 +361,7 @@ app.get("/api/agent/list-files", async (req, res) => {
  *       ]
  *     }
  */
-app.get("/api/agent/read-file", async (req, res) => {
+app.get("/api/agent/read-file", routes.readFile = async (req, res) => {
   const { files } = req.query;
 
   if (!files || typeof files !== "string") {
@@ -482,7 +487,7 @@ app.get("/api/agent/read-file", async (req, res) => {
  *       ]
  *     }
  */
-app.patch("/api/agent/update-file", async (req, res) => {
+app.patch("/api/agent/update-file", routes.updateFile = async (req, res) => {
   const { updates } = req.body;
 
   if (!updates || !Array.isArray(updates) || updates.length === 0) {
@@ -629,7 +634,7 @@ app.patch("/api/agent/update-file", async (req, res) => {
  *       ]
  *     }
  */
-app.post("/api/agent/create-file", async (req, res) => {
+app.post("/api/agent/create-file", routes.createFile = async (req, res) => {
   const { files } = req.body;
 
   if (!files || !Array.isArray(files) || files.length === 0) {
@@ -705,7 +710,7 @@ app.post("/api/agent/create-file", async (req, res) => {
  *       ]
  *     }
  */
-app.delete("/api/agent/delete-file", async (req, res) => {
+app.delete("/api/agent/delete-file", routes.deleteFile = async (req, res) => {
   let fileList = [];
   const { file } = req.query;
   const { files } = req.body;
@@ -797,7 +802,7 @@ app.delete("/api/agent/delete-file", async (req, res) => {
  *   Response (200 — ambiguous):
  *     { "success": false, "error": "oldStr matches 3 times", "hint": "..." }
  */
-app.post("/api/agent/patch-file", async (req, res) => {
+app.post("/api/agent/patch-file", routes.patchFile = async (req, res) => {
   const { filePath, oldStr, newStr } = req.body;
 
   if (!filePath || typeof filePath !== "string") {
@@ -1075,7 +1080,7 @@ async function walkTextFiles(dir, basePath = "", out = [], skipped = { count: 0 
   return out;
 }
 
-app.get("/api/agent/search-code", async (req, res) => {
+app.get("/api/agent/search-code", routes.searchCode = async (req, res) => {
   const validationError = validateSearchInputs(req.query);
   if (validationError) {
     return res.status(400).json({ status: "error", ...validationError });
@@ -1238,7 +1243,7 @@ app.get("/api/agent/search-code", async (req, res) => {
  *   ✅ TIMEOUT PROTECTION:\n *   - 30-second timeout prevents commands from hanging indefinitely\n *   - Helps prevent DoS attacks and worker thread exhaustion\n *   - Timed-out processes are killed automatically\n *   - Response includes timedOut flag to indicate timeout\n *
  *   ✅ OUTPUT SIZE PROTECTION:\n *   - stdout/stderr limited to 1MB each (1,048,576 bytes)\n *   - Prevents memory exhaustion from huge output streams\n *   - Excess output is truncated with warning message\n *   - maxBuffer option set to allow full utilization of limit\n *\n * @improvements-completed\n *   ✓ Added input validation for command parameter\n *   ✓ Added 30-second timeout to prevent hanging\n *   ✓ Added 1MB output size limit per stream\n *   ✓ Added timedOut flag to response\n *   ✓ Improved error messages and HTTP status codes\n *   ✓ Added edge case handling for empty/whitespace subDir\n *   ✓ Better path traversal check with path.sep consideration\n */
 
-app.post("/api/agent/exec", (req, res) => {
+app.post("/api/agent/exec", routes.exec = (req, res) => {
   const { command, subDir } = req.body;
 
   // ─── VALIDATION: Command Parameter ────────────────────────────────────────
@@ -1250,7 +1255,7 @@ app.post("/api/agent/exec", (req, res) => {
     });
   }
 
-  const BASE_WORKSPACE = "/workspace";
+  const BASE_WORKSPACE = WORKING_DIR;
   const MAX_OUTPUT_SIZE = 1048576; // 1MB limit per stream
   const isLongRunning = /npm\s+(install|ci|run\s+build|test)|npx/i.test(command);
   const COMMAND_TIMEOUT = isLongRunning ? 120000 : 30000; // 120s for installs/builds, 30s for standard commands
@@ -1317,7 +1322,7 @@ app.post("/api/agent/exec", (req, res) => {
 // Read from the shared log file (workspace/logs.js). Same response shape as
 // before, when the logs came from the Kubernetes API.
 
-app.get("/api/agent/vite-runtime-errors", async (req, res) => {
+app.get("/api/agent/vite-runtime-errors", routes.viteRuntimeErrors = async (req, res) => {
   const podName = process.env.HOSTNAME || null;
   const namespace = "default";
   try {
@@ -1332,5 +1337,10 @@ app.get("/api/agent/vite-runtime-errors", async (req, res) => {
     );
   }
 });
+
+// ─── MCP ───────────────────────────────────────────────────────────────────
+// POST /mcp exposes the certified tools (mcp/tools.js) over the same handlers.
+// Protected by requireOwner like every other route.
+mountMcpServer(app, routes);
 
 export default httpServer;
