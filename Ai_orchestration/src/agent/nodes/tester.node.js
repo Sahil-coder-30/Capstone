@@ -105,7 +105,7 @@ export async function testerNode(_state, config) {
     const isViteBuild = /vite\s+build[^&|;]*$/.test(buildScript);
     const command = isViteBuild ? `npm run build -- --outDir ${BUILD_CHECK_DIR} --emptyOutDir 2>&1` : "npm run build 2>&1";
     const result = await runLogged(config, command, "npm run build");
-    if (isViteBuild) await runCommand(config, `rm -rf ${BUILD_CHECK_DIR}`, { timeoutMs: 30_000 });
+    if (isViteBuild) await runCommand(config, `rm -rf ${BUILD_CHECK_DIR}`);
     if (!result.ok) return failure("build", outputOf(result), { timedOut: result.timedOut });
     checks.push("production build passed");
   }

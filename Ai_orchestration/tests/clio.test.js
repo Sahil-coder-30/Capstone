@@ -9,6 +9,9 @@ import { AIMessageChunk } from "@langchain/core/messages";
 import { ChatGenerationChunk } from "@langchain/core/outputs";
 
 process.env.NVIDIA_API_KEY ||= "offline-test-key";
+// These tests check the graph, so the sandbox is a fake REST sidecar.
+// The MCP transport has its own test (mcp.client.test.js).
+process.env.SANDBOX_TOOL_TRANSPORT = "rest";
 
 const { setModelsForTesting } = await import("../src/agent/llm/model.js");
 const CopilotChatMessage = (await import("../src/models/CopilotChatMessage.model.js")).default;

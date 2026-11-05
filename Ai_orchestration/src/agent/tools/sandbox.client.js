@@ -1,12 +1,16 @@
 // sandbox.client.js
-// The only HTTP client for the sandbox sidecar (Sandbox/Agent) that runs in
-// each sandbox pod at http://sandbox-service-<sandboxId>:3000/api/agent/*.
+// The only way the agent reaches a user's sandbox sidecar (Sandbox/Agent).
 //
-// Every function returns a result object and never throws, so tools and
-// nodes can turn failures into honest messages.
+// callSandboxTool(config, name, args) calls one certified tool:
+//   - over MCP (POST /mcp) by default,
+//   - over the old REST API when SANDBOX_TOOL_TRANSPORT=rest, or for a
+//     sandbox whose pod predates the MCP endpoint (404 on /mcp).
+// Both give the same result shape and never throw, so tools and nodes can
+// turn failures into honest messages.
 
 import axios from "axios";
-import { sandboxTokenFor } from "./sandboxAuth.js";
+import { sandboxTokenFor, releaseSandboxCredential } from "./sandboxAuth.js";
+import { McpUnavailableError, callMcpTool, closeMcpSession } from "./mcp.client.js";
 
 // The sandbox id ends up in a hostname. Only a plain DNS label is accepted,
 // so a crafted id can never point a request at another internal host.
@@ -16,12 +20,38 @@ export const isValidSandboxId = (id) => typeof id === "string" && SANDBOX_ID_PAT
 
 export const sandboxIdFrom = (config) => config?.configurable?.sandboxId;
 
-const baseUrl = (sandboxId) => {
+/**
+ * Sidecar origin for a sandbox. SANDBOX_URL_TEMPLATE overrides it for local
+ * development, e.g. "http://localhost:3000" with a port-forwarded pod.
+ */
+const sandboxOrigin = (sandboxId) => {
   if (!isValidSandboxId(sandboxId)) {
     throw new Error(`Invalid sandbox id: ${JSON.stringify(String(sandboxId)).slice(0, 80)}`);
   }
-  return `http://sandbox-service-${sandboxId}:3000/api/agent`;
+  const template = process.env.SANDBOX_URL_TEMPLATE?.trim() || "http://sandbox-service-{sandboxId}:3000";
+  return template.replace("{sandboxId}", sandboxId);
 };
+
+// Per-tool timeouts. execute_command covers npm install and builds.
+const TIMEOUT_MS = { execute_command: 150_000, get_vite_runtime_errors: 45_000, search_code: 15_000 };
+
+// REST equivalents, for the fallback.
+const REST_ROUTES = {
+  list_files: () => ({ path: "list-files" }),
+  read_file: ({ files }) => ({ path: "read-file", query: { files: files.join(",") } }),
+  create_file: ({ files }) => ({ method: "post", path: "create-file", body: { files } }),
+  update_file: ({ updates }) => ({ method: "patch", path: "update-file", body: { updates } }),
+  patch_file: (body) => ({ method: "post", path: "patch-file", body }),
+  delete_file: ({ files }) => ({ method: "delete", path: "delete-file", body: { files } }),
+  search_code: (args) => ({
+    path: "search-code",
+    query: Object.fromEntries(Object.entries(args).filter(([, v]) => v !== undefined).map(([k, v]) => [k, String(v)])),
+  }),
+  execute_command: ({ command, subDir }) => ({ method: "post", path: "exec", body: { command, subDir } }),
+  get_vite_runtime_errors: () => ({ path: "vite-runtime-errors" }),
+};
+
+const restOnly = new Set(); // credential keys whose sandbox has no /mcp
 
 const errorText = (data) => {
   if (!data) return "";
@@ -29,18 +59,12 @@ const errorText = (data) => {
   return data.message || data.error || "";
 };
 
-/**
- * Calls one sidecar endpoint.
- * Returns { ok, status, data } on success or { ok: false, error, timedOut } on failure.
- */
-export async function callSandbox(config, { method = "get", path, query, body, timeoutMs = 30_000 }) {
-  const token = sandboxTokenFor(config);
-  if (!token) return { ok: false, error: "No sandbox credentials for this run. Start the request again." };
+async function callRest(config, token, { method = "get", path, query, body }, timeoutMs) {
   try {
     const qs = query ? `?${new URLSearchParams(query)}` : "";
     const res = await axios({
       method,
-      url: `${baseUrl(sandboxIdFrom(config))}/${path}${qs}`,
+      url: `${sandboxOrigin(sandboxIdFrom(config))}/api/agent/${path}${qs}`,
       data: body,
       headers: { Authorization: `Bearer ${token}` },
       timeout: timeoutMs,
@@ -69,11 +93,49 @@ export async function callSandbox(config, { method = "get", path, query, body, t
   }
 }
 
+/**
+ * Calls one certified sandbox tool.
+ * Returns { ok, data } or { ok: false, error, timedOut? }.
+ */
+export async function callSandboxTool(config, name, args = {}) {
+  const token = sandboxTokenFor(config);
+  if (!token) return { ok: false, error: "No sandbox credentials for this run. Start the request again." };
+  if (!REST_ROUTES[name]) return { ok: false, error: `"${name}" is not a certified sandbox tool.` };
+
+  const key = config.configurable.credentialKey;
+  const timeoutMs = TIMEOUT_MS[name] ?? 30_000;
+  let origin;
+  try {
+    origin = sandboxOrigin(sandboxIdFrom(config));
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
+
+  const useMcp = process.env.SANDBOX_TOOL_TRANSPORT !== "rest" && !restOnly.has(key);
+  if (useMcp) {
+    try {
+      return await callMcpTool({ key, url: `${origin}/mcp`, token, signal: config?.signal }, name, args, { timeoutMs });
+    } catch (err) {
+      if (!(err instanceof McpUnavailableError)) return { ok: false, error: err.message };
+      console.warn(`[Sandbox] ${sandboxIdFrom(config)} has no MCP endpoint, using REST for this run.`);
+      restOnly.add(key);
+    }
+  }
+  return callRest(config, token, REST_ROUTES[name](args), timeoutMs);
+}
+
+/** Ends a run's sandbox access: drops the token and closes the MCP client. */
+export async function releaseSandbox(credentialKey) {
+  releaseSandboxCredential(credentialKey);
+  restOnly.delete(credentialKey);
+  await closeMcpSession(credentialKey);
+}
+
 // ── Direct helpers for deterministic checks (tester, reviewer, planner) ────
 
 /** Runs a shell command. Returns { ok, stdout, stderr, error, timedOut }. */
-export async function runCommand(config, command, { subDir, timeoutMs = 150_000 } = {}) {
-  const res = await callSandbox(config, { method: "post", path: "exec", body: { command, subDir }, timeoutMs });
+export async function runCommand(config, command, { subDir } = {}) {
+  const res = await callSandboxTool(config, "execute_command", { command, ...(subDir && { subDir }) });
   if (!res.ok) return { ok: false, stdout: "", stderr: "", error: res.error, timedOut: Boolean(res.timedOut) };
   const data = res.data || {};
   return {
@@ -91,7 +153,7 @@ export async function readFiles(config, paths = []) {
   const missing = [];
   if (!paths.length) return { files, missing };
 
-  const res = await callSandbox(config, { path: "read-file", query: { files: paths.join(",") } });
+  const res = await callSandboxTool(config, "read_file", { files: paths });
   if (!res.ok) return { files, missing: paths.map((file) => ({ file, error: res.error })) };
 
   for (const entry of res.data?.files || []) {
@@ -103,13 +165,13 @@ export async function readFiles(config, paths = []) {
 
 /** Workspace file list (the sidecar skips node_modules and .git), or null on failure. */
 export async function listFiles(config) {
-  const res = await callSandbox(config, { path: "list-files" });
+  const res = await callSandboxTool(config, "list_files");
   return res.ok && Array.isArray(res.data?.files) ? res.data.files : null;
 }
 
 /** Last lines of the dev server log, or null when unavailable. */
 export async function getRuntimeLogs(config) {
-  const res = await callSandbox(config, { path: "vite-runtime-errors", timeoutMs: 45_000 });
+  const res = await callSandboxTool(config, "get_vite_runtime_errors");
   if (!res.ok) return null;
   const logs = res.data?.logs;
   return typeof logs === "string" ? logs : logs ? JSON.stringify(logs) : "";

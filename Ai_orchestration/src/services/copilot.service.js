@@ -12,7 +12,7 @@ import {
   getFastModel,
   getModelInfo,
   issueSandboxCredential,
-  releaseSandboxCredential,
+  releaseSandbox,
   truncate,
   usageOf,
 } from "../agent/index.js";
@@ -81,7 +81,7 @@ export async function runCopilot({ user, authToken, projectId, sandboxId, prompt
     throw abort.signal.aborted ? abort.signal.reason : err;
   } finally {
     clearTimeout(timer);
-    releaseSandboxCredential(credentialKey);
+    await releaseSandbox(credentialKey);
     if (usage.totalTokens > 0) {
       recordAiUsage({ authToken, userId: user.id, company: model.provider, modelId: model.modelId, agentType: "copilot", projectId, ...usage })
         .catch((err) => console.error("[Copilot] Failed to record usage:", err.message));

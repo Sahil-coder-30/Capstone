@@ -3,19 +3,18 @@
 
 import { tool } from "@langchain/core/tools";
 import * as z from "zod";
-import { callSandbox, logToRun } from "./sandbox.client.js";
+import { callSandboxTool, logToRun } from "./sandbox.client.js";
 import { fromSandbox, toolError, toolOk } from "./toolResult.js";
 import { searchInternet } from "../../services/internetSearch.service.js";
 
 export const searchCodeTool = tool(
   async ({ pattern, isRegex, caseSensitive, fileGlob, contextLines, maxResults, filesOnly }, config) => {
     logToRun(config, `search_code: start - "${pattern}"`);
-    const query = Object.fromEntries(
+    const args = Object.fromEntries(
       Object.entries({ pattern, isRegex, caseSensitive, fileGlob, contextLines, maxResults, filesOnly })
-        .filter(([, value]) => value !== undefined)
-        .map(([key, value]) => [key, String(value)]),
+        .filter(([, value]) => value !== undefined),
     );
-    const res = await callSandbox(config, { path: "search-code", query, timeoutMs: 15_000 });
+    const res = await callSandboxTool(config, "search_code", args);
     logToRun(config, `search_code: ${res.ok ? "success" : `error - ${res.error}`}`);
     return fromSandbox(res, "Code search failed");
   },

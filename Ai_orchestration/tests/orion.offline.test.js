@@ -174,8 +174,8 @@ test("critic catches hallucinated near-miss paths and fixes risk labels", () => 
 });
 
 test("sandbox calls fail closed without a sandbox token", async () => {
-  const { callSandbox } = await import("../src/agent/tools/sandbox.client.js");
-  const res = await callSandbox({ configurable: { sandboxId: "sbx-1", credentialKey: "missing" } }, { path: "list-files" });
+  const { callSandboxTool } = await import("../src/agent/tools/sandbox.client.js");
+  const res = await callSandboxTool({ configurable: { sandboxId: "sbx-1", credentialKey: "missing" } }, "list_files");
   assert.equal(res.ok, false);
   assert.match(res.error, /No sandbox credentials/);
 });

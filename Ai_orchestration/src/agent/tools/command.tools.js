@@ -15,7 +15,7 @@ const tail = (text) =>
 export const executeCommandTool = tool(
   async ({ command, subDir }, config) => {
     logToRun(config, `execute_command: start - "${command}"`);
-    const result = await runCommand(config, command, { subDir, timeoutMs: 150_000 });
+    const result = await runCommand(config, command, { subDir });
     logToRun(config, `execute_command: ${result.ok ? "success" : "error"} - "${command}"`);
 
     const output = { stdout: tail(result.stdout), stderr: tail(result.stderr) };

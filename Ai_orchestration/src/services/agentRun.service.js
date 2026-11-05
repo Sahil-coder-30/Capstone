@@ -25,7 +25,7 @@ import {
   hasModelKey,
   isToolErrorOutput,
   issueSandboxCredential,
-  releaseSandboxCredential,
+  releaseSandbox,
   onRateLimitEvent,
   releaseOrionThread,
   truncate,
@@ -426,7 +426,7 @@ const finishRun = async (run, { event, payload, content }) => {
   if (assistantMsgId) publish(run, "agent:msg_created", { role: "assistant", id: assistantMsgId });
   publish(run, event, { ...payload, assistantMsgId });
   closeSubscribers(run);
-  releaseSandboxCredential(run.threadId);
+  await releaseSandbox(run.threadId);
   await releaseOrionThread(run.threadId);
   scheduleCleanup(run);
 };

@@ -4,7 +4,7 @@
 
 import { tool } from "@langchain/core/tools";
 import * as z from "zod";
-import { callSandbox, logToRun } from "./sandbox.client.js";
+import { callSandboxTool, logToRun } from "./sandbox.client.js";
 import { fromSandbox, toolError, toolOk } from "./toolResult.js";
 
 const MAX_LISTED_FILES = 500;
@@ -15,7 +15,7 @@ const filePath = z.string().describe('Path relative to /workspace, e.g. "src/com
 export const listFilesTool = tool(
   async (_args, config) => {
     logToRun(config, "list_files: start");
-    const res = await callSandbox(config, { path: "list-files" });
+    const res = await callSandboxTool(config, "list_files");
     if (!res.ok) return fromSandbox(res, "Could not list files");
     const files = res.data?.files || [];
     logToRun(config, `list_files: success - ${files.length} files`);
@@ -35,7 +35,7 @@ export const listFilesTool = tool(
 export const readFileTool = tool(
   async ({ files }, config) => {
     logToRun(config, `read_file: start - ${files.join(", ")}`);
-    const res = await callSandbox(config, { path: "read-file", query: { files: files.join(",") } });
+    const res = await callSandboxTool(config, "read_file", { files });
     if (!res.ok) return fromSandbox(res, "Could not read files");
     const results = (res.data?.files || []).map((entry) =>
       typeof entry.content === "string" && entry.content.length > MAX_FILE_CHARS
@@ -57,7 +57,7 @@ export const readFileTool = tool(
 export const createFileTool = tool(
   async ({ files }, config) => {
     logToRun(config, `create_file: start - ${files.map((f) => f.file).join(", ")}`);
-    const res = await callSandbox(config, { method: "post", path: "create-file", body: { files } });
+    const res = await callSandboxTool(config, "create_file", { files });
     logToRun(config, `create_file: ${res.ok ? "success" : `error - ${res.error}`}`);
     return fromSandbox(res, "Could not create files");
   },
@@ -76,7 +76,7 @@ export const createFileTool = tool(
 export const updateFileTool = tool(
   async ({ updates }, config) => {
     logToRun(config, `update_file: start - ${updates.map((u) => u.file).join(", ")}`);
-    const res = await callSandbox(config, { method: "patch", path: "update-file", body: { updates } });
+    const res = await callSandboxTool(config, "update_file", { updates });
     logToRun(config, `update_file: ${res.ok ? "success" : `error - ${res.error}`}`);
     return fromSandbox(res, "Could not update files");
   },
@@ -92,7 +92,7 @@ export const updateFileTool = tool(
   },
 );
 
-const patchOnce = (config, body) => callSandbox(config, { method: "post", path: "patch-file", body });
+const patchOnce = (config, args) => callSandboxTool(config, "patch_file", args);
 
 export const patchFileTool = tool(
   async ({ filePath: file, oldStr, newStr }, config) => {
@@ -131,7 +131,7 @@ export const patchFileTool = tool(
 export const deleteFileTool = tool(
   async ({ files }, config) => {
     logToRun(config, `delete_file: start - ${files.join(", ")}`);
-    const res = await callSandbox(config, { method: "delete", path: "delete-file", body: { files } });
+    const res = await callSandboxTool(config, "delete_file", { files });
     logToRun(config, `delete_file: ${res.ok ? "success" : `error - ${res.error}`}`);
     return fromSandbox(res, "Could not delete files");
   },
