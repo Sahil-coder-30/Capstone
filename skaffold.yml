@@ -97,6 +97,7 @@ manifests:
     - k8s/router-service.yml
     - k8s/sandbox-service.yml
     - k8s/rabc.yml
+    - k8s/sandbox-networkpolicy.yml
     - k8s/ingress.yml
     - k8s/auth.deployment.yml
     - k8s/auth.service.yml

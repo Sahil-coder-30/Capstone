@@ -56,7 +56,7 @@ It also uses `chokidar` to watch `/workspace` for file changes and emit real-tim
 | **Version** | v1.0.1 |
 | **Last deployed** | 2026-07 |
 | **Owner(s)** | Sahil Sharma |
-| **Known technical debt** | The PTY process runs as whatever user the container runs as — there is no user sandboxing below the container boundary. A user with terminal access can access anything the container user can. This is acceptable in the current single-user-per-pod model but would be a security concern if pods were ever shared. Additionally, the `chokidar` watcher fires events for every file change including those made by the sync-agent pulling files from S3 on startup, which can produce a burst of events on fresh pod launch. |
+| **Known technical debt** | The container runs as the unprivileged `node` user (uid 1000), and the terminal and `exec` inherit it. There is no user separation below that: a user with terminal access can do anything uid 1000 can in this container, which is fine for one owner per pod. The pod has no Kubernetes token; Vite logs come from `/sandbox-logs/vite.log` ([`src/workspace/logs.js`](./src/workspace/logs.js)). Paths are checked after following symlinks ([`src/workspace/paths.js`](./src/workspace/paths.js)). The `chokidar` watcher fires events for every file change, including the sync-agent's restore on startup, which can produce a burst of events on a fresh pod. |
 
 ### Features built (working today)
 

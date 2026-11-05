@@ -1,0 +1,60 @@
+# Sandbox pods run user code. They may only be reached by the router
+# (preview and agent hosts) and the AI service (agent tools), and they may
+# only reach DNS, the Auth service (JWKS for the sidecar's token check) and
+# the public internet (npm, S3). Private ranges and cloud metadata are blocked,
+# so user code can not reach other services in the cluster.
+#
+# Note: Docker Desktop's built-in Kubernetes does not enforce NetworkPolicy.
+# Locally the sidecar's token check is the real guard; this policy applies on
+# clusters with a policy-enforcing CNI (Calico, Cilium).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: sandbox-pods
+  namespace: default
+spec:
+  podSelector:
+    matchLabels:
+      app: custom-sandbox
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: router
+      ports:
+        - port: 5173
+        - port: 3000
+    - from:
+        - podSelector:
+            matchLabels:
+              app: ai-server
+      ports:
+        - port: 3000
+  egress:
+    - to:
+        - namespaceSelector: {}
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+    - to:
+        - podSelector:
+            matchLabels:
+              app: auth
+      ports:
+        - port: 3000
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except:
+              - 10.0.0.0/8
+              - 172.16.0.0/12
+              - 192.168.0.0/16
+              - 169.254.0.0/16

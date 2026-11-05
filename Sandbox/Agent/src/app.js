@@ -3,13 +3,15 @@ import morgan from "morgan";
 import fs from "fs";
 import path from "path";
 import { exec } from "child_process";
-import { KubeConfig, CoreV1Api } from "@kubernetes/client-node";
 import { Server} from "socket.io";
 import http from 'http';
 import pty from 'node-pty';
 import os from 'os';
 import chokidar from 'chokidar';
 import { allowedOrigins, corsForEditor, requireOwner, requireOwnerSocket } from './auth/middleware.js';
+import { WORKING_DIR, isInsideWorkspace, safeResolve, stripWorkspace } from './workspace/paths.js';
+import { readViteLogTail } from './workspace/logs.js';
+import { cleanErrorReport, createReportLimiter } from './workspace/errorReports.js';
 
 
 const app = express();
@@ -24,32 +26,7 @@ app.use(express.urlencoded({ extended: true }));
 const httpServer = http.createServer(app);
 
 
-const WORKING_DIR = "/workspace";
-
-// ─── Helpers ─────────────────────────────────────────────────────────────────
-
-/**
- * Strips the WORKING_DIR prefix from a full path, returning a clean relative path.
- * e.g. "/workspace/src/App.jsx" → "src/App.jsx"
- */
-function stripWorkspace(fullPath) {
-  return fullPath.startsWith(WORKING_DIR)
-    ? fullPath.slice(WORKING_DIR.length).replace(/^\/+/, "")
-    : fullPath;
-}
-
-/**
- * Safely resolves a user-supplied relative path within WORKING_DIR.
- * Throws if the resolved path escapes the workspace (path traversal protection).
- */
-function safeResolve(file) {
-  const normalized = file.replace(/^\/+/, "");
-  const resolved = path.resolve(WORKING_DIR, normalized);
-  if (!resolved.startsWith(WORKING_DIR + "/")) {
-    throw new Error(`Access denied: "${file}" resolves outside the workspace`);
-  }
-  return resolved;
-}
+// Path helpers (workspace root, traversal and symlink checks): workspace/paths.js
 
 
 
@@ -119,8 +96,15 @@ app.get("/api/agent/ready", (req, res) => {
   });
 });
 
+// Open route (the preview app posts without a token): input is cleaned and
+// rate limited in workspace/errorReports.js.
+const reportOverLimit = createReportLimiter();
+
 app.post("/api/agent/report-error", (req, res) => {
-  const { type, message, source, line, col, stack } = req.body;
+  if (reportOverLimit()) {
+    return res.status(429).json({ status: "error", message: "Too many error reports" });
+  }
+  const { type, message, source, line, col, stack } = cleanErrorReport(req.body);
   console.error(`[Browser Error] Type: ${type}`);
   console.error(`Message: ${message}`);
   if (source) console.error(`Source: ${source}:${line}:${col}`);
@@ -742,8 +726,9 @@ app.delete("/api/agent/delete-file", async (req, res) => {
   const results = await Promise.all(
     fileList.map(async (filename) => {
       try {
-        const filePath = safeResolve(filename);
-        const stat = await fs.promises.stat(filePath);
+        // lstat + followLink:false: deleting a symlink removes the link, never its target.
+        const filePath = safeResolve(filename, { followLink: false });
+        const stat = await fs.promises.lstat(filePath);
         if (stat.isDirectory()) {
           await fs.promises.rm(filePath, { recursive: true, force: true });
           return { file: filename, status: "Directory deleted successfully" };
@@ -1056,6 +1041,7 @@ async function walkTextFiles(dir, basePath = "", out = [], skipped = { count: 0 
     try {
       if (entry.isSymbolicLink()) {
         const real = await fs.promises.realpath(fullPath);
+        if (!isInsideWorkspace(real)) continue; // never search outside the workspace
         if (visitedReal.has(real)) continue; // loop detected
         visitedReal.add(real);
         const targetStat = await fs.promises.stat(real);
@@ -1327,81 +1313,23 @@ app.post("/api/agent/exec", (req, res) => {
   });
 });
 
-// ─── Kubernetes Log Helper ─────────────────────────────────────────────────
-
-const kubeConfig = new KubeConfig();
-kubeConfig.loadFromDefault();
-const kubeApi = kubeConfig.makeApiClient(CoreV1Api);
+// ─── Dev server logs ───────────────────────────────────────────────────────
+// Read from the shared log file (workspace/logs.js). Same response shape as
+// before, when the logs came from the Kubernetes API.
 
 app.get("/api/agent/vite-runtime-errors", async (req, res) => {
-  let podName = process.env.HOSTNAME;
-  let namespace = "default";
-
+  const podName = process.env.HOSTNAME || null;
+  const namespace = "default";
   try {
-    namespace = fs
-      .readFileSync(
-        "/var/run/secrets/kubernetes.io/serviceaccount/namespace",
-        "utf8",
-      )
-      .trim();
+    res.status(200).json({ success: true, podName, namespace, logs: await readViteLogTail(50) });
   } catch (err) {
-    namespace = "default";
-  }
-
-  try {
-    if (!podName) {
-      const podList = await kubeApi.listNamespacedPod({ namespace });
-      const items = podList?.items ?? [];
-
-      const candidate =
-        items.find(
-          (p) =>
-            p?.status?.phase === "Running" &&
-            p?.metadata?.name?.includes("sandbox"),
-        ) || items.find((p) => p?.status?.phase === "Running");
-
-      if (candidate?.metadata?.name) {
-        podName = candidate.metadata.name;
-        console.log(`Discovered podName=${podName} in namespace=${namespace}`);
-      } else {
-        throw new Error(
-          "Unable to determine pod name: HOSTNAME missing and no running pod found",
-        );
-      }
-    }
-
-    if (!podName) {
-      throw new Error("podName is null before calling readNamespacedPodLog");
-    }
-
-    const response = await kubeApi.readNamespacedPodLog({
-      name: podName,
-      namespace,
-      container: "sandbox-container",
-      follow: false,
-      tailLines: 50,
-      timestamps: false,
-    });
-
-    res.status(200).json({
-      success: true,
-      podName,
-      namespace,
-      logs: response.body ?? response,
-    });
-  } catch (err) {
-    console.error("Error in /api/agent/vite-runtime-errors:", {
-      message: err?.message ?? String(err),
-      podName,
-      namespace,
-    });
-
-    res.status(500).json({
-      success: false,
-      error: err?.message ?? "Failed to read Kubernetes pod logs",
-      podName: podName ?? null,
-      namespace,
-    });
+    const message = err.code === "ENOENT" ? "The dev server has not written any output yet." : err.message;
+    console.error("Error in /api/agent/vite-runtime-errors:", message);
+    res.status(err.code === "ENOENT" ? 200 : 500).json(
+      err.code === "ENOENT"
+        ? { success: true, podName, namespace, logs: "" }
+        : { success: false, error: message, podName, namespace },
+    );
   }
 });
 

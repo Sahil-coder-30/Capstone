@@ -19,6 +19,10 @@ COPY . .
 
 EXPOSE 3000
 
-RUN mkdir /workspace
+RUN mkdir -p /workspace /sandbox-logs && chown node:node /workspace /sandbox-logs
+
+# The terminal and exec run user commands in this container, so it runs as
+# the image's unprivileged `node` user (uid 1000), never as root.
+USER node
 
 CMD ["node", "server.js"]

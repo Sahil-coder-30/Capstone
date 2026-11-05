@@ -95,16 +95,14 @@ export default defineConfig({
       interval: 300,
       ignored: ['node_modules'],
     },
+    // Only the error reporter above needs the agent. Proxying all of
+    // /api/agent or the terminal would expose the sidecar on the public
+    // preview URL.
     proxy: {
-      '/api/agent': {
+      '/api/agent/report-error': {
         target: 'http://localhost:3000',
         changeOrigin: true,
       },
-      '/api/terminal-proxy': {
-        target: 'http://localhost:3000',
-        changeOrigin: true,
-        ws: true,
-      }
     }
   }
 });

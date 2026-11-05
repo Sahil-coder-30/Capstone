@@ -8,6 +8,22 @@ const agentAuthEnv = (sandboxId, ownerId) => [
   { name: "CLIENT_URL", value: process.env.CLIENT_URL || "http://localhost:5173" },
 ];
 
+// User code runs in the agent container (terminal, exec) and the template
+// container (Vite). Both run as the image's `node` user (uid 1000) with no
+// extra privileges, so user code can not act as root in the pod.
+const NODE_UID = 1000;
+const NON_ROOT = {
+  runAsUser: NODE_UID,
+  runAsGroup: NODE_UID,
+  runAsNonRoot: true,
+  allowPrivilegeEscalation: false,
+  capabilities: { drop: ["ALL"] },
+};
+
+// The template container tees Vite's output into this shared file; the
+// agent's /vite-runtime-errors reads it. No Kubernetes API from inside the pod.
+const LOGS_MOUNT = { name: "sandbox-logs", mountPath: "/sandbox-logs" };
+
 export async function createPod(sandboxId, projectId, ownerId) {
   if (!ownerId) throw new Error(`createPod(${sandboxId}): ownerId is required`);
   const podManifest = {
@@ -19,11 +35,17 @@ export async function createPod(sandboxId, projectId, ownerId) {
       },
     },
     spec: {
-      serviceAccountName: "sandbox-agent-sa",
+      // No Kubernetes credentials inside a sandbox: user code could read them.
+      automountServiceAccountToken: false,
+      securityContext: { seccompProfile: { type: "RuntimeDefault" } },
       volumes: [
         {
           name: "workspace-volume",
           emptyDir: {},
+        },
+        {
+          name: "sandbox-logs",
+          emptyDir: { sizeLimit: "50Mi" },
         },
       ],
       initContainers: [
@@ -103,12 +125,28 @@ export async function createPod(sandboxId, projectId, ownerId) {
             },
           ],
         },
+        {
+          // The steps above run as root; hand the files to the non-root user.
+          image: "template",
+          imagePullPolicy: "IfNotPresent",
+          name: "fix-permissions",
+          command: ["sh", "-c", `chown -R ${NODE_UID}:${NODE_UID} /workspace /sandbox-logs`],
+          securityContext: { runAsUser: 0, runAsNonRoot: false },
+          volumeMounts: [
+            { name: "workspace-volume", mountPath: "/workspace" },
+            LOGS_MOUNT,
+          ],
+        },
       ],
       containers: [
         {
           image: "template",
           imagePullPolicy: "IfNotPresent",
           name: "sandbox-container",
+          // Same dev server as the image CMD, with its output also written to
+          // the shared log file the agent reads.
+          command: ["sh", "-c", "npm run dev 2>&1 | tee -a /sandbox-logs/vite.log"],
+          securityContext: NON_ROOT,
           ports: [{ containerPort: 5173, name: "http" }],
           resources: {
             limits: {
@@ -125,6 +163,7 @@ export async function createPod(sandboxId, projectId, ownerId) {
               name: "workspace-volume",
               mountPath: "/workspace",
             },
+            LOGS_MOUNT,
           ],
         },
         {
@@ -133,6 +172,7 @@ export async function createPod(sandboxId, projectId, ownerId) {
           name: "agent-container",
           ports: [{ containerPort: 3000, name: "agent-http" }],
           env: agentAuthEnv(sandboxId, ownerId),
+          securityContext: NON_ROOT,
           resources: {
             limits: {
               cpu: "500m",
@@ -148,6 +188,7 @@ export async function createPod(sandboxId, projectId, ownerId) {
               name: "workspace-volume",
               mountPath: "/workspace",
             },
+            LOGS_MOUNT,
           ],
         },
         {

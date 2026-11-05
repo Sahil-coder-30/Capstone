@@ -73,7 +73,8 @@ Both frontends proxy `/api` to `http://localhost` (the ingress) in dev. `Fronten
 **3. Project and sandbox (Sandbox/server)**
 - `POST /api/sandbox/create-project`: max 5 projects per user, allocates a UUIDv7 `sandboxId`, status `not_started`.
 - `POST /api/sandbox/start/:projectId` creates, in namespace `default`:
-  - Pod `sandbox-pod-<id>`: init `template` (copies seed files), init `sync-agent --restore-only` (pulls from S3), then containers `template` (Vite :5173), `agent` (:3000), `sync-agent` (pushes to S3).
+  - Pod `sandbox-pod-<id>`: init `template` (copies seed files), init `sync-agent --restore-only` (pulls from S3), init `fix-permissions` (chown to uid 1000), then containers `template` (Vite :5173), `agent` (:3000), `sync-agent` (pushes to S3).
+  - Hardening (`pod.js`): no service account token (`automountServiceAccountToken: false`), `template` and `agent` run as `node` (uid 1000) with no privilege escalation and all capabilities dropped. Vite output is teed to `/sandbox-logs/vite.log` (shared `emptyDir`), which the sidecar's `vite-runtime-errors` reads. `k8s/sandbox-networkpolicy.yml` limits sandbox traffic (not enforced by Docker Desktop). `node scripts/print-pod-manifest.js | kubectl create --dry-run=server -f -` validates the manifest.
   - Service `sandbox-service-<id>`.
   - Redis key `sandbox:<id>` with 120s TTL.
 - Router refreshes the TTL to 1200s on every request. When the key expires, Sandbox server (keyspace notifications, enabled at startup with `CONFIG SET`) deletes the pod and service and sets the project to `down`.
