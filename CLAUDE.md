@@ -48,6 +48,7 @@ Everything below was checked against the code. Where `docs/` or a README disagre
 | `/api/sandbox` | sandbox-service |
 | host `*.preview.localhost` | router-service, then pod port 80 (Vite app) |
 | host `*.agent.localhost` | router-service, then pod port 3000 (sidecar) |
+| `/api/mcp` | router-service MCP gateway (`POST /api/mcp/<sandboxId>`, external agents with an MCP token) |
 
 Both frontends proxy `/api` to `http://localhost` (the ingress) in dev. `Frontend/vite.config.js` also has `/api/agent-proxy` (reads `x-sandbox-id` header) and `/api/terminal-proxy` (reads `?sandboxId=`) that rewrite the Host to `<id>.agent.localhost`.
 
@@ -79,7 +80,11 @@ Both frontends proxy `/api` to `http://localhost` (the ingress) in dev. `Fronten
   - Redis key `sandbox:<id>` with 120s TTL.
 - Router refreshes the TTL to 1200s on every request. When the key expires, Sandbox server (keyspace notifications, enabled at startup with `CONFIG SET`) deletes the pod and service and sets the project to `down`.
 - `GET /api/sandbox/projects` reconciles DB status with the real pod phase.
-- Delete is soft (trash). Permanent delete removes the Mongo document.
+- Delete is soft (trash). Permanent delete removes the Mongo document. Both revoke the project's MCP tokens.
+- **External agents (MCP tokens):** owners create tokens in the editor header (plug icon, `ConnectAgentModal`) via `GET/POST /api/sandbox/project/:projectId/mcp-tokens` and `DELETE .../mcp-tokens/:tokenId`. Token `tks_mcp_...`, shown once, SHA-256 hash in Mongo (`McpToken`), cached in Redis `mcptoken:<hash>`; scopes `read` (always), `write`, `exec` (opt-in); 1-90 days, max 10 active per project.
+  - The router gateway (`Sandbox/router/src/mcpGateway.js`) checks the token, rate-limits (120/min), wakes a stopped sandbox (`POST /internal/sandboxes/:id/wake` on the Sandbox server, waits 45s), gets a 10-minute scoped sandbox token from Auth `POST /internal/sandbox-token`, and proxies to the sidecar's `/mcp`.
+  - `/internal/*` routes (Auth, Sandbox server) are not routed by the ingress and need `INTERNAL_SERVICE_TOKEN` (k8s secret `internal-service`, optional in the manifests; without it they fail closed).
+  - A scoped token reaches only `/mcp` on the sidecar, and only the tools in its scopes.
 
 **4. AI agent (Ai_orchestration)**
 - REST + SSE only (no Socket.IO): `POST /api/ai/code-agent/invoke` (stream), `GET /code-agent/stream/:projectId` (re-attach), stop, plan-approve, plan-reject, `/app-agent/invoke` (Clio stream), `/app-agent/title`, chat history routes.

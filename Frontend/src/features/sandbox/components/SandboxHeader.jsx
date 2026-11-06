@@ -3,8 +3,9 @@ import { useSandbox } from '../Hooks/sandbox.hooks';
 import {
   Play, RotateCw, Copy, Check, LogOut, Cpu,
   FolderTree, Terminal, Sparkles, Eye, Code2,
-  Square, Trash2, ChevronDown, Loader2, Share2, Settings, ExternalLink
+  Square, Trash2, ChevronDown, Loader2, Share2, Settings, ExternalLink, Plug
 } from 'lucide-react';
+import ConnectAgentModal from './ConnectAgentModal';
 
 export default function SandboxHeader({
   isExplorerOpen, setIsExplorerOpen,
@@ -26,6 +27,7 @@ export default function SandboxHeader({
   const [copiedText, setCopiedText] = useState('');
   const [stopLoading, setStopLoading] = useState(false);
   const [statusMenuOpen, setStatusMenuOpen] = useState(false);
+  const [connectOpen, setConnectOpen] = useState(false);
   const statusMenuRef = useRef(null);
 
   // Close dropdown on outside click
@@ -360,10 +362,18 @@ export default function SandboxHeader({
           Publish
         </button>
 
+        {projectId && (
+          <button onClick={() => setConnectOpen(true)} className="icon-btn" style={{ padding: '6px' }} title="Connect your own agent (Claude Code, Cursor)">
+            <Plug size={13} />
+          </button>
+        )}
+
         <button onClick={onNavigateSettings} className="icon-btn" style={{ padding: '6px' }} title="Settings">
           <Settings size={13} />
         </button>
       </div>
+
+      {connectOpen && <ConnectAgentModal projectId={projectId} onClose={() => setConnectOpen(false)} />}
 
     </header>
   );

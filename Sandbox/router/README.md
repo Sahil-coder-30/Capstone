@@ -64,6 +64,17 @@ Sandbox Router is an intelligent HTTP and WebSocket reverse proxy. It receives a
 - WebSocket proxy: `*.agent.<domain>` upgrade → Socket.io terminal connection on agent sidecar — ✅ done
 - Redis TTL refresh on every inbound request (`refreshTTL(sandboxId)`) — ✅ done
 - Lazy proxy cache: one proxy instance per sandboxId, created on first request — ✅ done
+- **MCP gateway** `POST /api/mcp/<sandboxId>` for external agents (Claude Code, Cursor) — ✅ done ([`src/mcpGateway.js`](./src/mcpGateway.js)):
+
+  | Step | Detail |
+  |---|---|
+  | Token | `Authorization: Bearer tks_mcp_...` checked against Redis `mcptoken:<hash>` (written by the Sandbox server), else `GET /internal/mcp-tokens/:hash`. Must belong to this sandbox and not be expired. |
+  | Rate limit | 120 calls per minute per token (429 + `Retry-After`) |
+  | Wake | No `sandbox:<id>` key: `POST /internal/sandboxes/:id/wake` on the Sandbox server, then wait up to 45s for the sidecar's `/api/agent/ready` (503 + `Retry-After: 15` otherwise) |
+  | Token swap | Auth `POST /internal/sandbox-token` gives a 10-minute sandbox token with the MCP token's scopes; cached until near expiry |
+  | Proxy | To `sandbox-service-<id>:3000/mcp` with only that token; cookies and the MCP token never go upstream. Refreshes the idle TTL and records last use (`mcptoken-used:<id>`). |
+
+  Env: `AUTH_SERVICE_URL`, `SANDBOX_SERVICE_URL`, `INTERNAL_SERVICE_TOKEN`. Tests: `npm test`.
 
 ### How it was built
 - **Language/runtime:** Node.js 20, ESM (`"type": "module"`)

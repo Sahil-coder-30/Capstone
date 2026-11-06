@@ -63,6 +63,24 @@ export const permanentlyDeleteProjectAPI = async (projectId) => {
   return response.data;
 };
 
+// ── MCP tokens: let an external agent (Claude Code, Cursor) use this project ──
+
+export const listMcpTokensAPI = async (projectId) => {
+  const response = await apiClient.get(`/api/sandbox/project/${projectId}/mcp-tokens`, { timeout: 30_000 });
+  return response.data;
+};
+
+/** @param {{ name: string, scopes: string[], expiresInDays: number }} input */
+export const createMcpTokenAPI = async (projectId, input) => {
+  const response = await apiClient.post(`/api/sandbox/project/${projectId}/mcp-tokens`, input, { timeout: 30_000 });
+  return response.data;
+};
+
+export const revokeMcpTokenAPI = async (projectId, tokenId) => {
+  const response = await apiClient.delete(`/api/sandbox/project/${projectId}/mcp-tokens/${tokenId}`, { timeout: 30_000 });
+  return response.data;
+};
+
 export const getTrashChatsAPI = async () => {
   const response = await apiClient.get('/api/ai/chats/trash', { timeout: 30_000 });
   return response.data;

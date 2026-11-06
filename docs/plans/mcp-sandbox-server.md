@@ -1,6 +1,6 @@
 # Sandbox MCP server and shared MCP client
 
-Status: **phase 1 built** (2026-11-06): sandbox auth, pod hardening, MCP server, MCP client for Orion and Clio. External agents (Claude Code, Cursor) are the next build.
+Status: **phase 1 and phase 2 built** (2026-11-06). Phase 1: sandbox auth, pod hardening, MCP server, MCP client for Orion and Clio. Phase 2: external agents (Claude Code, Cursor) with MCP tokens through the router.
 
 ## What exists now
 
@@ -43,15 +43,37 @@ Design decisions (developer, 2026-11-05):
 | Real model + real sidecar over MCP, no cluster | `cd Ai_orchestration && npm run e2e:live -- "task"` |
 | In the cluster | Start a project, then in its terminal: `whoami` prints `node`, `ls /var/run/secrets/kubernetes.io` fails. Without a token, `curl localhost:3000/api/agent/list-files` gives 401. |
 
-## Next build: external agents
+## Phase 2: external agents (built 2026-11-06)
 
-Agreed earlier (2026-11-05): all plans, `exec` scope opt-in with a warning, and a stopped sandbox is auto-woken (wait up to 45s).
+Decisions (2026-11-05): all plans, `exec` scope opt-in with a warning, a stopped sandbox is auto-woken (wait up to 45s).
 
-1. **MCP tokens** in the Sandbox server: create, list and revoke per project. Hashed at rest, shown once, scopes `read` / `write` / `exec`, expiry 30 days by default.
-2. **Exchange at the router:** a host such as `<sandboxId>.mcp.localhost` checks the MCP token, rate-limits per token, wakes the sandbox if needed, then asks Auth for a short sandbox token and forwards to `/mcp`. The sidecar keeps one rule: owner JWT only.
-3. **Scopes on the server:** the router passes the token's scopes and `/mcp` lists only the matching tools (`scope` is already on each certified tool).
-4. **Frontend panel** "Connect your own agent" with ready-to-copy snippets for Claude Code and Cursor.
-5. Later: OAuth 2.1 per the MCP authorization spec (one-click connect), output caps tuned for external clients, an audit log.
+```
+Claude Code / Cursor
+  POST http://localhost/api/mcp/<sandboxId>   Authorization: Bearer tks_mcp_...
+        |  ingress /api/mcp
+router mcpGateway
+  1. token -> record (Redis mcptoken:<hash>, else Sandbox server /internal/mcp-tokens/:hash)
+  2. record.sandboxId == <sandboxId>, not expired, rate limit 120/min
+  3. sandbox:<id> key missing -> /internal/sandboxes/:id/wake, wait for /api/agent/ready (45s)
+  4. Auth /internal/sandbox-token -> 10-minute token, aud taksha-sandbox, scope "read write ..."
+  5. proxy to sandbox-service-<id>:3000/mcp with only that token
+sidecar: scoped token -> /mcp only, tools filtered by scope
+```
+
+| Piece | Code | Commit |
+|---|---|---|
+| Redis expiry handler only acts on `sandbox:` keys (other keys used to trigger pod deletes and could crash the server) | `Sandbox/server/src/config/redis.js` | `300a998` |
+| Short scoped sandbox tokens for the router | `Auth/src/controllers/internalSandboxToken.controller.js` | `aeb5910` |
+| Scope enforcement on the sidecar | `Sandbox/Agent/src/auth/middleware.js`, `src/mcp/server.js` | `88c62df` |
+| MCP tokens (create, list, revoke, lookup) and wake | `Sandbox/server/src/services/mcpTokens.service.js`, `controllers/mcpToken.controller.js` | `dbeed19` |
+| Gateway, ingress, `INTERNAL_SERVICE_TOKEN` wiring | `Sandbox/router/src/mcpGateway.js`, `k8s/*` | `04131db` |
+| "Connect your own agent" panel | `Frontend/src/features/sandbox/components/ConnectAgentModal.jsx` | next commit |
+
+Path-based URL instead of `<sandboxId>.mcp.localhost`: Node-based MCP clients can not resolve wildcard `.localhost` names on macOS.
+
+Setup: create the k8s secret `internal-service` with `INTERNAL_SERVICE_TOKEN` (see `k8s/secrets.yml.example`). Without it the `/internal` routes answer 503 and the gateway returns 502; everything else keeps working.
+
+Later: OAuth 2.1 per the MCP authorization spec (one-click connect), output caps tuned for external clients, an audit log, per-tool rate limits.
 
 ## Known gaps
 

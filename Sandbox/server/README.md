@@ -63,6 +63,9 @@ Sandbox Control Server is the Kubernetes control plane proxy for the platform. W
 - `DELETE /api/sandbox/project/:projectId` — Soft-deletes the project (moves to trash) — ✅ done
 - `PATCH /api/sandbox/project/:projectId/restore` — Restores a soft-deleted project — ✅ done
 - `DELETE /api/sandbox/project/:projectId/permanent` — Hard-deletes the project record and tears down K8s resources — ✅ done
+- `GET / POST /api/sandbox/project/:projectId/mcp-tokens`, `DELETE .../mcp-tokens/:tokenId` — MCP tokens for external agents (owner only). `tks_mcp_...`, shown once, SHA-256 hash stored, cached in Redis `mcptoken:<hash>` for the router; scopes `read` (always) / `write` / `exec` (opt-in); 1-90 days; max 10 active per project. Trash and permanent delete revoke them — ✅ done
+- Internal (cluster only, `X-Internal-Token: $INTERNAL_SERVICE_TOKEN`): `GET /internal/mcp-tokens/:hash` (router cache miss) and `POST /internal/sandboxes/:sandboxId/wake` (start a stopped sandbox for an MCP call) — ✅ done
+- Redis expiry handler acts only on `sandbox:<id>` keys and never throws — ✅ done. Tests: `npm test`.
 
 ### How it was built
 - **Language/runtime:** Node.js 20, ESM (`"type": "module"`)
