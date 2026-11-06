@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useState } from 'react';
 import { CloudOff, ScrollText, RefreshCw } from 'lucide-react';
 import PageHeader from '../ui/PageHeader';
 import Panel from '../ui/Panel';
@@ -11,7 +11,8 @@ import { SearchInput, Select } from '../ui/Field';
 import { TableSkeleton } from '../ui/Skeleton';
 import RequestDrawer from './RequestDrawer';
 import { usePayments } from '../../Hooks/payments.hooks';
-import useLoad, { useDebounced } from '../../Hooks/useLoad';
+import { eventsKey, useQueries } from '../../Hooks/payments.queries';
+import { useDebounced, useLastValue } from '../../Hooks/common.hooks';
 import { AGENT_LABELS, agentLabel } from '../../utils/stats';
 import { formatDateTime, formatNumber, shortModel } from '../../utils/format';
 import './RequestsPage.scss';
@@ -19,14 +20,14 @@ import './RequestsPage.scss';
 const PAGE_SIZE = 20;
 const AGENTS = [{ id: 'all', label: 'All agents' }, ...Object.entries(AGENT_LABELS).map(([id, label]) => ({ id, label }))];
 const PERIODS = [
-  { id: 'all', label: 'All time', ms: null },
-  { id: '1d', label: 'Last 24 hours', ms: 864e5 },
-  { id: '7d', label: 'Last 7 days', ms: 7 * 864e5 },
-  { id: '30d', label: 'Last 30 days', ms: 30 * 864e5 },
+  { id: 'all', label: 'All time' },
+  { id: '1d', label: 'Last 24 hours' },
+  { id: '7d', label: 'Last 7 days' },
+  { id: '30d', label: 'Last 30 days' },
 ];
 
 export default function RequestsPage() {
-  const { usageEvents, loadUsageEvents } = usePayments();
+  const { eventsFor } = usePayments();
   const [search, setSearch] = useState('');
   const [agent, setAgent] = useState('all');
   const [period, setPeriod] = useState('all');
@@ -34,17 +35,12 @@ export default function RequestsPage() {
   const [open, setOpen] = useState(null);
   const q = useDebounced(search.trim(), 350);
 
-  const load = useCallback(() => {
-    const ms = PERIODS.find((p) => p.id === period)?.ms;
-    return loadUsageEvents({
-      page,
-      limit: PAGE_SIZE,
-      agentType: agent,
-      search: q || undefined,
-      startDate: ms ? new Date(Date.now() - ms).toISOString() : '',
-    });
-  }, [page, agent, period, q, loadUsageEvents]);
-  const state = useLoad(load);
+  // One cache entry per page and filter set, so paging back is instant.
+  const key = eventsKey({ page, limit: PAGE_SIZE, agent, period, q });
+  const state = useQueries([key]);
+  const current = eventsFor(key);
+  const usageEvents = useLastValue(current);
+  const busy = state.pending || !current;
 
   const events = usageEvents?.events || [];
   const filtered = agent !== 'all' || period !== 'all' || q;
@@ -55,7 +51,7 @@ export default function RequestsPage() {
       <PageHeader
         title="AI requests"
         description="Every AI call made from your workspace, with tokens and credits charged."
-        actions={<Button variant="ghost" icon={RefreshCw} loading={state.refreshing} onClick={state.reload}>Refresh</Button>}
+        actions={<Button variant="ghost" icon={RefreshCw} loading={state.pending} onClick={state.reload}>Refresh</Button>}
       />
 
       {state.error && events.length > 0 && (
@@ -63,7 +59,7 @@ export default function RequestsPage() {
       )}
 
       <Panel
-        title={state.loading ? 'Requests' : `${formatNumber(usageEvents?.total || 0)} ${filtered ? 'matching ' : ''}requests`}
+        title={!usageEvents ? 'Requests' : `${formatNumber(usageEvents?.total || 0)} ${filtered ? 'matching ' : ''}requests`}
         action={(
           <div className="requests__filters">
             <SearchInput value={search} onChange={onFilter(setSearch)} placeholder="Search request ID or model" />
@@ -73,7 +69,7 @@ export default function RequestsPage() {
         )}
         flush
       >
-        {state.loading ? <TableSkeleton rows={8} cols={6} /> : state.error && events.length === 0 ? (
+        {!usageEvents && !state.error ? <TableSkeleton rows={8} cols={6} /> : state.error && events.length === 0 ? (
           <EmptyState icon={CloudOff} title="Could not load requests" action={<Button size="sm" icon={RefreshCw} onClick={state.reload}>Try again</Button>}>
             The payments service did not respond.
           </EmptyState>
@@ -86,7 +82,7 @@ export default function RequestsPage() {
             {filtered ? 'Try a wider period or another agent.' : 'Requests from the coding agent and Copilot show up here.'}
           </EmptyState>
         ) : (
-          <div className={state.refreshing ? 'requests__table is-busy' : 'requests__table'}>
+          <div className={busy ? 'requests__table is-busy' : 'requests__table'}>
             <Table
               caption="AI requests"
               onRowsClickable

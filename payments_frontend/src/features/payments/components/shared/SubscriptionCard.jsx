@@ -5,7 +5,7 @@ import Button from '../ui/Button';
 import KeyValues from '../ui/KeyValues';
 import { Tag } from '../ui/Badge';
 import useAccount from '../../Hooks/useAccount';
-import { useNow } from '../../Hooks/useLoad';
+import { useNow } from '../../Hooks/common.hooks';
 import { cycleProgress } from '../../utils/stats';
 import { capitalize, formatCompact, formatDate, formatINR, formatNumber, formatShortDate } from '../../utils/format';
 import './SubscriptionCard.scss';

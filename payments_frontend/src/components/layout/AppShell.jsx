@@ -1,9 +1,9 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useDispatch } from 'react-redux';
 import { Outlet, useLocation } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import Topbar from './Topbar';
-import { usePayments } from '../../features/payments/Hooks/payments.hooks';
-import useLoad from '../../features/payments/Hooks/useLoad';
+import { resetCache, useQueries } from '../../features/payments/Hooks/payments.queries';
 import api, { clearAccessToken } from '../../services/api';
 import './AppShell.scss';
 
@@ -15,15 +15,12 @@ const IDE_URL = import.meta.env.VITE_MAIN_APP_URL || 'http://localhost:5173';
  */
 export default function AppShell({ user, authChecked }) {
   const { pathname } = useLocation();
-  const { loadCredit, loadSubscription } = usePayments();
+  const dispatch = useDispatch();
   const [navOpen, setNavOpen] = useState(false);
 
   // Sidebar credit widget and top bar plan badge need these on every page.
-  const loadAccount = useCallback(
-    () => Promise.all([loadCredit(), loadSubscription()]).then(([credit]) => credit),
-    [loadCredit, loadSubscription],
-  );
-  const account = useLoad(loadAccount, Boolean(user));
+  // The dashboard overview also fills them, so on the dashboard this is free.
+  const account = useQueries(['credit', 'subscription'], { enabled: Boolean(user) });
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -36,6 +33,7 @@ export default function AppShell({ user, authChecked }) {
       // Signing out locally still matters if the server call fails.
     }
     clearAccessToken();
+    dispatch(resetCache());
     window.location.href = IDE_URL;
   };
 

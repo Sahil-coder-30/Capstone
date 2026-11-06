@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useDispatch } from 'react-redux';
 import { Navigate, Route, Routes, useNavigate, useParams } from 'react-router-dom';
 import AppShell from './components/layout/AppShell';
 import RequireAuth from './components/layout/RequireAuth';
@@ -10,6 +11,7 @@ import PlansPage from './features/payments/components/plans/PlansPage';
 import CheckoutPage from './features/payments/components/checkout/CheckoutPage';
 import InvoicesPage from './features/payments/components/invoices/InvoicesPage';
 import { applyTheme, usePayments } from './features/payments/Hooks/payments.hooks';
+import { syncOwner } from './features/payments/Hooks/payments.queries';
 import api, { setAccessToken } from './services/api';
 import './styles/index.scss';
 
@@ -34,24 +36,29 @@ export default function App() {
   const navigate = useNavigate();
   const forceIntro = new URLSearchParams(window.location.search).get('forceLoader') === 'true';
   const [showIntro, setShowIntro] = useState(() => forceIntro || !readIntroSeen());
-  const [user, setUser] = useState(null);
-  const [authChecked, setAuthChecked] = useState(false);
+  const dispatch = useDispatch();
+  const [session, setSession] = useState({ user: null, checked: false });
+  const { user, checked: authChecked } = session;
 
   useEffect(() => { applyTheme(theme); }, [theme]);
 
   // Session check: the access token lives in memory only, getMe restores it.
+  // Cached billing data is kept only when it belongs to this same user.
   useEffect(() => {
     let active = true;
+    const done = (next) => {
+      if (!active) return;
+      dispatch(syncOwner(next ? String(next._id || next.id || next.email) : null));
+      setSession({ user: next, checked: true });
+    };
     api.get('/api/auth/getMe', { baseURL: '', timeout: 5000 })
       .then((res) => {
-        if (!active) return;
         if (res.data?.accessToken) setAccessToken(res.data.accessToken);
-        setUser(res.data?.user || null);
+        done(res.data?.user || null);
       })
-      .catch(() => { if (active) setUser(null); })
-      .finally(() => { if (active) setAuthChecked(true); });
+      .catch(() => done(null));
     return () => { active = false; };
-  }, []);
+  }, [dispatch]);
 
   // Links from the IDE use ?route=...; map them to real paths.
   useEffect(() => {

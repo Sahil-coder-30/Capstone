@@ -13,7 +13,7 @@ import { KpiSkeleton, TableSkeleton } from '../ui/Skeleton';
 import PaymentsTable from '../shared/PaymentsTable';
 import InvoiceDrawer from './InvoiceDrawer';
 import { usePayments } from '../../Hooks/payments.hooks';
-import useLoad from '../../Hooks/useLoad';
+import { useQueries } from '../../Hooks/payments.queries';
 import { describeTx, paymentStats, txAmount, txStatus } from '../../utils/stats';
 import { exportCsv, printInvoice } from '../../utils/invoice';
 import { formatDate, formatINR, formatNumber } from '../../utils/format';
@@ -29,8 +29,8 @@ const STATUSES = [
 
 export default function InvoicesPage() {
   const { user } = useOutletContext();
-  const { paymentHistory, loadPaymentHistory } = usePayments();
-  const state = useLoad(loadPaymentHistory);
+  const { paymentHistory } = usePayments();
+  const state = useQueries(['history']);
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('all');
   const [page, setPage] = useState(1);
@@ -56,7 +56,7 @@ export default function InvoicesPage() {
         description="Every payment you made, with invoices you can print or save as PDF."
         actions={(
           <>
-            <Button variant="ghost" icon={RefreshCw} loading={state.refreshing} onClick={state.reload} aria-label="Refresh" />
+            <Button variant="ghost" icon={RefreshCw} loading={state.pending} onClick={state.reload} aria-label="Refresh" />
             <Button icon={Download} disabled={!rows.length} onClick={() => exportCsv(rows)}>Export CSV</Button>
           </>
         )}

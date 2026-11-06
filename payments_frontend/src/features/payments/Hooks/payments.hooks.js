@@ -1,39 +1,9 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import {
-  fetchDashboardOverviewAPI,
-  fetchSubscriptionAPI,
-  fetchCreditAPI,
-  fetchSpendSummaryAPI,
-  fetchTransactionsAPI,
-  fetchUsageEventsAPI,
-  fetchUsageAnalyticsAPI,
-} from '../service/payments.api';
-import {
-  setSubscription,
-  setCredit,
-  setDashboardOverview,
-  setUsageAnalytics,
-  setUsageEvents,
-  setUsageSample,
-  setPaymentHistory,
-  setSummary,
-  setTheme,
-} from '../slice/payments.slice';
+import { setTheme } from '../slice/payments.slice';
+import { ensure } from './payments.queries';
 
-/** Runs an API call, stores `pick(body)` with `action`, and returns it (null on failure). */
-async function run(dispatch, call, pick, action) {
-  try {
-    const body = await call();
-    const data = pick(body);
-    if (data == null) return null;
-    dispatch(action(data));
-    return data;
-  } catch (err) {
-    console.warn('[payments]', err?.response?.data?.message || err.message);
-    return null;
-  }
-}
+const FREE_SUBSCRIPTION = { activeTier: 'free', status: 'FREE', activeSlot: null, reservedSlots: [] };
 
 export const applyTheme = (theme) => {
   document.documentElement.classList.toggle('light-theme', theme === 'light');
@@ -44,50 +14,46 @@ export const applyTheme = (theme) => {
   }
 };
 
+/**
+ * Billing data from the store, in the shape the pages use. Loading is done by
+ * useQueries (payments.queries.js); this hook only reads.
+ */
 export const usePayments = () => {
   const dispatch = useDispatch();
-  const state = useSelector((s) => s.payments);
+  const entries = useSelector((s) => s.payments.entries);
+  const theme = useSelector((s) => s.payments.theme);
 
-  const loadDashboardOverview = useCallback(
-    () => run(dispatch, fetchDashboardOverviewAPI, (b) => b?.data, setDashboardOverview), [dispatch]);
-  const loadSubscription = useCallback(
-    () => run(dispatch, fetchSubscriptionAPI, (b) => b?.data, setSubscription), [dispatch]);
-  const loadCredit = useCallback(
-    () => run(dispatch, fetchCreditAPI, (b) => b?.credit, setCredit), [dispatch]);
-  const loadSummary = useCallback(
-    () => run(dispatch, fetchSpendSummaryAPI, (b) => b?.summary, setSummary), [dispatch]);
-  const loadUsageAnalytics = useCallback(
-    (days = 30) => run(dispatch, () => fetchUsageAnalyticsAPI(days), (b) => b?.data, setUsageAnalytics), [dispatch]);
-  const loadUsageEvents = useCallback(
-    (filters) => run(dispatch, () => fetchUsageEventsAPI(filters), (b) => b?.data, setUsageEvents), [dispatch]);
-  const loadUsageSample = useCallback(
-    () => run(dispatch, () => fetchUsageEventsAPI({ page: 1, limit: 100 }), (b) => b?.data, setUsageSample), [dispatch]);
-  const loadPaymentHistory = useCallback(
-    () => run(dispatch, () => fetchTransactionsAPI({ page: 1, limit: 100 }), (b) => b?.data, setPaymentHistory), [dispatch]);
+  const data = useMemo(() => {
+    const get = (key) => entries[key]?.data;
+    const history = get('history');
+    const sample = get('sample');
+    return {
+      subscription: get('subscription') || FREE_SUBSCRIPTION,
+      credit: get('credit') || null,
+      dashboardOverview: get('overview') || null,
+      summary: get('summary') || null,
+      paymentHistory: {
+        transactions: history?.transactions || [],
+        total: history?.total || 0,
+        summary: history?.summary || null,
+      },
+      usageSample: { events: sample?.events || [], total: sample?.total || 0 },
+      analyticsFor: (days) => get(`analytics:${days}`) || null,
+      eventsFor: (key) => get(key) || null,
+    };
+  }, [entries]);
 
-  /** Re-read everything a purchase changes. */
+  /** Re-reads everything a purchase changes. */
   const refreshAfterPayment = useCallback(
-    () => Promise.all([loadDashboardOverview(), loadPaymentHistory(), loadSummary()]),
-    [loadDashboardOverview, loadPaymentHistory, loadSummary],
+    () => Promise.all(['overview', 'history', 'summary'].map((k) => dispatch(ensure(k, { force: true })))),
+    [dispatch],
   );
 
   const toggleTheme = useCallback(() => {
-    const next = state.theme === 'light' ? 'dark' : 'light';
+    const next = theme === 'light' ? 'dark' : 'light';
     applyTheme(next);
     dispatch(setTheme(next));
-  }, [dispatch, state.theme]);
+  }, [dispatch, theme]);
 
-  return {
-    ...state,
-    loadDashboardOverview,
-    loadSubscription,
-    loadCredit,
-    loadSummary,
-    loadUsageAnalytics,
-    loadUsageEvents,
-    loadUsageSample,
-    loadPaymentHistory,
-    refreshAfterPayment,
-    toggleTheme,
-  };
+  return { ...data, theme, refreshAfterPayment, toggleTheme };
 };

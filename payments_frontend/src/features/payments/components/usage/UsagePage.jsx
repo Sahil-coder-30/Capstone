@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { CalendarDays, CloudOff, Coins, Gauge, Hash, Activity, TrendingUp, RefreshCw } from 'lucide-react';
 import PageHeader from '../ui/PageHeader';
 import Panel from '../ui/Panel';
@@ -14,7 +14,8 @@ import TokenLimitPanel from './TokenLimitPanel';
 import BreakdownTable from './BreakdownTable';
 import RequestSizePanel from './RequestSizePanel';
 import { usePayments } from '../../Hooks/payments.hooks';
-import useLoad from '../../Hooks/useLoad';
+import { useQueries } from '../../Hooks/payments.queries';
+import { useLastValue } from '../../Hooks/common.hooks';
 import { agentLabel, fillTimeline, groupEvents, halfDelta, peakDay, sum } from '../../utils/stats';
 import { capitalize, formatCompact, formatDate, formatNumber, formatShortDate, shortModel } from '../../utils/format';
 import './UsagePage.scss';
@@ -23,13 +24,14 @@ const RANGES = [7, 30, 90].map((d) => ({ id: d, label: `${d} days` }));
 const PAGE = 10;
 
 export default function UsagePage() {
-  const { usageAnalytics, usageSample, loadUsageAnalytics, loadUsageSample } = usePayments();
+  const { analyticsFor, usageSample } = usePayments();
   const [range, setRange] = useState(30);
   const [page, setPage] = useState(1);
 
-  const loadRange = useCallback(() => loadUsageAnalytics(range), [range, loadUsageAnalytics]);
-  const main = useLoad(loadRange);
-  const sample = useLoad(loadUsageSample);
+  const main = useQueries([`analytics:${range}`]);
+  const sample = useQueries(['sample']);
+  // While another range loads, keep the last one on screen instead of skeletons.
+  const usageAnalytics = useLastValue(analyticsFor(range));
 
   const days = useMemo(() => fillTimeline(usageAnalytics?.timeline || [], range), [usageAnalytics, range]);
   const totals = usageAnalytics?.totals || {};
@@ -57,18 +59,18 @@ export default function UsagePage() {
         actions={(
           <>
             <Segmented label="Time range" options={RANGES} value={range} onChange={changeRange} />
-            <Button variant="ghost" icon={RefreshCw} loading={main.refreshing} onClick={() => { main.reload(); sample.reload(); }} aria-label="Refresh" />
+            <Button variant="ghost" icon={RefreshCw} loading={main.pending || sample.pending} onClick={() => { main.reload(); sample.reload(); }} aria-label="Refresh" />
           </>
         )}
       />
 
-      {main.error ? (
+      {main.error && !usageAnalytics ? (
         <Panel>
           <EmptyState icon={CloudOff} title="Could not load usage data" action={<Button variant="primary" icon={RefreshCw} onClick={main.reload}>Try again</Button>}>
             The payments service did not respond. Your usage is still being recorded.
           </EmptyState>
         </Panel>
-      ) : main.loading ? (
+      ) : !usageAnalytics ? (
         <>
           <KpiSkeleton count={6} cols={6} />
           <div className="grid grid--2-1"><PanelSkeleton height={300} /><PanelSkeleton variant="list" /></div>

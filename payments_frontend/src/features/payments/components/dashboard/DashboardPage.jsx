@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { ArrowRight, ArrowUpRight, CloudOff, Receipt, RefreshCw } from 'lucide-react';
 import PageHeader from '../ui/PageHeader';
@@ -19,7 +19,8 @@ import DashboardKpis from './DashboardKpis';
 import UsageTrendPanel from './UsageTrendPanel';
 import ActivityList from './ActivityList';
 import { usePayments } from '../../Hooks/payments.hooks';
-import useLoad, { useNow } from '../../Hooks/useLoad';
+import { useQueries } from '../../Hooks/payments.queries';
+import { useLastValue, useNow } from '../../Hooks/common.hooks';
 import {
   agentLabel, byHour, byWeekday, fillTimeline, groupEvents, halfDelta, paymentStats, spendByMonth,
 } from '../../utils/stats';
@@ -43,26 +44,17 @@ function DashboardSkeleton() {
 
 export default function DashboardPage() {
   const { user } = useOutletContext();
-  const {
-    usageAnalytics, dashboardOverview, paymentHistory, usageSample, summary,
-    loadDashboardOverview, loadUsageAnalytics, loadPaymentHistory, loadUsageSample, loadSummary,
-  } = usePayments();
+  const { analyticsFor, dashboardOverview, paymentHistory, usageSample, summary } = usePayments();
   const [range, setRange] = useState(30);
   const now = useNow();
 
-  // Overview carries 30 days of analytics; other ranges replace it after.
-  const loadCore = useCallback(async () => {
-    const overview = await loadDashboardOverview();
-    if (range !== 30) await loadUsageAnalytics(range);
-    return overview;
-  }, [range, loadDashboardOverview, loadUsageAnalytics]);
-  const loadExtra = useCallback(
-    () => Promise.all([loadPaymentHistory(), loadUsageSample(), loadSummary()]).then(([h]) => h),
-    [loadPaymentHistory, loadUsageSample, loadSummary],
-  );
-  const core = useLoad(loadCore);
-  const extra = useLoad(loadExtra);
-  const refresh = () => { core.reload(); extra.reload(); };
+  // Served from the local cache when fresh; the overview carries 30 days of analytics.
+  const core = useQueries(['overview']);
+  const trend = useQueries([`analytics:${range}`]);
+  const extra = useQueries(['history', 'sample', 'summary']);
+  const refresh = () => { core.reload(); trend.reload(); extra.reload(); };
+  // While another range loads, keep showing the last one instead of skeletons.
+  const usageAnalytics = useLastValue(analyticsFor(range));
 
   const days = useMemo(() => fillTimeline(usageAnalytics?.timeline || [], range), [usageAnalytics, range]);
   const totals = usageAnalytics?.totals || {};
@@ -85,7 +77,7 @@ export default function DashboardPage() {
         actions={(
           <>
             <Segmented label="Time range" options={RANGES} value={range} onChange={setRange} />
-            <Button variant="ghost" icon={RefreshCw} onClick={refresh} loading={core.refreshing || extra.refreshing}>
+            <Button variant="ghost" icon={RefreshCw} onClick={refresh} loading={core.pending || trend.pending || extra.pending}>
               {core.updatedAt && !core.error ? `Updated ${formatRelative(core.updatedAt, now)}` : 'Refresh'}
             </Button>
             <Button variant="primary" to="/plans" iconRight={ArrowUpRight}>Upgrade</Button>

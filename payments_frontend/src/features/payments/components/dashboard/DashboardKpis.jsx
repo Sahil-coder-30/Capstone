@@ -2,7 +2,7 @@ import { Activity, CalendarDays, Coins, CreditCard, Gauge, Hash, Layers, Wallet 
 import { Kpi, KpiGrid, Delta } from '../ui/Kpi';
 import Meter from '../ui/Meter';
 import useAccount from '../../Hooks/useAccount';
-import { useNow } from '../../Hooks/useLoad';
+import { useNow } from '../../Hooks/common.hooks';
 import { refillText, remainingTone } from '../../utils/stats';
 import { formatCompact, formatDate, formatDuration, formatINR, formatNumber } from '../../utils/format';
 

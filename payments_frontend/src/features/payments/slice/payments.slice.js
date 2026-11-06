@@ -1,4 +1,5 @@
 import { createSlice } from '@reduxjs/toolkit';
+import { readCache } from '../utils/cache';
 
 const readTheme = () => {
   try {
@@ -8,63 +9,67 @@ const readTheme = () => {
   }
 };
 
+// Request pages kept per filter combination; older ones are dropped.
+const MAX_EVENT_PAGES = 8;
+
+/**
+ * entries  server data by resource key, e.g. `credit`, `analytics:30`,
+ *          `events:page=2`. Each is { data, at }. Saved to localStorage.
+ * status   per key { pending, error } for the request in flight. Memory only.
+ * owner    user id the entries belong to.
+ */
 const initialState = {
-  subscription: { activeTier: 'free', status: 'FREE', activeSlot: null, reservedSlots: [] },
-  credit: null,
-  dashboardOverview: null,
-  usageAnalytics: {
-    timeframeDays: 30,
-    totals: { totalTokens: 0, promptTokens: 0, completionTokens: 0, totalRequests: 0, totalCreditsDeducted: 0 },
-    timeline: [],
-    byProvider: [],
-    byAgent: [],
-  },
-  // One page of AI requests for the requests table.
-  usageEvents: { events: [], total: 0, page: 1, totalPages: 1 },
-  // Last 100 usage events (backend max page size), for model / project / hour stats.
-  usageSample: { events: [], total: 0 },
-  // Last 100 transactions, for invoices, spend history and payment stats.
-  paymentHistory: { transactions: [], total: 0, summary: null },
-  // Lifetime totals from /credit/transactions/summary.
-  summary: null,
+  ...readCache(),
+  status: {},
   theme: readTheme(),
+};
+
+const put = (state, key, data, at) => {
+  if (data !== undefined) state.entries[key] = { data, at };
 };
 
 const paymentsSlice = createSlice({
   name: 'payments',
   initialState,
   reducers: {
-    setSubscription(state, action) {
-      state.subscription = action.payload;
+    fetchStarted(state, { payload: keys }) {
+      keys.forEach((k) => { state.status[k] = { pending: true, error: state.status[k]?.error || false }; });
     },
-    setCredit(state, action) {
-      state.credit = action.payload;
+    fetchFailed(state, { payload: keys }) {
+      keys.forEach((k) => { state.status[k] = { pending: false, error: true }; });
     },
-    setDashboardOverview(state, action) {
-      const d = action.payload;
-      state.dashboardOverview = d;
-      if (d?.subscription) state.subscription = d.subscription;
-      if (d?.credit) state.credit = d.credit;
-      if (d?.analytics) state.usageAnalytics = d.analytics;
+    fetchSucceeded(state, { payload: { keys, data, at } }) {
+      const [key] = keys;
+      put(state, key, data, at);
+
+      // The overview also carries the plan, the credit window and 30 days of analytics.
+      if (key === 'overview') {
+        put(state, 'credit', data.credit, at);
+        put(state, 'subscription', data.subscription, at);
+        put(state, 'analytics:30', data.analytics, at);
+      }
+
+      if (key.startsWith('events:')) {
+        const pages = Object.keys(state.entries)
+          .filter((k) => k.startsWith('events:'))
+          .sort((a, b) => state.entries[b].at - state.entries[a].at);
+        pages.slice(MAX_EVENT_PAGES).forEach((k) => { delete state.entries[k]; });
+      }
+
+      keys.forEach((k) => { state.status[k] = { pending: false, error: false }; });
     },
-    setUsageAnalytics(state, action) {
-      state.usageAnalytics = action.payload;
+    /** Takes entries from another tab when they are newer than ours. */
+    mergeEntries(state, { payload: { owner, entries } }) {
+      if (!owner || owner !== state.owner) return;
+      Object.entries(entries).forEach(([key, entry]) => {
+        if (!state.entries[key] || state.entries[key].at < entry.at) state.entries[key] = entry;
+      });
     },
-    setUsageEvents(state, action) {
-      state.usageEvents = action.payload;
-    },
-    setUsageSample(state, action) {
-      state.usageSample = { events: action.payload?.events || [], total: action.payload?.total || 0 };
-    },
-    setPaymentHistory(state, action) {
-      state.paymentHistory = {
-        transactions: action.payload?.transactions || [],
-        total: action.payload?.total || 0,
-        summary: action.payload?.summary || null,
-      };
-    },
-    setSummary(state, action) {
-      state.summary = action.payload;
+    /** Drops every entry, for sign-out or a different user. */
+    resetData(state, { payload: owner }) {
+      state.owner = owner ?? null;
+      state.entries = {};
+      state.status = {};
     },
     setTheme(state, action) {
       state.theme = action.payload;
@@ -73,15 +78,7 @@ const paymentsSlice = createSlice({
 });
 
 export const {
-  setSubscription,
-  setCredit,
-  setDashboardOverview,
-  setUsageAnalytics,
-  setUsageEvents,
-  setUsageSample,
-  setPaymentHistory,
-  setSummary,
-  setTheme,
+  fetchStarted, fetchFailed, fetchSucceeded, mergeEntries, resetData, setTheme,
 } = paymentsSlice.actions;
 
 export default paymentsSlice.reducer;

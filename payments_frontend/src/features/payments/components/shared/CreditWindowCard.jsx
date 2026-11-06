@@ -2,7 +2,7 @@ import Panel from '../ui/Panel';
 import Meter from '../ui/Meter';
 import KeyValues from '../ui/KeyValues';
 import useAccount from '../../Hooks/useAccount';
-import { useNow } from '../../Hooks/useLoad';
+import { useNow } from '../../Hooks/common.hooks';
 import { refillText, remainingTone } from '../../utils/stats';
 import { formatDateTime, formatDuration, formatNumber } from '../../utils/format';
 import './CreditWindowCard.scss';
