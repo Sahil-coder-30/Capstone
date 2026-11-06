@@ -1,15 +1,17 @@
 import mongoose from "mongoose";
 import { v7 as uuid } from "uuid";
-import { createSandboxKey, deleteSandboxKey } from "../config/redis.js";
-import { createPod, deletePod, getPodStatus } from "../kubernetes/pod.js";
-import { createService, deleteService } from "../kubernetes/service.js";
+import { deleteSandboxKey } from "../config/redis.js";
+import { deletePod, getPodStatus } from "../kubernetes/pod.js";
+import { deleteService } from "../kubernetes/service.js";
 import Project from "../models/Project.model.js";
+import { startProjectSandbox } from "../services/sandboxLifecycle.service.js";
+import { revokeProjectTokens } from "../services/mcpTokens.service.js";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // HELPER: shared auth + ownership guard (DRY)
 // Returns the project document if checks pass, otherwise sends the error response.
 // ─────────────────────────────────────────────────────────────────────────────
-async function getAuthorizedProject(req, res, projectId) {
+export async function getAuthorizedProject(req, res, projectId) {
     if (!req.user || !req.user.id) {
         res.status(401).json({ status: "error", message: "Unauthorized: User identification missing" });
         return null;
@@ -208,36 +210,7 @@ export const startSandboxController = async (req, res, next) => {
         const project = await getAuthorizedProject(req, res, req.params.projectId);
         if (!project) return;
 
-        const { sandboxId } = project;
-
-        // If the project appears to already be live or building, perform a force-restart.
-        // This handles the case where the K8s pod crashed or was deleted externally but
-        // the DB status was never reset (which previously caused an infinite 400 loop).
-        // We clean up stale resources first (errors are intentionally swallowed via allSettled).
-        if (project.status === "live" || project.status === "building") {
-            await Promise.allSettled([
-                deletePod(sandboxId),
-                deleteService(sandboxId),
-                deleteSandboxKey(sandboxId),
-            ]);
-        }
-
-        // Mark as building immediately so concurrent duplicate requests are rejected
-        await Project.findByIdAndUpdate(project._id, { status: "building" });
-
-        try {
-            await Promise.all([
-                createPod(sandboxId, project._id.toString(), project.user),
-                createService(sandboxId),
-                createSandboxKey(sandboxId),
-            ]);
-        } catch (resourceError) {
-            // Roll back to a restartable status on K8s / Redis failure
-            await Project.findByIdAndUpdate(project._id, { status: "down" });
-            throw resourceError;
-        }
-
-        await Project.findByIdAndUpdate(project._id, { status: "live" });
+        const { sandboxId } = await startProjectSandbox(project);
 
         res.status(200).json({
             status: "success",
@@ -313,6 +286,8 @@ export const deleteProjectController = async (req, res, next) => {
         project.deletedAt = new Date();
         project.status = "not_started";
         await project.save();
+        // External agents lose access the moment a project goes to trash.
+        await revokeProjectTokens(project._id);
 
         res.status(200).json({
             status: "success",
@@ -385,6 +360,7 @@ export const permanentlyDeleteProjectController = async (req, res, next) => {
             deleteSandboxKey(sandboxId)
         ]);
 
+        await revokeProjectTokens(project._id);
         await Project.findByIdAndDelete(project._id);
 
         res.status(200).json({

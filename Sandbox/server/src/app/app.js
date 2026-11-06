@@ -5,6 +5,7 @@ import { createService } from '../kubernetes/service.js';
 import { v7 as uuid} from 'uuid';
 import { createSandboxKey } from '../config/redis.js';
 import sandboxRouter from '../routes/sandbox.routes.js';
+import internalRouter from '../routes/internal.routes.js';
 import { identifyUser } from '../middleware/auth.middleware.js';
 import { errorHandler } from '../middleware/error.middleware.js';
 
@@ -29,6 +30,9 @@ app.get("/api/sandbox/ready" , (req , res) =>{
 })
 
 app.use('/api/sandbox' , sandboxRouter);
+
+// Service-to-service routes for the sandbox router (not routed by the ingress).
+app.use('/internal', internalRouter);
 
 // Protected: identifyUser verifies the RS256 JWT before spinning up any K8s resources.
 // An unauthenticated caller cannot create pods.

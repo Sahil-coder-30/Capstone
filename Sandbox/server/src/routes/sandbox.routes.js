@@ -11,6 +11,11 @@ import {
     restoreProjectController,
     permanentlyDeleteProjectController
 } from "../controllers/sandbox.controller.js";
+import {
+    listMcpTokensController,
+    createMcpTokenController,
+    revokeMcpTokenController
+} from "../controllers/mcpToken.controller.js";
 
 const sandboxRouter = Router();
 
@@ -26,5 +31,10 @@ sandboxRouter.delete('/project/:projectId/permanent', identifyUser, permanentlyD
 // Sandbox lifecycle (start / stop — project persists)
 sandboxRouter.post('/start/:projectId', identifyUser, startSandboxController);
 sandboxRouter.post('/stop/:projectId', identifyUser, stopSandboxController);
+
+// MCP tokens for external agents (Claude Code, Cursor) — owner only
+sandboxRouter.get('/project/:projectId/mcp-tokens', identifyUser, listMcpTokensController);
+sandboxRouter.post('/project/:projectId/mcp-tokens', identifyUser, createMcpTokenController);
+sandboxRouter.delete('/project/:projectId/mcp-tokens/:tokenId', identifyUser, revokeMcpTokenController);
 
 export default sandboxRouter;

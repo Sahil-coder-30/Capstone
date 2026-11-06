@@ -24,6 +24,10 @@ export const deleteSandboxKey = async (sandboxId) => {
     }
 }
 
+/** True while the sandbox's idle key exists, i.e. the pod is meant to be running. */
+export const sandboxKeyExists = async (sandboxId) =>
+    (await redis.exists(`${SANDBOX_KEY_PREFIX}${sandboxId}`)) === 1;
+
 /**
  * Tears a sandbox down when its idle key expires.
  * Redis reports EVERY expired key in the database (rate limits, caches of
