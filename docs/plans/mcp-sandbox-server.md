@@ -67,7 +67,7 @@ sidecar: scoped token -> /mcp only, tools filtered by scope
 | Scope enforcement on the sidecar | `Sandbox/Agent/src/auth/middleware.js`, `src/mcp/server.js` | `88c62df` |
 | MCP tokens (create, list, revoke, lookup) and wake | `Sandbox/server/src/services/mcpTokens.service.js`, `controllers/mcpToken.controller.js` | `dbeed19` |
 | Gateway, ingress, `INTERNAL_SERVICE_TOKEN` wiring | `Sandbox/router/src/mcpGateway.js`, `k8s/*` | `04131db` |
-| "Connect your own agent" panel | `Frontend/src/features/sandbox/components/ConnectAgentModal.jsx` | next commit |
+| "Connect your own agent" panel | `Frontend/src/features/sandbox/components/ConnectAgentModal.jsx` | `3878c4f` |
 
 Path-based URL instead of `<sandboxId>.mcp.localhost`: Node-based MCP clients can not resolve wildcard `.localhost` names on macOS.
 

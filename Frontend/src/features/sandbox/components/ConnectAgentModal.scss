@@ -88,14 +88,17 @@
   padding: 8px 10px;
   border: 1px solid $color-warning;
   border-radius: 8px;
-  color: $color-warning;
+  // Text stays in the normal text color for contrast on light themes;
+  // the border and icon carry the warning color.
+  color: $color-text;
   line-height: 1.4;
 
-  svg { flex-shrink: 0; margin-top: 1px; }
+  svg { flex-shrink: 0; margin-top: 1px; color: $color-warning; }
 
   &--danger {
     border-color: $color-error;
-    color: $color-error;
+
+    svg { color: $color-error; }
   }
 }
 
