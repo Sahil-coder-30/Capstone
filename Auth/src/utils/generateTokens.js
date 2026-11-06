@@ -59,10 +59,16 @@ export const signAccessToken = (user) => jwt.sign(
 export const SANDBOX_TOKEN_AUDIENCE = 'taksha-sandbox';
 export const SANDBOX_TOKEN_TTL_SECONDS = 2 * 60 * 60;
 
-export const signSandboxToken = ({ userId, sandboxId }) => jwt.sign(
-    { sub: String(userId), id: String(userId), sbx: sandboxId },
+/**
+ * @param {object} opts
+ * @param {string[]} [opts.scopes] limits the token to these MCP tool scopes
+ *   (read | write | exec). Tokens for external agents always carry scopes;
+ *   the sidecar then allows only /mcp and only those tools.
+ */
+export const signSandboxToken = ({ userId, sandboxId, scopes, ttlSeconds = SANDBOX_TOKEN_TTL_SECONDS }) => jwt.sign(
+    { sub: String(userId), id: String(userId), sbx: sandboxId, ...(scopes && { scope: scopes.join(' ') }) },
     PRIVATE_KEY,
-    { ...JWT_OPTIONS, audience: SANDBOX_TOKEN_AUDIENCE, expiresIn: SANDBOX_TOKEN_TTL_SECONDS }
+    { ...JWT_OPTIONS, audience: SANDBOX_TOKEN_AUDIENCE, expiresIn: ttlSeconds }
 );
 
 /**

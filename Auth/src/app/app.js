@@ -7,6 +7,7 @@ import authRouter from '../routes/auth.routes.js';
 import profileRouter from '../routes/profile.routes.js';
 import preferencesRouter from '../routes/preferences.routes.js';
 import jwksRouter from '../routes/jwks.route.js';
+import internalRouter from '../routes/internal.routes.js';
 import { identifyUser } from '../middleware/auth.middleware.js';
 import dotenv from 'dotenv';
 import { register } from '../observability/metrics.js';
@@ -39,6 +40,9 @@ app.use("/api/auth/preferences", identifyUser, preferencesRouter);
 // All microservices call this once at startup to get the RSA Public Key
 // for local JWT verification (zero DB calls on their end).
 app.use("/.well-known/jwks.json", jwksRouter);
+
+// Service-to-service only (not routed by the ingress, shared-token protected).
+app.use("/internal", internalRouter);
 
 app.get("/healthz", (req, res) => {
     res.status(200).json({
