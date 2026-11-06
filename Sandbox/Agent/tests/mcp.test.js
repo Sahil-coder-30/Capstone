@@ -162,3 +162,25 @@ test("the endpoint needs the owner's token and refuses other hosts", async () =>
 
   assert.equal((await fetch(url, { headers: { Authorization: `Bearer ${sandboxToken}` } })).status, 405);
 });
+
+test("scoped tokens (external agents) see only their tools and can not use REST", async () => {
+  const scoped = (scope) => jwt.sign({ sub: OWNER, sbx: SANDBOX, scope }, privateKey, {
+    algorithm: "RS256", keyid: "auth-rsa-v1", issuer: "auth.takshacodespace.in", audience: "taksha-sandbox", expiresIn: "10m",
+  });
+
+  const reader = await connect(scoped("read"));
+  const readTools = (await reader.listTools()).tools.map((t) => t.name).sort();
+  assert.deepEqual(readTools, ["get_vite_runtime_errors", "list_files", "read_file", "search_code"]);
+  const denied = await reader.callTool({ name: "execute_command", arguments: { command: "id" } });
+  assert.equal(denied.isError, true, "a tool outside the scopes does not exist for this token");
+  await reader.close();
+
+  const writer = await connect(scoped("read write"));
+  const writeTools = (await writer.listTools()).tools.map((t) => t.name);
+  assert.ok(writeTools.includes("patch_file"));
+  assert.ok(!writeTools.includes("execute_command"), "exec is opt-in");
+  await writer.close();
+
+  const rest = await fetch(`http://127.0.0.1:${PORT}/api/agent/list-files`, { headers: { Authorization: `Bearer ${scoped("read write exec")}` } });
+  assert.equal(rest.status, 403);
+});

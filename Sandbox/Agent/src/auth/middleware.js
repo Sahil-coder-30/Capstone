@@ -44,11 +44,23 @@ export function corsForEditor(req, res, next) {
   next();
 }
 
+/**
+ * Scopes of a token for an external agent (`scope` claim, e.g. "read write").
+ * null means a full token (the owner's access token or Orion's run token).
+ */
+export const scopesOf = (claims) =>
+  typeof claims?.scope === "string" ? claims.scope.split(" ").filter(Boolean) : null;
+
 /** Express guard: the request must carry the sandbox owner's token. */
 export async function requireOwner(req, res, next) {
   if (PUBLIC_PATHS.has(req.path)) return next();
   try {
     req.auth = await getVerifier()(bearerFrom(req.headers.authorization));
+    // Scoped tokens (external agents via the router) may only use MCP,
+    // where tools are filtered by scope. Never the REST API.
+    if (scopesOf(req.auth) && req.path !== "/mcp") {
+      return res.status(403).json({ status: "error", message: "This token only works for the MCP endpoint." });
+    }
     next();
   } catch (err) {
     const status = statusOf(err);
@@ -61,6 +73,7 @@ export async function requireOwner(req, res, next) {
 export async function requireOwnerSocket(socket, next) {
   try {
     socket.data.auth = await getVerifier()(socket.handshake.auth?.token);
+    if (scopesOf(socket.data.auth)) throw new AuthError(403, "Scoped tokens can not open the terminal.");
     next();
   } catch (err) {
     // The client reads err.message; "unauthorized" tells it to refresh and retry.

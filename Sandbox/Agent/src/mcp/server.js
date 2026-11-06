@@ -5,12 +5,14 @@
 //   session to lose when the pod restarts.
 // - Auth is the app-wide requireOwner (auth/middleware.js); this file only
 //   ever sees requests from the sandbox owner.
-// - Only the certified tools (tools.js) are registered.
+// - Only the certified tools (tools.js) are registered, and for a scoped
+//   token (external agent) only the tools in its scopes.
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { CERTIFIED_TOOLS } from "./tools.js";
 import { invokeRoute } from "./invokeRoute.js";
+import { scopesOf } from "../auth/middleware.js";
 
 const SERVER_INFO = { name: "taksha-sandbox", version: "1.0.0" };
 
@@ -34,9 +36,15 @@ const allowedHosts = () => {
   ];
 };
 
-export function buildMcpServer(routes) {
+/**
+ * @param {object} routes  REST handlers by name
+ * @param {string[] | null} scopes  null = every certified tool; otherwise only
+ *   tools whose scope is listed (tokens for external agents)
+ */
+export function buildMcpServer(routes, scopes = null) {
   const server = new McpServer(SERVER_INFO);
   for (const tool of CERTIFIED_TOOLS) {
+    if (scopes && !scopes.includes(tool.scope)) continue;
     server.registerTool(
       tool.name,
       { description: tool.description, inputSchema: tool.inputSchema, annotations: tool.annotations },
@@ -57,7 +65,7 @@ export function buildMcpServer(routes) {
 
 export function mountMcpServer(app, routes, { hosts = allowedHosts() } = {}) {
   app.post("/mcp", async (req, res) => {
-    const server = buildMcpServer(routes);
+    const server = buildMcpServer(routes, scopesOf(req.auth));
     const transport = new StreamableHTTPServerTransport({
       sessionIdGenerator: undefined,
       enableJsonResponse: true,
