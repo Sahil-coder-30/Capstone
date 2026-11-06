@@ -2,7 +2,8 @@ import express from 'express';
 import morgan from 'morgan';
 import http from 'http';
 import { createProxyMiddleware } from 'http-proxy-middleware';
-import { refreshTTL } from './config/redis.js';
+import { redis, refreshTTL } from './config/redis.js';
+import { createMcpGateway } from './mcpGateway.js';
 
 const app = express();
 app.use(morgan('combined'));
@@ -20,6 +21,10 @@ app.get("/api/router/ready", (req, res) => {
         message: "Sandbox API is ready to accept traffic"
     });
 });
+
+// External MCP agents: POST /api/mcp/<sandboxId> with an MCP token.
+// Registered before the host-based proxy so it is never shadowed.
+app.all("/api/mcp/:sandboxId", createMcpGateway({ redis, refreshTTL }));
 
 // The sandbox id is taken from the Host header and becomes part of the proxy
 // target hostname. Restrict it to a single DNS label so values such as

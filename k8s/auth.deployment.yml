@@ -38,6 +38,13 @@ spec:
           initialDelaySeconds: 30
           timeoutSeconds: 10
         env:
+        # Shared secret for service-to-service /internal calls (MCP gateway).
+        - name: INTERNAL_SERVICE_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: internal-service
+              key: INTERNAL_SERVICE_TOKEN
+              optional: true
         - name:  MONGO_URI
           valueFrom:
             secretKeyRef:

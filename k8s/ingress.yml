@@ -48,6 +48,17 @@ spec:
                 name: payments-service
                 port:
                   number: 80
+    # External MCP agents (Claude Code, Cursor): /api/mcp/<sandboxId>.
+    # The router checks the MCP token and forwards to the sandbox's /mcp.
+    - http:
+        paths:
+          - pathType: Prefix
+            path: "/api/mcp"
+            backend:
+              service:
+                name: router-service
+                port:
+                  number: 80
     - host: "*.preview.localhost"
       http:
         paths:

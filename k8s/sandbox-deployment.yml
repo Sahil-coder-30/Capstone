@@ -27,6 +27,13 @@ spec:
             cpu: "500m"
             memory: "400Mi"
         env:
+          # Shared secret for service-to-service /internal calls (MCP gateway).
+          - name: INTERNAL_SERVICE_TOKEN
+            valueFrom:
+              secretKeyRef:
+                name: internal-service
+                key: INTERNAL_SERVICE_TOKEN
+                optional: true
           - name: REDIS_URI
             valueFrom:
               secretKeyRef:
