@@ -78,6 +78,5 @@ Later: OAuth 2.1 per the MCP authorization spec (one-click connect), output caps
 ## Known gaps
 
 - Old projects keep the template's old `vite.config.js` proxy (it lives in their workspace). That proxy now only reaches the auth check and returns 401.
-- `Frontend/.gitignore` has a `logs` pattern that ignores `src/features/logs/`, so that feature folder is not in git.
 - NetworkPolicy is not enforced by Docker Desktop's Kubernetes.
 - Usage billing at the end of a long run uses the user's token from the last request (invoke or plan approve), which can be older than 15 minutes.
