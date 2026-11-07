@@ -15,10 +15,7 @@
 import axios from "axios";
 import { InsufficientCreditsError, UnauthorizedError, logger } from "faultkit";
 
-const PAYMENTS_SERVICE_URL =
-  process.env.PAYMENTS_SERVICE_URL ||
-  process.env.PAYMENT_SERVICE_URL ||
-  "http://localhost:5001";
+import { PAYMENTS_SERVICE_URL } from "../services/credit.service.js";
 
 /**
  * Express middleware: creditLedger

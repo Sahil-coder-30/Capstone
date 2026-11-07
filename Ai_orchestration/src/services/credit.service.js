@@ -1,6 +1,7 @@
 import axios from "axios";
 
-const PAYMENTS_SERVICE_URL = process.env.PAYMENTS_SERVICE_URL || process.env.PAYMENT_SERVICE_URL || "http://payments-service";
+// The one place that decides where Payments is (also used by creditLedger).
+export const PAYMENTS_SERVICE_URL = process.env.PAYMENTS_SERVICE_URL || process.env.PAYMENT_SERVICE_URL || "http://payments-service";
 
 const buildAuthHeaders = (authToken) => {
   const headers = {};
