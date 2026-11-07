@@ -7,7 +7,16 @@ import path from "path";
 
 const cwd = process.cwd();
 const pkg = JSON.parse(fs.readFileSync(path.join(cwd, "package.json"), "utf8"));
-const installed = { ...pkg.dependencies, ...pkg.devDependencies };
+const listed = { ...pkg.dependencies, ...pkg.devDependencies };
+// The seed packages are not really installed in the temp workspace. Any
+// other package must be in package.json AND in node_modules, like a real
+// Vite build: editing package.json alone does not install anything.
+const SEEDED = new Set(["react", "react-dom", "vite", "@vitejs/plugin-react"]);
+const installed = Object.fromEntries(
+  Object.keys(listed)
+    .filter((name) => SEEDED.has(name) || fs.existsSync(path.join(cwd, "node_modules", name, "package.json")))
+    .map((name) => [name, true]),
+);
 const errors = [];
 
 const walk = (dir) =>

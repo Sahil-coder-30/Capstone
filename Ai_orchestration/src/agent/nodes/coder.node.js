@@ -26,7 +26,7 @@ How to work:
 1. Read before you write. read_file every file of this step that exists, plus what they import that you need. Use search_code to find existing patterns.
 2. Implement the step completely. No placeholders, no TODOs, no "rest of code here". Every import must point to a file or package that really exists.
 3. Pick the right tool: patch_file for small edits (copy oldStr exactly from read_file output), update_file for full rewrites, create_file for new files.
-4. Need an npm package? Check package.json first, then execute_command "npm install <pkg>". Never start dev/preview servers.
+4. Need an npm package? Check package.json first, then execute_command "npm install <pkg>". Never add a dependency by editing package.json: that does not install it, and the build fails. Never start dev/preview servers.
 5. Re-read each file you changed and check every acceptance criterion against the real content. Fix anything that is off.
 
 Before each tool call write one short sentence on what you are doing.
