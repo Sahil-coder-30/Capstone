@@ -2,11 +2,8 @@
  * Razorpay gateway calls only. No database writes here.
  */
 
+import crypto from 'node:crypto';
 import Razorpay from 'razorpay';
-import {
-    validatePaymentVerification,
-    validateWebhookSignature,
-} from 'razorpay/dist/utils/razorpay-utils.js';
 import { InternalServerError, logger } from 'faultkit';
 
 let client = null;
@@ -49,14 +46,22 @@ export async function createOrder({ amountPaise, receipt, notes = {} }) {
     });
 }
 
+/**
+ * Constant-time check of a hex HMAC-SHA256. The Razorpay SDK helper uses
+ * `===`, which leaks timing, so we compare ourselves.
+ */
+function hmacMatches(payload, signature, secret) {
+    if (!secret || typeof signature !== 'string' || typeof payload !== 'string') return false;
+    const expected = crypto.createHmac('sha256', secret).update(payload).digest();
+    if (!/^[0-9a-f]{64}$/.test(signature)) return false; // Razorpay sends lowercase hex
+    return crypto.timingSafeEqual(expected, Buffer.from(signature, 'hex'));
+}
+
 /** Checks the HMAC that Razorpay Checkout returns to the browser. */
 export function isCheckoutSignatureValid({ orderId, paymentId, signature }) {
-    try {
-        if (validatePaymentVerification({ order_id: orderId, payment_id: paymentId }, signature, keySecret())) {
-            return true;
-        }
-    } catch (err) {
-        logger.warn({ err }, '[razorpay] signature check threw');
+    if (typeof orderId === 'string' && typeof paymentId === 'string'
+        && hmacMatches(`${orderId}|${paymentId}`, signature, keySecret())) {
+        return true;
     }
     if (syntheticPaymentsAllowed() && /^(test|mock)_/.test(String(signature || ''))) {
         logger.info({ paymentId }, '[razorpay] synthetic signature accepted (test mode)');
@@ -82,5 +87,5 @@ export function isWebhookSignatureValid({ rawBody, signature }) {
     const secret = (process.env.RAZORPAY_WEBHOOK_SECRET || '').trim();
     if (!secret) throw new InternalServerError('RAZORPAY_WEBHOOK_SECRET is not configured');
     if (!signature || typeof rawBody !== 'string') return false;
-    return validateWebhookSignature(rawBody, signature, secret);
+    return hmacMatches(rawBody, signature, secret);
 }

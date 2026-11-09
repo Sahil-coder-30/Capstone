@@ -26,11 +26,30 @@ Tests run against a local Postgres only (`docker compose up -d`, then `npm test`
 
 ---
 
-## Still open
+## Fixed after the adversarial test pass (2026-11-09)
 
-### P0-1 (rest). Blacklist fails open when Redis is down
-- `isTokenBlacklisted` returns `false` if Redis is not ready, so a logged-out token works during a Redis outage.
-- **Fix:** fail closed (503) for state-changing routes (`/verify`, `/create/order`). Decide separately for `/credit/update`, since failing it loses usage records.
+`tests/adversarial/` holds tests written to break the checkout pipeline. They found these, now fixed and covered:
+
+| Id | Issue | How it is fixed |
+|---|---|---|
+| P0-1 (rest) | Blacklist failed open when Redis was down | POST/PUT/PATCH/DELETE return 503 when Redis cannot be asked (`AUTH_BLACKLIST_FAIL_CLOSED`, default on). Reads and `/credit/update` stay open so usage is not lost |
+| P0-5 | Second captured payment for a paid order was silently dropped (`onConflictDoNothing()` with no target) | Conflict target is the payment id only. A second payment is logged as `PAYMENT_DUPLICATE` (status `PENDING`, `needsRefund`) and logged as an error |
+| P0-6 | Refunds were ignored, plan stayed active | `refund.processed` webhook: idempotent on refund id, full refund marks the payment `refunded` and removes its 30 days (`removePaidPeriod`), partial refund is logged |
+| P0-7 | No currency check | Payment currency must match the order (webhook and `/verify`) |
+| P0-8 | `/verify` accepted a payment with no `order_id` | `order_id` must equal the order |
+| P1-12 | No Razorpay timeout, `/verify` could hang forever | Every gateway call has a timeout (`RAZORPAY_TIMEOUT_MS`, default 10s), then 503 |
+| P1-13 | `payment.failed` replay logged and emailed again; a late failure after success emailed "payment failed" | Deduped on payment id, skipped when the order is paid |
+| P1-14 | Missing or huge webhook amount gave 500 (Razorpay retries forever) | Amount must be a safe positive integer, else 400 |
+| P1-15 | Token counts above int32 gave 500 on `/credit/update` | Capped, 400 |
+| P2 | Overpayment not visible | `overpaidPaise` in transaction metadata plus a warning log |
+| P2 | Webhook and checkout HMAC compared with `===` | Constant-time compare, lowercase hex only |
+| P2 | `/verify` accepted arrays/objects as ids | Must be strings |
+
+Migration `0002_refund_and_duplicate_types` adds the two transaction types. The developer runs `npm run db:migrate` against Supabase.
+
+---
+
+## Still open
 
 ### P1-8. Frontend calls `PATCH /api/payments/subscription`, which does not exist
 - `Frontend/src/features/{payments,settings}/service/*.api.js` call it. Paid tiers only come from checkout.

@@ -9,7 +9,7 @@ import { BadRequestError, logger } from 'faultkit';
 import { isWebhookSignatureValid } from '../services/razorpay.service.js';
 import { handleWebhookEvent } from '../services/checkout.service.js';
 
-const HANDLED = new Set(['payment.captured', 'order.paid', 'payment.failed']);
+const HANDLED = new Set(['payment.captured', 'order.paid', 'payment.failed', 'refund.processed']);
 
 export async function razorpayWebhook(req, res) {
     const rawBody = Buffer.isBuffer(req.rawBody) ? req.rawBody.toString('utf8') : null;
@@ -29,7 +29,7 @@ export async function razorpayWebhook(req, res) {
     // Process before replying: a 5xx makes Razorpay retry, and the payment id
     // primary key makes a retry safe.
     try {
-        await handleWebhookEvent(event, payload?.payload?.payment?.entity);
+        await handleWebhookEvent(event, payload?.payload);
     } catch (err) {
         logger.error({ err, event }, '[webhook] processing failed');
         throw err;

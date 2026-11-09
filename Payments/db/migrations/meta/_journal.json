@@ -15,6 +15,13 @@
       "when": 1793722101778,
       "tag": "0001_fk_indexes",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1794245796369,
+      "tag": "0002_refund_and_duplicate_types",
+      "breakpoints": true
     }
   ]
 }

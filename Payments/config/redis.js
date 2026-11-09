@@ -15,14 +15,23 @@ redis.on('error', (err) => {
     if (process.env.NODE_ENV !== 'test') console.error('[Payments] Redis error:', err.message);
 });
 
-/** True when the user has logged out with this token. */
-export async function isTokenBlacklisted(token) {
-    if (redis.status !== 'ready') return false;
+/**
+ * Blacklist state of a token: 'revoked' (user logged out), 'ok', or
+ * 'unknown' when Redis cannot be asked. The caller decides how to treat
+ * 'unknown' (fail closed for routes that move money).
+ */
+export async function tokenBlacklistStatus(token) {
+    if (redis.status !== 'ready') return 'unknown';
     try {
-        return (await redis.get(`blacklist:${token}`)) !== null;
+        return (await redis.get(`blacklist:${token}`)) !== null ? 'revoked' : 'ok';
     } catch {
-        return false;
+        return 'unknown';
     }
+}
+
+/** True when the user has logged out with this token. Fails open. */
+export async function isTokenBlacklisted(token) {
+    return (await tokenBlacklistStatus(token)) === 'revoked';
 }
 
 export default redis;

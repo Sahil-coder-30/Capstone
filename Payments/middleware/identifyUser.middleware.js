@@ -18,7 +18,7 @@ import {
     TokenInvalidError,
     UnauthorizedError,
 } from 'faultkit';
-import { isTokenBlacklisted } from '../config/redis.js';
+import { tokenBlacklistStatus } from '../config/redis.js';
 import { ensureAccount } from '../services/account.service.js';
 
 const JWT_VERIFY_OPTIONS = {
@@ -28,6 +28,11 @@ const JWT_VERIFY_OPTIONS = {
 };
 
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
+const FAIL_OPEN_WRITES = new Set(['/api/payments/credit/update']);
+
+/** Default on. Only the test harness turns it off (it runs without Redis). */
+const failClosed = () => process.env.AUTH_BLACKLIST_FAIL_CLOSED !== 'false';
 const USER_ID_RE = /^[a-zA-Z0-9_-]{1,64}$/;
 
 let cachedKeys = null;
@@ -68,8 +73,16 @@ export async function identifyUser(req, _res, next) {
         const token = header.startsWith('Bearer ') ? header.slice(7).trim() : '';
         if (!token) throw new UnauthorizedError('Missing Authorization: Bearer <token> header');
 
-        if (await isTokenBlacklisted(token)) {
+        const blacklist = await tokenBlacklistStatus(token);
+        if (blacklist === 'revoked') {
             throw new UnauthorizedError('Token has been revoked. Please log in again.');
+        }
+        // Without Redis we cannot tell a logged-out token from a live one.
+        // Reads stay open; money writes (create order, verify) fail closed.
+        // Usage recording stays open: failing it would lose billing records.
+        const path = `${req.baseUrl}${req.path}`.replace(/\/+$/, '');
+        if (blacklist === 'unknown' && !SAFE_METHODS.has(req.method) && !FAIL_OPEN_WRITES.has(path) && failClosed()) {
+            throw new ServiceUnavailableError('Session check is temporarily unavailable. Please retry shortly.');
         }
 
         const claims = jwt.verify(token, await publicKeyFor(token), JWT_VERIFY_OPTIONS);

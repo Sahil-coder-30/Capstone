@@ -28,6 +28,9 @@ Object.assign(process.env, {
     RAZORPAY_FAKE_ORDERS: 'true',
     MQ_URL: 'amqp://127.0.0.1:1',
     REDIS_URI: 'redis://127.0.0.1:1',
+    // No Redis in tests, so the logout blacklist cannot be checked. Production
+    // fails closed on writes; tests that cover that set this back to 'true'.
+    AUTH_BLACKLIST_FAIL_CLOSED: 'false',
 });
 
 const KID = 'test-kid-1';

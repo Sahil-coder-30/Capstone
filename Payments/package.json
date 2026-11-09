@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "node --test --test-concurrency=1 tests/*.test.js",
+    "test": "node --test --test-concurrency=1 --experimental-test-module-mocks tests/*.test.js tests/adversarial/*.test.js",
     "dev": "nodemon -L server.js",
     "start": "node server.js",
     "db:generate": "drizzle-kit generate",

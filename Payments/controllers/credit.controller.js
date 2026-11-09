@@ -24,9 +24,16 @@ import {
 } from '../serializers/api.serializers.js';
 import { parsePaging } from './paging.js';
 
+// usage_events token columns are Postgres `integer` (int4).
+const MAX_TOKENS = 2_147_483_647;
+
 const toTokenCount = (value, field) => {
+    if (value !== undefined && value !== null && typeof value !== 'number' && typeof value !== 'string') {
+        throw new BadRequestError(`${field} must be a non-negative number`);
+    }
     const n = Number(value ?? 0);
     if (!Number.isFinite(n) || n < 0) throw new BadRequestError(`${field} must be a non-negative number`);
+    if (n > MAX_TOKENS) throw new BadRequestError(`${field} must be at most ${MAX_TOKENS}`);
     return Math.floor(n);
 };
 
@@ -60,6 +67,9 @@ export async function postCreditUpdate(req, res) {
     const totalTokens = body.totalTokens === undefined
         ? promptTokens + completionTokens
         : toTokenCount(body.totalTokens, 'totalTokens');
+    if (promptTokens + completionTokens > MAX_TOKENS) {
+        throw new BadRequestError(`promptTokens + completionTokens must be at most ${MAX_TOKENS}`);
+    }
     if (totalTokens < promptTokens + completionTokens) {
         throw new BadRequestError('totalTokens cannot be less than promptTokens + completionTokens');
     }

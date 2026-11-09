@@ -43,6 +43,8 @@ export const transactionTypeEnum = pgEnum('transaction_type', [
     'SUBSCRIPTION_PROMOTED',
     'SUBSCRIPTION_EXPIRED',
     'PAYMENT_FAILED',
+    'PAYMENT_REFUNDED',
+    'PAYMENT_DUPLICATE',
 ]);
 
 export const transactionStatusEnum = pgEnum('transaction_status', ['PENDING', 'SUCCESS', 'FAILED', 'REFUNDED']);

@@ -147,6 +147,33 @@ export async function applyPaymentToSlots(tx, { userId, packageId, paymentId, am
 }
 
 /**
+ * Takes back one paid period (30 days) from a slot, for a full refund.
+ * Active slot: its end moves 30 days earlier (it may now be expired; the
+ * caller runs promoteInTx). Queued slot: its remaining time shrinks, and it
+ * is expired when nothing is left. Caller must hold the account lock.
+ */
+export async function removePaidPeriod(tx, slotId, refundedPaise = 0) {
+    const [slot] = await tx.select().from(subscriptionSlots).where(eq(subscriptionSlots.id, slotId));
+    if (!slot || slot.status === 'expired') return slot ? { slotId, fromStatus: 'expired' } : null;
+
+    const paid = sql`greatest(0, ${subscriptionSlots.paidAmountPaise} - ${refundedPaise})`;
+    if (slot.status === 'active') {
+        await tx.update(subscriptionSlots).set({
+            validUntil: new Date(new Date(slot.validUntil).getTime() - PERIOD_MS),
+            paidAmountPaise: paid,
+        }).where(eq(subscriptionSlots.id, slotId));
+    } else {
+        const left = Math.max(0, (slot.remainingMs || 0) - PERIOD_MS);
+        await tx.update(subscriptionSlots).set({
+            remainingMs: left,
+            status: left > 0 ? 'queued' : 'expired',
+            paidAmountPaise: paid,
+        }).where(eq(subscriptionSlots.id, slotId));
+    }
+    return { slotId, fromStatus: slot.status };
+}
+
+/**
  * Expires the active slot if its time is up and promotes the next one.
  * Caller must hold the account lock inside `tx`. Loops in case the
  * promoted slot has no time left either.

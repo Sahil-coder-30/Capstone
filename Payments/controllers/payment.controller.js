@@ -16,9 +16,10 @@ export async function verifyPayment(req, res) {
     const data = await verifyCheckout(req.user, { orderId, paymentId, signature });
     res.json({
         status: 'success',
-        message: data.status === 'already_processed'
-            ? 'Payment was already applied'
-            : 'Payment verified and subscription updated',
+        message: {
+            already_processed: 'Payment was already applied',
+            duplicate_payment: 'This order was already paid. The extra payment is logged for a refund.',
+        }[data.status] || 'Payment verified and subscription updated',
         data,
     });
 }
