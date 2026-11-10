@@ -2,13 +2,19 @@
 // Orion, the coding agent, as a LangGraph state machine.
 //
 //   START -> router -+-> general -> END
-//                    +-> planner -> critic -+-> planner      (auto re-plan)
-//                                           +-> plan_review  (pause for the user)
+//                    +-> planner -+-> critic -+-> planner      (auto re-plan)
+//                                 |           +-> plan_review  (pause for user)
+//                                 +-> finalizer (planning failed)
+//
 //   plan_review -+-> planner (rejected)
-//                +-> coder (one step per pass, loops over the plan)
-//   coder -> tester -+-> reviewer -+-> finalizer -> END
-//                    |             +-> debugger
-//                    +-> debugger -> tester
+//                +-> coder (approved)
+//
+//   coder -+-> coder (loop over plan steps)
+//          +-> finalizer (no files touched)
+//          +-> tester -+-> reviewer -+-> finalizer -> END
+//                      |             +-> debugger -+-> tester (re-verify)
+//                      +-> debugger ---------------+-> finalizer (exhausted)
+//
 //   Any path that runs out of retries ends in the finalizer.
 
 import { END, MemorySaver, START, StateGraph } from "@langchain/langgraph";
