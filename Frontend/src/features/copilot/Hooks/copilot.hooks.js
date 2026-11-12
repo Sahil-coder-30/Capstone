@@ -1,7 +1,8 @@
-import { useEffect } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useEditor } from '../../editor/Hooks/editor.hooks';
 import { authenticatedFetch, parseFaultKitResponse } from '../../../services/apiClient';
+import { getSessionMessagesAPI, toChatMessage, trashMessagesAPI } from '../../chat-history/service/chatHistory.api';
 import {
   addMessage,
   updateLastMessage,
@@ -9,35 +10,54 @@ import {
   setOpen,
   toggleOpen,
   setMessages,
+  showSession,
+  setShownSession,
   clearHistory,
 } from '../slice/copilot.slice';
 
+const TOOL_LOG_PREFIXES = ['readFile:', 'updateFile:', 'read_file:', 'update_file:'];
+
+/** Splits an SSE block into its event name and data (multi-line data joined with \n). */
+const parseSseBlock = (block) => {
+  let event = 'message';
+  const dataLines = [];
+  for (const line of block.split('\n')) {
+    if (line.startsWith('event:')) event = line.slice('event:'.length).trim();
+    // SSE spec: drop exactly one space after "data:". Trimming more would eat code indentation.
+    else if (line.startsWith('data:')) dataLines.push(line.slice('data:'.length).replace(/^ /, ''));
+  }
+  return { event, data: dataLines.join('\n') };
+};
+
 /**
- * useCopilot — hook for the floating Clio Co-pilot.
- * Uses fetch SSE to /api/ai/app-agent/invoke.
- * Completely isolated from the Coding Agent feature.
+ * useCopilot — hook for the floating Clio co-pilot. Streams /api/ai/app-agent/invoke.
+ * Shows one chat session at a time (`sessionId`, null for a new chat).
+ * Without a projectId (e.g. the editor's toggle button) it only exposes open/close.
  */
-export const useCopilot = (projectId) => {
+export const useCopilot = (projectId, { sessionId = null, sessionsReady = true, onSession } = {}) => {
   const dispatch = useDispatch();
-  const { messages, isOpen, isStreaming } = useSelector((state) => state.copilot);
+  const { messages, isOpen, isStreaming, shownSessionId } = useSelector((state) => state.copilot);
   const { sandboxId } = useSelector((state) => state.sandbox);
   const { tabContents } = useSelector((state) => state.editor);
-  const { fetchFilesList, activeFile } = useEditor();
+  const { fetchFilesList } = useEditor();
+  const isHistoryLoading = Boolean(projectId) && (!sessionsReady || (sessionId !== null && shownSessionId !== sessionId));
+
+  // The open stream of this tab: { abort, target } where target is the chat it writes into.
+  const streamRef = useRef(null);
+  const latest = useRef({ sessionId, onSession, messages });
+  useEffect(() => {
+    latest.current = { sessionId, onSession, messages };
+  });
 
   const sendMessage = async (text, activeFile, onComplete) => {
-    if (!text.trim()) return;
+    if (!text.trim() || !projectId) return;
 
-    // 1. Add user message
+    streamRef.current?.abort.abort();
+    const stream = { abort: new AbortController(), target: latest.current.sessionId };
+    streamRef.current = stream;
+
     dispatch(addMessage({ role: 'user', text }));
-
-    // 2. Add placeholder assistant message
-    dispatch(addMessage({
-      role: 'assistant',
-      text: '',
-      toolLogs: [],
-      status: 'running',
-    }));
-
+    dispatch(addMessage({ role: 'assistant', text: '', toolLogs: [], status: 'running' }));
     dispatch(setStreaming(true));
 
     let assistantText = '';
@@ -51,9 +71,11 @@ export const useCopilot = (projectId) => {
           userPrompt: text,
           projectId,
           sandboxId,
+          ...(stream.target && { sessionId: stream.target }),
           activeFile: activeFile || '',
           activeFileContent: activeFile ? (tabContents[activeFile] ?? '') : '',
         }),
+        signal: stream.abort.signal,
       });
 
       if (!response.ok) {
@@ -69,133 +91,106 @@ export const useCopilot = (projectId) => {
         if (done) break;
 
         buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split('\n\n');
-        buffer = lines.pop(); // keep incomplete chunk
+        const blocks = buffer.split('\n\n');
+        buffer = blocks.pop(); // keep the incomplete block
 
-        for (const block of lines) {
+        for (const block of blocks) {
           if (!block.trim()) continue;
+          const { event, data } = parseSseBlock(block);
 
-          // Parse the SSE block line by line
-          // SSE spec: each line starts with "field: value"
-          // A single block can have "event:", "data:" (potentially multi-line with repeated "data:" prefixes),
-          // or a bare "data:" value may span lines as per the spec.
-          const blockLines = block.split('\n');
-          let event = 'message';
-          const dataLines = [];
-
-          for (const bl of blockLines) {
-            if (bl.startsWith('event:')) {
-              event = bl.slice('event:'.length).trim();
-            } else if (bl.startsWith('data:')) {
-              // SSE spec: drop exactly one space after "data:". Trimming more
-              // would eat spaces between tokens and code indentation.
-              dataLines.push(bl.slice('data:'.length).replace(/^ /, ''));
-            } else if (bl.startsWith(': ')) {
-              // SSE comment (heartbeat) — skip
-            }
-          }
-
-          // Join multiple data: lines with newline (SSE spec §9.2.6)
-          const dataStr = dataLines.join('\n');
-
-          if (event === 'error') {
-            const errObj = JSON.parse(dataStr);
-            throw new Error(errObj.message || 'Error from Clio co-pilot');
+          if (event === 'session') {
+            const session = JSON.parse(data);
+            stream.target = session.id;
+            dispatch(setShownSession(session.id)); // this stream's messages are already on screen
+            latest.current.onSession?.({ id: session.id, title: session.title, lastMessageAt: session.lastMessageAt });
+          } else if (event === 'error') {
+            throw new Error(JSON.parse(data).message || 'Error from Clio co-pilot');
           } else if (event === 'final') {
-            assistantText = dataStr;
+            assistantText = data;
             dispatch(updateLastMessage({ text: assistantText, toolLogs, status: 'completed' }));
-          } else if (event === 'done') {
-            // stream ended signal — handled below
-          } else if (dataStr) {
-            // Tool activity or token stream
-            const isToolLog =
-              dataStr.startsWith('readFile:') ||
-              dataStr.startsWith('updateFile:') ||
-              dataStr.startsWith('read_file:') ||
-              dataStr.startsWith('update_file:');
-
-            if (isToolLog) {
-              toolLogs = [...toolLogs, dataStr].filter(Boolean);
-              dispatch(updateLastMessage({ text: assistantText, toolLogs, status: 'running' }));
+          } else if (event === 'message' && data) {
+            if (TOOL_LOG_PREFIXES.some((prefix) => data.startsWith(prefix))) {
+              toolLogs = [...toolLogs, data];
             } else {
-              assistantText += dataStr;
-              dispatch(updateLastMessage({ text: assistantText, toolLogs, status: 'running' }));
+              assistantText += data;
             }
+            dispatch(updateLastMessage({ text: assistantText, toolLogs, status: 'running' }));
           }
         }
-
       }
 
       dispatch(updateLastMessage({ text: assistantText, toolLogs, status: 'completed' }));
       dispatch(setStreaming(false));
       fetchFilesList(sandboxId, { forceNetwork: true });
       onComplete?.();
+      // Reload the chat so the new messages carry their saved ids (needed to delete them).
+      if (stream.target && streamRef.current === stream) {
+        try {
+          const data = await getSessionMessagesAPI('copilot', stream.target);
+          if (streamRef.current === stream && latest.current.sessionId === stream.target) {
+            dispatch(showSession({ sessionId: stream.target, messages: data.messages.map(toChatMessage) }));
+          }
+        } catch (err) {
+          console.warn('[Copilot] Could not refresh the chat:', err.message); // the answer is already on screen
+        }
+      }
     } catch (err) {
+      // Leaving the chat aborts only this tab's stream; Clio still saves its answer.
+      if (stream.abort.signal.aborted) return;
       console.error('[Copilot] invoke failed:', err);
       const errMsg = err.message || 'Failed to get a response from Clio';
       dispatch(updateLastMessage({ text: assistantText, toolLogs, status: 'error', error: errMsg }));
       dispatch(setStreaming(false));
+    } finally {
+      if (streamRef.current === stream) streamRef.current = null;
     }
   };
 
-  // Auto-load chat history from MongoDB when projectId or activeFile changes
+  // Load the open chat. The chat this tab is streaming into is already on screen.
   useEffect(() => {
-    if (!projectId) {
-      // Do not clear history here as other components (like CodeEditor) may invoke
-      // this hook with undefined projectId and inadvertently clear the active history.
-      return;
-    }
-    const loadChatHistory = async () => {
-      try {
-        const fileClean = activeFile && activeFile !== 'none' ? activeFile.replace(/^\/+/, "") : "";
-        const combinedId = fileClean ? `${projectId}:${fileClean}` : projectId;
-        const response = await authenticatedFetch(`/api/ai/chats/${encodeURIComponent(combinedId)}/copilot`);
-        if (response.ok) {
-          const data = await response.json();
-          if (data.status === 'ok') {
-            if (data.messages && data.messages.length > 0) {
-              const mapped = data.messages.map(m => ({
-                id: m._id || Math.random().toString(36).substring(7),
-                role: m.role,
-                text: m.content,
-                toolLogs: m.toolLogs || [],
-                status: 'completed',
-                timestamp: m.timestamp
-              }));
-              dispatch(setMessages(mapped));
-            } else {
-              dispatch(clearHistory());
-            }
-          }
-        }
-      } catch (err) {
-        console.error('Failed to load copilot chat history:', err);
-      }
-    };
+    if (!projectId || !sessionsReady) return undefined;
+    const stream = streamRef.current;
+    if (stream && stream.target === sessionId) return undefined;
 
-    loadChatHistory();
-  }, [projectId, activeFile, dispatch]);
-
-  const clearHistoryAction = async () => {
-    if (!projectId) return;
-    try {
-      const fileClean = activeFile && activeFile !== 'none' ? activeFile.replace(/^\/+/, "") : "";
-      const combinedId = fileClean ? `${projectId}:${fileClean}` : projectId;
-      await authenticatedFetch(`/api/ai/chats/${encodeURIComponent(combinedId)}/copilot`, { method: 'DELETE' });
-    } catch (err) {
-      console.error('Failed to clear copilot chat history from DB:', err);
-    }
+    stream?.abort.abort();
+    streamRef.current = null;
     dispatch(clearHistory());
-  };
+    if (!sessionId) return undefined;
+
+    let cancelled = false;
+    getSessionMessagesAPI('copilot', sessionId)
+      .then((data) => {
+        if (!cancelled) dispatch(showSession({ sessionId, messages: data.messages.map(toChatMessage) }));
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        console.error('[Copilot] Could not load the chat:', err);
+        dispatch(showSession({ sessionId, messages: [] }));
+      });
+    return () => { cancelled = true; };
+  }, [projectId, sessionId, sessionsReady, dispatch]);
+
+  // Close this tab's stream when the float unmounts. Clio still finishes on the server.
+  useEffect(() => () => streamRef.current?.abort.abort(), []);
+
+  /** Moves messages to the trash. The UI drops them only after the server agreed. */
+  const deleteMessages = useCallback(async (ids) => {
+    const list = ids.filter(Boolean).map(String);
+    if (list.length === 0) return;
+    await trashMessagesAPI('copilot', list);
+    const drop = new Set(list);
+    dispatch(setMessages(latest.current.messages.filter((m) => !drop.has(String(m.id)))));
+  }, [dispatch]);
 
   return {
     messages,
     isOpen,
     isStreaming,
+    isHistoryLoading,
     sendMessage,
+    deleteMessages,
     toggleCopilot: () => dispatch(toggleOpen()),
     openCopilot: () => dispatch(setOpen(true)),
     closeCopilot: () => dispatch(setOpen(false)),
-    clearHistory: clearHistoryAction,
   };
 };

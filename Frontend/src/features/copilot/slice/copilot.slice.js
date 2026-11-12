@@ -1,5 +1,8 @@
 import { createSlice } from '@reduxjs/toolkit';
 
+// Messages of the Clio chat that is open. Chats live in chat sessions
+// (features/chat-history); the server is the source of truth.
+
 const WELCOME_MSG = {
   id: 'copilot-welcome',
   role: 'assistant',
@@ -12,6 +15,7 @@ const WELCOME_MSG = {
 const copilotSlice = createSlice({
   name: 'copilot',
   initialState: {
+    shownSessionId: null, // the chat whose messages are on screen (null = a new chat)
     messages: [WELCOME_MSG],
     isOpen: false,
     isStreaming: false,
@@ -50,11 +54,22 @@ const copilotSlice = createSlice({
     setMessages(state, action) {
       state.messages = action.payload;
     },
+    /** Shows a saved chat. An empty chat shows the welcome message. */
+    showSession(state, { payload: { sessionId, messages } }) {
+      state.shownSessionId = sessionId;
+      state.messages = messages.length > 0 ? messages : [WELCOME_MSG];
+    },
+    /** The server named the new chat that is already on screen. */
+    setShownSession(state, action) {
+      state.shownSessionId = action.payload;
+    },
     clearHistory(state) {
+      state.shownSessionId = null;
       state.messages = [WELCOME_MSG];
       state.isStreaming = false;
     },
     resetCopilot(state) {
+      state.shownSessionId = null;
       state.messages = [WELCOME_MSG];
       state.isOpen = false;
       state.isStreaming = false;
@@ -69,6 +84,8 @@ export const {
   setOpen,
   toggleOpen,
   setMessages,
+  showSession,
+  setShownSession,
   clearHistory,
   resetCopilot,
 } = copilotSlice.actions;

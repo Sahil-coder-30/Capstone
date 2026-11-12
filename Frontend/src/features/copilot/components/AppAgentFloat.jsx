@@ -1,13 +1,17 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useCopilot } from '../Hooks/copilot.hooks';
 import { useEditor } from '../../editor/Hooks/editor.hooks';
+import { useChatSessions } from '../../chat-history/Hooks/useChatSessions';
+import ChatHistorySidebar from '../../chat-history/components/ChatHistorySidebar';
+import MessageActions from '../../chat-history/components/MessageActions';
 import {
   X,
   Sparkles,
   Send,
   Maximize2,
   Minimize2,
-  Trash2,
+  History,
+  SquarePen,
   FileText,
   AlertCircle,
   Code,
@@ -15,6 +19,16 @@ import {
   ChevronDown,
 } from 'lucide-react';
 import { parseMarkdownToReact } from '../../../components/Markdown';
+
+const SAVED_ID = /^[a-f0-9]{24}$/i;
+
+/** The ids of one turn: a user message and the reply after it, or a reply and the prompt before it. */
+const turnIds = (messages, index) => {
+  const msg = messages[index];
+  const pair = msg.role === 'user' ? messages[index + 1] : messages[index - 1];
+  const partner = pair && pair.role !== msg.role ? pair : null;
+  return [msg.id, partner?.id].filter((id) => SAVED_ID.test(String(id)));
+};
 import './AppAgentFloat.scss';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -59,10 +73,24 @@ function ThinkingBlock({ text, isStreaming }) {
 // ─── Main Component ───────────────────────────────────────────────────────────
 export default function AppAgentFloat({ projectId }) {
   const { activeFile } = useEditor();
-  const fileClean = activeFile && activeFile !== 'none' ? activeFile.replace(/^\/+/, '') : '';
-  const combinedId = fileClean ? `${projectId}:${fileClean}` : projectId;
+  const chats = useChatSessions('copilot', projectId);
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
 
-  const { isOpen, messages, isStreaming, sendMessage, closeCopilot, clearHistory } = useCopilot(combinedId);
+  // One chat per conversation, not per file: the open file is only context.
+  const { isOpen, messages, isStreaming, sendMessage, deleteMessages, closeCopilot } = useCopilot(projectId, {
+    sessionId: chats.activeSessionId,
+    sessionsReady: chats.isReady,
+    onSession: chats.adoptSession,
+  });
+
+  const openSession = (sessionId) => {
+    chats.selectSession(sessionId);
+    setIsHistoryOpen(false);
+  };
+  const startNewChat = () => {
+    chats.startNewChat();
+    setIsHistoryOpen(false);
+  };
 
   const [input, setInput] = useState('');
   const [copiedCodeIdx, setCopiedCodeIdx] = useState(null);
@@ -251,9 +279,16 @@ export default function AppAgentFloat({ projectId }) {
       <div className="app-agent-header" onMouseDown={handleDragStart}>
         <div className="header-title">
           <Sparkles size={14} className="glow-icon" />
-          <span>Clio Co-Pilot</span>
+          <span>Clio</span>
+          {chats.activeSession && <span className="header-chat" title={chats.activeSession.title}>{chats.activeSession.title}</span>}
         </div>
         <div className="header-controls">
+          <button type="button" onClick={() => setIsHistoryOpen((o) => !o)} title="Chat history" aria-label="Chat history" disabled={isMinimized}>
+            <History size={12} />
+          </button>
+          <button type="button" onClick={startNewChat} title="New chat" aria-label="New chat" disabled={!chats.activeSessionId}>
+            <SquarePen size={12} />
+          </button>
           <button type="button" onClick={() => setIsMinimized((m) => !m)} title={isMinimized ? 'Expand' : 'Minimize'}>
             {isMinimized ? <Maximize2 size={12} /> : <Minimize2 size={12} />}
           </button>
@@ -281,7 +316,8 @@ export default function AppAgentFloat({ projectId }) {
           {/* Messages */}
           <div className="messages-container">
             {messages.map((msg, index) => (
-              <div key={msg.id || index} className={`message-bubble ${msg.role === 'user' ? 'user' : 'assistant'}`}>
+              <div key={msg.id || index} className={`message-row has-message-actions ${msg.role === 'user' ? 'user' : 'assistant'}`}>
+              <div className={`message-bubble ${msg.role === 'user' ? 'user' : 'assistant'}`}>
                 <div className="message-content">
                   {msg.text ? (
                     msg.role === 'user' ? (
@@ -315,6 +351,23 @@ export default function AppAgentFloat({ projectId }) {
                     ))}
                   </div>
                 )}
+                {msg.status === 'error' && msg.error && (
+                  <p className="message-error"><AlertCircle size={11} /> {msg.error}</p>
+                )}
+              </div>
+              {msg.status !== 'running' && msg.id !== 'copilot-welcome' && !isStreaming && (
+                <MessageActions
+                  align={msg.role === 'user' ? 'end' : 'start'}
+                  copyText={msg.role === 'user' ? msg.text : parseThinkingAndResponse(msg.text).response.trim()}
+                  onEdit={msg.role === 'user' ? () => setInput(msg.text) : null}
+                  onRetry={msg.role === 'assistant' && messages[index - 1]?.role === 'user'
+                    ? () => sendMessage(messages[index - 1].text, activeFile)
+                    : null}
+                  onDelete={turnIds(messages, index).length > 0
+                    ? () => deleteMessages(turnIds(messages, index)).catch((err) => console.error('[Clio] Delete failed:', err))
+                    : null}
+                />
+              )}
               </div>
             ))}
             <div ref={messagesEndRef} />
@@ -322,9 +375,6 @@ export default function AppAgentFloat({ projectId }) {
 
           {/* Footer */}
           <form className="footer-form" onSubmit={handleSubmit}>
-            <button type="button" className="clear-btn" onClick={clearHistory} title="Clear History">
-              <Trash2 size={13} />
-            </button>
             <textarea
               className="chat-input"
               value={input}
@@ -338,6 +388,22 @@ export default function AppAgentFloat({ projectId }) {
               <Send size={13} />
             </button>
           </form>
+
+          {isHistoryOpen && (
+            <ChatHistorySidebar
+              sessions={chats.sessions}
+              activeSessionId={chats.activeSessionId}
+              liveSessionId={null}
+              hasMore={chats.hasMore}
+              isLoading={chats.isLoading}
+              onSelect={openSession}
+              onNewChat={startNewChat}
+              onRename={chats.rename}
+              onDelete={chats.remove}
+              onLoadMore={chats.loadMore}
+              onClose={() => setIsHistoryOpen(false)}
+            />
+          )}
 
           {/* 8-direction resize handles */}
           <div className="resize-handle r-n"  onMouseDown={(e) => handleResizeStart(e, 'n')}  />
