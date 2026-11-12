@@ -87,7 +87,12 @@ Both frontends proxy `/api` to `http://localhost` (the ingress) in dev. `Fronten
   - A scoped token reaches only `/mcp` on the sidecar, and only the tools in its scopes.
 
 **4. AI agent (Ai_orchestration)**
-- REST + SSE only (no Socket.IO): `POST /api/ai/code-agent/invoke` (stream), `GET /code-agent/stream/:projectId` (re-attach), stop, plan-approve, plan-reject, `/app-agent/invoke` (Clio stream), `/app-agent/title`, chat history routes.
+- REST + SSE only (no Socket.IO): `POST /api/ai/code-agent/invoke` (stream), `GET /code-agent/stream/:projectId?sessionId=` (re-attach, 204 unless a run is live in that chat), stop, plan-approve, plan-reject, `/app-agent/invoke` (Clio stream), `/app-agent/title`, chat history routes.
+- **Chat sessions.** Orion and Clio keep separate chats: same base schemas (`models/chatSchemas.js`), separate collections (`chatmessages` + `orionchatsessions` + `orionprojectmemories`, `copilotchatmessages` + `cliochatsessions` + `clioprojectmemories`, map in `models/chatStores.js`). Every row has `userId` (token only), then `projectId`, then `sessionId`; every query starts with `userId`.
+  - Routes `chats/:agentType/sessions` (list with `liveSessionId`, `:sessionId/messages`, rename, trash, restore, permanent), `chats/trash`, `chats/message/*`. Invoke takes an optional `sessionId`; without one a chat opens on the first message (`agent:session`, Clio `event: session`).
+  - Pre-session messages move into "Earlier chat" sessions on first list (`chatSession.service.js`). Rows without `userId` are claimed only after the Sandbox service confirms ownership.
+  - Model context: last 10 messages of the chat, only prompts and final answers (`loadChatHistory`: no tool logs, steps, thinking or error replies), plus background notes from `memory.service.js` `buildMemory`: the agent's project notes, summaries of its last 20 other chats, and this chat's summary once turns fall out of the window.
+  - Memory agent (`src/agent/memory/`): after each ok or stopped turn, one fast-model call updates the chat summary (`summaryThrough`), the title (first time, unless renamed) and the project notes. In-process queue per agent, user and project; usage goes to Payments as `agentType: memory` (0 credits, shown as platform discount).
 - Middleware order: `identifyUser`, `requireOwnedSandbox`, `aiRateLimiter`, `creditLedger`.
 
 | Middleware | On failure |
@@ -102,7 +107,7 @@ Both frontends proxy `/api` to `http://localhost` (the ingress) in dev. `Fronten
 - Model: NVIDIA build.nvidia.com via `ChatOpenAI` (`NVIDIA_API_KEY`). Defaults `nvidia/nemotron-3-ultra-550b-a55b` (main) and `nvidia/nemotron-3.5-lightning-30b-a3b` (fast), override with `NVIDIA_MODEL` / `NVIDIA_FAST_MODEL`. `llm/rateLimiter.js` adds pacing, 429 backoff and a call timeout. Many catalog models return 404 for a given account or are end-of-life: check with `npm run list:models` and `npm run check:model`.
 - Tools (`src/agent/tools/`) reach the sandbox only through `tools/sandbox.client.js` `callSandboxTool(config, name, args)`: MCP at `http://sandbox-service-<id>:3000/mcp` (`tools/mcp.client.js`, one client per run), REST `/api/agent/*` as fallback for pods without `/mcp` or with `SANDBOX_TOOL_TRANSPORT=rest`. 9 certified tools (allowlist in `mcp.client.js`, frozen list in `Sandbox/Agent/src/mcp/tools.js`); the model only sees the AI-side descriptions. `SANDBOX_URL_TEMPLATE` overrides the sidecar origin for local dev. `search_internet` uses Tavily and stays in the AI service.
 - `npm run e2e:live` runs Orion with the real model against the real sidecar app (owner-token auth + MCP) on a temp workspace, with a throwaway key as Auth (no cluster needed; run `npm install` in `Sandbox/Agent` once).
-- After a run, usage goes to `POST /api/payments/credit/update` with the user's own token.
+- After a run, usage goes to `POST /api/payments/credit/update` with the user's own token, with `projectId`, `chatId` (session id) and a `requestId` per run or turn.
 
 **5. Payments**
 - Postgres (Supabase project `Taksha-Payments`) through Drizzle. Schema in `db/schema.js`, migrations in `db/migrations` (`npm run db:generate`, `npm run db:migrate`). Tables: `accounts`, `subscription_slots`, `orders`, `payments`, `invoices`, `transactions`, `usage_events`. RLS on, no policies. Money in paise.
@@ -110,7 +115,7 @@ Both frontends proxy `/api` to `http://localhost` (the ingress) in dev. `Fronten
 - Plans in `config/plans.config.js`: free, `pro_regular` (Rs 499), `max_regular` (Rs 999), plus tier limits.
 - Checkout: `POST /api/payments/create/order` (writes an `orders` row), Razorpay modal, then `POST /api/payments/verify` (order must belong to the caller, payment re-fetched from Razorpay) and/or `POST /api/payments/webhook` (HMAC over `req.rawBody`). `processSubscriptionPayment` runs in one transaction with an account row lock; the payment id is the `payments` primary key, so it applies once.
 - Subscriptions are slots: one active slot plus queued slots that keep `remaining_ms`. Expiry is promoted lazily on read and by a nightly cron.
-- Credits: one 5-hour window per user on `accounts` (Free 20, Pro 150, Max 200). Refill is lazy on read. `usage_events` is unique on `(user_id, request_id)`. Providers: `nvidia`, else `unknown`.
+- Credits: one 5-hour window per user on `accounts` (Free 20, Pro 150, Max 200). Refill is lazy on read. `usage_events` is unique on `(user_id, request_id)`. Providers: `nvidia`, else `unknown`. Agent types in `PLATFORM_PAID_AGENT_TYPES` (`memory`) are recorded with real tokens but `credits_deducted = 0`; `creditsDiscounted` is derived from tokens in the serializers.
 - Only cron job: nightly slot promotion, behind a Redis `SET NX` lock.
 - No referral and no admin routes (removed 2026-11-03).
 - Emails go out through `payment_notification_queue`, to the email saved on the order.
@@ -144,7 +149,8 @@ AI service: `cd Ai_orchestration && npm test` is offline (no network, no DB) and
 
 - **Sidecar auth lives in the sidecar, not the router** (`Sandbox/Agent/src/auth/`). The preview app's Vite proxy (`Sandbox/template/vite.config.js`) also reaches port 3000, so never trust "came from localhost". Open routes: `health`, `ready`, `report-error`. The AI service gets a 2-hour sandbox token from `POST /api/auth/sandbox-token` per run (`Ai_orchestration/src/agent/tools/sandboxAuth.js`), renewed on plan approve.
 - **Rate limit tier is always `free`.** AI reads `req.user.subscription`, but Auth never puts `subscription` in the token.
-- **AI is single replica.** LangGraph uses an in-memory `MemorySaver`, and active run state lives in `agentRun.service.js` memory.
+- **AI is single replica.** LangGraph uses an in-memory `MemorySaver`, active run state lives in `agentRun.service.js` memory, and the memory agent queue and legacy-migration memo are in-process too.
+- Frontend chat state: `features/chat-history` (sidebar, message actions, `useChatSessions`) is shared UI; each agent keeps its own slice state (`chatHistory.codingAgent`, `chatHistory.copilot`). Call `useChatSessions` and `useCodingAgent` only in the panel that owns the chat.
 - `Auth/src/routes/credit.routes.js` and its controller are not mounted. Credits live in Payments.
 - `Frontend` still calls `PATCH /api/payments/subscription`, which does not exist (see `Payments/fix.md` P1-8).
 - `previewUrl` is hardcoded to `http://<id>.preview.localhost` in `sandbox.controller.js`.
