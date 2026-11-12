@@ -102,6 +102,16 @@ export const permanentlyDeleteChatMessageAPI = async (messageId, agentType = 'co
   return response.data;
 };
 
+export const restoreChatSessionAPI = async (sessionId, agentType) => {
+  const response = await apiClient.patch(`/api/ai/chats/${agentType}/sessions/${sessionId}/restore`, {}, { timeout: 30_000 });
+  return response.data;
+};
+
+export const permanentlyDeleteChatSessionAPI = async (sessionId, agentType) => {
+  const response = await apiClient.delete(`/api/ai/chats/${agentType}/sessions/${sessionId}/permanent`, { timeout: 30_000 });
+  return response.data;
+};
+
 /**
  * Ping the preview URL to check if the sandbox container is fully up.
  *

@@ -243,7 +243,14 @@ export async function listTrash(userId) {
       store.Message.find({ userId, deletionStatus: "trash" }).sort({ deletedAt: -1 }).limit(200).lean(),
     ]);
     out.trashSessions.push(...sessions.map((s) => ({ ...serializeSession(s), agentType: store.agentType, deletedAt: s.deletedAt })));
-    out.trashMessages.push(...messages.map((m) => ({ ...serializeMessage(m), _id: String(m._id), agentType: store.agentType, deletedAt: m.deletedAt })));
+    out.trashMessages.push(...messages.map((m) => ({
+      ...serializeMessage(m),
+      _id: String(m._id),
+      projectId: m.projectId,
+      sessionId: m.sessionId ? String(m.sessionId) : null,
+      agentType: store.agentType,
+      deletedAt: m.deletedAt,
+    })));
   }
   return out;
 }

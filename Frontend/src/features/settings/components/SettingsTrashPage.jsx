@@ -9,8 +9,18 @@ import {
   permanentlyDeleteProjectAPI,
   getTrashChatsAPI,
   restoreChatMessageAPI,
-  permanentlyDeleteChatMessageAPI
+  permanentlyDeleteChatMessageAPI,
+  restoreChatSessionAPI,
+  permanentlyDeleteChatSessionAPI
 } from '../../sandbox/service/sandbox.api';
+
+// A trashed item is a whole chat (session) or a single message.
+const restoreChatItem = (item) => (item.kind === 'session'
+  ? restoreChatSessionAPI(item._id, item.agentType)
+  : restoreChatMessageAPI(item._id, item.agentType));
+const deleteChatItem = (item) => (item.kind === 'session'
+  ? permanentlyDeleteChatSessionAPI(item._id, item.agentType)
+  : permanentlyDeleteChatMessageAPI(item._id, item.agentType));
 
 export default function SettingsTrashPage({ onProjectRestored }) {
   const [activeTab, setActiveTab] = useState('projects'); // 'projects' | 'chats'
@@ -31,8 +41,10 @@ export default function SettingsTrashPage({ onProjectRestored }) {
       if (projRes.status === 'fulfilled' && projRes.value?.projects) {
         setTrashProjects(projRes.value.projects);
       }
-      if (chatRes.status === 'fulfilled' && chatRes.value?.trashMessages) {
-        setTrashChats(chatRes.value.trashMessages);
+      if (chatRes.status === 'fulfilled' && chatRes.value) {
+        const sessions = (chatRes.value.trashSessions || []).map((s) => ({ ...s, _id: s.id, kind: 'session' }));
+        const messages = (chatRes.value.trashMessages || []).map((m) => ({ ...m, kind: 'message' }));
+        setTrashChats([...sessions, ...messages]);
       }
     } catch (err) {
       console.error('Failed to load trash items:', err);
@@ -71,11 +83,13 @@ export default function SettingsTrashPage({ onProjectRestored }) {
     }
   };
 
-  const handleRestoreChat = async (messageId, agentType) => {
+  const handleRestoreChat = async (item) => {
+    const messageId = item._id;
     setActionLoading(`restore_chat_${messageId}`);
     try {
-      await restoreChatMessageAPI(messageId, agentType);
-      setTrashChats(prev => prev.filter(c => (c._id || c.id) !== messageId));
+      await restoreChatItem(item);
+      // Restoring a message also restores its chat, so drop that chat from the list too.
+      setTrashChats(prev => prev.filter(c => c._id !== messageId && !(item.kind === 'message' && c.kind === 'session' && c._id === item.sessionId)));
     } catch (err) {
       alert(err.response?.data?.message || 'Failed to restore chat message');
     } finally {
@@ -83,11 +97,12 @@ export default function SettingsTrashPage({ onProjectRestored }) {
     }
   };
 
-  const handlePermanentDeleteChat = async (messageId, agentType) => {
+  const handlePermanentDeleteChat = async (item) => {
+    const messageId = item._id;
     setActionLoading(`del_chat_${messageId}`);
     try {
-      await permanentlyDeleteChatMessageAPI(messageId, agentType);
-      setTrashChats(prev => prev.filter(c => (c._id || c.id) !== messageId));
+      await deleteChatItem(item);
+      setTrashChats(prev => prev.filter(c => c._id !== messageId));
       setConfirmModal(null);
     } catch (err) {
       alert(err.response?.data?.message || 'Failed to delete chat message');
@@ -233,9 +248,10 @@ export default function SettingsTrashPage({ onProjectRestored }) {
             </div>
           ) : (
             trashChats.map(chat => {
-              const msgId = chat._id || chat.id;
+              const msgId = chat._id;
+              const isSession = chat.kind === 'session';
               const isAssistant = chat.role === 'assistant';
-              const agentLabel = chat.agentType === 'copilot' ? 'Clio Copilot' : 'Taksha AI Agent';
+              const agentLabel = chat.agentType === 'copilot' ? 'Clio' : 'Orion';
 
               return (
                 <div 
@@ -259,7 +275,7 @@ export default function SettingsTrashPage({ onProjectRestored }) {
 
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                       <button
-                        onClick={() => handleRestoreChat(msgId, chat.agentType)}
+                        onClick={() => handleRestoreChat(chat)}
                         disabled={actionLoading === `restore_chat_${msgId}`}
                         style={{
                           display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', borderRadius: '6px',
@@ -272,11 +288,11 @@ export default function SettingsTrashPage({ onProjectRestored }) {
                         ) : (
                           <RotateCcw size={12} />
                         )}
-                        Restore Chat
+                        {isSession ? 'Restore chat' : 'Restore message'}
                       </button>
 
                       <button
-                        onClick={() => setConfirmModal({ type: 'chat', id: msgId, title: 'Chat message / report', agentType: chat.agentType })}
+                        onClick={() => setConfirmModal({ type: 'chat', id: msgId, item: chat, title: isSession ? chat.title : 'Chat message' })}
                         style={{
                           display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', borderRadius: '6px',
                           border: '1px solid var(--border)', backgroundColor: 'transparent', color: '#ef4444',
@@ -295,10 +311,10 @@ export default function SettingsTrashPage({ onProjectRestored }) {
                     fontSize: '13px', color: 'var(--text-primary)', border: '1px solid var(--border)',
                     maxHeight: '120px', overflowY: 'auto', lineHeight: 1.5, fontFamily: 'var(--font-sans)'
                   }}>
-                    <strong style={{ color: isAssistant ? 'var(--primary)' : 'var(--text-dark)', marginRight: '6px' }}>
-                      {isAssistant ? 'AI Report:' : 'User Prompt:'}
+                    <strong style={{ color: isSession || isAssistant ? 'var(--primary)' : 'var(--text-dark)', marginRight: '6px' }}>
+                      {isSession ? 'Whole chat:' : isAssistant ? 'AI Report:' : 'User Prompt:'}
                     </strong>
-                    {chat.content || chat.text || '(Empty content)'}
+                    {isSession ? chat.title : (chat.content || chat.text || '(Empty content)')}
                   </div>
                 </div>
               );
@@ -354,7 +370,7 @@ export default function SettingsTrashPage({ onProjectRestored }) {
                   if (confirmModal.type === 'project') {
                     handlePermanentDeleteProject(confirmModal.id);
                   } else {
-                    handlePermanentDeleteChat(confirmModal.id, confirmModal.agentType);
+                    handlePermanentDeleteChat(confirmModal.item);
                   }
                 }}
                 disabled={Boolean(actionLoading)}
