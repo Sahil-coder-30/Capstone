@@ -15,6 +15,12 @@ export default function RequestDrawer({ event, onClose }) {
             <strong>{formatNumber(event.totalTokens)}</strong>
             <span>tokens · {formatNumber(event.creditsDeducted)} credits</span>
           </div>
+          {event.creditsDiscounted > 0 && (
+            <p className="reqdrawer__discount">
+              {formatNumber(event.creditsDiscounted)} credits · Platform discount −{formatNumber(event.creditsDiscounted)} · Charged 0.
+              Taksha pays for chat memory upkeep.
+            </p>
+          )}
 
           <SplitBar parts={[
             { label: 'Prompt', value: Number(event.promptTokens) || 0 },

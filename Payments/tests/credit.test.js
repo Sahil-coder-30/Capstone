@@ -44,6 +44,30 @@ test('usage deducts credits once per requestId', async () => {
     assert.equal(count, 1);
 });
 
+test('memory agent usage is recorded but paid by the platform', async () => {
+    const token = tokenFor(newUserId());
+    const body = { company: 'nvidia', agentType: 'memory', projectId: 'p1', chatId: 's1', requestId: 'mem_1', promptTokens: 1500, completionTokens: 500 };
+
+    const res = await usage(token, body);
+    assert.equal(res.status, 200);
+    assert.equal(res.body.usage.creditsDeducted, 0);
+    assert.equal(res.body.usage.creditsDiscounted, 2);
+    assert.equal(res.body.credit.creditsRemaining, 20, 'the window is untouched');
+
+    const [row] = await sql`select agent_type, project_id, chat_id, total_tokens, credits_deducted from usage_events`;
+    assert.equal(row.agent_type, 'memory');
+    assert.equal(row.project_id, 'p1');
+    assert.equal(row.chat_id, 's1');
+    assert.equal(row.total_tokens, 2000);
+    assert.equal(Number(row.credits_deducted), 0);
+
+    const list = await api('GET', '/api/payments/usage-events', { token });
+    assert.equal(list.body.data.events[0].creditsDiscounted, 2);
+    const stats = await api('GET', '/api/payments/usage-events/analytics?days=7', { token });
+    assert.equal(stats.body.data.totals.totalCreditsDeducted, 0);
+    assert.equal(stats.body.data.totals.totalCreditsDiscounted, 2);
+});
+
 test('window locks below the lower limit and refills lazily', async () => {
     const userId = newUserId();
     const token = tokenFor(userId);

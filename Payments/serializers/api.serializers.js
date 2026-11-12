@@ -6,6 +6,7 @@
 
 import { getTierLimits, TOKENS_PER_CREDIT } from '../config/plans.config.js';
 import { daysFromMs, MS_PER_DAY } from '../services/subscription.service.js';
+import { creditsDiscounted } from '../services/credit.service.js';
 
 // ── Credit ────────────────────────────────────────────────────────────────────
 
@@ -169,6 +170,7 @@ export function serializeUsageEvent(e) {
         completionTokens: e.completionTokens,
         totalTokens: e.totalTokens,
         creditsDeducted: Number(e.creditsDeducted),
+        creditsDiscounted: creditsDiscounted(e.agentType, e.totalTokens),
         createdAt: e.createdAt,
     };
 }
@@ -183,6 +185,7 @@ export function serializeUsageAnalytics(a) {
             completionTokens: a.totals.completionTokens,
             totalRequests: a.totals.requestCount,
             totalCreditsDeducted: a.totals.creditsDeducted,
+            totalCreditsDiscounted: a.byAgent.reduce((total, b) => total + creditsDiscounted(b.agentType, b.totalTokens), 0),
         },
         timeline: a.timeline,
         byProvider: a.byProvider.map((p) => ({
@@ -191,6 +194,11 @@ export function serializeUsageAnalytics(a) {
             requestCount: p.requestCount,
             creditsDeducted: p.creditsDeducted,
         })),
-        byAgent: a.byAgent.map((b) => ({ agentType: b.agentType, totalTokens: b.totalTokens, requestCount: b.requestCount })),
+        byAgent: a.byAgent.map((b) => ({
+            agentType: b.agentType,
+            totalTokens: b.totalTokens,
+            requestCount: b.requestCount,
+            creditsDiscounted: creditsDiscounted(b.agentType, b.totalTokens),
+        })),
     };
 }

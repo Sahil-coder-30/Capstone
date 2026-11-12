@@ -7,6 +7,7 @@ import { randomUUID } from 'crypto';
 import { BadRequestError, ForbiddenError } from 'faultkit';
 import {
     checkCredit,
+    creditsDiscounted,
     normalizeAgentType,
     normalizeProvider,
     recordUsage,
@@ -75,11 +76,12 @@ export async function postCreditUpdate(req, res) {
     }
 
     const provider = normalizeProvider(body.company || body.provider);
+    const agentType = normalizeAgentType(body.agentType);
     const result = await recordUsage(userId, {
         requestId: String(body.requestId || '').trim().slice(0, 200) || `req_${randomUUID()}`,
         provider,
         modelId: String(body.modelId || '').slice(0, 200),
-        agentType: normalizeAgentType(body.agentType),
+        agentType,
         projectId: String(body.projectId || '').slice(0, 200),
         chatId: body.chatId ? String(body.chatId).slice(0, 200) : null,
         promptTokens,
@@ -96,6 +98,7 @@ export async function postCreditUpdate(req, res) {
             company: provider,
             subscription: window.tier,
             creditsDeducted: result.creditsDeducted,
+            creditsDiscounted: result.duplicate ? 0 : creditsDiscounted(agentType, totalTokens),
             totalTokens,
             duplicate: result.duplicate,
         },

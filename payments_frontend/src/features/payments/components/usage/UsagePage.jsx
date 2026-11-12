@@ -80,7 +80,9 @@ export default function UsagePage() {
           <KpiGrid cols={6}>
             <Kpi icon={Hash} label="Tokens" value={formatCompact(totals.totalTokens)} foot={<Delta value={halfDelta(days, 'tokens')} suffix="vs first half" />} />
             <Kpi icon={Activity} label="Requests" value={formatNumber(totals.totalRequests)} foot={<Delta value={halfDelta(days, 'requests')} suffix="vs first half" />} />
-            <Kpi icon={Coins} label="Credits used" value={formatNumber(totals.totalCreditsDeducted)} foot={`${formatNumber(Math.round((totals.totalCreditsDeducted || 0) / range))} per day`} />
+            <Kpi icon={Coins} label="Credits used" value={formatNumber(totals.totalCreditsDeducted)} foot={totals.totalCreditsDiscounted > 0
+              ? `Platform discount −${formatNumber(totals.totalCreditsDiscounted)}`
+              : `${formatNumber(Math.round((totals.totalCreditsDeducted || 0) / range))} per day`} />
             <Kpi icon={Gauge} label="Tokens per day" value={formatCompact(sum(days, 'tokens') / range)} foot="Daily average" />
             <Kpi icon={TrendingUp} label="Peak day" value={peak ? formatCompact(peak.tokens) : '—'} foot={peak ? formatDate(peak.date) : 'No usage yet'} />
             <Kpi icon={CalendarDays} label="Active days" value={activeDays} unit={`/ ${range}`} foot={`${Math.round((activeDays / range) * 100)}% of days`} />

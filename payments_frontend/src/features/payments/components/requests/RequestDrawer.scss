@@ -17,6 +17,12 @@
     span { font-size: 13px; color: var(--ink-3); }
   }
 
+  &__discount {
+    margin: 0;
+    font-size: 13px;
+    color: var(--ink-2);
+  }
+
   &__heading {
     margin-top: 6px;
     font-size: 12px;

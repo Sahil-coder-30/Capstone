@@ -104,7 +104,10 @@ export default function RequestsPage() {
                   <td className="cell-num hide-md">{formatNumber(e.promptTokens)}</td>
                   <td className="cell-num hide-md">{formatNumber(e.completionTokens)}</td>
                   <td className="cell-num">{formatNumber(e.totalTokens)}</td>
-                  <td className="cell-num">{formatNumber(e.creditsDeducted)}</td>
+                  <td className="cell-num">
+                    {formatNumber(e.creditsDeducted)}
+                    {e.creditsDiscounted > 0 && <span className="cell-sub">−{formatNumber(e.creditsDiscounted)} platform discount</span>}
+                  </td>
                 </tr>
               ))}
             </Table>

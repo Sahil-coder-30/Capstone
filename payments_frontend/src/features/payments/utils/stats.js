@@ -8,6 +8,7 @@ export const AGENT_LABELS = {
   copilot: 'Copilot',
   title: 'Chat titles',
   appAgent: 'App agent',
+  memory: 'Memory agent',
 };
 export const agentLabel = (id) => AGENT_LABELS[id] || (id ? id.charAt(0).toUpperCase() + id.slice(1) : 'Other');
 

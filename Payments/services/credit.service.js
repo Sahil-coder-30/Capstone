@@ -20,7 +20,12 @@ import { getTierLimits, TOKENS_PER_CREDIT } from '../config/plans.config.js';
 // as 'unknown' so usage is still recorded and billed.
 export const PROVIDERS = ['nvidia', 'unknown'];
 
-export const AGENT_TYPES = ['codingAgent', 'copilot', 'appAgent', 'title', 'unknown'];
+export const AGENT_TYPES = ['codingAgent', 'copilot', 'appAgent', 'title', 'memory', 'unknown'];
+
+// Background work the platform pays for (chat memory upkeep). Recorded with
+// real tokens for the logs, never taken from the user's window, and shown
+// to the user as a platform discount.
+export const PLATFORM_PAID_AGENT_TYPES = new Set(['memory']);
 
 export function normalizeProvider(value) {
     const v = String(value || '').trim().toLowerCase();
@@ -33,6 +38,10 @@ export function normalizeAgentType(value) {
 }
 
 export const creditsForTokens = (tokens) => Math.round((tokens / TOKENS_PER_CREDIT) * 1000) / 1000;
+
+/** Credits the platform covers for one usage row. 0 for normal requests. */
+export const creditsDiscounted = (agentType, tokens) =>
+    (PLATFORM_PAID_AGENT_TYPES.has(agentType) ? creditsForTokens(Number(tokens) || 0) : 0);
 
 /** Window state shaped for API responses. */
 export function windowState(account) {
@@ -68,7 +77,7 @@ export async function recordUsage(userId, usage) {
     return db.transaction(async (tx) => {
         const account = await refreshWindow(userId, tx);
         const limits = getTierLimits(account.tier);
-        const creditsDeducted = creditsForTokens(usage.totalTokens);
+        const creditsDeducted = PLATFORM_PAID_AGENT_TYPES.has(usage.agentType) ? 0 : creditsForTokens(usage.totalTokens);
 
         const [event] = await tx.insert(usageEvents).values({
             userId,
