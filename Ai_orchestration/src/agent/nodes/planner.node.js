@@ -14,7 +14,7 @@ import { invokeStructured } from "../llm/structured.js";
 import { isFatalModelError } from "../llm/rateLimiter.js";
 import { runToolLoop } from "../core/toolLoop.js";
 import { formatChatHistory, lastAiText, truncate } from "../core/messages.js";
-import { GROUNDING_RULES, PROJECT_CONTEXT } from "../core/prompts.js";
+import { GROUNDING_RULES, PROJECT_CONTEXT, memoryBlock } from "../core/prompts.js";
 import { READ_ONLY_TOOLS } from "../tools/index.js";
 import { listFiles } from "../tools/sandbox.client.js";
 import { normalizePath } from "../tools/guards.js";
@@ -90,6 +90,7 @@ const inspect = async (state, config, existingFiles) => {
     tools: READ_ONLY_TOOLS,
     system: INSPECTOR_PROMPT,
     prompt: [
+      memoryBlock(state.memory),
       history ? `Conversation so far:\n${history}` : "",
       `Task (${state.taskSubType}):\n${state.task}`,
       `Project files (${existingFiles.length}):\n${existingFiles.slice(0, 300).join("\n") || "(empty workspace)"}`,

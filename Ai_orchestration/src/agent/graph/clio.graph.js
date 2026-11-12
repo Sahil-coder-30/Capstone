@@ -11,6 +11,7 @@ const value = (initial) => Annotation({ reducer: (_prev, next) => next, default:
 export const ClioState = Annotation.Root({
   prompt: value(""),
   history: value([]),            // earlier turns as { role, content }
+  memory: value(""),             // project notes and earlier chats, background only
   activeFile: value(""),
   activeFileContent: value(""),
   answer: value(""),

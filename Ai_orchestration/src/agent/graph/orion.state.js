@@ -33,6 +33,7 @@ export const OrionState = Annotation.Root({
   // Input
   task: value(""),
   messages: value([]),           // earlier chat turns, read-only context
+  memory: value(""),             // project notes and earlier chats, background only
   autoApprovePlan: value(false),
 
   // Router

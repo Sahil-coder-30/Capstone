@@ -5,7 +5,7 @@
 import { getMainModel } from "../llm/model.js";
 import { runToolLoop } from "../core/toolLoop.js";
 import { lastAiText, truncate } from "../core/messages.js";
-import { GROUNDING_RULES, PROJECT_CONTEXT } from "../core/prompts.js";
+import { GROUNDING_RULES, PROJECT_CONTEXT, memoryBlock } from "../core/prompts.js";
 import { COPILOT_TOOLS } from "../tools/index.js";
 
 const MAX_ACTIVE_FILE_CHARS = 6_000;
@@ -21,10 +21,11 @@ You help the user understand their code, answer questions about files and fix sm
 
 ${GROUNDING_RULES}`;
 
-const buildPrompt = ({ prompt, activeFile, activeFileContent }) => {
-  if (!activeFile) return prompt;
+const buildPrompt = ({ prompt, activeFile, activeFileContent, memory }) => {
+  const memoryText = memory ? `${memoryBlock(memory)}\n\n` : "";
+  if (!activeFile) return `${memoryText}${prompt}`;
   const content = activeFileContent ? truncate(activeFileContent, MAX_ACTIVE_FILE_CHARS) : "(not provided, use read_file)";
-  return `The user has this file open: ${activeFile}\n\n--- ${activeFile} ---\n${content}\n--- end ---\n\n${prompt}`;
+  return `${memoryText}The user has this file open: ${activeFile}\n\n--- ${activeFile} ---\n${content}\n--- end ---\n\n${prompt}`;
 };
 
 export async function clioNode(state, config) {

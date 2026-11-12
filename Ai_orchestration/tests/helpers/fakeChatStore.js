@@ -18,11 +18,20 @@ export function stubSessions(Session) {
   };
   Session.findOne = async (filter) => sessions.find((s) => matches(s, filter)) || null;
   Session.find = (filter) => {
-    const chain = { sort: () => chain, limit: () => chain, lean: async () => sessions.filter((s) => matches(s, filter)) };
+    const chain = { sort: () => chain, limit: () => chain, select: () => chain, lean: async () => sessions.filter((s) => matches(s, filter)) };
     return chain;
   };
   Session.updateOne = async () => ({ modifiedCount: 1 });
   return sessions;
+}
+
+/** A Memory model with no notes yet; records writes. */
+export function stubMemory(Memory, Message) {
+  const writes = [];
+  Memory.findOne = async () => null;
+  Memory.updateOne = async (...args) => writes.push(args);
+  if (Message) Message.countDocuments = async () => 0;
+  return writes;
 }
 
 /** A Message.find stub: find().sort().limit().select().lean() returns rows(filter). */

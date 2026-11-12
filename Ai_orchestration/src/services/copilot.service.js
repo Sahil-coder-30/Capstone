@@ -6,6 +6,7 @@ import { HumanMessage, SystemMessage } from "@langchain/core/messages";
 import { CHAT_STORES } from "../models/chatStores.js";
 import { recordAiUsage } from "./credit.service.js";
 import { loadChatHistory, openSessionForTurn, serializeSession, touchSession } from "./chatSession.service.js";
+import { buildMemory, scheduleMemoryUpdate } from "./memory.service.js";
 import {
   INTERNAL_TAGS,
   contentToText,
@@ -46,14 +47,18 @@ export async function runCopilot({ user, authToken, projectId, sandboxId, sessio
     userId: user.id, projectId, sessionId: session._id, file, requestId: `clio:${turnId}`, ...fields,
   });
 
-  const history = await loadChatHistory(clioStore, session, HISTORY_MESSAGES);
+  const [history, memory] = await Promise.all([
+    loadChatHistory(clioStore, session, HISTORY_MESSAGES),
+    buildMemory(clioStore, session, { historyWindow: HISTORY_MESSAGES }),
+  ]);
   await message({ role: "user", content: prompt });
   await touchSession(clioStore, session);
 
   try {
-    const { answer, usage } = await streamClio({ user, authToken, projectId, sandboxId, session, turnId, prompt, history, file, activeFileContent, onText });
+    const { answer, usage } = await streamClio({ user, authToken, projectId, sandboxId, session, turnId, prompt, history, memory, file, activeFileContent, onText });
     await message({ role: "assistant", content: answer, tokenUsage: usage });
     await touchSession(clioStore, session);
+    scheduleMemoryUpdate({ agentType: "copilot", userId: user.id, projectId, sessionId: String(session._id), authToken });
     return answer;
   } catch (err) {
     await message({ role: "assistant", content: `Error: ${err.message}`, status: "error" })
@@ -62,7 +67,7 @@ export async function runCopilot({ user, authToken, projectId, sandboxId, sessio
   }
 }
 
-async function streamClio({ user, authToken, projectId, sandboxId, session, turnId, prompt, history, file, activeFileContent, onText }) {
+async function streamClio({ user, authToken, projectId, sandboxId, session, turnId, prompt, history, memory, file, activeFileContent, onText }) {
   // One sandbox token per Clio turn, released when the turn ends.
   const credentialKey = `clio:${turnId}`;
   await issueSandboxCredential(credentialKey, { userToken: authToken, sandboxId });
@@ -75,7 +80,7 @@ async function streamClio({ user, authToken, projectId, sandboxId, session, turn
 
   try {
     const events = getClioGraph().streamEvents(
-      { prompt, history, activeFile: file, activeFileContent: activeFileContent || "" },
+      { prompt, history, memory, activeFile: file, activeFileContent: activeFileContent || "" },
       { version: "v2", signal: abort.signal, configurable: { sandboxId, credentialKey } },
     );
     for await (const event of events) {

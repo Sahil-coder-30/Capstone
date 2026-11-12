@@ -10,4 +10,10 @@ export const GROUNDING_RULES = `=== GROUNDING RULES (always) ===
 - Do not repeat the same tool call with the same arguments. Use the result you already have.
 - If something is impossible or unclear, say so plainly. A truthful "blocked" is better than a fake "done".`;
 
-export const PROJECT_CONTEXT = `The user's project is a React + Vite app in a live sandbox at /workspace. The Vite dev server already runs on port 5173 with hot reload. Paths are relative to /workspace (e.g. "src/App.jsx", no leading slash).`;
+/** Notes from earlier chats. Background only: the files are the source of truth. */
+export const memoryBlock = (memory) =>
+  memory
+    ? `MEMORY FROM EARLIER CHATS (background only, may be outdated; check the files before relying on it):\n${memory}`
+    : "";
+
+export const PROJECT_CONTEXT =`The user's project is a React + Vite app in a live sandbox at /workspace. The Vite dev server already runs on port 5173 with hot reload. Paths are relative to /workspace (e.g. "src/App.jsx", no leading slash).`;

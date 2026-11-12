@@ -15,8 +15,9 @@ process.env.SANDBOX_TOOL_TRANSPORT = "rest";
 
 const { setModelsForTesting } = await import("../src/agent/llm/model.js");
 const CopilotChatMessage = (await import("../src/models/CopilotChatMessage.model.js")).default;
-const { ClioChatSession } = await import("../src/models/chatStores.js");
-const { findChain, stubSessions } = await import("./helpers/fakeChatStore.js");
+const { ClioChatSession, ClioProjectMemory } = await import("../src/models/chatStores.js");
+const { findChain, stubMemory, stubSessions } = await import("./helpers/fakeChatStore.js");
+const { waitForMemoryJobs } = await import("../src/services/memory.service.js");
 const { runCopilot } = await import("../src/services/copilot.service.js");
 const { appAgentInvoke } = await import("../src/controllers/ai.controller.js");
 
@@ -77,11 +78,14 @@ CopilotChatMessage.find = findChain((filter) => {
 });
 CopilotChatMessage.create = async (doc) => saved.push(doc);
 const sessions = stubSessions(ClioChatSession);
+const notesWrites = stubMemory(ClioProjectMemory, CopilotChatMessage);
+const MEMORY_REPLY = { toolCalls: [{ name: "memory_update", args: { sessionSummary: "- Asked about a.js", title: "About A Js", projectNotes: "- a.js declares a" } }] };
 
 test("Clio reads through the sandbox, streams text and uses history once", async () => {
   const model = new ScriptedModel([
     { content: "Reading the file.", toolCalls: [{ name: "read_file", args: { files: ["src/a.js"] } }] },
     { content: "It declares a = 1.\n\n```js\n  indented\n```" },
+    MEMORY_REPLY, // the background memory agent after the turn
   ]);
   setModelsForTesting(model, model);
 
@@ -126,6 +130,10 @@ test("Clio reads through the sandbox, streams text and uses history once", async
   assert.equal(saved[0].file, "src/a.js");
   assert.equal(String(saved[0].sessionId), String(sessions[0]._id));
   assert.equal(saved[0].requestId, saved[1].requestId, "one request id per turn");
+
+  await waitForMemoryJobs();
+  assert.equal(model.seen.length, 3, "the memory agent ran once after the turn");
+  assert.deepEqual(notesWrites[0][1].$set, { content: "- a.js declares a" });
 });
 
 test("Clio refuses a chat that belongs to another user", async () => {
@@ -137,7 +145,7 @@ test("Clio refuses a chat that belongs to another user", async () => {
 });
 
 test("the copilot SSE endpoint keeps newlines and indentation inside data lines", async () => {
-  const model = new ScriptedModel([{ content: "line one\n\n  indented line" }]);
+  const model = new ScriptedModel([{ content: "line one\n\n  indented line" }, MEMORY_REPLY]);
   setModelsForTesting(model, model);
 
   let body = "";
@@ -156,4 +164,5 @@ test("the copilot SSE endpoint keeps newlines and indentation inside data lines"
   assert.ok(body.includes("event: done"));
   assert.ok(body.startsWith("retry: 3000\n\nevent: session\ndata: {"), "the chat id comes first");
   assert.equal(res.writableEnded, true);
+  await waitForMemoryJobs();
 });

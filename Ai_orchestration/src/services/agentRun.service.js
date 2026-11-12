@@ -17,6 +17,7 @@
 import { Command } from "@langchain/langgraph";
 import { CHAT_STORES } from "../models/chatStores.js";
 import { loadChatHistory, openSessionForTurn, touchSession } from "./chatSession.service.js";
+import { buildMemory, scheduleMemoryUpdate } from "./memory.service.js";
 import { recordAiUsage } from "./credit.service.js";
 import {
   INTERNAL_TAGS,
@@ -437,6 +438,9 @@ const finishRun = async (run, { event, payload, content, status = "ok" }) => {
   clearTimeout(run.reviewTimer);
   await recordUsage(run);
   const assistantMsgId = await saveAssistantMessage(run, { content, status, outcome: payload?.outcome });
+  if (assistantMsgId && status !== "error") {
+    scheduleMemoryUpdate({ agentType: "codingAgent", userId: run.userId, projectId: run.projectId, sessionId: run.sessionId, authToken: run.authToken });
+  }
   if (assistantMsgId) publish(run, "agent:msg_created", { role: "assistant", id: assistantMsgId });
   publish(run, event, { ...payload, assistantMsgId });
   closeSubscribers(run);
@@ -573,7 +577,10 @@ export const startRun = async ({ user, authToken, projectId, sandboxId, sessionI
 
   // History is loaded before saving the new message so the current task is
   // not duplicated in the context.
-  const history = await loadChatHistory(orionStore, session, HISTORY_MESSAGES);
+  const [history, memory] = await Promise.all([
+    loadChatHistory(orionStore, session, HISTORY_MESSAGES),
+    buildMemory(orionStore, session, { historyWindow: HISTORY_MESSAGES }),
+  ]);
 
   const runId = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
   const userMsg = await orionStore.Message.create({
@@ -629,6 +636,7 @@ export const startRun = async ({ user, authToken, projectId, sandboxId, sessionI
   const input = {
     task: attachmentText ? `${task}\n\n${attachmentText}` : task,
     messages: history,
+    memory,
     autoApprovePlan: Boolean(autoApprovePlan),
   };
 

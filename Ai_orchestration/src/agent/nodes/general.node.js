@@ -6,7 +6,7 @@ import { getMainModel } from "../llm/model.js";
 import { isFatalModelError } from "../llm/rateLimiter.js";
 import { runToolLoop } from "../core/toolLoop.js";
 import { formatChatHistory, lastAiText } from "../core/messages.js";
-import { GROUNDING_RULES, PROJECT_CONTEXT } from "../core/prompts.js";
+import { GROUNDING_RULES, PROJECT_CONTEXT, memoryBlock } from "../core/prompts.js";
 import { READ_ONLY_TOOLS } from "../tools/index.js";
 
 const SYSTEM_PROMPT = `You are Orion, the AI coding agent inside Taksha, a cloud IDE. ${PROJECT_CONTEXT}
@@ -28,7 +28,11 @@ export async function generalNode(state, config) {
       model: getMainModel(),
       tools: READ_ONLY_TOOLS,
       system: SYSTEM_PROMPT,
-      prompt: `${history ? `Conversation so far:\n${history}\n\n` : ""}User message:\n${state.task || "Hello"}`,
+      prompt: [
+        memoryBlock(state.memory),
+        history ? `Conversation so far:\n${history}` : "",
+        `User message:\n${state.task || "Hello"}`,
+      ].filter(Boolean).join("\n\n"),
       config,
       maxTurns: 12,
     });

@@ -12,7 +12,7 @@ import { isFatalModelError } from "../llm/rateLimiter.js";
 import { runToolLoop } from "../core/toolLoop.js";
 import { analyzeToolActivity } from "../core/toolActivity.js";
 import { formatChatHistory, lastAiText, truncate } from "../core/messages.js";
-import { GROUNDING_RULES, PROJECT_CONTEXT } from "../core/prompts.js";
+import { GROUNDING_RULES, PROJECT_CONTEXT, memoryBlock } from "../core/prompts.js";
 import { CODER_TOOLS } from "../tools/index.js";
 import { shellGuard } from "../tools/guards.js";
 import { LIMITS } from "../graph/orion.state.js";
@@ -60,7 +60,7 @@ const formatReports = (reports) =>
 const buildPrompt = (state, step, index) => `TASK FROM THE USER:
 ${state.task}
 
-${state.messages.length ? `CONVERSATION CONTEXT:\n${formatChatHistory(state.messages, 2_000)}\n\n` : ""}PROJECT ANALYSIS (from inspection; verify before relying on it):
+${state.memory ? `${memoryBlock(state.memory)}\n\n` : ""}${state.messages.length ? `CONVERSATION CONTEXT:\n${formatChatHistory(state.messages, 2_000)}\n\n` : ""}PROJECT ANALYSIS (from inspection; verify before relying on it):
 ${truncate(state.planAnalysis || "(none)", 4_000)}
 
 FULL PLAN:

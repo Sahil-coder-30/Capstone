@@ -200,6 +200,12 @@ export async function openSessionForTurn(agentType, { userId, projectId, session
 const THINK_BLOCK = /<think>[\s\S]*?(<\/think>|$)/gi;
 const ERROR_REPLY = /^Error( occurred during execution)?:/;
 
+/** Message text as a model may see it: no thinking, bounded length. */
+export const contextText = (content) => truncate(String(content || "").replace(THINK_BLOCK, "").trim(), 4_000);
+
+/** False for error replies, including legacy rows saved before `status` existed. */
+export const isContextMessage = (m) => m.status !== "error" && !(m.role === "assistant" && ERROR_REPLY.test(m.content));
+
 /**
  * The chat turns a model sees: only what the user wrote and each final
  * answer (the execution summary). Tool logs, steps, thinking and error
@@ -219,8 +225,8 @@ export async function loadChatHistory(store, session, limit) {
     .lean();
   return rows
     .reverse()
-    .filter((m) => !(m.role === "assistant" && ERROR_REPLY.test(m.content))) // legacy rows have no status
-    .map((m) => ({ role: m.role, content: truncate(String(m.content).replace(THINK_BLOCK, "").trim(), 4_000) }))
+    .filter(isContextMessage)
+    .map((m) => ({ role: m.role, content: contextText(m.content) }))
     .filter((m) => m.content);
 }
 

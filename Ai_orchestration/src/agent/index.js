@@ -7,9 +7,11 @@
 //   core/    tool loop, message helpers, tool-activity facts, prompts
 //   nodes/   one file per graph node
 //   graph/   Orion (coding agent) and Clio (copilot) graphs
+//   memory/  background memory agent (chat summaries, titles, project notes)
 
 export { getOrionGraph, releaseOrionThread } from "./graph/orion.graph.js";
 export { getClioGraph } from "./graph/clio.graph.js";
+export { runMemoryAgent } from "./memory/memoryAgent.js";
 export { getFastModel, getMainModel, getModelInfo, hasModelKey } from "./llm/model.js";
 export { onRateLimitEvent } from "./llm/rateLimiter.js";
 export { INTERNAL_TAGS } from "./llm/structured.js";

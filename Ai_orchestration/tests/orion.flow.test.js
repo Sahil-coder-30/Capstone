@@ -19,8 +19,8 @@ process.env.SANDBOX_TOOL_TRANSPORT = "rest";
 
 const { setModelsForTesting } = await import("../src/agent/llm/model.js");
 const ChatMessage = (await import("../src/models/ChatMessage.model.js")).default;
-const { OrionChatSession } = await import("../src/models/chatStores.js");
-const { findChain, stubSessions } = await import("./helpers/fakeChatStore.js");
+const { OrionChatSession, OrionProjectMemory } = await import("../src/models/chatStores.js");
+const { findChain, stubMemory, stubSessions } = await import("./helpers/fakeChatStore.js");
 const service = await import("../src/services/agentRun.service.js");
 
 // ── Scripted model ──────────────────────────────────────────────────────────
@@ -146,6 +146,7 @@ axios.defaults.adapter = async (config) => {
 const saved = [];
 ChatMessage.find = findChain(() => []);
 const sessions = stubSessions(OrionChatSession);
+stubMemory(OrionProjectMemory, ChatMessage);
 ChatMessage.create = async (doc) => {
   saved.push(doc);
   return { _id: { toString: () => `msg${saved.length}` } };

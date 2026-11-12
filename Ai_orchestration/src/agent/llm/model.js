@@ -49,6 +49,7 @@ export const getFastModel = () => (fastModel ??= createModel(fastModelId(), 0));
 export const getModelInfo = () => ({
   provider: PROVIDER,
   modelId: mainModelId(),
+  fastModelId: fastModelId(),
   label: `${mainModelId()} (NVIDIA)`,
 });
 
