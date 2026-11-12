@@ -8,6 +8,7 @@ import authReducer from './features/auth/slice/auth.slice';
 import settingsReducer from './features/settings/slice/settings.slice';
 import paymentsReducer from './features/payments/slice/payments.slice';
 import dashboardReducer from './features/dashboard/slice/dashboard.slice';
+import chatHistoryReducer from './features/chat-history/slice/chatHistory.slice';
 
 export const store = configureStore({
   reducer: {
@@ -20,6 +21,7 @@ export const store = configureStore({
     settings: settingsReducer,
     payments: paymentsReducer,
     dashboard: dashboardReducer,
+    chatHistory: chatHistoryReducer,
   },
 });
 

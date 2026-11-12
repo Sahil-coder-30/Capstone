@@ -1,0 +1,54 @@
+@use '../../coding-agent/styles/orion' as *;
+
+// Hidden until the message (any ancestor marked .has-message-actions) is
+// hovered or holds focus, so keyboard users reach it too.
+.message-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  min-height: 22px;
+  margin-top: 2px;
+  opacity: 0;
+  transition: opacity 0.12s;
+
+  &--end { justify-content: flex-end; }
+
+  &--open,
+  &:focus-within,
+  .has-message-actions:hover > & { opacity: 1; }
+
+  @media (hover: none) { opacity: 1; }
+
+  &__button {
+    @include unstyled-button;
+    @include focus-ring;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    border-radius: $radius-sm;
+    color: var(--text-muted);
+
+    &:hover:not(:disabled) { background: $color-bg-card-hover; color: var(--text-primary); }
+    &:disabled { opacity: 0.35; cursor: not-allowed; }
+    &--danger:hover:not(:disabled) { color: $tone-error; }
+  }
+
+  &__confirm {
+    font-size: $font-meta;
+    color: var(--text-secondary);
+  }
+
+  &__yes,
+  &__no {
+    @include unstyled-button;
+    @include focus-ring;
+    padding: 2px $space-2;
+    border-radius: $radius-sm;
+    font-size: $font-meta;
+  }
+
+  &__yes { background: $tone-error; color: #fff; }
+  &__no:hover { background: $color-bg-card-hover; color: var(--text-primary); }
+}

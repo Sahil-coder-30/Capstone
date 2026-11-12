@@ -29,7 +29,7 @@ const SettingsPage = lazy(() => import('./features/settings/components/SettingsP
 const PaymentsLandingPage = lazy(() => import('./features/payments/components/PaymentsLandingPage'));
 import { useWorkspaceSync } from './features/editor/Hooks/useWorkspaceSync';
 import { resetEditorState } from './features/editor/slice/editor.slice';
-import { loadMessagesForProject } from './features/coding-agent/slice/codingAgent.slice';
+import { resetCodingAgent } from './features/coding-agent/slice/codingAgent.slice';
 import { resetCopilot } from './features/copilot/slice/copilot.slice';
 import { clearLogs } from './features/logs/slice/logs.slice';
 import { initializeSandboxForProject } from './features/sandbox/slice/sandbox.slice';
@@ -305,7 +305,7 @@ export default function App() {
   useEffect(() => {
     if (currentProjectId) {
       dispatch(resetEditorState());
-      dispatch(loadMessagesForProject(currentProjectId));
+      dispatch(resetCodingAgent());
       dispatch(resetCopilot());
       dispatch(clearLogs());
     }

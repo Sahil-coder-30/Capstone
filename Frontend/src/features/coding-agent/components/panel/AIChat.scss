@@ -4,6 +4,7 @@
 // container queries against this element instead of media queries.
 .orion-panel {
   container-type: inline-size;
+  position: relative; // anchors the chat history overlay
   display: flex;
   flex-direction: column;
   flex: 1;
@@ -18,5 +19,12 @@
   &__notice {
     flex-shrink: 0;
     padding: 0 $space-3 $space-2;
+  }
+
+  &__link {
+    @include unstyled-button;
+    @include focus-ring;
+    font-weight: 600;
+    text-decoration: underline;
   }
 }

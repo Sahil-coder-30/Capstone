@@ -1,23 +1,7 @@
 import { createSlice } from '@reduxjs/toolkit';
 
-// ─── Debounced localStorage save ──────────────────────────────────────────────
-// Streaming dispatches updateLastMessage on EVERY token — saving to localStorage
-// on each token blocks the main thread. Debounce so we only write after the
-// stream goes quiet for 600 ms (or immediately on addMessage / setMessages).
-const _saveTimers = {};
-const saveMessages = (key, messages, immediate = false) => {
-  if (immediate) {
-    clearTimeout(_saveTimers[key]);
-    delete _saveTimers[key];
-    try { localStorage.setItem(key, JSON.stringify(messages)); } catch { /* quota */ }
-    return;
-  }
-  clearTimeout(_saveTimers[key]);
-  _saveTimers[key] = setTimeout(() => {
-    try { localStorage.setItem(key, JSON.stringify(messages)); } catch { /* quota */ }
-    delete _saveTimers[key];
-  }, 600);
-};
+// Messages of the Orion chat that is open. The server is the source of
+// truth: chats live in chat sessions (features/chat-history).
 
 const WELCOME_MSG = {
   id: 'welcome',
@@ -28,32 +12,22 @@ const WELCOME_MSG = {
   timestamp: new Date().toISOString(),
 };
 
-const getStorageKey = (projectId) => {
-  return projectId ? `codingAgent_messages_${projectId}` : 'codingAgent_messages';
-};
-
 const codingAgentSlice = createSlice({
   name: 'codingAgent',
   initialState: {
-    activeProjectId: null,
+    shownSessionId: null, // the chat whose messages are on screen (null = a new chat)
     messages: [WELCOME_MSG],
     isStreaming: false,
     error: null,
     planReview: null,  // { plan, taskSubType, warnings, threadId } — set when the graph pauses for review
   },
   reducers: {
-    loadMessagesForProject(state, action) {
-      const projectId = action.payload;
-      state.activeProjectId = projectId || null;
-      const key = getStorageKey(projectId);
-      try {
-        const saved = localStorage.getItem(key);
-        state.messages = saved ? JSON.parse(saved) : [WELCOME_MSG];
-      } catch (e) {
-        state.messages = [WELCOME_MSG];
-      }
+    resetCodingAgent(state) {
+      state.shownSessionId = null;
+      state.messages = [WELCOME_MSG];
       state.isStreaming = false;
       state.error = null;
+      state.planReview = null;
     },
     addMessage(state, action) {
       state.messages.push({
@@ -63,8 +37,6 @@ const codingAgentSlice = createSlice({
         text: '',
         ...action.payload,
       });
-      // Immediate save — a new message is a structural change, not a stream tick
-      saveMessages(getStorageKey(state.activeProjectId), state.messages, true);
     },
     updateLastMessage(state, action) {
       if (state.messages.length > 0) {
@@ -80,8 +52,6 @@ const codingAgentSlice = createSlice({
           if (streamState !== undefined) lastMsg.streamState = streamState;
         }
       }
-      // Debounced — streaming tokens fire this hundreds of times; only flush after quiet period
-      saveMessages(getStorageKey(state.activeProjectId), state.messages, false);
     },
     updateMessageId(state, action) {
       const { role, realId } = action.payload || {};
@@ -93,7 +63,6 @@ const codingAgentSlice = createSlice({
           break;
         }
       }
-      saveMessages(getStorageKey(state.activeProjectId), state.messages, true);
     },
     setStreaming(state, action) {
       state.isStreaming = action.payload;
@@ -103,16 +72,22 @@ const codingAgentSlice = createSlice({
     },
     setMessages(state, action) {
       state.messages = action.payload;
-      // Immediate save — setMessages is a bulk structural update, not a stream tick
-      saveMessages(getStorageKey(state.activeProjectId), state.messages, true);
+    },
+    /** Shows a saved chat. An empty chat shows the welcome message. */
+    showSession(state, { payload: { sessionId, messages } }) {
+      state.shownSessionId = sessionId;
+      state.messages = messages.length > 0 ? messages : [WELCOME_MSG];
+    },
+    /** The server named the new chat that is already on screen. */
+    setShownSession(state, action) {
+      state.shownSessionId = action.payload;
     },
     clearHistory(state) {
+      state.shownSessionId = null;
       state.messages = [WELCOME_MSG];
       state.isStreaming = false;
       state.error = null;
       state.planReview = null;
-      const key = getStorageKey(state.activeProjectId);
-      localStorage.removeItem(key);
     },
     setPlanReview(state, action) {
       // action.payload: { plan, taskSubType, interruptId } | null
@@ -122,13 +97,15 @@ const codingAgentSlice = createSlice({
 });
 
 export const {
-  loadMessagesForProject,
+  resetCodingAgent,
   addMessage,
   updateLastMessage,
   updateMessageId,
   setStreaming,
   setError,
   setMessages,
+  showSession,
+  setShownSession,
   clearHistory,
   setPlanReview,
 } = codingAgentSlice.actions;

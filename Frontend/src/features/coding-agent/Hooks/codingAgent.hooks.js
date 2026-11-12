@@ -1,8 +1,9 @@
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useCallback, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { authenticatedFetch, parseFaultKitResponse } from '../../../services/apiClient';
 import { useEditor } from '../../editor/Hooks/editor.hooks';
 import { readAgentStream } from '../service/agentStream';
+import { getSessionMessagesAPI, toChatMessage, trashMessagesAPI } from '../../chat-history/service/chatHistory.api';
 import {
   addMessage,
   updateLastMessage,
@@ -10,6 +11,8 @@ import {
   setStreaming,
   setError,
   setMessages,
+  showSession,
+  setShownSession,
   clearHistory,
   setPlanReview,
 } from '../slice/codingAgent.slice';
@@ -90,11 +93,16 @@ const messageTextOf = (view) => view.finalText ?? [...view.segments.values()].jo
  * useCodingAgent — hook for the left-panel Coding Agent (Orion).
  * Streams the agent over SSE from /api/ai/code-agent/*. A run keeps going
  * on the server if the page reloads; on mount the hook re-attaches to it.
+ *
+ * Shows one chat session at a time (`sessionId`, null for a new chat).
+ * `onSession` hears about the chat the server opened for a first message,
+ * `onLiveChange` about the chat a run is working in (null when it ends).
  */
-export const useCodingAgent = (projectId) => {
+export const useCodingAgent = (projectId, { sessionId = null, sessionsReady = true, onSession, onLiveChange } = {}) => {
   const dispatch = useDispatch();
-  const [isHistoryLoading, setIsHistoryLoading] = useState(true);
-  const { messages, isStreaming, error, planReview } = useSelector((state) => state.codingAgent);
+  const { messages, isStreaming, error, planReview, shownSessionId } = useSelector((state) => state.codingAgent);
+  // Loading = the open chat is not the one on screen yet.
+  const isHistoryLoading = Boolean(projectId) && (!sessionsReady || (sessionId !== null && shownSessionId !== sessionId));
   const { sandboxId } = useSelector((state) => state.sandbox);
   const { fetchFilesList } = useEditor();
 
@@ -102,10 +110,19 @@ export const useCodingAgent = (projectId) => {
   const viewRef = useRef(null);
   const streamAbortRef = useRef(null);
   const onCompleteRef = useRef(null);
+  const sessionIdRef = useRef(sessionId);
+  // The chat a stream started from this tab writes into (null until the server names a new chat).
+  const streamTargetRef = useRef(undefined);
+  const callbacksRef = useRef({ onSession, onLiveChange });
 
   useEffect(() => {
     messagesRef.current = messages;
   }, [messages]);
+
+  useEffect(() => {
+    sessionIdRef.current = sessionId;
+    callbacksRef.current = { onSession, onLiveChange };
+  });
 
   // ── Rendering ─────────────────────────────────────────────────────────────
 
@@ -190,6 +207,15 @@ export const useCodingAgent = (projectId) => {
           dispatch(updateMessageId({ role: payload.role, realId: payload.id }));
         }
         break;
+
+      case 'agent:session':
+        if (payload.sessionId) {
+          streamTargetRef.current = payload.sessionId;
+          dispatch(setShownSession(payload.sessionId)); // this stream's messages are already on screen
+          callbacksRef.current.onSession?.({ id: payload.sessionId, title: payload.title });
+          callbacksRef.current.onLiveChange?.(payload.sessionId);
+        }
+        return;
 
       case 'agent:model': {
         const label = payload.label || payload.modelId || 'Orion model';
@@ -311,6 +337,9 @@ export const useCodingAgent = (projectId) => {
 
     if (TERMINAL_EVENTS.has(event)) {
       flushNow(view);
+      // Only a stream that owned a run frees it; a refused start (run busy elsewhere) does not.
+      if (streamTargetRef.current) callbacksRef.current.onLiveChange?.(null);
+      streamTargetRef.current = undefined;
       dispatch(setPlanReview(null));
       dispatch(setStreaming(false));
       if (event !== 'agent:error' && sandboxId) fetchFilesList(sandboxId, { forceNetwork: true });
@@ -340,8 +369,10 @@ export const useCodingAgent = (projectId) => {
       if (abort.signal.aborted) return;
 
       try {
-        const query = view.lastEventId != null ? `?lastEventId=${view.lastEventId}` : '';
-        const res = await authenticatedFetch(`/api/ai/code-agent/stream/${projectId}${query}`, {
+        const query = new URLSearchParams();
+        if (streamTargetRef.current) query.set('sessionId', streamTargetRef.current);
+        if (view.lastEventId != null) query.set('lastEventId', view.lastEventId);
+        const res = await authenticatedFetch(`/api/ai/code-agent/stream/${projectId}?${query}`, {
           headers: view.lastEventId != null ? { 'Last-Event-ID': String(view.lastEventId) } : {},
           signal: abort.signal,
         });
@@ -388,7 +419,8 @@ export const useCodingAgent = (projectId) => {
 
   // ── Send a task ───────────────────────────────────────────────────────────
 
-  const sendMessage = useCallback((text, attachments, onComplete) => {
+  /** `options.newChat` sends to a new chat even if one is open (the dashboard's first prompt). */
+  const sendMessage = useCallback((text, attachments, onComplete, options = {}) => {
     if (!text.trim() || !sandboxId || !projectId) return;
 
     let actualAttachments = attachments;
@@ -398,9 +430,12 @@ export const useCodingAgent = (projectId) => {
       actualAttachments = [];
     }
 
+    const targetSessionId = options.newChat ? null : sessionIdRef.current;
     const view = createRunView();
     viewRef.current = view;
     onCompleteRef.current = actualOnComplete || null;
+    streamTargetRef.current = targetSessionId;
+    if (options.newChat) dispatch(clearHistory());
 
     dispatch(addMessage({ role: 'user', text }));
     dispatch(addMessage({
@@ -427,6 +462,7 @@ export const useCodingAgent = (projectId) => {
             message: text,
             projectId,
             sandboxId,
+            ...(targetSessionId && { sessionId: targetSessionId }),
             attachments: actualAttachments,
           }),
           signal: abort.signal,
@@ -449,19 +485,22 @@ export const useCodingAgent = (projectId) => {
   // ── Re-attach to a run that is still active on the server ─────────────────
 
   useEffect(() => {
-    if (!projectId || !sandboxId || isHistoryLoading) return undefined;
+    if (!projectId || !sandboxId || !sessionId || isHistoryLoading) return undefined;
     if (streamAbortRef.current && !streamAbortRef.current.signal.aborted) return undefined;
 
     const abort = beginStream();
 
     (async () => {
       try {
-        const res = await authenticatedFetch(`/api/ai/code-agent/stream/${projectId}`, { signal: abort.signal });
+        // 204 unless a run is working in this chat.
+        const res = await authenticatedFetch(`/api/ai/code-agent/stream/${projectId}?sessionId=${sessionId}`, { signal: abort.signal });
         if (res.status !== 200 || abort.signal.aborted) return;
 
         const view = createRunView();
         view.streamState = createStreamState('Reconnected', 'Recovered an active Orion task');
         viewRef.current = view;
+        streamTargetRef.current = sessionId;
+        callbacksRef.current.onLiveChange?.(sessionId);
 
         const current = messagesRef.current || [];
         const last = current[current.length - 1];
@@ -487,7 +526,7 @@ export const useCodingAgent = (projectId) => {
 
     return () => abort.abort();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [projectId, sandboxId, isHistoryLoading]);
+  }, [projectId, sandboxId, sessionId, isHistoryLoading]);
 
   // Close any open stream when the panel unmounts. The run keeps going.
   useEffect(() => () => streamAbortRef.current?.abort(), []);
@@ -544,73 +583,55 @@ export const useCodingAgent = (projectId) => {
   // ── Chat history ──────────────────────────────────────────────────────────
 
   useEffect(() => {
-    const loadChatHistory = async () => {
-      if (!projectId) {
-        dispatch(clearHistory());
-        setIsHistoryLoading(false);
-        return;
-      }
-      setIsHistoryLoading(true);
-      try {
-        const response = await authenticatedFetch(`/api/ai/chats/${projectId}/codingAgent`);
-        if (response.ok) {
-          const data = await response.json();
-          if (data.status === 'ok') {
-            if (data.messages && data.messages.length > 0) {
-              const mapped = data.messages.map(m => ({
-                id: m._id || m.id || Math.random().toString(36).substring(7),
-                _id: m._id,
-                role: m.role,
-                text: m.content,
-                toolLogs: m.toolLogs || [],
-                status: 'completed',
-                timestamp: m.timestamp
-              }));
-              dispatch(setMessages(mapped));
-            } else {
-              dispatch(clearHistory());
-            }
-          }
-        }
-      } catch (err) {
-        console.error('Failed to load codingAgent chat history:', err);
-      } finally {
-        setIsHistoryLoading(false);
-      }
-    };
-
-    loadChatHistory();
-  }, [projectId, dispatch]);
-
-  const clearChatHistory = useCallback(async () => {
-    if (!projectId) return;
-    try {
-      await authenticatedFetch(`/api/ai/chats/${projectId}/codingAgent`, { method: 'DELETE' });
-    } catch (err) {
-      console.error('Failed to clear codingAgent chat history from DB:', err);
+    if (!projectId) {
+      dispatch(clearHistory());
+      return undefined;
     }
-    dispatch(clearHistory());
-  }, [projectId, dispatch]);
+    if (!sessionsReady) return undefined;
+    // The chat a stream from this tab is writing into is already on screen.
+    const isStreamOpen = streamAbortRef.current && !streamAbortRef.current.signal.aborted;
+    if (isStreamOpen && streamTargetRef.current === sessionId) return undefined;
 
-  const deleteMessages = useCallback(async (messageIds) => {
-    if (!messageIds) return;
-    const idsArray = (Array.isArray(messageIds) ? messageIds : [messageIds]).filter(Boolean);
-    if (idsArray.length === 0) return;
+    // Leaving a chat closes only this tab's stream. A run keeps going on the server.
+    streamAbortRef.current?.abort();
+    streamTargetRef.current = undefined;
+    viewRef.current = null;
+    dispatch(setStreaming(false));
+    dispatch(setPlanReview(null));
+    dispatch(setError(null));
 
-    const idsSet = new Set(idsArray.map(id => String(id)));
+    if (!sessionId) {
+      dispatch(clearHistory());
+      return undefined;
+    }
 
-    try {
-      await authenticatedFetch('/api/ai/chats/message/batch-delete', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ids: idsArray, agentType: 'codingAgent' }),
+    dispatch(clearHistory()); // also marks the open chat as not loaded yet
+    let cancelled = false;
+    getSessionMessagesAPI('codingAgent', sessionId)
+      .then((data) => {
+        if (!cancelled) dispatch(showSession({ sessionId, messages: data.messages.map(toChatMessage) }));
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        console.error('[CodingAgent] Could not load the chat:', err);
+        dispatch(showSession({ sessionId, messages: [] }));
+        dispatch(setError(err.message || 'Could not load this chat.'));
       });
-    } catch (err) {
-      console.error('Failed to soft delete chat messages:', err);
-    }
+    return () => { cancelled = true; };
+  }, [projectId, sessionId, sessionsReady, dispatch]);
 
-    const updated = messagesRef.current.filter(m => !idsSet.has(String(m._id)) && !idsSet.has(String(m.id)));
-    dispatch(setMessages(updated));
+  /** Moves messages to the trash. The UI drops them only after the server agreed. */
+  const deleteMessages = useCallback(async (messageIds) => {
+    const idsArray = (Array.isArray(messageIds) ? messageIds : [messageIds]).filter(Boolean).map(String);
+    if (idsArray.length === 0) return;
+    try {
+      await trashMessagesAPI('codingAgent', idsArray);
+      const idsSet = new Set(idsArray);
+      dispatch(setMessages(messagesRef.current.filter((m) => !idsSet.has(String(m._id)) && !idsSet.has(String(m.id)))));
+    } catch (err) {
+      console.error('[CodingAgent] Could not delete messages:', err);
+      dispatch(setError(err.message || 'Could not delete the message. Try again.'));
+    }
   }, [dispatch]);
 
   const deleteMessage = useCallback(async (messageId) => {
@@ -627,7 +648,6 @@ export const useCodingAgent = (projectId) => {
     stopAgent,
     approvePlan,
     rejectPlan,
-    clearChatHistory,
     deleteMessage,
     deleteMessages,
   };

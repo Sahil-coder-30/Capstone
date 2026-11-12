@@ -22,6 +22,7 @@ const ChatMessage = (await import("../src/models/ChatMessage.model.js")).default
 const { OrionChatSession, OrionProjectMemory } = await import("../src/models/chatStores.js");
 const { findChain, stubMemory, stubSessions } = await import("./helpers/fakeChatStore.js");
 const service = await import("../src/services/agentRun.service.js");
+const { codeAgentStream } = await import("../src/controllers/ai.controller.js");
 
 // ── Scripted model ──────────────────────────────────────────────────────────
 
@@ -253,6 +254,16 @@ test("coding run streams, pauses for plan review, resumes and finishes honestly"
   assert.equal(reply.steps.length, 1, "plan steps are kept for the UI");
   assert.equal(userMsg.requestId, reply.requestId, "one request id per run");
   assert.equal(service.isSessionLive("user1", session._id), false, "the chat is free once the run ends");
+
+  // Re-attach only follows a run in the chat the client names.
+  const statusOf = (query) => {
+    let code = 200;
+    const res = { status(c) { code = c; return this; }, end() {}, set() {}, write() {}, flushHeaders() {} };
+    codeAgentStream({ user: { id: "user1" }, params: { projectId: "proj1" }, query, get: () => undefined, on() {} }, res);
+    return code;
+  };
+  assert.equal(statusOf({ sessionId: "another-chat", lastEventId: "0" }), 204);
+  assert.equal(statusOf({ sessionId: String(session._id), lastEventId: "0" }), 200);
 });
 
 test("a step that changed nothing is retried once with the reason, then finishes", async () => {

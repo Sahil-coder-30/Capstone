@@ -1,0 +1,255 @@
+@use '../../coding-agent/styles/orion' as *;
+
+// Overlay inside the chat panel. The parent must be positioned.
+.chat-history {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  font-family: var(--font-sans);
+  font-size: 12px;
+
+  &__backdrop {
+    @include unstyled-button;
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.35);
+    cursor: default;
+  }
+
+  &__panel {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: $space-2;
+    width: min(280px, 88%);
+    height: 100%;
+    padding: $space-2;
+    background: var(--bg-sidebar);
+    border-right: 1px solid var(--border);
+    box-shadow: 4px 0 16px rgba(0, 0, 0, 0.18);
+    animation: chatHistoryIn 0.16s ease-out;
+
+    @media (prefers-reduced-motion: reduce) { animation: none; }
+  }
+
+  &__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 0 0 $space-1;
+  }
+
+  &__heading {
+    margin: 0;
+    font-size: $font-body;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+
+  &__icon {
+    @include unstyled-button;
+    @include focus-ring;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 24px;
+    height: 24px;
+    border-radius: $radius-sm;
+    color: var(--text-muted);
+
+    &:hover:not(:disabled) { background: $color-bg-card-hover; color: var(--text-primary); }
+    &:disabled { opacity: 0.35; cursor: not-allowed; }
+    &--danger:hover:not(:disabled) { color: $tone-error; }
+  }
+
+  &__new {
+    @include unstyled-button;
+    @include focus-ring;
+    display: flex;
+    align-items: center;
+    gap: $space-2;
+    padding: 7px $space-2;
+    border: 1px solid var(--border);
+    border-radius: $radius-sm;
+    color: var(--text-primary);
+    font-weight: 500;
+
+    &:hover { background: $color-bg-card-hover; }
+  }
+
+  &__search {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0 $space-2;
+    border: 1px solid var(--border);
+    border-radius: $radius-sm;
+    color: var(--text-muted);
+
+    &:focus-within { border-color: var(--brand-primary); }
+  }
+
+  &__search-input {
+    flex: 1;
+    min-width: 0;
+    height: 28px;
+    border: none;
+    outline: none;
+    background: transparent;
+    color: var(--text-primary);
+    font: inherit;
+  }
+
+  &__list {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+
+    ul { margin: 0; padding: 0; list-style: none; }
+  }
+
+  &__group + &__group { margin-top: $space-2; }
+
+  &__group-title {
+    margin: $space-1 0;
+    padding: 0 $space-2;
+    font-size: $font-meta;
+    font-weight: 500;
+    color: var(--text-muted);
+  }
+
+  &__item {
+    position: relative;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    border-radius: $radius-sm;
+
+    &:hover, &:focus-within { background: $color-bg-card-hover; }
+    &--active { background: $color-bg-card-hover; }
+    &--active &__title { color: var(--text-primary); font-weight: 500; }
+  }
+
+  &__open {
+    @include unstyled-button;
+    @include focus-ring;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex: 1;
+    min-width: 0;
+    padding: 6px $space-2;
+    border-radius: $radius-sm;
+    color: var(--text-secondary);
+  }
+
+  &__title { @include truncate; flex: 1; }
+
+  &__time {
+    flex-shrink: 0;
+    font-size: $font-meta;
+    color: var(--text-muted);
+  }
+
+  &__live {
+    flex-shrink: 0;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--brand-primary);
+    animation: dashPulse 1.6s ease-in-out infinite;
+  }
+
+  // Actions replace the time on hover or keyboard focus.
+  &__actions {
+    display: none;
+    gap: 2px;
+    padding-right: $space-1;
+  }
+
+  &__item:hover &__actions,
+  &__item:focus-within &__actions { display: inline-flex; }
+
+  &__item:hover &__time,
+  &__item:focus-within &__time { display: none; }
+
+  &__rename {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    width: 100%;
+    padding: 2px;
+  }
+
+  &__rename-input {
+    flex: 1;
+    min-width: 0;
+    height: 26px;
+    padding: 0 6px;
+    border: 1px solid var(--brand-primary);
+    border-radius: $radius-sm;
+    background: var(--bg-main, transparent);
+    color: var(--text-primary);
+    font: inherit;
+    outline: none;
+  }
+
+  &__item--confirm {
+    gap: 6px;
+    padding: 6px $space-2;
+    background: $color-bg-card-hover;
+  }
+
+  &__confirm-text {
+    @include truncate;
+    flex: 1 1 100%;
+    color: var(--text-primary);
+  }
+
+  &__confirm-yes,
+  &__confirm-no,
+  &__more {
+    @include unstyled-button;
+    @include focus-ring;
+    padding: 3px $space-2;
+    border-radius: $radius-sm;
+    font-size: $font-meta;
+  }
+
+  &__confirm-yes {
+    background: $tone-error;
+    color: #fff;
+    &:disabled { opacity: 0.6; }
+  }
+
+  &__confirm-no:hover,
+  &__more:hover { background: $color-bg-card-hover; color: var(--text-primary); }
+
+  &__more {
+    display: block;
+    width: 100%;
+    margin-top: $space-2;
+    text-align: center;
+    color: var(--text-muted);
+  }
+
+  &__empty {
+    margin: $space-4 0;
+    text-align: center;
+    color: var(--text-muted);
+  }
+
+  &__error {
+    flex-basis: 100%;
+    margin: 2px $space-2 4px;
+    font-size: $font-meta;
+    color: $tone-error;
+  }
+}
+
+@keyframes chatHistoryIn {
+  from { transform: translateX(-12px); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}

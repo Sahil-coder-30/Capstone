@@ -1,12 +1,14 @@
-import { CheckSquare2, Trash2, X } from 'lucide-react';
-import { TakshaIcon } from '../../../../components/BrandLogo';
+import { CheckSquare2, History, SquarePen, Trash2, X } from 'lucide-react';
 import IconButton from '../shared/IconButton';
 import './ChatHeader.scss';
 
 const STATE_LABELS = { ready: 'Ready', working: 'Working', waiting: 'Waiting for you', offline: 'Offline' };
 
-/** Panel title, run state and chat actions. Turns into a toolbar in select mode. */
-export default function ChatHeader({ state, selection, onClose }) {
+/**
+ * Chat history toggle, the open chat's title, run state and chat actions.
+ * Turns into a toolbar in select mode. `onNewChat` is null while the open chat is already new.
+ */
+export default function ChatHeader({ state, title, selection, onToggleHistory, onNewChat, onClose }) {
   if (selection.isActive) {
     const { selectedIds, allSelected } = selection;
     return (
@@ -34,13 +36,21 @@ export default function ChatHeader({ state, selection, onClose }) {
 
   return (
     <header className="orion-header">
-      <TakshaIcon size={16} />
-      <h1 className="orion-header__title">Orion</h1>
+      <IconButton label="Chat history" onClick={onToggleHistory}>
+        <History size={14} />
+      </IconButton>
+      <h1 className="orion-header__title" title={title}>
+        <span className="orion-header__brand">Orion</span>
+        <span className="orion-header__chat">{title}</span>
+      </h1>
       <span className={`orion-header__state orion-header__state--${state}`}>
         <span className="orion-header__dot" aria-hidden="true" />
         {STATE_LABELS[state]}
       </span>
       <div className="orion-header__actions">
+        <IconButton label="New chat" onClick={onNewChat || undefined} disabled={!onNewChat}>
+          <SquarePen size={14} />
+        </IconButton>
         {selection.selectableCount > 0 && (
           <IconButton label="Select chats to delete" onClick={selection.toggleMode}>
             <CheckSquare2 size={14} />

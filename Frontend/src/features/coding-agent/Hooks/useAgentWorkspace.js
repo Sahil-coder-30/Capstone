@@ -10,11 +10,8 @@ export function useAgentWorkspace({
   status,
   isHistoryLoading,
   sendMessage,
-  clearChatHistory,
-  onSessionReset,
 }) {
   const { files, fetchFilesList, activeFile, isModified, fetchFileContent } = useEditor();
-  const prevSandboxIdRef = useRef(sandboxId);
 
   // A run can last minutes, so read the editor state when it ends, not when it starts.
   const editorStateRef = useRef({ activeFile, isModified });
@@ -43,30 +40,19 @@ export function useAgentWorkspace({
     }
   }, [sandboxId, fetchFileContent]);
 
-  // The dashboard hands over a first prompt through session storage.
+  // The dashboard hands over a first prompt through session storage. It always starts a new chat.
   useEffect(() => {
     if (!projectId || status !== 'running' || isHistoryLoading) return;
     const key = `initialPrompt_${projectId}`;
     const initialPrompt = sessionStorage.getItem(key);
     if (!initialPrompt) return;
     sessionStorage.removeItem(key);
-    sendMessage(initialPrompt, refreshAfterRun);
+    sendMessage(initialPrompt, [], refreshAfterRun, { newChat: true });
   }, [projectId, status, isHistoryLoading, sendMessage, refreshAfterRun]);
 
   useEffect(() => {
     if (status === 'running' && sandboxId) fetchFilesList(sandboxId);
   }, [status, sandboxId, fetchFilesList]);
-
-  useEffect(() => {
-    const prev = prevSandboxIdRef.current;
-    if (prev && sandboxId && prev !== sandboxId) {
-      clearChatHistory();
-      onSessionReset();
-    }
-    prevSandboxIdRef.current = sandboxId;
-    // Runs only on a sandbox change. The callbacks change with projectId, which must not clear history.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sandboxId]);
 
   return { files, openFile, readFile, refreshAfterRun };
 }

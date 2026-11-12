@@ -7,8 +7,9 @@ import AttachmentChips from './AttachmentChips';
 import FileSuggestions from './FileSuggestions';
 import './Composer.scss';
 
-const getPlaceholder = ({ isOffline, isPaused, isStreaming }) => {
+const getPlaceholder = ({ isOffline, isPaused, isStreaming, isBusyElsewhere }) => {
   if (isOffline) return 'Start the sandbox to chat with Orion';
+  if (isBusyElsewhere) return 'Orion is busy in another chat';
   if (isPaused) return 'Review the plan above to continue';
   if (isStreaming) return 'Orion is working…';
   return 'Ask Orion to build or fix something';
@@ -18,8 +19,8 @@ const getPlaceholder = ({ isOffline, isPaused, isStreaming }) => {
  * Owns its own input state so typing does not re-render the conversation.
  * `ref` exposes setDraft for the empty state prompts.
  */
-export default function Composer({ ref, files, readFile, onSend, onStop, isStreaming, isPaused, isOffline }) {
-  const isLocked = isStreaming || isPaused || isOffline;
+export default function Composer({ ref, files, readFile, onSend, onStop, isStreaming, isPaused, isOffline, isBusyElsewhere = false }) {
+  const isLocked = isStreaming || isPaused || isOffline || isBusyElsewhere;
   const {
     input, attachments, mention, isPickerOpen, textareaRef, rootRef, setDraft,
     handleChange, handleKeyDown, closeMention, togglePicker,
@@ -56,7 +57,7 @@ export default function Composer({ ref, files, readFile, onSend, onStop, isStrea
           onChange={handleChange}
           onKeyDown={handleKeyDown}
           onBlur={closeMention}
-          placeholder={getPlaceholder({ isOffline, isPaused, isStreaming })}
+          placeholder={getPlaceholder({ isOffline, isPaused, isStreaming, isBusyElsewhere })}
           disabled={isLocked}
           rows={1}
         />

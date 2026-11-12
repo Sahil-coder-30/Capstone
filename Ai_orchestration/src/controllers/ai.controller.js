@@ -111,8 +111,10 @@ export const codeAgentInvoke = async (req, res) => {
 export const codeAgentStream = (req, res) => {
   const lastEventId = req.get("Last-Event-ID") ?? req.query.lastEventId;
   const run = getRun(req.user.id, req.params.projectId);
+  // A client that names a chat only follows a run in that chat.
+  const otherChat = req.query.sessionId && run?.sessionId !== String(req.query.sessionId);
   // A finished run is only replayed to a client that was mid-stream.
-  if (!run || (run.status === "finished" && lastEventId == null)) return res.status(204).end();
+  if (!run || otherChat || (run.status === "finished" && lastEventId == null)) return res.status(204).end();
 
   openSseResponse(res);
   attachSubscriber(run, req, res, lastEventId);

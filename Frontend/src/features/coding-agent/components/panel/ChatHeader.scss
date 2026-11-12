@@ -10,14 +10,28 @@
   border-bottom: 1px solid var(--border);
 
   &__title {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    min-width: 0;
     margin: 0;
     font-size: $font-body;
     font-weight: 600;
     color: var(--text-primary);
   }
 
+  &__brand { flex-shrink: 0; }
+
+  &__chat {
+    @include truncate;
+    font-size: 12px;
+    font-weight: 400;
+    color: var(--text-muted);
+  }
+
   &__state {
     display: inline-flex;
+    flex-shrink: 0;
     align-items: center;
     gap: 5px;
     font-size: $font-meta;
@@ -68,7 +82,11 @@
     color: $tone-error;
   }
 
-  @container (max-width: 240px) {
+  @container (max-width: 300px) {
     &__state { display: none; }
+  }
+
+  @container (max-width: 220px) {
+    &__chat { display: none; }
   }
 }
