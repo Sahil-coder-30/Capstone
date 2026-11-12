@@ -1,194 +1,84 @@
-import ChatMessage from "../models/ChatMessage.model.js";
-import CopilotChatMessage from "../models/CopilotChatMessage.model.js";
-import mongoose from "mongoose";
+// chat.controller.js
+// Chat history for Orion (codingAgent) and Clio (copilot).
+// The user id always comes from the verified token, never from the request.
 
-// GET /chats/:projectId/:agentType
-export const getChats = async (req, res) => {
-  const { projectId, agentType } = req.params;
-  const userId = req.user?.id;
+import { ConflictError } from "faultkit";
+import * as chats from "../services/chatSession.service.js";
+import { getRun, isSessionLive } from "../services/agentRun.service.js";
 
-  if (!userId) {
-    return res.status(401).json({ status: "error", message: "Unauthorized - Invalid user context" });
-  }
-
-  if (!["codingAgent", "copilot"].includes(agentType)) {
-    return res.status(400).json({ status: "error", message: "Invalid agentType" });
-  }
-
+const handle = (fn) => async (req, res, next) => {
   try {
-    let messages;
-    if (agentType === "copilot") {
-      messages = await CopilotChatMessage.find({
-        projectId,
-        deletionStatus: { $ne: "trash" },
-        $or: [{ userId }, { userId: { $exists: false } }],
-      }).sort({ timestamp: 1 });
-    } else {
-      messages = await ChatMessage.find({
-        projectId,
-        agentType: "codingAgent",
-        deletionStatus: { $ne: "trash" },
-        $or: [{ userId }, { userId: { $exists: false } }],
-      }).sort({ timestamp: 1 });
-    }
-
-    res.status(200).json({ status: "ok", messages });
-  } catch (error) {
-    console.error("Failed to retrieve chat history:", error);
-    res.status(500).json({ status: "error", message: "Failed to retrieve chat history" });
+    await fn(req, res, req.user.id);
+  } catch (err) {
+    next(err);
   }
 };
 
-// DELETE /chats/:projectId/:agentType (Soft Delete all active chats for project)
-export const deleteChats = async (req, res) => {
-  const { projectId, agentType } = req.params;
-  const userId = req.user?.id;
+const agentTypeOf = (req) => req.params.agentType || req.query.agentType || req.body?.agentType || "codingAgent";
 
-  if (!userId) {
-    return res.status(401).json({ status: "error", message: "Unauthorized - Invalid user context" });
+// GET /chats/:agentType/sessions?projectId=&before=
+export const listSessions = handle(async (req, res, userId) => {
+  const { projectId, before } = req.query;
+  const result = await chats.listSessions(req.params.agentType, { userId, projectId, before, authToken: req.authToken });
+  // The chat an Orion run is working in, so the UI can open or mark it.
+  const run = req.params.agentType === "codingAgent" ? getRun(userId, String(projectId)) : null;
+  const liveSessionId = run && run.status !== "finished" ? run.sessionId : null;
+  res.status(200).json({ status: "ok", ...result, liveSessionId });
+});
+
+// GET /chats/:agentType/sessions/:sessionId/messages
+export const getSessionMessages = handle(async (req, res, userId) => {
+  const result = await chats.getSessionMessages(req.params.agentType, { userId, sessionId: req.params.sessionId });
+  res.status(200).json({ status: "ok", ...result });
+});
+
+// PATCH /chats/:agentType/sessions/:sessionId
+export const renameSession = handle(async (req, res, userId) => {
+  const session = await chats.renameSession(req.params.agentType, { userId, sessionId: req.params.sessionId, title: req.body?.title });
+  res.status(200).json({ status: "ok", session });
+});
+
+// DELETE /chats/:agentType/sessions/:sessionId (to trash)
+export const trashSession = handle(async (req, res, userId) => {
+  if (req.params.agentType === "codingAgent" && isSessionLive(userId, req.params.sessionId)) {
+    throw new ConflictError("Orion is still working in this chat. Stop it first.");
   }
+  await chats.trashSession(req.params.agentType, { userId, sessionId: req.params.sessionId });
+  res.status(200).json({ status: "ok", message: "Chat moved to trash" });
+});
 
-  if (!["codingAgent", "copilot"].includes(agentType)) {
-    return res.status(400).json({ status: "error", message: "Invalid agentType" });
-  }
+// PATCH /chats/:agentType/sessions/:sessionId/restore
+export const restoreSession = handle(async (req, res, userId) => {
+  const session = await chats.restoreSession(req.params.agentType, { userId, sessionId: req.params.sessionId });
+  res.status(200).json({ status: "ok", session });
+});
 
-  try {
-    const now = new Date();
-    if (agentType === "copilot") {
-      await CopilotChatMessage.updateMany(
-        { projectId, deletionStatus: { $ne: "trash" }, $or: [{ userId }, { userId: { $exists: false } }] },
-        { $set: { deletionStatus: "trash", deletedAt: now } }
-      );
-    } else {
-      await ChatMessage.updateMany(
-        { projectId, agentType: "codingAgent", deletionStatus: { $ne: "trash" }, $or: [{ userId }, { userId: { $exists: false } }] },
-        { $set: { deletionStatus: "trash", deletedAt: now } }
-      );
-    }
-
-    res.status(200).json({ status: "ok", message: `Chat history moved to trash for ${agentType}` });
-  } catch (error) {
-    console.error("Failed to move chat history to trash:", error);
-    res.status(500).json({ status: "error", message: "Failed to move chat history to trash" });
-  }
-};
-
-// DELETE /chats/message/:messageId or POST /chats/message/batch-delete
-export const deleteSingleChatMessage = async (req, res) => {
-  const messageIdInput = req.params?.messageId || req.body?.messageId || req.body?.ids;
-  const agentType = req.query?.agentType || req.body?.agentType || "codingAgent";
-  const userId = req.user?.id;
-
-  try {
-    const now = new Date();
-    let rawIds = [];
-    if (Array.isArray(messageIdInput)) {
-      rawIds = messageIdInput.map(id => String(id));
-    } else if (typeof messageIdInput === "string") {
-      rawIds = messageIdInput.split(",");
-    }
-
-    const validObjectIds = rawIds
-      .map(id => id.trim())
-      .filter(id => id && mongoose.Types.ObjectId.isValid(id));
-
-    if (validObjectIds.length > 0) {
-      const filter = {
-        _id: { $in: validObjectIds },
-        ...(userId ? { $or: [{ userId }, { userId: { $exists: false } }] } : {}),
-      };
-
-      if (agentType === "copilot") {
-        await CopilotChatMessage.updateMany(
-          filter,
-          { $set: { deletionStatus: "trash", deletedAt: now } }
-        );
-      } else {
-        await ChatMessage.updateMany(
-          filter,
-          { $set: { deletionStatus: "trash", deletedAt: now } }
-        );
-      }
-    }
-
-    res.status(200).json({ status: "ok", message: "Message(s) moved to trash" });
-  } catch (error) {
-    console.error("Failed to delete message(s):", error);
-    res.status(500).json({ status: "error", message: "Failed to delete message(s)" });
-  }
-};
+// DELETE /chats/:agentType/sessions/:sessionId/permanent
+export const deleteSessionForever = handle(async (req, res, userId) => {
+  await chats.deleteSessionForever(req.params.agentType, { userId, sessionId: req.params.sessionId });
+  res.status(200).json({ status: "ok", message: "Chat permanently deleted" });
+});
 
 // GET /chats/trash
-export const getTrashChats = async (req, res) => {
-  const userId = req.user?.id;
-  if (!userId) {
-    return res.status(401).json({ status: "error", message: "Unauthorized" });
-  }
+export const getTrash = handle(async (_req, res, userId) => {
+  res.status(200).json({ status: "ok", ...(await chats.listTrash(userId)) });
+});
 
-  try {
-    const agentChats = await ChatMessage.find({
-      $or: [{ userId }, { userId: { $exists: false } }],
-      deletionStatus: "trash",
-    }).sort({ deletedAt: -1 });
+// DELETE /chats/message/:messageId or POST /chats/message/batch-delete { ids, agentType }
+export const trashMessages = handle(async (req, res, userId) => {
+  const ids = req.params.messageId || req.body?.ids || req.body?.messageId;
+  const count = await chats.trashMessages(agentTypeOf(req), { userId, ids });
+  res.status(200).json({ status: "ok", message: `${count} message(s) moved to trash` });
+});
 
-    const copilotChats = await CopilotChatMessage.find({
-      $or: [{ userId }, { userId: { $exists: false } }],
-      deletionStatus: "trash",
-    }).sort({ deletedAt: -1 });
+// PATCH /chats/message/:messageId/restore { agentType }
+export const restoreMessage = handle(async (req, res, userId) => {
+  await chats.restoreMessage(agentTypeOf(req), { userId, messageId: req.params.messageId });
+  res.status(200).json({ status: "ok", message: "Message restored" });
+});
 
-    res.status(200).json({
-      status: "ok",
-      trashMessages: [
-        ...agentChats.map((c) => ({ ...c.toObject(), agentType: "codingAgent" })),
-        ...copilotChats.map((c) => ({ ...c.toObject(), agentType: "copilot" })),
-      ],
-    });
-  } catch (error) {
-    console.error("Failed to retrieve trashed chats:", error);
-    res.status(500).json({ status: "error", message: "Failed to retrieve trashed chats" });
-  }
-};
-
-// PATCH /chats/message/:messageId/restore
-export const restoreChatMessage = async (req, res) => {
-  const { messageId } = req.params;
-  const { agentType } = req.body;
-
-  try {
-    if (agentType === "copilot") {
-      await CopilotChatMessage.findByIdAndUpdate(messageId, {
-        deletionStatus: "active",
-        deletedAt: null,
-      });
-    } else {
-      await ChatMessage.findByIdAndUpdate(messageId, {
-        deletionStatus: "active",
-        deletedAt: null,
-      });
-    }
-
-    res.status(200).json({ status: "ok", message: "Message restored successfully" });
-  } catch (error) {
-    console.error("Failed to restore chat message:", error);
-    res.status(500).json({ status: "error", message: "Failed to restore message" });
-  }
-};
-
-// DELETE /chats/message/:messageId/permanent
-export const permanentlyDeleteChatMessage = async (req, res) => {
-  const { messageId } = req.params;
-  const { agentType } = req.query;
-
-  try {
-    if (agentType === "copilot") {
-      await CopilotChatMessage.findByIdAndDelete(messageId);
-    } else {
-      await ChatMessage.findByIdAndDelete(messageId);
-    }
-
-    res.status(200).json({ status: "ok", message: "Message permanently deleted" });
-  } catch (error) {
-    console.error("Failed to permanently delete chat message:", error);
-    res.status(500).json({ status: "error", message: "Failed to delete message" });
-  }
-};
+// DELETE /chats/message/:messageId/permanent?agentType=
+export const deleteMessageForever = handle(async (req, res, userId) => {
+  await chats.deleteMessageForever(agentTypeOf(req), { userId, messageId: req.params.messageId });
+  res.status(200).json({ status: "ok", message: "Message permanently deleted" });
+});

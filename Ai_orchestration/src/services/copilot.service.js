@@ -3,8 +3,9 @@
 
 import { randomUUID } from "crypto";
 import { HumanMessage, SystemMessage } from "@langchain/core/messages";
-import CopilotChatMessage from "../models/CopilotChatMessage.model.js";
+import { CHAT_STORES } from "../models/chatStores.js";
 import { recordAiUsage } from "./credit.service.js";
+import { loadChatHistory, openSessionForTurn, serializeSession, touchSession } from "./chatSession.service.js";
 import {
   INTERNAL_TAGS,
   contentToText,
@@ -17,8 +18,9 @@ import {
   usageOf,
 } from "../agent/index.js";
 
-const HISTORY_MESSAGES = 6;
+const HISTORY_MESSAGES = 10;
 const RUN_TIMEOUT_MS = 3 * 60 * 1000;
+const clioStore = CHAT_STORES.copilot;
 
 const addUsage = (total, output) => {
   const usage = usageOf(output);
@@ -28,33 +30,42 @@ const addUsage = (total, output) => {
   total.totalTokens += usage.totalTokens;
 };
 
-const loadHistory = async (chatKey, userId) => {
-  const docs = await CopilotChatMessage.find({
-    projectId: chatKey,
-    deletionStatus: { $ne: "trash" },
-    $or: [{ userId }, { userId: { $exists: false } }],
-  })
-    .sort({ timestamp: -1 })
-    .limit(HISTORY_MESSAGES)
-    .lean();
-  return docs.reverse().map((d) => ({ role: d.role, content: truncate(d.content, 3_000) }));
-};
-
 /**
- * Runs one Clio turn. Streams text through onText and returns the final
- * answer. Chat history is loaded before the new message is saved, so the
- * prompt is never in the context twice.
+ * Runs one Clio turn in a chat session. Streams text through onText and
+ * returns the final answer. Chat history is loaded before the new message
+ * is saved, so the prompt is never in the context twice. A failed turn is
+ * saved as an error reply, which never goes back into the context.
  */
-export async function runCopilot({ user, authToken, projectId, sandboxId, prompt, activeFile, activeFileContent, onText }) {
+export async function runCopilot({ user, authToken, projectId, sandboxId, sessionId, prompt, activeFile, activeFileContent, onSession, onText }) {
   const file = String(activeFile || "").replace(/^\/+/, "");
-  const chatKey = file ? `${projectId}:${file}` : projectId;
+  const { session, isNew } = await openSessionForTurn("copilot", { userId: user.id, projectId, sessionId, prompt });
+  onSession?.({ ...serializeSession(session), isNew });
 
+  const turnId = randomUUID();
+  const message = (fields) => clioStore.Message.create({
+    userId: user.id, projectId, sessionId: session._id, file, requestId: `clio:${turnId}`, ...fields,
+  });
+
+  const history = await loadChatHistory(clioStore, session, HISTORY_MESSAGES);
+  await message({ role: "user", content: prompt });
+  await touchSession(clioStore, session);
+
+  try {
+    const { answer, usage } = await streamClio({ user, authToken, projectId, sandboxId, session, turnId, prompt, history, file, activeFileContent, onText });
+    await message({ role: "assistant", content: answer, tokenUsage: usage });
+    await touchSession(clioStore, session);
+    return answer;
+  } catch (err) {
+    await message({ role: "assistant", content: `Error: ${err.message}`, status: "error" })
+      .catch((saveErr) => console.error("[Copilot] Failed to save error reply:", saveErr.message));
+    throw err;
+  }
+}
+
+async function streamClio({ user, authToken, projectId, sandboxId, session, turnId, prompt, history, file, activeFileContent, onText }) {
   // One sandbox token per Clio turn, released when the turn ends.
-  const credentialKey = `clio:${randomUUID()}`;
+  const credentialKey = `clio:${turnId}`;
   await issueSandboxCredential(credentialKey, { userToken: authToken, sandboxId });
-
-  const history = await loadHistory(chatKey, user.id);
-  await CopilotChatMessage.create({ projectId: chatKey, userId: user.id, role: "user", content: prompt, file });
 
   const abort = new AbortController();
   const timer = setTimeout(() => abort.abort(new Error("Clio timed out after 3 minutes.")), RUN_TIMEOUT_MS);
@@ -83,27 +94,15 @@ export async function runCopilot({ user, authToken, projectId, sandboxId, prompt
     clearTimeout(timer);
     await releaseSandbox(credentialKey);
     if (usage.totalTokens > 0) {
-      recordAiUsage({ authToken, userId: user.id, company: model.provider, modelId: model.modelId, agentType: "copilot", projectId, ...usage })
-        .catch((err) => console.error("[Copilot] Failed to record usage:", err.message));
+      recordAiUsage({
+        authToken, userId: user.id, company: model.provider, modelId: model.modelId, agentType: "copilot",
+        projectId, chatId: String(session._id), requestId: `clio:${turnId}`, ...usage,
+      }).catch((err) => console.error("[Copilot] Failed to record usage:", err.message));
     }
   }
 
-  answer ||= "I could not produce an answer. Please try again.";
-  await CopilotChatMessage.create({ projectId: chatKey, userId: user.id, role: "assistant", content: answer, file, tokenUsage: usage });
-  return answer;
+  return { answer: answer || "I could not produce an answer. Please try again.", usage };
 }
-
-/** Saves an error reply so the chat history shows what happened. */
-export const saveCopilotError = ({ user, projectId, activeFile, message }) => {
-  const file = String(activeFile || "").replace(/^\/+/, "");
-  return CopilotChatMessage.create({
-    projectId: file ? `${projectId}:${file}` : projectId,
-    userId: user.id,
-    role: "assistant",
-    content: `Error: ${message}`,
-    file,
-  }).catch((err) => console.error("[Copilot] Failed to save error reply:", err.message));
-};
 
 const TITLE_PROMPT = `Generate a concise project title from the user's prompt. Output ONLY a JSON object: {"title": "<title>"}
 

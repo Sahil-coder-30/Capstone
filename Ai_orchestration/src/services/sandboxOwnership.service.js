@@ -47,6 +47,10 @@ export async function resolveOwnedSandbox({ authToken, userId, projectId, sandbo
   if (!project) {
     throw new ForbiddenError("Forbidden: this sandbox does not belong to you");
   }
+  // Chats and usage are filed under projectId, so it must be the sandbox's own project.
+  if (projectId && String(project._id) !== String(projectId)) {
+    throw new ForbiddenError("Forbidden: projectId does not match this sandbox");
+  }
   return { projectId: String(project._id), sandboxId: project.sandboxId };
 }
 
@@ -64,7 +68,10 @@ export const requireOwnedSandbox = async (req, _res, next) => {
       projectId,
       sandboxId,
     });
-    if (owned) req.body.sandboxId = owned.sandboxId;
+    if (owned) {
+      req.body.sandboxId = owned.sandboxId;
+      req.body.projectId = owned.projectId;
+    }
     next();
   } catch (err) {
     next(err);

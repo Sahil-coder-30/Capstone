@@ -19,6 +19,8 @@ process.env.SANDBOX_TOOL_TRANSPORT = "rest";
 
 const { setModelsForTesting } = await import("../src/agent/llm/model.js");
 const ChatMessage = (await import("../src/models/ChatMessage.model.js")).default;
+const { OrionChatSession } = await import("../src/models/chatStores.js");
+const { findChain, stubSessions } = await import("./helpers/fakeChatStore.js");
 const service = await import("../src/services/agentRun.service.js");
 
 // ── Scripted model ──────────────────────────────────────────────────────────
@@ -142,7 +144,8 @@ axios.defaults.adapter = async (config) => {
 // ── Stubbed persistence ─────────────────────────────────────────────────────
 
 const saved = [];
-ChatMessage.find = () => ({ sort: () => ({ limit: () => ({ lean: async () => [] }) }) });
+ChatMessage.find = findChain(() => []);
+const sessions = stubSessions(OrionChatSession);
 ChatMessage.create = async (doc) => {
   saved.push(doc);
   return { _id: { toString: () => `msg${saved.length}` } };
@@ -236,6 +239,19 @@ test("coding run streams, pauses for plan review, resumes and finishes honestly"
   assert.equal(saved.at(-1).role, "assistant");
   assert.match(saved.at(-1).content, /Hello component/);
   assert.equal(sub.res.writableEnded, true, "the stream closes after agent:done");
+
+  // The run opened a chat for this user and filed both messages under it.
+  const session = sessions.find((s) => s.userId === "user1");
+  assert.equal(session.projectId, "proj1");
+  assert.equal(sub.events.find((e) => e.event === "agent:session").data.sessionId, String(session._id));
+  const [userMsg, reply] = saved.filter((d) => d.userId === "user1");
+  assert.deepEqual([userMsg.role, reply.role], ["user", "assistant"]);
+  assert.equal(String(reply.sessionId), String(session._id));
+  assert.equal(reply.status, "ok");
+  assert.equal(reply.outcome, "complete");
+  assert.equal(reply.steps.length, 1, "plan steps are kept for the UI");
+  assert.equal(userMsg.requestId, reply.requestId, "one request id per run");
+  assert.equal(service.isSessionLive("user1", session._id), false, "the chat is free once the run ends");
 });
 
 test("a step that changed nothing is retried once with the reason, then finishes", async () => {

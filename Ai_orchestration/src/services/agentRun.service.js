@@ -15,7 +15,8 @@
 // always JSON so text with newlines can never break the framing.
 
 import { Command } from "@langchain/langgraph";
-import ChatMessage from "../models/ChatMessage.model.js";
+import { CHAT_STORES } from "../models/chatStores.js";
+import { loadChatHistory, openSessionForTurn, touchSession } from "./chatSession.service.js";
 import { recordAiUsage } from "./credit.service.js";
 import {
   INTERNAL_TAGS,
@@ -37,7 +38,8 @@ const RUN_TIMEOUT_MS = 60 * 60 * 1000;      // active work per segment
 const REVIEW_TIMEOUT_MS = 30 * 60 * 1000;   // waiting for plan approval
 const FINISHED_RUN_TTL_MS = 2 * 60 * 1000;  // keep finished runs for late reconnects
 const MAX_BUFFERED_EVENTS = 4_000;
-const HISTORY_MESSAGES = 6;
+const HISTORY_MESSAGES = 10;
+const orionStore = CHAT_STORES.codingAgent;
 const MAX_TOOL_LOGS = 400;
 
 // Nodes whose model text is the user-facing answer. Text from every other
@@ -62,6 +64,10 @@ const runs = new Map();
 
 export const runKeyFor = (userId, projectId) => `${userId}:${projectId}`;
 export const getRun = (userId, projectId) => runs.get(runKeyFor(userId, projectId)) || null;
+
+/** True while an Orion run is working in this chat. */
+export const isSessionLive = (userId, sessionId) =>
+  [...runs.values()].some((run) => run.userId === userId && run.sessionId === String(sessionId) && run.status !== "finished");
 
 // ── SSE plumbing ────────────────────────────────────────────────────────────
 
@@ -116,6 +122,7 @@ const closeSubscribers = (run) => {
 const snapshotOf = (run) => ({
   runId: run.id,
   projectId: run.projectId,
+  sessionId: run.sessionId,
   status: run.status,
   task: run.task,
   model: run.model,
@@ -392,6 +399,8 @@ const recordUsage = async (run) => {
       modelId: run.model.modelId,
       agentType: "codingAgent",
       projectId: run.projectId,
+      chatId: run.sessionId,
+      requestId: `orion:${run.id}`,
       ...run.usage,
     });
   } catch (err) {
@@ -399,17 +408,22 @@ const recordUsage = async (run) => {
   }
 };
 
-const saveAssistantMessage = async (run, content) => {
+const saveAssistantMessage = async (run, { content, status, outcome }) => {
   try {
-    const doc = await ChatMessage.create({
-      projectId: run.projectId,
+    const doc = await orionStore.Message.create({
       userId: run.userId,
-      agentType: "codingAgent",
+      projectId: run.projectId,
+      sessionId: run.session._id,
       role: "assistant",
       content: content || "(no response)",
+      status,
+      outcome: outcome || null,
       toolLogs: run.toolLogs,
+      steps: run.steps,
       tokenUsage: run.usage,
+      requestId: `orion:${run.id}`,
     });
+    await touchSession(orionStore, run.session);
     return doc._id.toString();
   } catch (err) {
     console.error("[AgentRun] Failed to save assistant message:", err.message);
@@ -417,12 +431,12 @@ const saveAssistantMessage = async (run, content) => {
   }
 };
 
-const finishRun = async (run, { event, payload, content }) => {
+const finishRun = async (run, { event, payload, content, status = "ok" }) => {
   if (run.status === "finished") return;
   run.status = "finished";
   clearTimeout(run.reviewTimer);
   await recordUsage(run);
-  const assistantMsgId = await saveAssistantMessage(run, content);
+  const assistantMsgId = await saveAssistantMessage(run, { content, status, outcome: payload?.outcome });
   if (assistantMsgId) publish(run, "agent:msg_created", { role: "assistant", id: assistantMsgId });
   publish(run, event, { ...payload, assistantMsgId });
   closeSubscribers(run);
@@ -438,6 +452,7 @@ const finishStopped = (run, reason = "Stopped by user.") => {
     event: "agent:stopped",
     payload: { message: reason, text: content },
     content,
+    status: "stopped",
   });
 };
 
@@ -511,6 +526,7 @@ const executeSegment = async (run, input) => {
       event: "agent:error",
       payload: { message, code },
       content: `Error occurred during execution: ${message}`,
+      status: "error",
     });
   } finally {
     clearTimeout(timeout);
@@ -530,7 +546,7 @@ const formatAttachments = (attachments) => {
  * Credits are already checked by the creditLedger middleware.
  * Throws coded errors the controller turns into SSE errors.
  */
-export const startRun = async ({ user, authToken, projectId, sandboxId, task, attachments, autoApprovePlan }) => {
+export const startRun = async ({ user, authToken, projectId, sandboxId, sessionId, task, attachments, autoApprovePlan }) => {
   const key = runKeyFor(user.id, projectId);
   const existing = runs.get(key);
   if (existing && existing.status !== "finished") {
@@ -547,6 +563,9 @@ export const startRun = async ({ user, authToken, projectId, sandboxId, task, at
   const agent = getOrionGraph();
   const model = getModelInfo();
 
+  // 404 before any credential is issued when the chat is not the caller's.
+  const { session, isNew } = await openSessionForTurn("codingAgent", { userId: user.id, projectId, sessionId, prompt: task });
+
   // The sidecar only accepts the owner's token; get a sandbox token that
   // outlives the 15-minute access token. Fails before anything is saved.
   const threadId = `${sandboxId}:${Date.now()}`;
@@ -554,31 +573,27 @@ export const startRun = async ({ user, authToken, projectId, sandboxId, task, at
 
   // History is loaded before saving the new message so the current task is
   // not duplicated in the context.
-  const history = await ChatMessage.find({
-    projectId,
-    agentType: "codingAgent",
-    deletionStatus: { $ne: "trash" },
-    $or: [{ userId: user.id }, { userId: { $exists: false } }],
-  })
-    .sort({ timestamp: -1 })
-    .limit(HISTORY_MESSAGES)
-    .lean();
-  history.reverse();
+  const history = await loadChatHistory(orionStore, session, HISTORY_MESSAGES);
 
-  const userMsg = await ChatMessage.create({
-    projectId,
+  const runId = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
+  const userMsg = await orionStore.Message.create({
     userId: user.id,
-    agentType: "codingAgent",
+    projectId,
+    sessionId: session._id,
     role: "user",
     content: task,
+    requestId: `orion:${runId}`,
   });
+  await touchSession(orionStore, session);
 
   const attachmentText = formatAttachments(attachments);
   const run = {
-    id: `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`,
+    id: runId,
     key,
     userId: user.id,
     projectId,
+    session,
+    sessionId: String(session._id),
     sandboxId,
     authToken,
     task,
@@ -605,14 +620,15 @@ export const startRun = async ({ user, authToken, projectId, sandboxId, task, at
   };
   runs.set(key, run);
 
-  publish(run, "agent:run", { runId: run.id, threadId: run.threadId, projectId });
+  publish(run, "agent:run", { runId: run.id, threadId: run.threadId, projectId, sessionId: run.sessionId });
+  publish(run, "agent:session", { sessionId: run.sessionId, title: session.title, isNew });
   publish(run, "agent:msg_created", { role: "user", id: userMsg._id.toString() });
   publish(run, "agent:model", { ...model, fallback: false });
   setStatus(run, { phase: "queued", title: "Starting Orion", detail: `${model.label} is reading your request` });
 
   const input = {
     task: attachmentText ? `${task}\n\n${attachmentText}` : task,
-    messages: history.map((h) => ({ role: h.role, content: truncate(h.content, 4_000) })),
+    messages: history,
     autoApprovePlan: Boolean(autoApprovePlan),
   };
 

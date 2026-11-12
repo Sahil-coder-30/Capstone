@@ -4,7 +4,7 @@
 // Handlers only validate input, call a service and write the response.
 // Auth, sandbox ownership, rate limit and credits are checked by middleware.
 
-import { generateTitle, runCopilot, saveCopilotError } from "../services/copilot.service.js";
+import { generateTitle, runCopilot } from "../services/copilot.service.js";
 import {
   approvePlan,
   attachSubscriber,
@@ -22,8 +22,8 @@ const promptFrom = (body = {}) => String(body.userPrompt || body.message || "").
 const projectIdFrom = (body = {}) => body.projectId || body.sandboxId;
 
 // ── Clio (copilot) over SSE ─────────────────────────────────────────────────
-// Frames: `data: <text>` per token chunk, `event: final`, `event: done`,
-// `event: error` (JSON). Every line of a text gets its own `data:` prefix,
+// Frames: `event: session` (JSON, first), `data: <text>` per token chunk,
+// `event: final`, `event: done`, `event: error` (JSON). Every line of a text gets its own `data:` prefix,
 // so newlines in the text can never break the SSE framing.
 
 const writeSse = (res, event, text) => {
@@ -52,16 +52,17 @@ export const appAgentInvoke = async (req, res) => {
       projectId,
       sandboxId: req.body.sandboxId,
       prompt,
+      sessionId: req.body.sessionId,
       activeFile: activeFile && activeFile !== "none" ? activeFile : "",
       activeFileContent,
+      onSession: (session) => writeSse(res, "session", JSON.stringify(session)),
       onText: (text) => writeSse(res, null, text),
     });
     writeSse(res, "final", answer);
     writeSse(res, "done", "[DONE]");
   } catch (error) {
     console.error("[Clio] Run failed:", error.message);
-    await saveCopilotError({ user: req.user, projectId, activeFile, message: error.message });
-    writeSse(res, "error", JSON.stringify({ message: error.message || "Clio hit an unexpected error", code: error.code }));
+    writeSse(res, "error", JSON.stringify({ message: error.message || "Clio hit an unexpected error", code: error.code || error.errorCode }));
   } finally {
     clearInterval(heartbeat);
     res.end();
@@ -86,7 +87,7 @@ export const appAgentTitle = async (req, res, next) => {
 
 // POST /code-agent/invoke
 export const codeAgentInvoke = async (req, res) => {
-  const { sandboxId, attachments, autoApprovePlan } = req.body || {};
+  const { sandboxId, sessionId, attachments, autoApprovePlan } = req.body || {};
   const task = promptFrom(req.body);
   const projectId = projectIdFrom(req.body);
 
@@ -97,11 +98,11 @@ export const codeAgentInvoke = async (req, res) => {
   }
 
   try {
-    const run = await startRun({ user: req.user, authToken: req.authToken, projectId, sandboxId, task, attachments, autoApprovePlan });
+    const run = await startRun({ user: req.user, authToken: req.authToken, projectId, sandboxId, sessionId, task, attachments, autoApprovePlan });
     attachSubscriber(run, req, res, 0);
   } catch (error) {
     console.error("[Orion] Could not start run:", error.message);
-    sendStandaloneEvent(res, "agent:error", { message: error.message || "Could not start Orion", code: error.code || "AGENT_START_FAILED" });
+    sendStandaloneEvent(res, "agent:error", { message: error.message || "Could not start Orion", code: error.code || error.errorCode || "AGENT_START_FAILED" });
     res.end();
   }
 };

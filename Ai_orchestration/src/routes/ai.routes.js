@@ -19,13 +19,17 @@ aiRouter.post("/code-agent/stop", identifyUser, aiController.codeAgentStop);
 aiRouter.post("/code-agent/plan-approve", identifyUser, aiController.codeAgentPlanApprove);
 aiRouter.post("/code-agent/plan-reject", identifyUser, aiController.codeAgentPlanReject);
 
-// ── Chat History Management ──
-aiRouter.get("/chats/trash", identifyUser, chatController.getTrashChats);
-aiRouter.get("/chats/:projectId/:agentType", identifyUser, chatController.getChats);
-aiRouter.delete("/chats/:projectId/:agentType", identifyUser, chatController.deleteChats);
-aiRouter.post("/chats/message/batch-delete", identifyUser, chatController.deleteSingleChatMessage);
-aiRouter.delete("/chats/message/:messageId", identifyUser, chatController.deleteSingleChatMessage);
-aiRouter.patch("/chats/message/:messageId/restore", identifyUser, chatController.restoreChatMessage);
-aiRouter.delete("/chats/message/:messageId/permanent", identifyUser, chatController.permanentlyDeleteChatMessage);
+// ── Chat History (sessions per agent; :agentType is codingAgent or copilot) ──
+aiRouter.get("/chats/trash", identifyUser, chatController.getTrash);
+aiRouter.post("/chats/message/batch-delete", identifyUser, chatController.trashMessages);
+aiRouter.delete("/chats/message/:messageId", identifyUser, chatController.trashMessages);
+aiRouter.patch("/chats/message/:messageId/restore", identifyUser, chatController.restoreMessage);
+aiRouter.delete("/chats/message/:messageId/permanent", identifyUser, chatController.deleteMessageForever);
+aiRouter.get("/chats/:agentType/sessions", identifyUser, chatController.listSessions);
+aiRouter.get("/chats/:agentType/sessions/:sessionId/messages", identifyUser, chatController.getSessionMessages);
+aiRouter.patch("/chats/:agentType/sessions/:sessionId", identifyUser, chatController.renameSession);
+aiRouter.delete("/chats/:agentType/sessions/:sessionId", identifyUser, chatController.trashSession);
+aiRouter.patch("/chats/:agentType/sessions/:sessionId/restore", identifyUser, chatController.restoreSession);
+aiRouter.delete("/chats/:agentType/sessions/:sessionId/permanent", identifyUser, chatController.deleteSessionForever);
 
 export default aiRouter;
