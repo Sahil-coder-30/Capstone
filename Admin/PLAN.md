@@ -15,6 +15,12 @@ Rule for every phase: existing user flows keep working exactly as today. Changes
 
 Payments features (plan editing, coupons, discounts, credit grants, refunds) come **last** (P8). Everything before P8 only reads Payments data.
 
+## Related plan
+
+Notifications (email, WhatsApp, announcements, offers, delivery log, retry, DLQ) are designed in `docs/plans/kafka-whatsapp-architecture.md`, mainly section 7. This file owns the portal, login, permissions, data access and audit. The two plans depend on each other: the admin backend publishes facts, the Notification service delivers them, and the portal is the screen for the delivery log and the DLQ.
+
+Where the two files disagree on the admin portal, this file wins. Where they disagree on notifications or the event backbone, the other file wins.
+
 ## Delivery workflow
 
 No code before the documents are done. Each step is reviewed before the next starts. Documents live in `Admin/docs/`.
@@ -45,16 +51,16 @@ No code before the documents are done. Each step is reviewed before the next sta
   - passkeys (public keys only)                  - readers: read-only DB users
   - admin token, aud taksha-admin                - writers: maintainer-only DB user
             |                                    - K8s API, Prometheus, Loki
-            +---> admin_notification_queue <-----+
+            +--------> admin events <------------+
                             |
-                     Notification -> email
+               Notification -> email, WhatsApp
 ```
 
 | Concern | Owner |
 |---|---|
 | Authentication (login factors, tokens, step-up) | Auth service, new admin files |
 | Authorization (status, grants, limits) | Admin backend, checked on every request |
-| Emails | Notification service, new queue and consumer |
+| Notifications | Notification service. The admin backend and Auth only publish events (see section 8) |
 | Data | Read straight from each service's DB with read-only users. Maintainer writes use a separate read-write user. |
 
 Permissions are **not** in the token. The admin backend loads the account on each request (30 s cache), so suspend and permission changes apply within 30 s.
@@ -95,6 +101,8 @@ Then status `pending`, emails to maintainer and applicant. Later logins: Google,
 | Refresh | Opaque, rotated, family revoke on reuse, cookie `adminRefreshToken` on path `/api/auth/admin/refresh`, 8 h absolute |
 | Pre-auth (between factors) | httpOnly cookie, 5 min, never in the URL |
 | Step-up | Sensitive actions need `auth_time` under 5 min, else the portal asks for the passkey again |
+| Passkey relying party | `admin.takshacodespace.in` in production, `localhost` in dev. Passkeys are bound to this domain, so dev passkeys do not work in production. |
+| Host guard | Auth serves `/api/auth/admin/*` only when the request host is the admin host, 404 on any other host. No change to `k8s/ingress.yml`. |
 
 Every existing service verifies `aud: takshacodespace-services`, so an admin token is rejected by all user APIs.
 
@@ -124,7 +132,7 @@ Every existing service verifies `aud: takshacodespace-services`, so an admin tok
 | payments | `view` | history days |
 | db | `query` | which databases, read-only always |
 | tickets | `view`, `reply`, `assign` | |
-| notify | `send` | audience, max per day |
+| notify | `send`, `view_deliveries`, `replay` | audience, channels, max per day |
 | audit | `view` | own or all |
 | organization | all | maintainer only, never grantable |
 | data_explorer_write | all | maintainer only, never grantable |
@@ -181,10 +189,10 @@ Payments tables have RLS on with no policies, so both Postgres roles need `BYPAS
 | Pods, restarts, events, crash reasons | K8s API |
 | CPU and RAM | `metrics.k8s.io` (metrics-server) |
 | Live logs | K8s `pods/log` |
-| Old logs, dead pods | Loki + Promtail reading container stdout |
+| Old logs, dead pods | Loki + Grafana Alloy reading container stdout (Promtail is deprecated) |
 | Traffic, errors, latency | Prometheus (kubelet/cAdvisor, ingress-nginx metrics, Auth `/metrics`) |
 
-Prometheus, Loki and Promtail install with Helm into namespace `monitoring`, outside the main skaffold loop. They need about 1 GB RAM on Docker Desktop.
+`kube-prometheus-stack`, Loki and Grafana Alloy install with Helm into namespace `monitoring`, outside the main skaffold loop (same stack as section 6 of the Kafka plan). They need 1.5 to 2 GB RAM on Docker Desktop. Grafana stays the deep engineering view, the portal shows the numbers admins need.
 
 Services do not log request ids today. Trace v1 works by user + project + time window: chat messages and tool logs, `usage_events`, pod logs in that window, ingress access log lines (`$req_id`).
 
@@ -205,18 +213,19 @@ Services do not log request ids today. Trace v1 works by user + project + time w
 | MCP tokens | Redis cache `mcptoken:<hash>` may stay stale, the explorer deletes it |
 | Project owner | AI ownership cache is stale for up to 60 s |
 
-## 8. Emails
+## 8. Notifications
 
-| Event | To |
+Design lives in `docs/plans/kafka-whatsapp-architecture.md` section 7. Summary of what this side does:
+
+| Admin side | Detail |
 |---|---|
-| New application | maintainer |
-| Application received, approved (with grants), rejected (with reason) | applicant |
-| Grants changed, suspended, reactivated, expiry in 7 days | admin |
-| Passkey added or removed | admin + maintainer |
-| Maintainer login, failed login, lock | maintainer |
-| Chat views, explorer writes, sensitive actions | maintainer (daily digest) |
+| Publishes facts, never sends mail | One small publisher module, events use the shared envelope (`eventId`, `type`, `version`, `occurredAt`, `data`) |
+| Events | Application submitted, approved, rejected. Grants changed, suspended, reactivated, access expiring. Passkey added or removed. Maintainer login, failed login, lock. Daily digest. |
+| Transport | RabbitMQ queue `admin_notification_queue` until Kafka Lesson 10, then topic `admin.events`. Only the publisher module changes. |
+| Announcements and offers to users | `notify.send` grant + step-up. Admin backend resolves the audience and publishes one event per user to the broadcast topic. |
+| Portal screens | Delivery log per user, failed deliveries and DLQ, replay, per-announcement counts |
 
-Emails carry a dashboard link only, never an approve button. Every email event is also written to the audit log, because the Notification consumer drops a message it fails to send.
+Emails carry a portal link only, never an approve button. Security events are also written to the audit log by the producer, so a failed delivery never hides them.
 
 ## 9. Admin data model (Supabase, separate project)
 
@@ -243,7 +252,11 @@ Auth Mongo, new collections: `adminidentities`, `adminpasskeys`, `adminrefreshto
 | Frontend | React 19, Redux Toolkit, SCSS tokens, `features/<name>/{components,Hooks,service,slice}` | Frontend |
 | Charts | `recharts` | new (no chart library exists yet) |
 
-Ports: backend 5010, portal 5175 (base `/admin/`). Manifests in `Admin/k8s/`, separate `Admin/skaffold.yml`, separate Ingress object for `/api/admin`. The main `skaffold.yml` lists its manifests by name, so it never picks these up.
+Local ports: backend 5010, portal 5175.
+
+Hosts: production `admin.takshacodespace.in`, local `admin.localhost`. A separate Ingress object in `Admin/k8s/` serves that host: `/api/auth/admin` to auth-service, `/api/admin` to the admin backend, everything else to the portal. Nothing admin is reachable on the public app host.
+
+Manifests in `Admin/k8s/`, separate `Admin/skaffold.yml`. The main `skaffold.yml` lists its manifests by name, so it never picks these up.
 
 ## 11. Phases
 
@@ -256,7 +269,7 @@ Ports: backend 5010, portal 5175 (base `/admin/`). Manifests in `Admin/k8s/`, se
 | P4 Analytics | Overview and analytics dashboards with charts | none | Numbers match direct DB queries |
 | P5 Cluster and logs | Pods, events, CPU/RAM, live logs, Prometheus + Loki, history search | Helm installs in `monitoring` | Logs of a deleted sandbox pod are searchable |
 | P6 Data explorer | Browse, query console, maintainer edit, diff, revert | none | Revert test passes, reader roles cannot write |
-| P7 Support and actions | Tickets, trace, stop sandbox, force logout, stop run | none | Each action audited and emailed in the digest |
+| P7 Support, notifications and actions | Tickets, trace, stop sandbox, force logout, stop run. Announcements, delivery log, DLQ replay (as far as the Kafka plan has reached) | Notification: per the Kafka plan section 7 | Each action audited and in the digest, a test announcement reaches only the chosen audience once |
 | P8 Payments (last) | Plan overrides, coupons, discounts, credit grants, refunds | Payments: additive tables and internal routes, empty tables keep today's behavior | Payments test suite passes |
 
 ## 12. Decisions (defaults until changed)
@@ -268,6 +281,9 @@ Ports: backend 5010, portal 5175 (base `/admin/`). Manifests in `Admin/k8s/`, se
 | 3 | Raw SQL writes in the explorer | No, editor only |
 | 4 | Admin access expiry | 90 days |
 | 5 | Maintainer IP allowlist | Later |
+| 6 | Admin events before Kafka exists | One new RabbitMQ queue now, moved to Kafka with Lesson 10 |
+| 7 | Scale | 1 maintainer, up to 20 admins, 1 admin backend replica |
+| 8 | Diagram format in the docs | Mermaid inside the markdown files |
 
 ## 13. Open checks before P0
 

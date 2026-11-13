@@ -117,6 +117,8 @@ flowchart LR
 | `ai.usage` | AI | `usage.recorded` | payments-usage |
 | `ai.runs` | AI | `run.started`, `run.plan_ready`, `run.finished`, `run.failed` | notification |
 | `sandbox.events` | Sandbox server | `sandbox.started`, `sandbox.stopped` | notification |
+| `admin.events` | Admin backend, Auth (admin identity) | see section 7.1 | notification |
+| `notifications.broadcast` | Admin backend | `announcement.requested` (one per recipient) | notification-broadcast |
 | `whatsapp.inbound` | Notification webhook | `message.received` | notification command handler |
 | `notifications.retry` | Notification | failed deliveries, with attempt count | notification |
 | `notifications.dlq` | Notification | deliveries that failed every retry | a human, through a UI |
@@ -226,6 +228,8 @@ Each lesson: concept, how it maps to Taksha, one check question. Build lessons e
 | 23 | Build: `admin-analytics` Kafka consumer group and rollup tables | Build | |
 | 24 | Build: Admin frontend (users, revenue, AI tokens, Kafka, system health) | Build | |
 
+Lessons 21 to 24 follow the phases in `Admin/PLAN.md`, which is the source of truth for the admin portal.
+
 ---
 
 ## 5. Open choices (decide at the lesson)
@@ -262,11 +266,13 @@ flowchart LR
     AF[Admin frontend<br/>standalone app] -- only talks to --> AS
 ```
 
+**Changed 2026-11-13.** The admin part of this diagram is the first idea. Current design is in `Admin/PLAN.md`: the admin backend reads each database with read-only users instead of `/internal/admin/*` routes, and passkeys live in Auth, not in the admin Postgres. The observability part (Prometheus, Alloy, Loki, Grafana) is unchanged.
+
 | Decision | Why |
 |---|---|
 | Grafana stays for deep engineering views. Admin dashboard is for product and business views | Do not rebuild Grafana. Admin pulls the few ops numbers it needs through the Prometheus and Loki HTTP APIs |
 | Per user numbers (tokens per user, revenue per user) come from Kafka events, **never** Prometheus labels | A `userId` label creates one time series per user and kills Prometheus (cardinality) |
-| Admin service builds its own analytics store from Kafka (`admin-analytics` group) | Never reads another service's database. Replay lets it rebuild history from day one of retention |
+| Admin analytics: read-only database queries first, Kafka rollups (`admin-analytics` group) once Kafka is live | Changed 2026-11-13. The admin portal ships before Kafka and must not need code changes in other services. Rollups replace the heavy queries later, the portal does not change. See `Admin/PLAN.md` section 5 |
 | Analytics store: Postgres with daily and hourly rollup tables | Free and enough now. ClickHouse is the scale upgrade |
 | Admin frontend talks only to Admin service (BFF) | One door to secure and audit |
 | Log collector: Grafana Alloy | Promtail is deprecated |
@@ -299,14 +305,72 @@ Prometheus finds services through `ServiceMonitor` objects, so a new service nee
 | Docker Desktop | node-exporter sees the Docker VM, not the Mac. Fine for learning |
 | Sandbox pods | Per pod series are fine because pods are short lived, but never add `userId` or `sandboxId` as a label on service metrics |
 
-### Admin login: passkeys (WebAuthn)
+### Admin login
 
-| Point | Design |
+Moved to `Admin/PLAN.md` section 3 (maintainer: random username, random password and passkey; admins: Google and passkey, approved by the maintainer). Lesson 21 still teaches how passkeys work.
+
+---
+
+## 7. Admin and notifications (added 2026-11-13)
+
+The admin portal is the biggest user of this notification system. Ownership is split:
+
+| Part | Owner | Document |
+|---|---|---|
+| Portal, login, permissions, data access, audit | Admin backend, Auth | `Admin/PLAN.md` |
+| Channels, templates, recipients, delivery log, retry, DLQ | Notification | this document |
+
+The admin backend never sends an email or WhatsApp message itself. It publishes a fact, Notification delivers it.
+
+### 7.1 Admin events (`admin.events`)
+
+Key is the admin identity id. The recipient email is in the payload, because admins are not in the user `recipients` store.
+
+| Event | Producer | Goes to | Channel |
+|---|---|---|---|
+| `admin.application_submitted` | Admin backend | maintainer, applicant | email |
+| `admin.application_approved` (with grants) | Admin backend | applicant | email |
+| `admin.application_rejected` (with reason) | Admin backend | applicant | email |
+| `admin.grants_changed`, `admin.suspended`, `admin.reactivated`, `admin.access_expiring` | Admin backend | admin | email |
+| `admin.passkey_added`, `admin.passkey_removed` | Auth | admin, maintainer | email |
+| `maintainer.logged_in`, `maintainer.login_failed`, `maintainer.locked` | Auth | maintainer | email, WhatsApp once linked |
+| `admin.digest_ready` (chat views, data edits, sensitive actions of the day) | Admin backend | maintainer | email |
+
+Rules:
+
+- Emails carry a link to the portal only. No approve button, so a stolen mailbox cannot approve an admin.
+- Security events (`maintainer.*`, `admin.passkey_*`) are also written to the admin audit log by the producer, so a failed delivery never hides them.
+
+### 7.2 Announcements and offers (admin to users)
+
+| Step | Where |
 |---|---|
-| How "biometric" works | Touch ID / Face ID only unlocks a private key on the device. The device signs a server challenge. The fingerprint never leaves the device |
-| Library | `@simplewebauthn/server` and `@simplewebauthn/browser` |
-| First admin | One time setup token (env, used once) to register the first passkey. Then registration closes |
-| Lockout safety | Register 2 passkeys (laptop + phone) and keep printed recovery codes |
-| Session | Separate admin JWT: own audience (`taksha-admin`), short TTL, never accepted by user facing services |
-| Exposure | Admin frontend and API on their own host, not under the public `/api` ingress paths |
-| Every admin action | Written to an append only audit table |
+| 1. Admin writes the announcement, picks audience (all, tier, user list) and channels | Admin portal, needs the `notify.send` grant and a passkey step-up |
+| 2. Admin backend resolves the audience to user ids and publishes one `announcement.requested` per user to `notifications.broadcast`, key `userId`, `eventId` = hash of announcement id and user id | Admin backend |
+| 3. Consumer group `notification-broadcast` sends through the channel rules below and writes `deliveries` | Notification |
+| 4. Portal shows sent, failed and skipped counts per announcement | Admin portal, read from `deliveries` |
+
+| Rule | Reason |
+|---|---|
+| Own topic and consumer group | A broadcast to every user must not delay payment receipts or login alerts |
+| Throttled sending | Mail provider and Meta rate limits |
+| `marketingOptIn` on `recipients`, unsubscribe link in every offer email | Offers are marketing, not service messages |
+| WhatsApp offers use an approved **marketing template** and only go to opted-in phones | Meta rule, and marketing templates cost money per message |
+| Dedupe on `eventId + channel` | A retry or replay never sends the same offer twice |
+
+### 7.3 What the admin portal shows from Notification
+
+| View | Source |
+|---|---|
+| Delivery log per user (what was sent, when, which channel, status) | `deliveries`, read-only |
+| Failed deliveries and the DLQ | `deliveries` with status failed, `notifications.dlq` |
+| Replay a failed delivery | Command, so HTTP: `POST /internal/deliveries/:id/replay` on Notification |
+| Channel health (emails and WhatsApp sent and failed, consumer lag) | Prometheus |
+
+This is the "human, through a UI" consumer of `notifications.dlq` from section 3.2.
+
+### 7.4 Before Kafka is built
+
+The admin portal is built before Lesson 10. Until then the same events travel on one new RabbitMQ queue, `admin_notification_queue`, with the section 3.3 envelope and a new consumer in Notification. The existing `auth_notification_queue` and `payment_notification_queue` are not reused: their consumers build a login or payment email from any message. Lesson 10 moves this queue to `admin.events` together with Auth. Only the transport changes.
+
+Before the `deliveries` store exists (Lesson 9), the portal shows only the events the admin backend published, from its own audit log.
