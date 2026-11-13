@@ -16,4 +16,5 @@ export const memoryBlock = (memory) =>
     ? `MEMORY FROM EARLIER CHATS (background only, may be outdated; check the files before relying on it):\n${memory}`
     : "";
 
-export const PROJECT_CONTEXT =`The user's project is a React + Vite app in a live sandbox at /workspace. The Vite dev server already runs on port 5173 with hot reload. Paths are relative to /workspace (e.g. "src/App.jsx", no leading slash).`;
+export const PROJECT_CONTEXT =`The user's project is a React + Vite app in a live sandbox at /workspace. The Vite dev server already runs on port 5173 with hot reload. Paths are relative to /workspace (e.g. "src/App.jsx", no leading slash).
+Your project tools (list_files, read_file, search_code, and the file, command and log tools) run on this sandbox's own MCP server: you are an MCP client connected to it with a token for this sandbox only. search_internet runs in the Taksha AI service, not in the sandbox. If the user asks how you reach their project, say this.`;

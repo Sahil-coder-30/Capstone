@@ -62,10 +62,10 @@ Object.assign(process.env, {
 
 const { privateKey, publicKey } = crypto.generateKeyPairSync("rsa", { modulusLength: 2048 });
 const jwk = { ...publicKey.export({ format: "jwk" }), kid: "auth-rsa-v1" };
-const { createTokenVerifier } = await import(path.join(AGENT_DIR, "src/auth/verifyToken.js"));
-const { setVerifierForTesting } = await import(path.join(AGENT_DIR, "src/auth/middleware.js"));
+const { createTokenVerifier } = await import(path.join(AGENT_DIR, "src/services/verifyToken.service.js"));
+const { setVerifierForTesting } = await import(path.join(AGENT_DIR, "src/middleware/auth.middleware.js"));
 setVerifierForTesting(createTokenVerifier({ ownerId: OWNER, sandboxId: SANDBOX_ID, fetchJwks: async () => ({ keys: [jwk] }) }));
-const sidecar = (await import(path.join(AGENT_DIR, "src/app.js"))).default;
+const sidecar = (await import(path.join(AGENT_DIR, "src/app/app.js"))).default;
 await new Promise((resolve) => sidecar.listen(PORT, "127.0.0.1", resolve));
 
 // ── Stand-in for Auth's POST /api/auth/sandbox-token ────────────────────────
