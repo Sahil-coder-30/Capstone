@@ -17,7 +17,7 @@ Payments features (plan editing, coupons, discounts, credit grants, refunds) com
 
 ## Related plan
 
-Notifications (email, WhatsApp, announcements, offers, delivery log, retry, DLQ) are designed in `docs/plans/kafka-whatsapp-architecture.md`, mainly section 7. This file owns the portal, login, permissions, data access and audit. The two plans depend on each other: the admin backend publishes facts, the Notification service delivers them, and the portal is the screen for the delivery log and the DLQ.
+Notifications (email, WhatsApp, announcements, offers, delivery log, retry, DLQ) are designed in `docs/plans/kafka-whatsapp-architecture.md`, mainly section 7. This file owns the portal, login, permissions, data access and audit. The two plans depend on each other: once Kafka is live, the admin backend publishes facts, the Notification service delivers them, and the portal is the screen for the delivery log and the DLQ. Until then the admin backend sends its own mail (section 8).
 
 Where the two files disagree on the admin portal, this file wins. Where they disagree on notifications or the event backbone, the other file wins.
 
@@ -32,7 +32,7 @@ No code before the documents are done. Each step is reviewed before the next sta
 | 3 | OpenAPI spec for every admin API (Auth admin routes + admin backend) | `docs/03-openapi.yaml` |
 | 4 | Design system: palette, typography, spacing, components, light and dark | `docs/04-design-system.md` |
 | 5 | UI design of every page | `docs/05-ui.md` |
-| 6 | Backend, phase by phase (section 11), after the Kafka backbone is live. Every API ships with unit, edge-case and integration tests. | `Admin/backend/` |
+| 6 | Backend, phase by phase (section 11). Every API ships with unit, edge-case and integration tests. | `Admin/backend/` |
 | 7 | Frontend, after the backend APIs of that phase are done | `Admin/frontend/` |
 | 8 | End-to-end tests across portal, Auth, admin backend and emails | `Admin/e2e/` |
 
@@ -215,17 +215,26 @@ Services do not log request ids today. Trace v1 works by user + project + time w
 
 ## 8. Notifications
 
-Design lives in `docs/plans/kafka-whatsapp-architecture.md` section 7. Summary of what this side does:
+Decided 2026-11-13: the admin backend is built first. Kafka comes later, for the whole project at once (`docs/plans/kafka-whatsapp-architecture.md`). Until then the admin backend sends its own mail with `nodemailer`. No RabbitMQ queue is added.
 
-| Admin side | Detail |
+### 8.1 Now: admin mailer
+
+| Part | Design |
 |---|---|
-| Publishes facts, never sends mail | One small publisher module, events use the shared envelope (`eventId`, `type`, `version`, `occurredAt`, `data`) |
 | Events | Application submitted, approved, rejected. Grants changed, suspended, reactivated, access expiring. Passkey added or removed. Maintainer login, failed login, lock. Daily digest. |
-| Transport | Kafka only, topic `admin.events`. No RabbitMQ queue. The admin backend writes an `outbox` row in the same transaction as the change and a relay publishes it. Auth publishes its admin identity events directly with retry. |
-| Announcements and offers to users | `notify.send` grant + step-up. Admin backend resolves the audience and publishes one event per user to the broadcast topic. |
-| Portal screens | Delivery log per user, failed deliveries and DLQ, replay, per-announcement counts |
+| Admin backend events | Written to the `outbox` table in the same transaction as the change (approve row + outbox row commit together). |
+| Auth events (passkey, maintainer login) | Auth only writes them to `adminauthevents`, which it keeps anyway for the audit. The admin mailer reads new rows with its read-only Mongo user and keeps its position in `mail_cursor`. Auth needs no SMTP and no broker. |
+| Mailer worker | Inside the admin backend. Every 10 s: picks unsent outbox rows and new Auth events, sends with `nodemailer` (own SMTP settings), marks sent. 3 attempts with backoff, then `failed`, shown in the portal. |
+| Duplicate guard | Each mail has the event id. A row is marked sent only after the SMTP server accepts it, and a crash between send and mark can repeat one mail at most. |
+| Templates | `Admin/backend/src/emails/`, plain HTML, same look as the Notification templates. |
 
-Emails carry a portal link only, never an approve button. Security events are also written to the audit log by the producer, so a failed delivery never hides them.
+Emails carry a portal link only, never an approve button. Security events are written to the audit log too, so a failed mail never hides them.
+
+### 8.2 Later: Kafka
+
+When Kafka is built for the whole project, only the worker's last step changes: it publishes the outbox row to `admin.events` instead of sending mail, and Notification takes over the templates. Announcements and offers to users wait for Kafka, because bulk sending, opt-in, unsubscribe and dedupe belong to Notification. Design: Kafka plan section 7.
+
+Portal screens that come with Kafka: delivery log per user, failed deliveries and DLQ, replay, per-announcement counts.
 
 ## 9. Admin data model (Supabase, separate project)
 
@@ -236,7 +245,8 @@ Emails carry a portal link only, never an approve button. Security events are al
 | `role_templates` | id, name, description, grants jsonb |
 | `audit_logs` | id, actor_id, actor_kind, action, target_type, target_id, before jsonb, after jsonb, reason, ip, user_agent, created_at. A trigger blocks UPDATE and DELETE. |
 | `tickets`, `ticket_messages` | support |
-| `outbox` | id, event_id, topic, key, payload, created_at, published_at. Same shape as the Payments outbox in the Kafka plan section 3.4. |
+| `outbox` | id, event_id, type, recipient, payload, attempts, status, created_at, sent_at. Same idea as the Payments outbox in the Kafka plan section 3.4, so the Kafka switch reuses it. |
+| `mail_cursor` | source, last_id. Position of the mailer in Auth `adminauthevents`. |
 
 Auth Mongo, new collections: `adminidentities`, `adminpasskeys`, `adminrefreshtokens`, `adminauthevents`.
 
@@ -250,7 +260,7 @@ Auth Mongo, new collections: `adminidentities`, `adminpasskeys`, `adminrefreshto
 | K8s | `@kubernetes/client-node` | Sandbox server |
 | Token verify | `jsonwebtoken` + JWKS fetch keyed by `kid` | Payments |
 | Passkeys | `@simplewebauthn/server` (Auth), `@simplewebauthn/browser` (portal) | new |
-| Events | The Kafka client picked at Lesson 6 of the Kafka plan, outbox relay | Kafka plan |
+| Mail | `nodemailer` from the outbox worker, Kafka publisher later | Notification |
 | Frontend | React 19, Redux Toolkit, SCSS tokens, `features/<name>/{components,Hooks,service,slice}` | Frontend |
 | Charts | `recharts` | new (no chart library exists yet) |
 
@@ -262,18 +272,19 @@ Manifests in `Admin/k8s/`, separate `Admin/skaffold.yml`. The main `skaffold.yml
 
 ## 11. Phases
 
-Prerequisite: the Kafka backbone (Kafka plan Lessons 3 to 10) is live before P1, because P1 is the first phase that sends mail and all mail runs on Kafka. P0 and the documents (workflow steps 1 to 5) do not need it.
+No phase waits for Kafka. Mail goes through the admin mailer (section 8.1).
 
 | Phase | Scope | Changes outside `Admin/` | Done when |
 |---|---|---|---|
 | P0 Foundations | Backend and portal skeletons, admin Supabase project and migrations, `Admin/k8s`, `Admin/skaffold.yml`, DB users and K8s SA | Infra only | Admin pod healthy, main `skaffold dev` unchanged |
-| P1 Identity | Maintainer CLI + login, admin Google + passkey, tokens, refresh, step-up, admin events on Kafka | Auth: 2 lines in `app.js`, 1 dependency, new files, publishes to `admin.events`. Notification: admin templates in its Kafka consumer | Maintainer and a test admin log in, user login unchanged, generator test passes, the login alert email arrives |
+| P1 Identity | Maintainer CLI + login, admin Google + passkey, tokens, refresh, step-up, admin mailer and outbox | Auth: 2 lines in `app.js`, 1 dependency, new files | Maintainer and a test admin log in, user login unchanged, generator test passes, the login alert email arrives |
 | P2 Organization | Applications, approve/reject, templates, grants matrix, limits, expiry, suspend, audit, emails | none | `can()` and limit tests pass, all emails arrive |
 | P3 Data views | Users 360, projects, chats, AI runs and usage, payments (read) | none | Masking and history-limit tests pass |
 | P4 Analytics | Overview and analytics dashboards with charts | none | Numbers match direct DB queries |
 | P5 Cluster and logs | Pods, events, CPU/RAM, live logs, Prometheus + Loki, history search | Helm installs in `monitoring` | Logs of a deleted sandbox pod are searchable |
 | P6 Data explorer | Browse, query console, maintainer edit, diff, revert | none | Revert test passes, reader roles cannot write |
-| P7 Support, notifications and actions | Tickets, trace, stop sandbox, force logout, stop run. Announcements, delivery log, DLQ replay (as far as the Kafka plan has reached) | Notification: per the Kafka plan section 7 | Each action audited and in the digest, a test announcement reaches only the chosen audience once |
+| P7 Support and actions | Tickets, trace, stop sandbox, force logout, stop run | none | Each action audited and in the digest |
+| Kafka (project wide, later) | Mailer publishes to `admin.events`, announcements and offers, delivery log, DLQ replay | Per the Kafka plan | A test announcement reaches only the chosen audience once |
 | P8 Payments (last) | Plan overrides, coupons, discounts, credit grants, refunds | Payments: additive tables and internal routes, empty tables keep today's behavior | Payments test suite passes |
 
 ## 12. Decisions (defaults until changed)
@@ -285,7 +296,7 @@ Prerequisite: the Kafka backbone (Kafka plan Lessons 3 to 10) is live before P1,
 | 3 | Raw SQL writes in the explorer | No, editor only |
 | 4 | Admin access expiry | 90 days |
 | 5 | Maintainer IP allowlist | Later |
-| 6 | Broker for admin events and mail | Kafka only (decided 2026-11-13). No new RabbitMQ queue. Learn and build Kafka first, then implement the admin backend. |
+| 6 | Mail before Kafka | Admin backend sends its own mail with `nodemailer` from its outbox. No RabbitMQ queue. Kafka later for the whole project (decided 2026-11-13). |
 | 7 | Scale | 1 maintainer, up to 20 admins, 1 admin backend replica |
 | 8 | Diagram format in the docs | Mermaid inside the markdown files |
 

@@ -320,7 +320,7 @@ The admin portal is the biggest user of this notification system. Ownership is s
 | Portal, login, permissions, data access, audit | Admin backend, Auth | `Admin/PLAN.md` |
 | Channels, templates, recipients, delivery log, retry, DLQ | Notification | this document |
 
-The admin backend never sends an email or WhatsApp message itself. It publishes a fact, Notification delivers it.
+Once Kafka is live, the admin backend never sends an email or WhatsApp message itself. It publishes a fact, Notification delivers it. Until then see 7.4.
 
 ### 7.1 Admin events (`admin.events`)
 
@@ -369,13 +369,11 @@ Rules:
 
 This is the "human, through a UI" consumer of `notifications.dlq` from section 3.2.
 
-### 7.4 Kafka only, and build order
+### 7.4 Build order
 
-Decided 2026-11-13: no new RabbitMQ queue. Every admin event and every email runs on Kafka, in line with the "never run both" decision in section 2.
+Decided 2026-11-13: the admin backend is built first. Kafka is built later for the whole project at once. No new RabbitMQ queue is added in between.
 
-| Point | Design |
+| Stage | Admin mail |
 |---|---|
-| Order | Lessons 3 to 10 (learn, build the backbone, remove RabbitMQ) come before the first admin backend phase that sends mail (`Admin/PLAN.md` P1). The admin documents (HLD, PRD, OpenAPI, design system, UI) need no broker and can go on in parallel. |
-| Admin backend producer | Transactional outbox in the admin Postgres, same pattern as section 3.4: the approval row and the outbox row commit together, a relay publishes to `admin.events`. |
-| Auth producer | Publishes admin identity events directly with retry, like its other events (section 3.4 note). |
-| Consumers | Group `notification` reads `admin.events`, group `notification-broadcast` reads `notifications.broadcast`. Dedupe, retry and DLQ as in section 3.5. |
+| Now | The admin backend sends its own mail with `nodemailer` from an outbox table in its Postgres (`Admin/PLAN.md` section 8.1). Auth writes its admin identity events to Mongo `adminauthevents` and the admin mailer reads them. |
+| Kafka build | The admin outbox worker publishes to `admin.events` instead of sending mail. Auth publishes its admin identity events directly with retry. Group `notification` takes over the admin templates. Group `notification-broadcast` and the announcement flow (7.2) start here. |
