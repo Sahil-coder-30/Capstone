@@ -184,3 +184,30 @@ test("scoped tokens (external agents) see only their tools and can not use REST"
   const rest = await fetch(`http://127.0.0.1:${PORT}/api/agent/list-files`, { headers: { Authorization: `Bearer ${scoped("read write exec")}` } });
   assert.equal(rest.status, 403);
 });
+
+test("coding tools are MCP only: the old REST routes are gone", async () => {
+  const auth = { Authorization: `Bearer ${sandboxToken}` };
+  for (const path of ["list-files", "read-file?files=src/App.jsx", "vite-runtime-errors", "search-code?pattern=x"]) {
+    assert.equal((await fetch(`http://127.0.0.1:${PORT}/api/agent/${path}`, { headers: auth })).status, 404, path);
+  }
+  for (const path of ["create-file", "patch-file", "exec"]) {
+    assert.equal((await fetch(`http://127.0.0.1:${PORT}/api/agent/${path}`, { method: "POST", headers: auth })).status, 404, path);
+  }
+  assert.equal((await fetch(`http://127.0.0.1:${PORT}/api/agent/ready`)).status, 200, "probes stay");
+});
+
+test("a plain JSON-RPC tools/call works without initialize (what the editor sends)", async () => {
+  const res = await fetch(`http://127.0.0.1:${PORT}/mcp`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${sandboxToken}`,
+      "Content-Type": "application/json",
+      Accept: "application/json, text/event-stream",
+    },
+    body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/call", params: { name: "read_file", arguments: { files: ["src/App.jsx"] } } }),
+  });
+  assert.equal(res.status, 200);
+  const body = await res.json();
+  assert.equal(body.result.isError, false);
+  assert.match(JSON.parse(body.result.content[0].text).files[0].content, /function App/);
+});

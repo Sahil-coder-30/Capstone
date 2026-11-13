@@ -25,7 +25,8 @@ app.use(requireOwner);
 app.use(express.json({ limit: "5mb" }));
 app.use(express.urlencoded({ extended: true, limit: "5mb" }));
 
-// REST handlers by name, so the MCP server (mcp/server.js) runs the same code.
+// Coding-tool handlers by name. They are NOT Express routes: the only way to
+// reach them is POST /mcp (mcp/server.js runs them through invokeRoute).
 const routes = {};
 
 const httpServer = http.createServer(app);
@@ -49,8 +50,6 @@ const httpServer = http.createServer(app);
  *   Use this tool to check if the Agent API server is alive and running.
  *   Call this before making any other API calls to confirm the agent is reachable.
  *
- * @method  GET
- * @route   /api/agent/health
  * @input   None — no query params, no body required.
  *
  * @example
@@ -80,8 +79,6 @@ app.get("/api/agent/health", (req, res) => {
  *   Similar to health-check but specifically signals readiness (used by Kubernetes
  *   readiness probes). Call this before sending file operation requests.
  *
- * @method  GET
- * @route   /api/agent/ready
  * @input   None — no query params, no body required.
  *
  * @example
@@ -154,8 +151,6 @@ app.post("/api/agent/report-error", (req, res) => {
  *   Automatically skips "node_modules" and ".git" directories.
  *   Always call this first to understand the project structure before reading or editing files.
  *
- * @method  GET
- * @route   /api/agent/list-files
  * @input   None — no query params, no body required.
  *
  * @example
@@ -265,7 +260,7 @@ io.on("connection",(socket) => {
 })
 
 
-app.get("/api/agent/list-files", routes.listFiles = async (req, res) => {
+routes.listFiles = async (req, res) => {
   const listFiles = async (dir, basePath = "") => {
     let entries;
     try {
@@ -299,7 +294,7 @@ app.get("/api/agent/list-files", routes.listFiles = async (req, res) => {
   } catch (err) {
     res.status(500).json({ status: "error", message: err.message });
   }
-});
+};
 
 // ─── Read File ────────────────────────────────────────────────────────────────
 
@@ -315,8 +310,6 @@ app.get("/api/agent/list-files", routes.listFiles = async (req, res) => {
  *   If a file fails (not found, is a directory, access denied), that entry returns an "error"
  *   field instead of "content" — other files in the batch still succeed.
  *
- * @method  GET
- * @route   /api/agent/read-file
  *
  * @queryparam {string} files
  *   Required. Comma-separated list of relative file paths to read.
@@ -361,7 +354,7 @@ app.get("/api/agent/list-files", routes.listFiles = async (req, res) => {
  *       ]
  *     }
  */
-app.get("/api/agent/read-file", routes.readFile = async (req, res) => {
+routes.readFile = async (req, res) => {
   const { files } = req.query;
 
   if (!files || typeof files !== "string") {
@@ -408,7 +401,7 @@ app.get("/api/agent/read-file", routes.readFile = async (req, res) => {
   );
 
   res.status(200).json({ status: "ok", files: results });
-});
+};
 
 // ─── Update File ──────────────────────────────────────────────────────────────
 
@@ -424,8 +417,6 @@ app.get("/api/agent/read-file", routes.readFile = async (req, res) => {
  *   NOTE: This fully replaces the file content. If you only want to change part of a file,
  *   read it first with read-file, modify the content, then send the full updated content here.
  *
- * @method  PATCH
- * @route   /api/agent/update-file
  *
  * @body {Object} JSON body
  * @body {Array}  updates — Required. Array of { file: string, content: string } objects.
@@ -487,7 +478,7 @@ app.get("/api/agent/read-file", routes.readFile = async (req, res) => {
  *       ]
  *     }
  */
-app.patch("/api/agent/update-file", routes.updateFile = async (req, res) => {
+routes.updateFile = async (req, res) => {
   const { updates } = req.body;
 
   if (!updates || !Array.isArray(updates) || updates.length === 0) {
@@ -528,7 +519,7 @@ app.patch("/api/agent/update-file", routes.updateFile = async (req, res) => {
   );
 
   res.status(200).json({ status: "ok", results });
-});
+};
 
 // ─── Create File ──────────────────────────────────────────────────────────────
 
@@ -546,8 +537,6 @@ app.patch("/api/agent/update-file", routes.updateFile = async (req, res) => {
  *   and "content" (file content as a string) property.
  *   Always prefer batching multiple file creations into a single call.
  *
- * @method  POST
- * @route   /api/agent/create-file
  *
  * @body {Object} JSON body
  * @body {Array}  files — Required. Array of { file: string, content: string } objects.
@@ -634,7 +623,7 @@ app.patch("/api/agent/update-file", routes.updateFile = async (req, res) => {
  *       ]
  *     }
  */
-app.post("/api/agent/create-file", routes.createFile = async (req, res) => {
+routes.createFile = async (req, res) => {
   const { files } = req.body;
 
   if (!files || !Array.isArray(files) || files.length === 0) {
@@ -677,7 +666,7 @@ app.post("/api/agent/create-file", routes.createFile = async (req, res) => {
   );
 
   res.status(201).json({ status: "ok", results });
-});
+};
 
 // ─── Delete File ──────────────────────────────────────────────────────────────
 
@@ -688,8 +677,6 @@ app.post("/api/agent/create-file", routes.createFile = async (req, res) => {
  *   Delete one or more files/directories in the workspace.
  *   Paths must be relative to the workspace root (e.g. "src/App.jsx", NOT "/workspace/src/App.jsx").
  *
- * @method  DELETE
- * @route   /api/agent/delete-file
  *
  * @queryparam {string} file
  *   Optional. Single relative path of the file/directory to delete.
@@ -710,7 +697,7 @@ app.post("/api/agent/create-file", routes.createFile = async (req, res) => {
  *       ]
  *     }
  */
-app.delete("/api/agent/delete-file", routes.deleteFile = async (req, res) => {
+routes.deleteFile = async (req, res) => {
   let fileList = [];
   const { file } = req.query;
   const { files } = req.body;
@@ -756,7 +743,7 @@ app.delete("/api/agent/delete-file", routes.deleteFile = async (req, res) => {
   );
 
   res.status(200).json({ status: "ok", results });
-});
+};
 
 
 // ─── Patch File ───────────────────────────────────────────────────────────────
@@ -774,8 +761,6 @@ app.delete("/api/agent/delete-file", routes.deleteFile = async (req, res) => {
  *   - The file must already exist.
  *   - Paths must be relative to /workspace.
  *
- * @method  POST
- * @route   /api/agent/patch-file
  *
  * @body {Object} JSON body
  *   - filePath {string} Required. Relative path (e.g. "src/App.jsx").
@@ -802,7 +787,7 @@ app.delete("/api/agent/delete-file", routes.deleteFile = async (req, res) => {
  *   Response (200 — ambiguous):
  *     { "success": false, "error": "oldStr matches 3 times", "hint": "..." }
  */
-app.post("/api/agent/patch-file", routes.patchFile = async (req, res) => {
+routes.patchFile = async (req, res) => {
   const { filePath, oldStr, newStr } = req.body;
 
   if (!filePath || typeof filePath !== "string") {
@@ -878,7 +863,7 @@ app.post("/api/agent/patch-file", routes.patchFile = async (req, res) => {
         : `Patch error: ${err.message}`,
     });
   }
-});
+};
 
 // ─── Search Code ──────────────────────────────────────────────────────────────
 
@@ -905,8 +890,6 @@ app.post("/api/agent/patch-file", routes.patchFile = async (req, res) => {
  *   Overall search is capped at 8 seconds — if timedOut is true, results are partial;
  *   narrow fileGlob and retry rather than re-running the same broad search.
  *
- * @method  GET
- * @route   /api/agent/search-code
  *
  * @queryparam {string}  pattern        Required. Text or regex pattern to search for. Max 500 chars.
  * @queryparam {boolean} isRegex        Optional. Treat pattern as a regex. Default: false (literal text search).
@@ -1080,7 +1063,7 @@ async function walkTextFiles(dir, basePath = "", out = [], skipped = { count: 0 
   return out;
 }
 
-app.get("/api/agent/search-code", routes.searchCode = async (req, res) => {
+routes.searchCode = async (req, res) => {
   const validationError = validateSearchInputs(req.query);
   if (validationError) {
     return res.status(400).json({ status: "error", ...validationError });
@@ -1210,7 +1193,7 @@ app.get("/api/agent/search-code", routes.searchCode = async (req, res) => {
       hint: "This is a server-side failure, not a bad query — retry, or narrow fileGlob if the workspace is very large.",
     });
   }
-});
+};
 
 
 /**
@@ -1225,8 +1208,6 @@ app.get("/api/agent/search-code", routes.searchCode = async (req, res) => {
  *   Commands timeout after 30 seconds and output is limited to 1MB to prevent hanging
  *   and memory exhaustion.
  *
- * @method  POST
- * @route   /api/agent/exec
  *
  * @body {Object} JSON body (required)
  *   - command {string} Required. Non-empty shell command to execute (e.g., "npm install", "ls -la")
@@ -1243,7 +1224,7 @@ app.get("/api/agent/search-code", routes.searchCode = async (req, res) => {
  *   ✅ TIMEOUT PROTECTION:\n *   - 30-second timeout prevents commands from hanging indefinitely\n *   - Helps prevent DoS attacks and worker thread exhaustion\n *   - Timed-out processes are killed automatically\n *   - Response includes timedOut flag to indicate timeout\n *
  *   ✅ OUTPUT SIZE PROTECTION:\n *   - stdout/stderr limited to 1MB each (1,048,576 bytes)\n *   - Prevents memory exhaustion from huge output streams\n *   - Excess output is truncated with warning message\n *   - maxBuffer option set to allow full utilization of limit\n *\n * @improvements-completed\n *   ✓ Added input validation for command parameter\n *   ✓ Added 30-second timeout to prevent hanging\n *   ✓ Added 1MB output size limit per stream\n *   ✓ Added timedOut flag to response\n *   ✓ Improved error messages and HTTP status codes\n *   ✓ Added edge case handling for empty/whitespace subDir\n *   ✓ Better path traversal check with path.sep consideration\n */
 
-app.post("/api/agent/exec", routes.exec = (req, res) => {
+routes.exec = (req, res) => {
   const { command, subDir } = req.body;
 
   // ─── VALIDATION: Command Parameter ────────────────────────────────────────
@@ -1316,13 +1297,13 @@ app.post("/api/agent/exec", routes.exec = (req, res) => {
       timedOut,
     });
   });
-});
+};
 
 // ─── Dev server logs ───────────────────────────────────────────────────────
 // Read from the shared log file (workspace/logs.js). Same response shape as
 // before, when the logs came from the Kubernetes API.
 
-app.get("/api/agent/vite-runtime-errors", routes.viteRuntimeErrors = async (req, res) => {
+routes.viteRuntimeErrors = async (req, res) => {
   const podName = process.env.HOSTNAME || null;
   const namespace = "default";
   try {
@@ -1336,7 +1317,7 @@ app.get("/api/agent/vite-runtime-errors", routes.viteRuntimeErrors = async (req,
         : { success: false, error: message, podName, namespace },
     );
   }
-});
+};
 
 // ─── MCP ───────────────────────────────────────────────────────────────────
 // POST /mcp exposes the certified tools (mcp/tools.js) over the same handlers.
