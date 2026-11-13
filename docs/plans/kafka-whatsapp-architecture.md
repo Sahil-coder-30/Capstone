@@ -369,8 +369,13 @@ Rules:
 
 This is the "human, through a UI" consumer of `notifications.dlq` from section 3.2.
 
-### 7.4 Before Kafka is built
+### 7.4 Kafka only, and build order
 
-The admin portal is built before Lesson 10. Until then the same events travel on one new RabbitMQ queue, `admin_notification_queue`, with the section 3.3 envelope and a new consumer in Notification. The existing `auth_notification_queue` and `payment_notification_queue` are not reused: their consumers build a login or payment email from any message. Lesson 10 moves this queue to `admin.events` together with Auth. Only the transport changes.
+Decided 2026-11-13: no new RabbitMQ queue. Every admin event and every email runs on Kafka, in line with the "never run both" decision in section 2.
 
-Before the `deliveries` store exists (Lesson 9), the portal shows only the events the admin backend published, from its own audit log.
+| Point | Design |
+|---|---|
+| Order | Lessons 3 to 10 (learn, build the backbone, remove RabbitMQ) come before the first admin backend phase that sends mail (`Admin/PLAN.md` P1). The admin documents (HLD, PRD, OpenAPI, design system, UI) need no broker and can go on in parallel. |
+| Admin backend producer | Transactional outbox in the admin Postgres, same pattern as section 3.4: the approval row and the outbox row commit together, a relay publishes to `admin.events`. |
+| Auth producer | Publishes admin identity events directly with retry, like its other events (section 3.4 note). |
+| Consumers | Group `notification` reads `admin.events`, group `notification-broadcast` reads `notifications.broadcast`. Dedupe, retry and DLQ as in section 3.5. |
