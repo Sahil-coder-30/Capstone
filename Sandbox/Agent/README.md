@@ -79,20 +79,36 @@ It also uses `chokidar` to watch `/workspace` for file changes and emit real-tim
 - **Design patterns used:**
   - **Sidecar pattern** — This service is not independently deployed; it always runs co-located with the Vite sandbox container in the same K8s Pod, sharing a volume mount. The boundary is enforced at the pod template level in the Sandbox Control Server.
   - **Event bridge** — PTY output and file watcher events are bridged directly to Socket.io without buffering or transformation. This keeps the terminal latency minimal and avoids a separate polling mechanism.
-  - **Single `app.js` architecture** — The entire service logic lives in one file (`src/app.js`) because the surface area is small and well-bounded. A layered controller structure would be premature overhead for a service with this scope.
+  - **Layered layout** — Same folder layout as the Sandbox server (`app/`, `routes/`, `controllers/`, `services/`, `middleware/`), plus `sockets/`, `mcp/` and `workspace/`.
 - **Key libraries:** `@modelcontextprotocol/sdk`, `socket.io`, `node-pty`, `chokidar`, `yjs`, `express`, `jsonwebtoken`, `morgan`
 
 ---
 
 ## 🏗️ Architecture & Design Patterns
 
-Tool handlers live in `src/app.js` as plain functions (`routes`) that only `src/mcp/server.js` runs; Express serves `/mcp`, the probes and `report-error`. Socket.io handles terminal I/O and file-watcher event streaming. The `node-pty` process is spawned once per connected terminal client and torn down on disconnect. The `chokidar` watcher is a single instance watching `/workspace`, broadcasting events to all connected Socket.io clients in the room.
+Tool handlers live in `src/controllers/` as plain functions (`toolHandlers`) that only `src/mcp/server.js` runs; Express serves `/mcp`, the probes and `report-error`. Socket.io handles terminal I/O and file-watcher event streaming. One `node-pty` shell is spawned at startup and shared by every connected terminal client. The `chokidar` watcher is a single instance watching `/workspace`, broadcasting events to all connected Socket.io clients.
 
 ```
 Sandbox/Agent/
-├── server.js               # Entry — starts Express+Socket.io on port 3000
+├── server.js                         # Entry: HTTP server, attaches Socket.io, listens on 3000
 └── src/
-    └── app.js              # All logic: file API routes, PTY bridge, chokidar watcher, Socket.io handlers
+    ├── app/app.js                    # Express: CORS, owner auth, body parsers, probes, routes, MCP mount
+    ├── routes/agent.routes.js        # POST /api/agent/report-error (open)
+    ├── controllers/
+    │   ├── index.js                  # toolHandlers map used by the MCP server
+    │   ├── files.controller.js       # list, read, create, update, delete, patch
+    │   ├── search.controller.js      # search-code
+    │   ├── exec.controller.js        # execute-command
+    │   └── logs.controller.js        # vite-runtime-errors, report-error
+    ├── services/
+    │   ├── search.service.js         # search input checks, workspace walk
+    │   ├── terminal.service.js       # node-pty shell
+    │   ├── workspaceWatcher.service.js  # chokidar watcher
+    │   └── verifyToken.service.js    # JWKS token verifier
+    ├── middleware/auth.middleware.js # CORS, requireOwner, requireOwnerSocket, scopes
+    ├── sockets/socket.js             # Socket.io: terminal events, workspace-change, emitToAll
+    ├── mcp/                          # MCP endpoint and the 9 certified tools
+    └── workspace/                    # path checks, Vite log reader, error report cleaning
 ```
 
 ---
@@ -149,11 +165,11 @@ The only way to the coding tools, as **certified MCP tools**, for the AI service
 | Rule | Where |
 |---|---|
 | Only a fixed, frozen list of 9 tools: `list_files`, `read_file`, `create_file`, `update_file`, `patch_file`, `delete_file`, `search_code`, `execute_command`, `get_vite_runtime_errors`. Nothing registers at runtime. | [`src/mcp/tools.js`](./src/mcp/tools.js) |
-| Each tool runs its handler (`routes` in `app.js`, not registered with Express) in-process. Failures set `isError`. | [`src/mcp/invokeRoute.js`](./src/mcp/invokeRoute.js) |
+| Each tool runs its handler (`toolHandlers` in `src/controllers/`, not registered with Express) in-process. Failures set `isError`. | [`src/mcp/invokeRoute.js`](./src/mcp/invokeRoute.js) |
 | `execute_command` refuses file commands (`cat`, `sed`, ...) and dev servers | `shellCommandProblem` in `tools.js` |
 | Stateless Streamable HTTP (fresh server per request), JSON responses, `GET`/`DELETE` give 405 | [`src/mcp/server.js`](./src/mcp/server.js) |
 | DNS-rebinding protection: Host must be `sandbox-service-<id>:3000`, `<id>.agent.localhost`, localhost, or `MCP_ALLOWED_HOSTS` | `server.js` |
-| Owner token required | `src/auth/` |
+| Owner token required | `src/middleware/auth.middleware.js` |
 
 Try it: `npx @modelcontextprotocol/inspector` against a port-forwarded `:3000/mcp` with `Authorization: Bearer <your access token>`. Tests: `npm test` runs the real app against a temp workspace with the SDK client.
 
@@ -167,7 +183,7 @@ Try it: `npx @modelcontextprotocol/inspector` against a port-forwarded `:3000/mc
 | Yjs sync events | Bidirectional | Collaborative document state sync |
 
 ### Contract source of truth
-[`src/app.js`](./src/app.js) — all route and Socket.io event definitions are co-located in one file.
+[`src/mcp/tools.js`](./src/mcp/tools.js) for the tools, [`src/sockets/socket.js`](./src/sockets/socket.js) for the Socket.io events.
 
 ---
 
@@ -181,7 +197,7 @@ Try it: `npx @modelcontextprotocol/inspector` against a port-forwarded `:3000/mc
 - **Tracing / Metrics:** Not implemented.
 
 ### Security & compliance
-- **AuthN/AuthZ:** `/mcp` and the Socket.IO handshake (terminal, file sync) need the **sandbox owner's** token, checked inside the sidecar ([`src/auth/`](./src/auth/)). The check runs here and not in the router, because the preview app's Vite proxy can also reach port 3000.
+- **AuthN/AuthZ:** `/mcp` and the Socket.IO handshake (terminal, file sync) need the **sandbox owner's** token, checked inside the sidecar ([`src/middleware/auth.middleware.js`](./src/middleware/auth.middleware.js)). The check runs here and not in the router, because the preview app's Vite proxy can also reach port 3000.
 
   | Token | Sent by | Rule |
   |---|---|---|

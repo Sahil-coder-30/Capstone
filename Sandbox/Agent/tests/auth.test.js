@@ -7,8 +7,8 @@ import crypto from "node:crypto";
 import express from "express";
 import jwt from "jsonwebtoken";
 
-import { createTokenVerifier } from "../src/auth/verifyToken.js";
-import { corsForEditor, requireOwner, requireOwnerSocket, setVerifierForTesting } from "../src/auth/middleware.js";
+import { createTokenVerifier } from "../src/services/verifyToken.service.js";
+import { corsForEditor, requireOwner, requireOwnerSocket, setVerifierForTesting } from "../src/middleware/auth.middleware.js";
 
 const OWNER = "owner-1";
 const SANDBOX = "sbx-abc";

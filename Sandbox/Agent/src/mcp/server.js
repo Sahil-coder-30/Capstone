@@ -3,7 +3,7 @@
 //
 // - Stateless Streamable HTTP: a fresh server and transport per request, no
 //   session to lose when the pod restarts.
-// - Auth is the app-wide requireOwner (auth/middleware.js); this file only
+// - Auth is the app-wide requireOwner (middleware/auth.middleware.js); this file only
 //   ever sees requests from the sandbox owner.
 // - Only the certified tools (tools.js) are registered, and for a scoped
 //   token (external agent) only the tools in its scopes.
@@ -12,7 +12,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { CERTIFIED_TOOLS } from "./tools.js";
 import { invokeRoute } from "./invokeRoute.js";
-import { scopesOf } from "../auth/middleware.js";
+import { scopesOf } from "../middleware/auth.middleware.js";
 
 const SERVER_INFO = { name: "taksha-sandbox", version: "1.0.0" };
 

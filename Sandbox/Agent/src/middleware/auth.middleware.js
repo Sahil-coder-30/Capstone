@@ -1,11 +1,11 @@
-// middleware.js
-// Express and Socket.IO guards built on verifyToken.js, plus CORS for the
+// auth.middleware.js
+// Express and Socket.IO guards built on services/verifyToken.service.js, plus CORS for the
 // editor's origin. Every route needs the owner's token except the ones in
 // PUBLIC_PATHS:
 //   - health / ready: Kubernetes probes
 //   - report-error: the user's preview app posts browser errors without a token
 
-import { AuthError, bearerFrom, createTokenVerifier } from "./verifyToken.js";
+import { AuthError, bearerFrom, createTokenVerifier } from "../services/verifyToken.service.js";
 
 const PUBLIC_PATHS = new Set(["/api/agent/health", "/api/agent/ready", "/api/agent/report-error"]);
 

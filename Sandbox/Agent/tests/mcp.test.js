@@ -34,8 +34,8 @@ Object.assign(process.env, {
 
 const { privateKey, publicKey } = crypto.generateKeyPairSync("rsa", { modulusLength: 2048 });
 const jwk = { ...publicKey.export({ format: "jwk" }), kid: "auth-rsa-v1" };
-const { createTokenVerifier } = await import("../src/auth/verifyToken.js");
-const { setVerifierForTesting } = await import("../src/auth/middleware.js");
+const { createTokenVerifier } = await import("../src/services/verifyToken.service.js");
+const { setVerifierForTesting } = await import("../src/middleware/auth.middleware.js");
 setVerifierForTesting(createTokenVerifier({ ownerId: OWNER, sandboxId: SANDBOX, fetchJwks: async () => ({ keys: [jwk] }) }));
 
 const sandboxToken = jwt.sign({ sub: OWNER, sbx: SANDBOX }, privateKey, {
@@ -46,7 +46,7 @@ const sandboxToken = jwt.sign({ sub: OWNER, sbx: SANDBOX }, privateKey, {
   expiresIn: "2h",
 });
 
-const httpServer = (await import("../src/app.js")).default;
+const httpServer = http.createServer((await import("../src/app/app.js")).default);
 await new Promise((resolve) => httpServer.listen(PORT, "127.0.0.1", resolve));
 after(() => httpServer.close());
 

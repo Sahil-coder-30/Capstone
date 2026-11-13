@@ -1,6 +1,6 @@
 import { k8sCoreV1Api } from "./config.js";
 
-// The sidecar only accepts tokens of the sandbox owner (see Sandbox/Agent/src/auth).
+// The sidecar only accepts tokens of the sandbox owner (see Sandbox/Agent/src/middleware/auth.middleware.js).
 const agentAuthEnv = (sandboxId, ownerId) => [
   { name: "SANDBOX_ID", value: sandboxId },
   { name: "OWNER_USER_ID", value: String(ownerId) },

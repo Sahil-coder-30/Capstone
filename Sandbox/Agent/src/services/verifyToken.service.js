@@ -1,4 +1,4 @@
-// verifyToken.js
+// verifyToken.service.js
 // Decides whether a bearer token may use THIS sandbox.
 //
 // Accepted:

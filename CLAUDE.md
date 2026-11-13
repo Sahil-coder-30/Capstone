@@ -148,7 +148,7 @@ AI service: `cd Ai_orchestration && npm test` is offline (no network, no DB) and
 
 ### Known gaps and traps
 
-- **Sidecar auth lives in the sidecar, not the router** (`Sandbox/Agent/src/auth/`). The preview app's Vite proxy (`Sandbox/template/vite.config.js`) also reaches port 3000, so never trust "came from localhost". Open routes: `health`, `ready`, `report-error`. The AI service gets a 2-hour sandbox token from `POST /api/auth/sandbox-token` per run (`Ai_orchestration/src/agent/tools/sandboxAuth.js`), renewed on plan approve.
+- **Sidecar auth lives in the sidecar, not the router** (`Sandbox/Agent/src/middleware/auth.middleware.js`). The preview app's Vite proxy (`Sandbox/template/vite.config.js`) also reaches port 3000, so never trust "came from localhost". Open routes: `health`, `ready`, `report-error`. The AI service gets a 2-hour sandbox token from `POST /api/auth/sandbox-token` per run (`Ai_orchestration/src/agent/tools/sandboxAuth.js`), renewed on plan approve.
 - **Rate limit tier is always `free`.** AI reads `req.user.subscription`, but Auth never puts `subscription` in the token.
 - **AI is single replica.** LangGraph uses an in-memory `MemorySaver`, active run state lives in `agentRun.service.js` memory, and the memory agent queue and legacy-migration memo are in-process too.
 - Frontend chat state: `features/chat-history` (sidebar, message actions, `useChatSessions`) is shared UI; each agent keeps its own slice state (`chatHistory.codingAgent`, `chatHistory.copilot`). Call `useChatSessions` and `useCodingAgent` only in the panel that owns the chat.
