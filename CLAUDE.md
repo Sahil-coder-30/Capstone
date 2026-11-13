@@ -6,10 +6,11 @@ All rules and the short project overview live in AGENTS.md, shared by every AI a
 
 ## Claude Code specifics
 
-- This project starts in **plan mode** (`.claude/settings.json`). Use it to research and write the plan. Do not call ExitPlanMode to start work until the developer has reviewed the plan and said `go`.
-- The plan gate hook (`.claude/hooks/plan-gate.mjs`) denies Bash, Edit and Write in a session until the developer sends a message that is exactly `go`. `stop` or `replan` closes the gate again.
-- `.claude/hooks/guard.mjs` checks every Bash, Read, Edit, Write, Grep and Glob call against `agent-guardrails/policy.mjs`. Normal Bash commands run without a prompt. Sensitive ones (AGENTS.md rule 2) ask for approval, even in auto mode.
-- The guard matches secret file names anywhere in a command string, even inside an exclude filter (`grep -v`, `find -not -name`). Leave those names out of commands entirely.
+- `.claude/hooks/scope-guard.mjs` checks every Bash, Read, Edit, Write, Grep and Glob call:
+  - Paths outside the project folder are denied (temp folders and this project's memory folder are allowed).
+  - Delete commands (`rm`, `git rm`, `git clean`, `find -delete`, `kubectl delete`, `docker prune`, `npm uninstall`, SQL `DROP`/`DELETE FROM`, Redis `FLUSHALL`, ...) ask the developer first.
+  - Everything else (reads, writes, `cd`, `cat`, `grep`, ...) runs without a prompt.
+- Secret files (`.env`, `private.pem`, `k8s/secrets.yml`) are blocked by deny rules in `.claude/settings.json`.
 - When a hook denies a call, report it to the developer. Do not retry the same thing another way.
 - After every finished feature or fix, big or small, test it and make one local commit on `main` without being asked. If the work is on another branch, ask the developer before moving it to `main`.
 - Never add Claude as a contributor: no `Co-Authored-By: Claude` trailer and no Claude attribution in any commit or PR.

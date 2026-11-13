@@ -1,8 +1,9 @@
 #!/usr/bin/env node
-// One rule for agents in this repo:
-//   Nothing outside the project folder (denied), except temp folders and
-//   this project's Claude Code memory folder.
-// Everything else, deletes included, runs without a prompt.
+// Rules for agents in this repo:
+//   1. Nothing outside the project folder (denied), except temp folders and
+//      this project's Claude Code memory folder.
+//   2. Delete commands ask the developer first.
+//   3. Everything else (reads, writes, cd, cat, grep, ...) runs without a prompt.
 
 import { readFileSync } from "node:fs";
 import os from "node:os";
@@ -48,6 +49,24 @@ const looksLikePath = (t) =>
   t.startsWith("/") || t.startsWith("~") || /^\$\{?HOME\}?/.test(t) ||
   t === ".." || t.startsWith("../") || t.includes("/../");
 
+// Commands that delete files, data or resources. Matching errs on the side of asking.
+const DELETE_PATTERNS = [
+  /(^|[\s;&|(`])(rm|rmdir|unlink|shred|trash)(\s|$)/, // also catches git rm, npm rm, docker rm, xargs rm
+  /\bfind\b.*\s-(delete|exec\s+rm)\b/,
+  /\bgit\s+(clean|branch\s+-[dD]|stash\s+(drop|clear))\b/,
+  /\bgit\s+push\b.*(--delete|\s:\S)/,
+  /\b(kubectl|skaffold|gh\s+\w+)\s+delete\b/,
+  /\bhelm\s+(uninstall|delete)\b/,
+  /\bdocker\b.*\b(rmi|prune)\b/,
+  /\bdocker\s+compose\s+down\b.*\s-v\b/,
+  /\bnpm\s+(uninstall|remove|un)\b/,
+  /\btruncate\b/,
+  /\b(drop\s+(table|database|schema|index)|delete\s+from)\b/i,
+  /\b(dropDatabase|deleteMany|deleteOne|findOneAndDelete|drop)\s*\(/,
+  /\bredis-cli\b.*\b(del|unlink|flushall|flushdb)\b/i,
+];
+const isDelete = (command) => DELETE_PATTERNS.some((re) => re.test(command));
+
 const tool = input.tool_name || "";
 const toolInput = input.tool_input || {};
 
@@ -57,9 +76,11 @@ if (tool === "Bash") {
   const tokens = command.split(/[\s;&|()<>'"`=]+/).filter(Boolean);
   const outside = tokens.find((t) => looksLikePath(t) && !t.startsWith("//") && isOutside(t));
   if (outside) decide("deny", `"${outside}" is outside ${projectDir}`);
+  if (isDelete(command)) decide("ask", "Delete command: needs your approval");
 } else {
   const target = toolInput.file_path || toolInput.path || toolInput.notebook_path;
   if (target && isOutside(String(target))) decide("deny", `"${target}" is outside ${projectDir}`);
 }
 
-process.exit(0);
+// Skip Claude Code's own prompts (e.g. for `cd ... && cat ...`). Deny rules in settings still apply.
+decide("allow", "Inside the project and not a delete");
