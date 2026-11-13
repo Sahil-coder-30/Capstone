@@ -59,7 +59,6 @@ Object.assign(process.env, {
   MCP_ALLOWED_HOSTS: `127.0.0.1:${PORT}`,
   SANDBOX_URL_TEMPLATE: `http://127.0.0.1:${PORT}`,
 });
-delete process.env.SANDBOX_TOOL_TRANSPORT;
 
 const { privateKey, publicKey } = crypto.generateKeyPairSync("rsa", { modulusLength: 2048 });
 const jwk = { ...publicKey.export({ format: "jwk" }), kid: "auth-rsa-v1" };
@@ -80,9 +79,14 @@ axios.defaults.adapter = async (config) => {
   return { data: { token, expiresIn: 7200 }, status: 200, statusText: "OK", headers: {}, config, request: {} };
 };
 
-// No database for this script.
-ChatMessage.find = () => ({ sort: () => ({ limit: () => ({ lean: async () => [] }) }) });
+// No database for this script: chat messages, sessions and memory are
+// in-memory fakes (same helpers as the offline tests).
+const { OrionChatSession, OrionProjectMemory } = await import("../src/models/chatStores.js");
+const { findChain, stubMemory, stubSessions } = await import("../tests/helpers/fakeChatStore.js");
+ChatMessage.find = findChain(() => []);
 ChatMessage.create = async () => ({ _id: { toString: () => "local" } });
+stubSessions(OrionChatSession);
+stubMemory(OrionProjectMemory, ChatMessage);
 
 const runs = await import("../src/services/agentRun.service.js");
 

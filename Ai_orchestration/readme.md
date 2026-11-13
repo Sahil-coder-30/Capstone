@@ -7,7 +7,7 @@ Runs the two AI agents of Taksha CodeSpace and streams them to the frontend over
 | **Orion** | Coding agent. Plans a change, waits for approval, writes code in the user's sandbox, builds, reviews and fixes it. | `/api/ai/code-agent/*` |
 | **Clio** | Editor copilot. Explains code and makes small edits to the open file. | `/api/ai/app-agent/invoke` |
 
-The model is NVIDIA-hosted (build.nvidia.com) through its OpenAI-compatible API. Tools reach the sandbox over **MCP** at `http://sandbox-service-<sandboxId>:3000/mcp` (REST `/api/agent/*` only as a fallback for older pods).
+The model is NVIDIA-hosted (build.nvidia.com) through its OpenAI-compatible API. Tools reach the sandbox only over **MCP** at `http://sandbox-service-<sandboxId>:3000/mcp`; the sidecar has no REST file API.
 
 ### Sandbox access
 | Step | What happens |
@@ -16,7 +16,7 @@ The model is NVIDIA-hosted (build.nvidia.com) through its OpenAI-compatible API.
 | Every tool call | `callSandboxTool(config, name, args)` in `tools/sandbox.client.js` sends it as `Authorization: Bearer`. The sidecar accepts it only for the sandbox owner. |
 | Transport | `tools/mcp.client.js`: one MCP client per run, closed when the run ends. Timeouts: 150s for `execute_command`, 45s logs, 30s otherwise. A dropped connection is retried once for read-only tools only, never for writes or commands. |
 | Certified tools | Only the 9 tools in `CERTIFIED_TOOLS` are called. Extra tools a server offers are ignored and logged; the model only sees this service's own tool descriptions. |
-| Fallback | A sandbox without `/mcp` (404) uses REST for the rest of that run. `SANDBOX_TOOL_TRANSPORT=rest` forces REST. `SANDBOX_URL_TEMPLATE` (e.g. `http://localhost:3000`) points at a port-forwarded pod for local dev. |
+| Old pods | A sandbox from before MCP (404 on `/mcp`) gets "stop and start the sandbox"; there is no REST fallback. `SANDBOX_URL_TEMPLATE` (e.g. `http://localhost:3000`) points at a port-forwarded pod for local dev. |
 
 ---
 
@@ -39,7 +39,7 @@ src/
       rateLimiter.js         pacing, 429 backoff, call timeout
       structured.js          schema output: function calling, then JSON fallback
     tools/
-      sandbox.client.js      the only way to the sandbox: callSandboxTool (MCP, REST fallback)
+      sandbox.client.js      the only way to the sandbox: callSandboxTool over MCP
       mcp.client.js          MCP client, certified-tool allowlist, retry rules
       sandboxAuth.js         per-run sandbox token from Auth
       file.tools.js          list / read / create / update / patch / delete
@@ -123,7 +123,6 @@ Runs and paused threads live in process memory, so the service runs as a single 
 | `NVIDIA_FAST_MODEL` | no | Model for routing, titles and reports. Default `nvidia/nemotron-3.5-lightning-30b-a3b` |
 | `NVIDIA_BASE_URL` | no | Default `https://integrate.api.nvidia.com/v1` |
 | `AUTH_SERVICE_URL` | yes | Auth base URL for sandbox tokens. Default `http://auth-service` |
-| `SANDBOX_TOOL_TRANSPORT` | no | `mcp` (default) or `rest` |
 | `SANDBOX_URL_TEMPLATE` | no | Sidecar origin, default `http://sandbox-service-{sandboxId}:3000` |
 | `TAVILY_API_KEY` | no | Enables `search_internet` |
 

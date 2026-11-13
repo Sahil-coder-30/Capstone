@@ -11,7 +11,6 @@ import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/
 
 const PORT = 39231;
 process.env.SANDBOX_URL_TEMPLATE = `http://127.0.0.1:${PORT}/{sandboxId}`;
-delete process.env.SANDBOX_TOOL_TRANSPORT;
 
 const { callSandboxTool, releaseSandbox, runCommand } = await import("../src/agent/tools/sandbox.client.js");
 const { setSandboxCredentialForTesting } = await import("../src/agent/tools/sandboxAuth.js");
@@ -49,13 +48,7 @@ const httpServer = http.createServer(async (req, res) => {
     res.writeHead(401).end(JSON.stringify({ status: "error", message: "Invalid token." }));
     return;
   }
-  if (sandboxId === "old-pod") {
-    if (path === "/mcp") return res.writeHead(404).end("Not found");
-    if (path.startsWith("/api/agent/list-files")) {
-      res.writeHead(200, { "Content-Type": "application/json" });
-      return res.end(JSON.stringify({ status: "ok", files: ["from-rest.js"] }));
-    }
-  }
+  if (sandboxId === "old-pod") return res.writeHead(404).end("Not found"); // image from before MCP
   if (path !== "/mcp" || req.method !== "POST") return res.writeHead(404).end();
 
   let raw = "";
@@ -137,10 +130,11 @@ test("a dropped connection is retried for read-only tools only", async () => {
   await releaseSandbox(config.configurable.credentialKey);
 });
 
-test("a pod without /mcp falls back to REST for the rest of the run", async () => {
+test("a pod without /mcp gets a clear restart message, there is no REST fallback", async () => {
   const config = configFor("old-pod");
-  assert.deepEqual((await callSandboxTool(config, "list_files")).data.files, ["from-rest.js"]);
-  assert.deepEqual((await callSandboxTool(config, "list_files")).data.files, ["from-rest.js"]);
+  const res = await callSandboxTool(config, "list_files");
+  assert.equal(res.ok, false);
+  assert.match(res.error, /old image without MCP. Stop and start the sandbox/);
   await releaseSandbox(config.configurable.credentialKey);
 });
 

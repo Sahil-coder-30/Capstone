@@ -1,16 +1,11 @@
 // sandbox.client.js
-// The only way the agent reaches a user's sandbox sidecar (Sandbox/Agent).
-//
-// callSandboxTool(config, name, args) calls one certified tool:
-//   - over MCP (POST /mcp) by default,
-//   - over the old REST API when SANDBOX_TOOL_TRANSPORT=rest, or for a
-//     sandbox whose pod predates the MCP endpoint (404 on /mcp).
-// Both give the same result shape and never throw, so tools and nodes can
-// turn failures into honest messages.
+// The only way the agent reaches a user's sandbox sidecar (Sandbox/Agent):
+// callSandboxTool(config, name, args) calls one certified tool over the
+// sandbox's MCP server (POST /mcp). The sidecar has no REST file API.
+// Results never throw, so tools and nodes can turn failures into honest messages.
 
-import axios from "axios";
 import { sandboxTokenFor, releaseSandboxCredential } from "./sandboxAuth.js";
-import { McpUnavailableError, callMcpTool, closeMcpSession } from "./mcp.client.js";
+import { CERTIFIED_TOOLS, McpUnavailableError, callMcpTool, closeMcpSession } from "./mcp.client.js";
 
 // The sandbox id ends up in a hostname. Only a plain DNS label is accepted,
 // so a crafted id can never point a request at another internal host.
@@ -35,64 +30,6 @@ const sandboxOrigin = (sandboxId) => {
 // Per-tool timeouts. execute_command covers npm install and builds.
 const TIMEOUT_MS = { execute_command: 150_000, get_vite_runtime_errors: 45_000, search_code: 15_000 };
 
-// REST equivalents, for the fallback.
-const REST_ROUTES = {
-  list_files: () => ({ path: "list-files" }),
-  read_file: ({ files }) => ({ path: "read-file", query: { files: files.join(",") } }),
-  create_file: ({ files }) => ({ method: "post", path: "create-file", body: { files } }),
-  update_file: ({ updates }) => ({ method: "patch", path: "update-file", body: { updates } }),
-  patch_file: (body) => ({ method: "post", path: "patch-file", body }),
-  delete_file: ({ files }) => ({ method: "delete", path: "delete-file", body: { files } }),
-  search_code: (args) => ({
-    path: "search-code",
-    query: Object.fromEntries(Object.entries(args).filter(([, v]) => v !== undefined).map(([k, v]) => [k, String(v)])),
-  }),
-  execute_command: ({ command, subDir }) => ({ method: "post", path: "exec", body: { command, subDir } }),
-  get_vite_runtime_errors: () => ({ path: "vite-runtime-errors" }),
-};
-
-const restOnly = new Set(); // credential keys whose sandbox has no /mcp
-
-const errorText = (data) => {
-  if (!data) return "";
-  if (typeof data === "string") return data.slice(0, 500);
-  return data.message || data.error || "";
-};
-
-async function callRest(config, token, { method = "get", path, query, body }, timeoutMs) {
-  try {
-    const qs = query ? `?${new URLSearchParams(query)}` : "";
-    const res = await axios({
-      method,
-      url: `${sandboxOrigin(sandboxIdFrom(config))}/api/agent/${path}${qs}`,
-      data: body,
-      headers: { Authorization: `Bearer ${token}` },
-      timeout: timeoutMs,
-      signal: config?.signal,
-      validateStatus: () => true,
-    });
-    if (res.status === 401 || res.status === 403) {
-      return { ok: false, status: res.status, error: `The sandbox rejected the request: ${errorText(res.data) || `HTTP ${res.status}`}` };
-    }
-    if (res.status >= 400) {
-      return { ok: false, status: res.status, error: errorText(res.data) || `Sandbox returned HTTP ${res.status}` };
-    }
-    return { ok: true, status: res.status, data: res.data };
-  } catch (err) {
-    const timedOut = err.code === "ECONNABORTED";
-    const unreachable = ["ENOTFOUND", "ECONNREFUSED", "EAI_AGAIN"].includes(err.code);
-    return {
-      ok: false,
-      timedOut,
-      error: timedOut
-        ? "The sandbox did not answer in time."
-        : unreachable
-          ? "The sandbox is not reachable. It may be stopped or still starting."
-          : err.message,
-    };
-  }
-}
-
 /**
  * Calls one certified sandbox tool.
  * Returns { ok, data } or { ok: false, error, timedOut? }.
@@ -100,7 +37,7 @@ async function callRest(config, token, { method = "get", path, query, body }, ti
 export async function callSandboxTool(config, name, args = {}) {
   const token = sandboxTokenFor(config);
   if (!token) return { ok: false, error: "No sandbox credentials for this run. Start the request again." };
-  if (!REST_ROUTES[name]) return { ok: false, error: `"${name}" is not a certified sandbox tool.` };
+  if (!CERTIFIED_TOOLS.has(name)) return { ok: false, error: `"${name}" is not a certified sandbox tool.` };
 
   const key = config.configurable.credentialKey;
   const timeoutMs = TIMEOUT_MS[name] ?? 30_000;
@@ -111,23 +48,21 @@ export async function callSandboxTool(config, name, args = {}) {
     return { ok: false, error: err.message };
   }
 
-  const useMcp = process.env.SANDBOX_TOOL_TRANSPORT !== "rest" && !restOnly.has(key);
-  if (useMcp) {
-    try {
-      return await callMcpTool({ key, url: `${origin}/mcp`, token, signal: config?.signal }, name, args, { timeoutMs });
-    } catch (err) {
-      if (!(err instanceof McpUnavailableError)) return { ok: false, error: err.message };
-      console.warn(`[Sandbox] ${sandboxIdFrom(config)} has no MCP endpoint, using REST for this run.`);
-      restOnly.add(key);
-    }
+  try {
+    return await callMcpTool({ key, url: `${origin}/mcp`, token, signal: config?.signal }, name, args, { timeoutMs });
+  } catch (err) {
+    return {
+      ok: false,
+      error: err instanceof McpUnavailableError
+        ? "This sandbox runs an old image without MCP. Stop and start the sandbox, then try again."
+        : err.message,
+    };
   }
-  return callRest(config, token, REST_ROUTES[name](args), timeoutMs);
 }
 
 /** Ends a run's sandbox access: drops the token and closes the MCP client. */
 export async function releaseSandbox(credentialKey) {
   releaseSandboxCredential(credentialKey);
-  restOnly.delete(credentialKey);
   await closeMcpSession(credentialKey);
 }
 

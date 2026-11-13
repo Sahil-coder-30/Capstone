@@ -23,7 +23,7 @@
 
 ### What this service does
 Sandbox Agent is a sidecar process deployed in every user's sandbox pod alongside the Vite dev server. It serves two distinct responsibilities:
-1. **File System API** — Provides a structured REST+Socket.io API for reading, writing, creating, and deleting files and directories within `/workspace`. This is the only interface through which the AI Orchestration service's tool layer touches the user's code.
+1. **MCP server** — `POST /mcp` serves 9 certified coding tools (list, read, create, update, patch, delete files, search code, run commands, read the dev server log) for `/workspace`. It is the only way any client touches the user's code: Orion and Clio, the frontend editor, and external agents through the router.
 2. **Terminal Bridge** — Spawns a `node-pty` pseudo-terminal process and bridges its I/O over Socket.io, giving the browser's `xterm.js` client a real interactive shell inside the container.
 
 It also uses `chokidar` to watch `/workspace` for file changes and emit real-time file-tree diff events to connected clients.
@@ -40,7 +40,9 @@ It also uses `chokidar` to watch `/workspace` for file changes and emit real-tim
 
 | Caller | Call type | Why it calls this service |
 |---|---|---|
-| AI Orchestration Service (LangGraph tools) | HTTP REST (via Router Service → agent subdomain) | Tool calls: read file, write file, list directory, execute command, create file |
+| AI Orchestration Service (Orion, Clio) | MCP `POST /mcp` (in-cluster, `sandbox-service-<id>:3000`) | Coding tools during agent runs |
+| Frontend SPA (editor, file tree, logs panel) | MCP `POST /mcp` (via Router Service → agent subdomain) | Read, save, create, delete files; dev server log |
+| External agents (Claude Code, Cursor) | MCP via the router's `/api/mcp/<sandboxId>` gateway | Coding tools with a scoped token |
 | Frontend SPA (xterm.js terminal) | WebSocket via Socket.io (via Router Service → agent subdomain) | Real-time terminal I/O: `terminal-input` / `terminal-output` events |
 | Frontend SPA (file explorer) | WebSocket via Socket.io | Real-time file tree change events from `chokidar` watcher |
 | Yjs collaborative editing (if enabled) | Socket.io | Document sync events for collaborative real-time editing |
@@ -60,13 +62,9 @@ It also uses `chokidar` to watch `/workspace` for file changes and emit real-tim
 
 ### Features built (working today)
 
-- File System API (HTTP REST):
-  - `GET /api/agent/files` — List directory contents (recursive file tree) — ✅ done
-  - `GET /api/agent/file` — Read a single file's content — ✅ done
-  - `POST /api/agent/create-file` — Create a new file at a given path — ✅ done
-  - `PATCH /api/agent/update-file` — Write/overwrite a file's content — ✅ done
-  - `DELETE /api/agent/delete-file` — Delete a file — ✅ done
-  - `POST /api/agent/execute` — Execute a shell command and return stdout/stderr — ✅ done
+- MCP server (`POST /mcp`, the only way to the coding tools; no REST file API):
+  - `list_files`, `read_file`, `create_file`, `update_file`, `patch_file`, `delete_file` — ✅ done
+  - `search_code`, `execute_command`, `get_vite_runtime_errors` — ✅ done
 - Terminal Bridge (Socket.io):
   - `terminal-input` event → writes to PTY stdin — ✅ done
   - `terminal-output` event → emits PTY stdout to client — ✅ done
@@ -82,13 +80,13 @@ It also uses `chokidar` to watch `/workspace` for file changes and emit real-tim
   - **Sidecar pattern** — This service is not independently deployed; it always runs co-located with the Vite sandbox container in the same K8s Pod, sharing a volume mount. The boundary is enforced at the pod template level in the Sandbox Control Server.
   - **Event bridge** — PTY output and file watcher events are bridged directly to Socket.io without buffering or transformation. This keeps the terminal latency minimal and avoids a separate polling mechanism.
   - **Single `app.js` architecture** — The entire service logic lives in one file (`src/app.js`) because the surface area is small and well-bounded. A layered controller structure would be premature overhead for a service with this scope.
-- **Key libraries:** `socket.io`, `node-pty`, `chokidar`, `yjs`, `@kubernetes/client-node` (for cluster metadata reads), `express`, `morgan`
+- **Key libraries:** `@modelcontextprotocol/sdk`, `socket.io`, `node-pty`, `chokidar`, `yjs`, `express`, `jsonwebtoken`, `morgan`
 
 ---
 
 ## 🏗️ Architecture & Design Patterns
 
-All logic lives in `src/app.js`. Express handles REST file API endpoints. Socket.io handles terminal I/O and file-watcher event streaming. The `node-pty` process is spawned once per connected terminal client and torn down on disconnect. The `chokidar` watcher is a single instance watching `/workspace`, broadcasting events to all connected Socket.io clients in the room.
+Tool handlers live in `src/app.js` as plain functions (`routes`) that only `src/mcp/server.js` runs; Express serves `/mcp`, the probes and `report-error`. Socket.io handles terminal I/O and file-watcher event streaming. The `node-pty` process is spawned once per connected terminal client and torn down on disconnect. The `chokidar` watcher is a single instance watching `/workspace`, broadcasting events to all connected Socket.io clients in the room.
 
 ```
 Sandbox/Agent/
@@ -136,30 +134,26 @@ skaffold dev
 
 ## 🔌 Communication & Contracts
 
-### Synchronous (REST) — File API
-All routes need the owner's token (see Security), except the ones marked open.
+### HTTP routes
+The coding tools are **not** REST routes: they are reachable only through `POST /mcp` (below). The only other HTTP routes are:
 
-| Endpoint | Used by |
-|---|---|
-| `GET /api/agent/health`, `GET /api/agent/ready` (open) | Kubernetes probes |
-| `POST /api/agent/report-error` (open, rate limited) | Preview app error reporter |
-| `GET /api/agent/list-files` | Frontend file tree |
-| `GET /api/agent/read-file?files=a,b` | Frontend editor |
-| `POST /api/agent/create-file`, `PATCH /api/agent/update-file`, `DELETE /api/agent/delete-file`, `POST /api/agent/patch-file` | Frontend editor |
-| `GET /api/agent/search-code`, `POST /api/agent/exec` | (AI service uses them through MCP) |
-| `GET /api/agent/vite-runtime-errors` | Frontend logs panel |
+| Endpoint | Auth | Used by |
+|---|---|---|
+| `GET /api/agent/health`, `GET /api/agent/ready` | open | Kubernetes probes, the router's MCP gateway (wake) |
+| `POST /api/agent/report-error` | open, rate limited | Preview app error reporter |
+| `POST /mcp` | owner token | AI service (Orion, Clio), frontend editor, file tree and logs panel, external agents through the router |
 
 ### MCP — `POST /mcp`
-The same handlers as REST, exposed as **certified MCP tools** for the AI service (Orion, Clio) and, later, external agents.
+The only way to the coding tools, as **certified MCP tools**, for the AI service (Orion, Clio), the frontend and external agents.
 
 | Rule | Where |
 |---|---|
 | Only a fixed, frozen list of 9 tools: `list_files`, `read_file`, `create_file`, `update_file`, `patch_file`, `delete_file`, `search_code`, `execute_command`, `get_vite_runtime_errors`. Nothing registers at runtime. | [`src/mcp/tools.js`](./src/mcp/tools.js) |
-| Each tool calls the REST handler in-process, so results have the REST JSON shape. Failures set `isError`. | [`src/mcp/invokeRoute.js`](./src/mcp/invokeRoute.js) |
+| Each tool runs its handler (`routes` in `app.js`, not registered with Express) in-process. Failures set `isError`. | [`src/mcp/invokeRoute.js`](./src/mcp/invokeRoute.js) |
 | `execute_command` refuses file commands (`cat`, `sed`, ...) and dev servers | `shellCommandProblem` in `tools.js` |
 | Stateless Streamable HTTP (fresh server per request), JSON responses, `GET`/`DELETE` give 405 | [`src/mcp/server.js`](./src/mcp/server.js) |
 | DNS-rebinding protection: Host must be `sandbox-service-<id>:3000`, `<id>.agent.localhost`, localhost, or `MCP_ALLOWED_HOSTS` | `server.js` |
-| Owner token required, same as REST | `src/auth/` |
+| Owner token required | `src/auth/` |
 
 Try it: `npx @modelcontextprotocol/inspector` against a port-forwarded `:3000/mcp` with `Authorization: Bearer <your access token>`. Tests: `npm test` runs the real app against a temp workspace with the SDK client.
 
@@ -187,7 +181,7 @@ Try it: `npx @modelcontextprotocol/inspector` against a port-forwarded `:3000/mc
 - **Tracing / Metrics:** Not implemented.
 
 ### Security & compliance
-- **AuthN/AuthZ:** every REST route and the Socket.IO handshake (terminal, file sync) need the **sandbox owner's** token, checked inside the sidecar ([`src/auth/`](./src/auth/)). The check runs here and not in the router, because the preview app's Vite proxy can also reach port 3000.
+- **AuthN/AuthZ:** `/mcp` and the Socket.IO handshake (terminal, file sync) need the **sandbox owner's** token, checked inside the sidecar ([`src/auth/`](./src/auth/)). The check runs here and not in the router, because the preview app's Vite proxy can also reach port 3000.
 
   | Token | Sent by | Rule |
   |---|---|---|

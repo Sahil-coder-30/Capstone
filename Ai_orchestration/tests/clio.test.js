@@ -1,7 +1,7 @@
 // Offline check of a Clio (copilot) turn: streaming, tool use, history
 // handling and the SSE framing. No network, no database.
 
-import { test } from "node:test";
+import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import axios from "axios";
 import { BaseChatModel } from "@langchain/core/language_models/chat_models";
@@ -9,11 +9,9 @@ import { AIMessageChunk } from "@langchain/core/messages";
 import { ChatGenerationChunk } from "@langchain/core/outputs";
 
 process.env.NVIDIA_API_KEY ||= "offline-test-key";
-// These tests check the graph, so the sandbox is a fake REST sidecar.
-// The MCP transport has its own test (mcp.client.test.js).
-process.env.SANDBOX_TOOL_TRANSPORT = "rest";
 
 const { setModelsForTesting } = await import("../src/agent/llm/model.js");
+const { startFakeSandbox } = await import("./helpers/fakeSandbox.js");
 const CopilotChatMessage = (await import("../src/models/CopilotChatMessage.model.js")).default;
 const { ClioChatSession, ClioProjectMemory } = await import("../src/models/chatStores.js");
 const { findChain, stubMemory, stubSessions } = await import("./helpers/fakeChatStore.js");
@@ -51,17 +49,15 @@ class ScriptedModel extends BaseChatModel {
   }
 }
 
-const sandboxCalls = [];
+// Auth's sandbox-token endpoint; the sandbox itself is a fake MCP server.
 axios.defaults.adapter = async (config) => {
-  const url = new URL(config.url);
-  if (url.host === "auth-service") {
-    return { data: { token: "clio-sandbox-token", expiresIn: 7200 }, status: 200, headers: {}, config };
-  }
-  assert.equal(config.headers.Authorization, "Bearer clio-sandbox-token");
-  sandboxCalls.push(`${url.host} ${url.pathname}`);
-  const files = (url.searchParams.get("files") || "").split(",");
-  return { data: { status: "ok", files: files.map((file) => ({ file, content: "const a = 1;\n" })) }, status: 200, headers: {}, config };
+  if (new URL(config.url).host !== "auth-service") throw new Error(`Unexpected HTTP call: ${config.url}`);
+  return { data: { token: "clio-sandbox-token", expiresIn: 7200 }, status: 200, headers: {}, config };
 };
+const sandbox = await startFakeSandbox({
+  read_file: ({ files }) => ({ status: "ok", files: files.map((file) => ({ file, content: "const a = 1;\n" })) }),
+});
+after(() => sandbox.close());
 
 const saved = [];
 // Newest first, as the query returns them. Only final answers reach the model.
@@ -104,7 +100,7 @@ test("Clio reads through the sandbox, streams text and uses history once", async
 
   assert.match(answer, /declares a = 1/);
   assert.ok(streamed.join("").includes("Reading the file."));
-  assert.deepEqual(sandboxCalls, ["sandbox-service-sbx-9:3000 /api/agent/read-file"]);
+  assert.deepEqual(sandbox.calls.map((c) => [c.sandboxId, c.tool, c.auth]), [["sbx-9", "read_file", "Bearer clio-sandbox-token"]]);
 
   // A new chat was opened for the user and announced before streaming.
   assert.equal(sessions.length, 1);

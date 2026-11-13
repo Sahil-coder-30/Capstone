@@ -1,11 +1,11 @@
 // Offline end-to-end check of an Orion run through the SSE run service:
 //   router → planner → critic → plan review (interrupt) → approve → coder →
 //   tester → reviewer → finalizer → agent:done
-// The model is scripted, the sandbox sidecar is a fake axios adapter, and
+// The model is scripted, the sandbox sidecar is a fake MCP server, and
 // the ChatMessage model is stubbed. No network, no database.
 // Run: node --test tests/
 
-import { test } from "node:test";
+import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import axios from "axios";
 import { BaseChatModel } from "@langchain/core/language_models/chat_models";
@@ -13,11 +13,9 @@ import { AIMessageChunk } from "@langchain/core/messages";
 import { ChatGenerationChunk } from "@langchain/core/outputs";
 
 process.env.NVIDIA_API_KEY ||= "offline-test-key";
-// These tests check the graph, so the sandbox is a fake REST sidecar.
-// The MCP transport has its own test (mcp.client.test.js).
-process.env.SANDBOX_TOOL_TRANSPORT = "rest";
 
 const { setModelsForTesting } = await import("../src/agent/llm/model.js");
+const { startFakeSandbox } = await import("./helpers/fakeSandbox.js");
 const ChatMessage = (await import("../src/models/ChatMessage.model.js")).default;
 const { OrionChatSession, OrionProjectMemory } = await import("../src/models/chatStores.js");
 const { findChain, stubMemory, stubSessions } = await import("./helpers/fakeChatStore.js");
@@ -101,46 +99,28 @@ const script = [
 
 // ── Fake sandbox sidecar ────────────────────────────────────────────────────
 
-const sandboxCalls = [];
-const sandboxAuthHeaders = new Set();
 const mintedFor = [];
 axios.defaults.adapter = async (config) => {
   const url = new URL(config.url);
-  const reply = (data) => ({ data, status: 200, statusText: "OK", headers: {}, config, request: {} });
-
-  if (url.host === "auth-service") {
-    const { sandboxId } = JSON.parse(config.data);
-    mintedFor.push({ sandboxId, userToken: config.headers.Authorization });
-    return reply({ status: "success", token: `sandbox-token-for-${sandboxId}`, expiresIn: 7200 });
-  }
-
-  sandboxCalls.push(`${config.method} ${url.pathname}`);
-  sandboxAuthHeaders.add(config.headers.Authorization);
-
-  switch (url.pathname) {
-    case "/api/agent/list-files":
-      return reply({ status: "ok", files: ["package.json", "src/App.jsx", "src/main.jsx"] });
-    case "/api/agent/read-file": {
-      const files = (url.searchParams.get("files") || "").split(",").filter(Boolean);
-      return reply({
-        status: "ok",
-        files: files.map((file) => (file === "package.json"
-          ? { file, content: JSON.stringify({ scripts: { build: "vite build" }, devDependencies: { vite: "^6.0.0" } }) }
-          : { file, content: "export default function App() { return null; }\n" })),
-      });
-    }
-    case "/api/agent/create-file": {
-      const body = JSON.parse(config.data);
-      return reply({ status: "ok", results: body.files.map((f) => ({ file: f.file, status: "File created successfully" })) });
-    }
-    case "/api/agent/exec":
-      return reply({ status: "ok", success: true, stdout: "built in 1.2s", stderr: "", error: null, timedOut: false });
-    case "/api/agent/vite-runtime-errors":
-      return reply({ success: true, logs: "VITE ready" });
-    default:
-      throw new Error(`Unexpected sandbox call: ${config.method} ${url.pathname}`);
-  }
+  if (url.host !== "auth-service") throw new Error(`Unexpected HTTP call: ${config.url}`);
+  const { sandboxId } = JSON.parse(config.data);
+  mintedFor.push({ sandboxId, userToken: config.headers.Authorization });
+  return { data: { status: "success", token: `sandbox-token-for-${sandboxId}`, expiresIn: 7200 }, status: 200, statusText: "OK", headers: {}, config, request: {} };
 };
+
+const sandbox = await startFakeSandbox({
+  list_files: () => ({ status: "ok", files: ["package.json", "src/App.jsx", "src/main.jsx"] }),
+  read_file: ({ files }) => ({
+    status: "ok",
+    files: files.map((file) => (file === "package.json"
+      ? { file, content: JSON.stringify({ scripts: { build: "vite build" }, devDependencies: { vite: "^6.0.0" } }) }
+      : { file, content: "export default function App() { return null; }\n" })),
+  }),
+  create_file: ({ files }) => ({ status: "ok", results: files.map((f) => ({ file: f.file, status: "File created successfully" })) }),
+  execute_command: () => ({ status: "ok", success: true, stdout: "built in 1.2s", stderr: "", error: null, timedOut: false }),
+  get_vite_runtime_errors: () => ({ success: true, logs: "VITE ready" }),
+});
+after(() => sandbox.close());
 
 // ── Stubbed persistence ─────────────────────────────────────────────────────
 
@@ -232,11 +212,12 @@ test("coding run streams, pauses for plan review, resumes and finishes honestly"
   const done = sub.events.find((e) => e.event === "agent:done").data;
   assert.deepEqual(done.filesTouched, ["src/Hello.jsx"]);
 
-  assert.ok(sandboxCalls.includes("post /api/agent/exec"), "the build check ran");
+  const sbx1Calls = sandbox.calls.filter((c) => c.sandboxId === "sbx-1");
+  assert.ok(sbx1Calls.some((c) => c.tool === "execute_command"), "the build check ran over MCP");
   assert.deepEqual(mintedFor[0], { sandboxId: "sbx-1", userToken: "Bearer token" }, "a sandbox token was minted with the user's token");
   assert.deepEqual(mintedFor[1], { sandboxId: "sbx-1", userToken: "Bearer fresh-token" }, "approving the plan renews the sandbox token");
   assert.equal(run.authToken, "fresh-token", "usage is billed with the fresher token");
-  assert.deepEqual([...sandboxAuthHeaders], ["Bearer sandbox-token-for-sbx-1"], "every sandbox call carried the sandbox token");
+  assert.deepEqual([...new Set(sbx1Calls.map((c) => c.auth))], ["Bearer sandbox-token-for-sbx-1"], "every sandbox call carried the sandbox token");
   assert.equal(model.calls, script.length, "every scripted model call was used, no extra calls");
   assert.equal(saved.at(-1).role, "assistant");
   assert.match(saved.at(-1).content, /Hello component/);
