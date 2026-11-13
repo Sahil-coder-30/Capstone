@@ -48,17 +48,30 @@ export async function callSandboxTool(config, name, args = {}) {
     return { ok: false, error: err.message };
   }
 
+  const started = Date.now();
+  let result;
   try {
-    return await callMcpTool({ key, url: `${origin}/mcp`, token, signal: config?.signal }, name, args, { timeoutMs });
+    result = await callMcpTool({ key, url: `${origin}/mcp`, token, signal: config?.signal }, name, args, { timeoutMs });
   } catch (err) {
-    return {
+    result = {
       ok: false,
       error: err instanceof McpUnavailableError
         ? "This sandbox runs an old image without MCP. Stop and start the sandbox, then try again."
         : err.message,
     };
   }
+  console.log(
+    `[MCP] sandbox=${sandboxIdFrom(config)} tool=${name} ${argSummary(args)} -> ${result.ok ? "ok" : `error: ${result.error}`} ${Date.now() - started}ms`,
+  );
+  return result;
 }
+
+/** File paths, pattern or command of a call, for the log line. Never file contents. */
+const argSummary = (args = {}) => {
+  const files = args.files || args.updates;
+  const text = files ? files.map((f) => f?.file ?? f).join(",") : (args.filePath ?? args.pattern ?? args.command ?? "");
+  return String(text).slice(0, 80);
+};
 
 /** Ends a run's sandbox access: drops the token and closes the MCP client. */
 export async function releaseSandbox(credentialKey) {

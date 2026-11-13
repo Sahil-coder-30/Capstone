@@ -21,6 +21,13 @@ const textResult = (data, isError) => ({
   isError,
 });
 
+/** File paths, pattern or command of a call, for the log line. Never file contents. */
+const argSummary = (args = {}) => {
+  const files = args.files || args.updates;
+  const text = files ? files.map((f) => f?.file ?? f).join(",") : (args.filePath ?? args.pattern ?? args.command ?? "");
+  return String(text).slice(0, 80);
+};
+
 const isFailure = (status, body) =>
   status >= 400 || body?.success === false || body?.status === "error" || body?.error === true;
 
@@ -49,12 +56,21 @@ export function buildMcpServer(routes, scopes = null) {
       tool.name,
       { description: tool.description, inputSchema: tool.inputSchema, annotations: tool.annotations },
       async (args = {}) => {
+        const started = Date.now();
+        const log = (outcome) =>
+          console.log(`[MCP] tool=${tool.name} ${argSummary(args)} -> ${outcome} ${Date.now() - started}ms${scopes ? " (external agent)" : ""}`);
         const { route, query, body, problem } = tool.call(args);
-        if (problem) return textResult({ error: true, message: problem }, true);
+        if (problem) {
+          log(`rejected: ${problem}`);
+          return textResult({ error: true, message: problem }, true);
+        }
         try {
           const result = await invokeRoute(routes[route], { query, body });
-          return textResult(result.body, isFailure(result.status, result.body));
+          const failed = isFailure(result.status, result.body);
+          log(!failed ? "ok" : result.status >= 400 ? `error HTTP ${result.status}` : "not done");
+          return textResult(result.body, failed);
         } catch (err) {
+          log(`error: ${err.message}`);
           return textResult({ error: true, message: err.message }, true);
         }
       },
