@@ -1,6 +1,8 @@
 # Sandbox MCP server and shared MCP client
 
-Status: **phase 1 and phase 2 built** (2026-11-06). Phase 1: sandbox auth, pod hardening, MCP server, MCP client for Orion and Clio. Phase 2: external agents (Claude Code, Cursor) with MCP tokens through the router.
+Status: **phase 1 and phase 2 built** (2026-11-06). Phase 1: sandbox auth, pod hardening, MCP server, MCP client for Orion and Clio. Phase 2: external agents (Claude Code, Cursor) with MCP tokens through the router. File paths and the REST notes were checked against the code again on 2026-11-14.
+
+This file records what is built. The next steps are separate plans: more and better tools in [taksha-agent-tools-build-plan.md](taksha-agent-tools-build-plan.md), tool call logging in [taksha-tool-call-analytics-plan.md](taksha-tool-call-analytics-plan.md). Index: [README.md](README.md).
 
 ## What exists now
 
@@ -10,18 +12,21 @@ AI service (Orion, Clio)
   2. POST http://sandbox-service-<id>:3000/mcp   Authorization: Bearer <sandbox token>
         |
 agent container (port 3000, uid 1000)
-  requireOwner  ->  /mcp (9 certified tools)  ->  same handlers as /api/agent/*
-                ->  /api/agent/* REST and Socket.IO (editor, logs, terminal)
+  requireOwner  ->  /mcp (9 certified tools)  ->  tool handlers (controllers/index.js)
+                ->  Socket.IO (terminal, workspace-change events)
+  open routes   ->  /api/agent/health, /api/agent/ready, /api/agent/report-error
 ```
+
+The coding tools are served over MCP only. The sidecar has no REST file API any more, and the frontend editor, file tree and logs panel call the same MCP tools (`Frontend/src/services/sandboxAgentClient.js`).
 
 | Piece | Code | Commit |
 |---|---|---|
 | Sandbox token (2h, one user, one sandbox, own audience) | `Auth/src/controllers/sandboxToken.controller.js`, `signSandboxToken` in `Auth/src/utils/generateTokens.js` | `9899b46` |
-| Owner-only auth on REST, MCP and sockets, inside the sidecar | `Sandbox/Agent/src/auth/` | `014721c` |
-| Frontend sends the token (REST through `apiClient`, sockets through `auth`) | `Frontend/src/services/sandboxAgentClient.js`, `sandboxSocketAuth.js` | `014721c` |
+| Owner-only auth on MCP and sockets, inside the sidecar | `Sandbox/Agent/src/middleware/auth.middleware.js`, `src/services/verifyToken.service.js` (first built in `src/auth/`, moved since) | `014721c` |
+| Frontend sends the token (MCP through `apiClient`, sockets through `auth`) | `Frontend/src/services/sandboxAgentClient.js`, `sandboxSocketAuth.js` | `014721c` |
 | Pod hardening: no service account token, non-root, Vite log file, symlink checks, report-error limits, NetworkPolicy | `Sandbox/server/src/kubernetes/pod.js`, `Sandbox/Agent/src/workspace/`, `k8s/sandbox-networkpolicy.yml` | `e913250` |
 | MCP server: frozen list of 9 certified tools, stateless Streamable HTTP, Host check | `Sandbox/Agent/src/mcp/` | `5c1272d` |
-| MCP client: allowlist, timeouts, retry rules, REST fallback | `Ai_orchestration/src/agent/tools/mcp.client.js`, `sandbox.client.js` | `d208d87` |
+| MCP client: allowlist, timeouts, retry rules. The REST fallback it first had is removed: a pod from before MCP gets "stop and start the sandbox" | `Ai_orchestration/src/agent/tools/mcp.client.js`, `sandbox.client.js` | `d208d87` |
 
 Design decisions (developer, 2026-11-05):
 
@@ -41,7 +46,7 @@ Design decisions (developer, 2026-11-05):
 | Pod manifest | `cd Sandbox/server && npm test`, and `node scripts/print-pod-manifest.js \| kubectl create --dry-run=server -f -` |
 | AI client and graph | `cd Ai_orchestration && npm test` |
 | Real model + real sidecar over MCP, no cluster | `cd Ai_orchestration && npm run e2e:live -- "task"` |
-| In the cluster | Start a project, then in its terminal: `whoami` prints `node`, `ls /var/run/secrets/kubernetes.io` fails. Without a token, `curl localhost:3000/api/agent/list-files` gives 401. |
+| In the cluster | Start a project, then in its terminal: `whoami` prints `node`, `ls /var/run/secrets/kubernetes.io` fails. Without a token, `curl -X POST localhost:3000/mcp` gives 401. |
 
 ## Phase 2: external agents (built 2026-11-06)
 
@@ -64,7 +69,7 @@ sidecar: scoped token -> /mcp only, tools filtered by scope
 |---|---|---|
 | Redis expiry handler only acts on `sandbox:` keys (other keys used to trigger pod deletes and could crash the server) | `Sandbox/server/src/config/redis.js` | `300a998` |
 | Short scoped sandbox tokens for the router | `Auth/src/controllers/internalSandboxToken.controller.js` | `aeb5910` |
-| Scope enforcement on the sidecar | `Sandbox/Agent/src/auth/middleware.js`, `src/mcp/server.js` | `88c62df` |
+| Scope enforcement on the sidecar | `Sandbox/Agent/src/middleware/auth.middleware.js`, `src/mcp/server.js` | `88c62df` |
 | MCP tokens (create, list, revoke, lookup) and wake | `Sandbox/server/src/services/mcpTokens.service.js`, `controllers/mcpToken.controller.js` | `dbeed19` |
 | Gateway, ingress, `INTERNAL_SERVICE_TOKEN` wiring | `Sandbox/router/src/mcpGateway.js`, `k8s/*` | `04131db` |
 | "Connect your own agent" panel | `Frontend/src/features/sandbox/components/ConnectAgentModal.jsx` | `3878c4f` |
@@ -73,7 +78,13 @@ Path-based URL instead of `<sandboxId>.mcp.localhost`: Node-based MCP clients ca
 
 Setup: create the k8s secret `internal-service` with `INTERNAL_SERVICE_TOKEN` (see `k8s/secrets.yml.example`). Without it the `/internal` routes answer 503 and the gateway returns 502; everything else keeps working.
 
-Later: OAuth 2.1 per the MCP authorization spec (one-click connect), output caps tuned for external clients, an audit log, per-tool rate limits.
+Later, and where each item is planned:
+
+| Item | Plan |
+|---|---|
+| Output caps for external clients | [taksha-agent-tools-build-plan.md](taksha-agent-tools-build-plan.md), Phase 0 |
+| A record of tool calls | [taksha-tool-call-analytics-plan.md](taksha-tool-call-analytics-plan.md). Version 1 covers Orion and Clio only. External agent calls stay as one log line per call in the sidecar |
+| OAuth 2.1 per the MCP authorization spec (one-click connect), per-tool rate limits | Not planned yet |
 
 ## Known gaps
 

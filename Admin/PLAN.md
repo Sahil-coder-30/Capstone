@@ -17,21 +17,23 @@ Payments features (plan editing, coupons, discounts, credit grants, refunds) com
 
 ## Related plan
 
-Notifications (email, WhatsApp, announcements, offers, delivery log, retry, DLQ) are designed in `docs/plans/kafka-whatsapp-architecture.md`, mainly section 7. This file owns the portal, login, permissions, data access and audit. The two plans depend on each other: once Kafka is live, the admin backend publishes facts, the Notification service delivers them, and the portal is the screen for the delivery log and the DLQ. Until then the admin backend sends its own mail (section 8).
+Notifications (email, WhatsApp, announcements, offers, delivery log, retry, DLQ) are designed in `docs/plans/kafka-whatsapp-architecture.md`, mainly section 7. This file owns the portal, login, permissions, data access and audit. It needs nothing from the Kafka plan: every phase P0 to P8 works without a broker, and the admin backend sends its own mail (section 8). All queue work for the admin platform is stage K6 of the Kafka plan and is built there, after P1 and P2 exist: the admin backend then publishes facts, the Notification service delivers them, and the portal gets the screens for the delivery log and the DLQ.
+
+Index of all plans and the rules that keep them apart: `docs/plans/README.md`.
 
 Where the two files disagree on the admin portal, this file wins. Where they disagree on notifications or the event backbone, the other file wins.
 
 ## Delivery workflow
 
-No code before the documents are done. Each step is reviewed before the next starts. Documents live in `Admin/docs/`.
+No code before the documents are done. Each step is reviewed before the next starts. Documents live in the main `docs/` folder, next to the other plans and specs.
 
 | Step | Output | File |
 |---|---|---|
-| 1 | HLD: system design, components, flows, trust boundaries, deployment | `docs/01-hld.md` |
-| 2 | PRD | `docs/02-prd.md` |
-| 3 | OpenAPI spec for every admin API (Auth admin routes + admin backend) | `docs/03-openapi.yaml` |
-| 4 | Design system: palette, typography, spacing, components, light and dark | `docs/04-design-system.md` |
-| 5 | UI design of every page | `docs/05-ui.md` |
+| 1 | HLD: system design, components, flows, trust boundaries, deployment | `docs/plans/admin-platform-hld.md` |
+| 2 | PRD | `docs/prd/admin-platform-prd.md` |
+| 3 | OpenAPI spec for every admin API (Auth admin routes + admin backend) | `docs/api/admin-openapi.yaml` |
+| 4 | Design system: palette, typography, spacing, components, light and dark | `docs/frontend/admin-design-system.md` |
+| 5 | UI design of every page | `docs/frontend/admin-ui.md` |
 | 6 | Backend, phase by phase (section 11). Every API ships with unit, edge-case and integration tests. | `Admin/backend/` |
 | 7 | Frontend, after the backend APIs of that phase are done | `Admin/frontend/` |
 | 8 | End-to-end tests across portal, Auth, admin backend and emails | `Admin/e2e/` |
@@ -60,7 +62,7 @@ No code before the documents are done. Each step is reviewed before the next sta
 |---|---|
 | Authentication (login factors, tokens, step-up) | Auth service, new admin files |
 | Authorization (status, grants, limits) | Admin backend, checked on every request |
-| Notifications | Notification service. The admin backend and Auth only publish events (see section 8) |
+| Notifications | The admin backend's own mailer (section 8.1). After Kafka stage K6: the Notification service, and the admin backend and Auth only publish events |
 | Data | Read straight from each service's DB with read-only users. Maintainer writes use a separate read-write user. |
 
 Permissions are **not** in the token. The admin backend loads the account on each request (30 s cache), so suspend and permission changes apply within 30 s.
@@ -132,7 +134,7 @@ Every existing service verifies `aud: takshacodespace-services`, so an admin tok
 | payments | `view` | history days |
 | db | `query` | which databases, read-only always |
 | tickets | `view`, `reply`, `assign` | |
-| notify | `send`, `view_deliveries`, `replay` | audience, channels, max per day |
+| notify (exists only after Kafka stage K6) | `send`, `view_deliveries`, `replay` | audience, channels, max per day |
 | audit | `view` | own or all |
 | organization | all | maintainer only, never grantable |
 | data_explorer_write | all | maintainer only, never grantable |
@@ -180,7 +182,9 @@ Payments tables have RLS on with no policies, so both Postgres roles need `BYPAS
 | Action | How | Existing code it relies on |
 |---|---|---|
 | Stop sandbox | `EXPIRE sandbox:<id> 1` | `handleExpiredKey` in `Sandbox/server/src/config/redis.js` |
-| Force logout | `refreshtokens.deleteMany({ userId })` | Auth refresh returns 401 when the token is missing |
+| Force logout | `refreshtokens.deleteMany({ userId })` | Auth refresh returns 401 when the token is missing. The access token still works until it expires (15 min at most), and the user can log in again |
+
+Two actions cannot reuse existing behavior and need a small additive change in a service (checked 2026-11-14, details in HLD section 11): **stop run** (runs live in the AI service's memory, and its stop route needs the user's own token) and **suspend user** (the `users` collection has no status field).
 
 ## 6. Observability
 
@@ -192,7 +196,7 @@ Payments tables have RLS on with no policies, so both Postgres roles need `BYPAS
 | Old logs, dead pods | Loki + Grafana Alloy reading container stdout (Promtail is deprecated) |
 | Traffic, errors, latency | Prometheus (kubelet/cAdvisor, ingress-nginx metrics, Auth `/metrics`) |
 
-`kube-prometheus-stack`, Loki and Grafana Alloy install with Helm into namespace `monitoring`, outside the main skaffold loop (same stack as section 6 of the Kafka plan). They need 1.5 to 2 GB RAM on Docker Desktop. Grafana stays the deep engineering view, the portal shows the numbers admins need.
+`kube-prometheus-stack`, Loki and Grafana Alloy install with Helm into namespace `monitoring`, outside the main skaffold loop, from the values files in `k8s/monitoring/`. This is the same stack as stage K7 of the Kafka plan: whichever of P5 and K7 runs first installs it, the other only checks it is there. P5 only reads from the stack and changes no service. They need 1.5 to 2 GB RAM on Docker Desktop. Grafana stays the deep engineering view, the portal shows the numbers admins need.
 
 Services do not log request ids today. Trace v1 works by user + project + time window: chat messages and tool logs, `usage_events`, pod logs in that window, ingress access log lines (`$req_id`).
 
@@ -230,9 +234,9 @@ Decided 2026-11-13: the admin backend is built first. Kafka comes later, for the
 
 Emails carry a portal link only, never an approve button. Security events are written to the audit log too, so a failed mail never hides them.
 
-### 8.2 Later: Kafka
+### 8.2 Later: Kafka (stage K6 of the Kafka plan)
 
-When Kafka is built for the whole project, only the worker's last step changes: it publishes the outbox row to `admin.events` instead of sending mail, and Notification takes over the templates. Announcements and offers to users wait for Kafka, because bulk sending, opt-in, unsubscribe and dedupe belong to Notification. Design: Kafka plan section 7.
+This part is designed and built in the Kafka plan, section 7. Nothing in this file waits for it. When Kafka is built for the whole project, only the worker's last step changes: it publishes the outbox row to `admin.events` instead of sending mail, and Notification takes over the templates. Announcements and offers to users wait for Kafka, because bulk sending, opt-in, unsubscribe and dedupe belong to Notification. Design: Kafka plan section 7.
 
 Portal screens that come with Kafka: delivery log per user, failed deliveries and DLQ, replay, per-announcement counts.
 
@@ -283,8 +287,8 @@ No phase waits for Kafka. Mail goes through the admin mailer (section 8.1).
 | P4 Analytics | Overview and analytics dashboards with charts | none | Numbers match direct DB queries |
 | P5 Cluster and logs | Pods, events, CPU/RAM, live logs, Prometheus + Loki, history search | Helm installs in `monitoring` | Logs of a deleted sandbox pod are searchable |
 | P6 Data explorer | Browse, query console, maintainer edit, diff, revert | none | Revert test passes, reader roles cannot write |
-| P7 Support and actions | Tickets, trace, stop sandbox, force logout, stop run | none | Each action audited and in the digest |
-| Kafka (project wide, later) | Mailer publishes to `admin.events`, announcements and offers, delivery log, DLQ replay | Per the Kafka plan | A test announcement reaches only the chosen audience once |
+| P7 Support and actions | Tickets, trace, stop sandbox, force logout, suspend user, stop run | AI: one internal stop-run route. Auth: optional `suspendedAt` on `users`, checked at login and refresh. Both additive, see HLD section 11 | Each action audited and in the digest. A user with no `suspendedAt` logs in as before |
+| Kafka stage K6 (not a phase of this plan) | Mailer publishes to `admin.events`, announcements and offers, delivery log, DLQ replay | Owned by the Kafka plan, section 7 | A test announcement reaches only the chosen audience once |
 | P8 Payments (last) | Plan overrides, coupons, discounts, credit grants, refunds | Payments: additive tables and internal routes, empty tables keep today's behavior | Payments test suite passes |
 
 ## 12. Decisions (defaults until changed)
