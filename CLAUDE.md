@@ -56,7 +56,7 @@ Both frontends proxy `/api` to `http://localhost` (the ingress) in dev. `Fronten
 **1. Login (Auth)**
 - `GET /api/auth/google` then callback: upsert `User`, publish to `auth_notification_queue`, issue token pair, redirect to `CLIENT_URL`.
 - Access token: RS256, 15 min, `kid: auth-rsa-v1`, `iss: auth.takshacodespace.in`, `aud: takshacodespace-services`. Claims: `sub`, `id`, `email`, `name`, `role`. No `subscription` claim.
-- Refresh token: opaque, SHA-256 hash stored in Mongo with a `familyId`, 30 days, cookie scoped to `/api/auth/refresh`. Reusing a rotated token revokes the whole family.
+- Refresh token: opaque, SHA-256 hash stored in Mongo with a `familyId`, 30 days, cookie scoped to `/api/auth` so refresh and logout both receive it (was `/api/auth/refresh` before 2026-11-14; `setRefreshCookie` clears that old copy). Reusing a rotated token revokes the whole family.
 - Logout blacklists the access token in Redis until it expires.
 - Frontend keeps the access token in memory only (`Frontend/src/services/apiClient.js`).
 
@@ -155,7 +155,6 @@ AI service: `cd Ai_orchestration && npm test` is offline (no network, no DB) and
 - **AI is single replica.** LangGraph uses an in-memory `MemorySaver`, active run state lives in `agentRun.service.js` memory, and the memory agent queue and legacy-migration memo are in-process too.
 - Frontend chat state: `features/chat-history` (sidebar, message actions, `useChatSessions`) is shared UI; each agent keeps its own slice state (`chatHistory.codingAgent`, `chatHistory.copilot`). Call `useChatSessions` and `useCodingAgent` only in the panel that owns the chat.
 - `Auth/src/routes/credit.routes.js` and its controller are not mounted. Credits live in Payments.
-- `Frontend` still calls `PATCH /api/payments/subscription`, which does not exist (see `Payments/fix.md` P1-8).
 - `previewUrl` is hardcoded to `http://<id>.preview.localhost` in `sandbox.controller.js`.
 - `k8s/secrets.yml.example` is out of date with the manifests (for example `aws` vs `aws-secret`, `REDIS_URL` vs `REDIS_URI`, `JWT_SECRET` vs `RSA_PRIVATE_KEY` / `JWT_REFRESH_SECRET`). Rebuild it from the manifests, never from the real file.
 - Auth needs `certs/public.pem` at startup, and `RSA_PRIVATE_KEY` or `certs/private.pem`. Never open those files.

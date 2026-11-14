@@ -14,7 +14,7 @@ import {
     serializeUsageEvent,
 } from '../serializers/api.serializers.js';
 import { buildCreditView } from './credit.controller.js';
-import { parsePaging } from './paging.js';
+import { parseDateParam, parsePaging } from './paging.js';
 
 const parseDays = (v) => Math.min(365, Math.max(1, parseInt(v, 10) || 30));
 
@@ -27,7 +27,9 @@ export async function getSubscription(req, res) {
 // GET /transactions
 export async function getTransactions(req, res) {
     const { page, limit } = parsePaging(req.query);
-    const { type, status, startDate, endDate } = req.query;
+    const { type, status } = req.query;
+    const startDate = parseDateParam(req.query.startDate, 'startDate');
+    const endDate = parseDateParam(req.query.endDate, 'endDate');
     const result = await listTransactions(req.user.id, { page, limit, type, status, startDate, endDate });
     res.json({
         status: 'success',
@@ -51,7 +53,9 @@ export async function getTransactionById(req, res) {
 // GET /usage-events
 export async function getUsageEvents(req, res) {
     const { page, limit } = parsePaging(req.query);
-    const { company, agentType, search, startDate, endDate } = req.query;
+    const { company, agentType, search } = req.query;
+    const startDate = parseDateParam(req.query.startDate, 'startDate');
+    const endDate = parseDateParam(req.query.endDate, 'endDate');
     const result = await listUsageEvents(req.user.id, {
         page, limit, provider: company, agentType, search, startDate, endDate,
     });

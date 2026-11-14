@@ -38,9 +38,8 @@ export default function SettingsPage({
     loadTransactionSummary,
     loadAnalytics,
     updateProfile, 
-    updatePreferences, 
-    updateSubscription,
-    generateApiKey, 
+    updatePreferences,
+    generateApiKey,
     deleteApiKey 
   } = useSettings();
 

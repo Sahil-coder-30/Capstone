@@ -102,15 +102,29 @@ export const issueTokenPair = async (user, familyId = null) => {
     };
 };  
 
+// Path /api/auth, so the browser sends the cookie to /refresh AND /logout
+// (logout must see it to revoke the token family).
+export const REFRESH_COOKIE_PATH = '/api/auth';
+// Cookies set before 2026-11-14 used this path. They are cleared on sight:
+// a stale copy there would be sent first and look like token reuse.
+const LEGACY_REFRESH_COOKIE_PATH = '/api/auth/refresh';
+
+/** Clears the refresh cookie at the current and the legacy path. */
+export const clearRefreshCookie = (res) => {
+    res.clearCookie('refreshToken', { path: LEGACY_REFRESH_COOKIE_PATH });
+    res.clearCookie('refreshToken', { path: REFRESH_COOKIE_PATH });
+};
+
 /**
- * Attaches the refresh token cookie scoped strictly to /api/auth/refresh.
+ * Attaches the refresh token cookie, scoped to /api/auth.
  */
 export const setRefreshCookie = (res, rawRefreshToken) => {
+    res.clearCookie('refreshToken', { path: LEGACY_REFRESH_COOKIE_PATH });
     res.cookie('refreshToken', rawRefreshToken, {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'lax',
-        path: '/api/auth/refresh',
+        path: REFRESH_COOKIE_PATH,
         maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
     });
 };

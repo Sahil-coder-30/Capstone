@@ -2,7 +2,6 @@ import { useCallback } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import {
   fetchCreditAPI,
-  updateSubscriptionAPI,
   fetchPackagesAPI,
   fetchTransactionsAPI,
   fetchTransactionSummaryAPI,
@@ -95,20 +94,6 @@ export const usePayments = () => {
     }
   }, [dispatch]);
 
-  const changeSubscription = useCallback(async (tier) => {
-    try {
-      dispatch(setLoading(true));
-      const data = await updateSubscriptionAPI(tier);
-      await Promise.all([loadCredit(), loadTransactions(), loadSummary()]);
-      return data;
-    } catch (err) {
-      dispatch(setError(err.message));
-      throw err;
-    } finally {
-      dispatch(setLoading(false));
-    }
-  }, [dispatch, loadCredit, loadTransactions, loadSummary]);
-
   const selectPlan = useCallback((planId) => {
     dispatch(setSelectedPlanId(planId));
   }, [dispatch]);
@@ -133,7 +118,6 @@ export const usePayments = () => {
     loadTransactions,
     loadSummary,
     loadAnalytics,
-    changeSubscription,
     selectPlan,
     selectBillingCycle,
     switchView,

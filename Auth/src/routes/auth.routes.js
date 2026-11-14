@@ -14,10 +14,14 @@ const authRouter = Router();
 // ── Google OAuth ──────────────────────────────────────────────────────────────
 authRouter.get('/google', passport.authenticate('google', { scope: ['profile', 'email'], session: false }));
 
-authRouter.get('/google/callback', passport.authenticate('google', {
-    failureRedirect: '/failed',
+// On a failed Google login, send the user back to the app, not to a route that does not exist.
+// Built per request so CLIENT_URL is read after the environment is loaded.
+const googleCallback = (req, res, next) => passport.authenticate('google', {
+    failureRedirect: `${process.env.CLIENT_URL || 'http://localhost:5173'}/?auth=failed`,
     session: false,
-}), authGoogleCallbackController);
+})(req, res, next);
+
+authRouter.get('/google/callback', googleCallback, authGoogleCallbackController);
 
 // ── Session ───────────────────────────────────────────────────────────────────
 authRouter.get('/getMe', identifyUser, authGetMeController);

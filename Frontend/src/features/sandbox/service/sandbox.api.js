@@ -25,11 +25,6 @@ export const getProjectStatusAPI = async (projectId) => {
   return response.data;
 };
 
-export const checkSandboxHealthAPI = async (sandboxId) => {
-  const response = await apiClient.get(`/api/sandbox/health/${sandboxId}`, { timeout: 30_000 });
-  return response.data;
-};
-
 /**
  * Stop a running sandbox — keeps the project record alive so it can be restarted.
  * Tears down: K8s Pod + Service + Redis key.  Status → "down".

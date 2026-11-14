@@ -61,4 +61,20 @@ app.get("/readyz", (req, res) => {
     })
 })
 
+// JSON for every unhandled error, same shape as the other Auth errors.
+// Without this, Express answers with an HTML page.
+// eslint-disable-next-line no-unused-vars
+app.use((err, req, res, next) => {
+    console.error('[Auth] Unhandled error:', err);
+    if (res.headersSent) return next(err);
+    // Bad input (wrong enum, wrong type) is the caller's mistake, not a server error.
+    if (err.name === 'ValidationError' || err.name === 'CastError') {
+        return res.status(400).json({ status: 'error', message: err.message });
+    }
+    res.status(err.status || err.statusCode || 500).json({
+        status: 'error',
+        message: process.env.NODE_ENV === 'production' ? 'Internal server error' : (err.message || 'Internal server error'),
+    });
+});
+
 export default app;

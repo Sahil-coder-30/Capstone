@@ -3,7 +3,7 @@ import User from "../models/user.model.js";
 import RefreshToken from "../models/refreshToken.model.js";
 import jwt from 'jsonwebtoken';
 import { blacklistToken } from "../config/redis.js";
-import { issueTokenPair, setRefreshCookie, hashToken } from "../utils/generateTokens.js";
+import { issueTokenPair, setRefreshCookie, clearRefreshCookie, hashToken } from "../utils/generateTokens.js";
 
 /**
  * Google OAuth 2.0 Callback Controller
@@ -51,10 +51,10 @@ export const authGoogleCallbackController = async (req, res, next) => {
 export const authGetMeController = async (req, res, next) => {
     try {
         const userId = req.user.id || req.user.sub;
-        if (!userId) throw Error("User not found");
-
-        const user = await User.findById(userId).select('-__v');
-        if (!user) throw Error("User not found");
+        const user = userId ? await User.findById(userId).select('-__v') : null;
+        if (!user) {
+            return res.status(404).json({ status: 'error', message: 'User not found' });
+        }
 
         res.status(200).json({
             status: "success",
@@ -96,7 +96,7 @@ export const authLogoutController = async (req, res, next) => {
         }
 
         // 3. Clear auth cookies
-        res.clearCookie('refreshToken', { path: '/api/auth/refresh' });
+        clearRefreshCookie(res);
 
         res.status(200).json({
             status: 'success',
@@ -126,7 +126,7 @@ export const authGenerateAccessToken = async (req, res, next) => {
 
         // 1. Invalid or expired token
         if (!stored || stored.expiresAt < new Date()) {
-            res.clearCookie('refreshToken', { path: '/api/auth/refresh' });
+            clearRefreshCookie(res);
             return res.status(401).json({
                 status: 'error',
                 message: 'Invalid or expired refresh token'
@@ -138,10 +138,10 @@ export const authGenerateAccessToken = async (req, res, next) => {
         if (stored.used) {
             console.warn(`[Security Alert] Refresh token reuse detected for family ${stored.familyId}! Revoking family.`);
             await RefreshToken.deleteMany({ familyId: stored.familyId });
-            res.clearCookie('refreshToken', { path: '/api/auth/refresh' });
+            clearRefreshCookie(res);
             return res.status(401).json({
                 status: 'error',
-                message: 'Token reuse detected — all sessions revoked'
+                message: 'Token reuse detected, all sessions revoked'
             });
         }
 

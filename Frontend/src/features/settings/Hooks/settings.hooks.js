@@ -5,7 +5,6 @@ import {
   updateProfileSettingsAPI,
   updatePreferencesAPI,
   fetchCreditAPI,
-  updateSubscriptionAPI,
   fetchPackagesAPI,
   fetchTransactionsAPI,
   fetchTransactionSummaryAPI,
@@ -134,21 +133,6 @@ export const useSettings = () => {
     }
   }, [dispatch]);
 
-  const updateSubscription = useCallback(async (subscription) => {
-    try {
-      dispatch(setSettingsLoading(true));
-      const data = await updateSubscriptionAPI(subscription);
-      dispatch(setSubscription(data.subscription || subscription));
-      await Promise.all([loadCredit(), loadTransactions(), loadTransactionSummary()]);
-      return data;
-    } catch (err) {
-      dispatch(setSettingsError(err.message));
-      throw err;
-    } finally {
-      dispatch(setSettingsLoading(false));
-    }
-  }, [dispatch, loadCredit, loadTransactions, loadTransactionSummary]);
-
   const generateApiKey = useCallback(async (keyName) => {
     try {
       dispatch(setSettingsLoading(true));
@@ -194,7 +178,6 @@ export const useSettings = () => {
     loadAnalytics,
     updateProfile,
     updatePreferences,
-    updateSubscription,
     generateApiKey,
     deleteApiKey,
     clearError

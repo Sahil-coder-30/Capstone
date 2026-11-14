@@ -23,14 +23,6 @@ export const fetchCreditAPI = async () => {
 };
 
 /**
- * Update user subscription tier in Payments service.
- */
-export const updateSubscriptionAPI = async (subscription) => {
-  const res = await apiClient.patch('/api/payments/subscription', { subscription }, { timeout: 3_000 });
-  return res.data;
-};
-
-/**
  * Fetch public subscription packages/plans from Payments service.
  */
 export const fetchPackagesAPI = async () => {
