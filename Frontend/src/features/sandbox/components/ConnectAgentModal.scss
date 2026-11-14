@@ -198,6 +198,82 @@
   font-size: 12px;
 }
 
+a.connect-agent__primary { text-decoration: none; }
+
+.connect-agent__setup {
+  border: 1px solid $color-border;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.connect-agent__tabs {
+  display: flex;
+  overflow-x: auto;
+  border-bottom: 1px solid $color-border;
+  background: $color-bg-card;
+}
+
+.connect-agent__tab {
+  flex-shrink: 0;
+  padding: 8px 12px;
+  border: none;
+  border-bottom: 2px solid transparent;
+  background: none;
+  color: $color-text-muted;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+
+  &:hover { color: $color-text; }
+
+  &--active {
+    border-bottom-color: $color-primary;
+    color: $color-text;
+    font-weight: 700;
+  }
+}
+
+.connect-agent__setup-body {
+  @include flex-column;
+  gap: 10px;
+  padding: 12px;
+}
+
+.connect-agent__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.connect-agent__details {
+  @include flex-column;
+  gap: 8px;
+
+  summary {
+    color: $color-text-muted;
+    font-size: 12px;
+    cursor: pointer;
+
+    &:hover { color: $color-text; }
+  }
+
+  &[open] summary { margin-bottom: 8px; }
+
+  pre {
+    margin: 0;
+    max-height: 240px;
+    padding: 10px;
+    overflow: auto;
+    border: 1px solid $color-border;
+    border-radius: 8px;
+    background: $color-bg-card;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+
+  .connect-agent__snippet + .connect-agent__snippet { margin-top: 8px; }
+}
+
 .connect-agent__copy,
 .connect-agent__revoke {
   display: flex;
