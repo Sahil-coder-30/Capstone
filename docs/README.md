@@ -13,7 +13,8 @@ Welcome to the definitive engineering documentation for Taksha CodeSpace. Every 
 ```
 docs/
 ├── README.md                                          ← You are here: Master Documentation Index
-├── openapi.yaml                                       ← Universal OpenAPI 3.1.0 Contract (113KB)
+├── openapi.yaml                                       ← OpenAPI 3.1 of every route, with end to end comments per API
+├── openapi.plain.yaml                                 ← Same spec, no comments (node docs/openapi-strip-comments.mjs)
 │
 ├── architecture/                                      ← Canonical System Master Blueprints (The "Why" & "How")
 │   ├── 01-ai-agent-orchestration.md                   ← Orion v3 & Clio 9-Node StateGraph Master Blueprint

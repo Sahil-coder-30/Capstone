@@ -1,0 +1,3150 @@
+openapi: 3.1.0
+
+info:
+  title: Taksha CodeSpace API
+  version: 2.0.0
+  summary: Every HTTP API of the Taksha microservices, checked against the code.
+  description: |
+    Taksha CodeSpace is a browser IDE with AI coding agents. Each user project runs in its
+    own Kubernetes pod (a "sandbox"). This file documents every HTTP route of every service.
+
+    | Service | Ingress prefix | Error format |
+    |---|---|---|
+    | Auth | `/api/auth` | `{ status: "error", message }` |
+    | Payments | `/api/payments` | FaultKit `{ success: false, error: { code, message, details, requestId } }` |
+    | AI orchestration | `/api/ai` | FaultKit, and SSE `error` events on streams |
+    | Sandbox server | `/api/sandbox` | `{ status: "error", message }` |
+    | Router (MCP gateway) | `/api/mcp` | JSON-RPC error |
+    | Sandbox sidecar | host `<id>.agent.localhost` | `{ status: "error", message }`, JSON-RPC on `/mcp` |
+
+    **Frontend rules that apply to every call**
+
+    - Send the access token as `Authorization: Bearer <jwt>`. It lives in memory only
+      (`Frontend/src/services/apiClient.js`).
+    - On any 401, call `POST /api/auth/refresh` once (the browser sends the refresh cookie),
+      then retry the request with the new token. If refresh fails, go to login.
+    - `402` from the AI service means the credit window is used up. Show the refill time
+      (`error.details.timeUntilRefillMs`) and the upgrade option.
+    - `429` carries `Retry-After` (seconds). Wait, then retry.
+    - SSE endpoints answer `200` and report problems as events, so always handle the
+      `error` / `agent:error` event, not only the HTTP status.
+
+    The comments above each path in the YAML source show the end to end flow of that API.
+  contact:
+    name: Taksha Platform Engineering
+    url: https://github.com/Sahil-coder-30/Capstone
+
+servers:
+  - url: http://localhost
+    description: Local Kubernetes ingress (Docker Desktop). All /api/* routes.
+  - url: https://takshacodespace.in
+    description: Production host (same paths).
+
+tags:
+  - name: Auth
+    description: Google login, access and refresh tokens, logout, sandbox tokens.
+  - name: Profile and preferences
+    description: The user's developer profile and editor settings.
+  - name: Payments checkout
+    description: Razorpay order, browser verification and webhook.
+  - name: Payments credits
+    description: The 5-hour AI credit window and usage recording.
+  - name: Payments dashboard
+    description: Subscription, transactions and usage views for both frontends.
+  - name: AI Orion
+    description: Orion, the multi-step coding agent (LangGraph), streamed over SSE.
+  - name: AI Clio
+    description: Clio, the editor copilot, and project title generation.
+  - name: AI chats
+    description: Chat sessions and messages of Orion and Clio, with trash and restore.
+  - name: Sandbox projects
+    description: Projects, their Kubernetes sandbox pods and their trash.
+  - name: Sandbox MCP tokens
+    description: Tokens that let external agents (Claude Code, Cursor) use a project.
+  - name: MCP gateway
+    description: The public MCP endpoint for external agents, in the router.
+  - name: Sandbox sidecar
+    description: The agent container inside each sandbox pod (MCP tools, browser error reports).
+  - name: Internal
+    description: Service-to-service routes. Not routed by the ingress. Need X-Internal-Token.
+  - name: Health
+    description: Kubernetes probes and metrics. Mostly not routed by the ingress.
+
+paths:
+
+  /api/auth/google:
+    get:
+      tags: [Auth]
+      operationId: authGoogleStart
+      summary: Start Google sign-in (browser redirect)
+      description: |
+        Redirects the browser to Google's consent screen. Open it with
+        `window.location.href`, never with `fetch`, because the answer is a redirect chain
+        that ends on the Frontend.
+      security: []
+      responses:
+        '302':
+          description: Redirect to Google OAuth 2.0 consent screen.
+          headers:
+            Location:
+              description: Google authorization URL with `scope=profile email`.
+              schema: { type: string, format: uri }
+
+  /api/auth/google/callback:
+    get:
+      tags: [Auth]
+      operationId: authGoogleCallback
+      summary: Google OAuth callback (sets the refresh cookie)
+      description: |
+        Handles the redirect from Google. Creates the user on first login, publishes a
+        login email event, sets the `refreshToken` cookie and redirects to the Frontend
+        (`CLIENT_URL`). The Frontend then calls `POST /api/auth/refresh` to get an access token.
+      security: []
+      parameters:
+        - name: code
+          in: query
+          required: true
+          description: Authorization code from Google.
+          schema: { type: string }
+        - name: state
+          in: query
+          required: false
+          schema: { type: string }
+      responses:
+        '302':
+          description: |
+            Signed in: redirect to `CLIENT_URL` with the refresh cookie set.
+            Google sign-in failed: redirect to `CLIENT_URL/?auth=failed`, no cookie.
+          headers:
+            Location:
+              description: '`CLIENT_URL` (default `http://localhost:5173`), or `CLIENT_URL/?auth=failed`.'
+              schema: { type: string, format: uri }
+            Set-Cookie:
+              description: '`refreshToken=<128 hex>; Path=/api/auth; HttpOnly; SameSite=Lax; Max-Age=2592000` (`Secure` in production). Also clears a legacy cookie at `Path=/api/auth/refresh`.'
+              schema: { type: string }
+        '500': { $ref: '#/components/responses/AuthServerError' }
+
+  /api/auth/getMe:
+    get:
+      tags: [Auth]
+      operationId: authGetMe
+      summary: Get the signed-in user
+      description: Returns the user document of the token's `sub`. Use it on app load to show the account.
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: The user.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, message, user]
+                properties:
+                  status: { type: string, const: success }
+                  message: { type: string, example: User found successfully }
+                  user: { $ref: '#/components/schemas/User' }
+                  accessToken:
+                    type: [string, 'null']
+                    description: The token the caller sent, echoed back.
+        '401': { $ref: '#/components/responses/AuthUnauthorized' }
+        '404':
+          description: The token is valid but the user no longer exists. Log out.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PlainError' }
+              example: { status: error, message: User not found }
+        '500': { $ref: '#/components/responses/AuthServerError' }
+
+  /api/auth/refresh:
+    post:
+      tags: [Auth]
+      operationId: authRefresh
+      summary: Rotate the refresh cookie and get a new access token
+      description: |
+        Exchanges the `refreshToken` cookie for a 15-minute access token and a new refresh
+        cookie. A refresh token works once. Presenting an already used one revokes every
+        refresh token of that login (reuse detection), so the user must sign in again.
+      security:
+        - refreshCookie: []
+      responses:
+        '200':
+          description: New access token. A new `refreshToken` cookie is set.
+          headers:
+            Set-Cookie:
+              description: New `refreshToken` cookie, same attributes as at login.
+              schema: { type: string }
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, message, accessToken]
+                properties:
+                  status: { type: string, const: success }
+                  message: { type: string, example: Access token refreshed successfully }
+                  accessToken: { type: string, description: 'RS256 JWT, 15 minutes.' }
+        '401':
+          description: |
+            No cookie, unknown or expired token, reused token (family revoked), or the user no
+            longer exists. Send the user to login.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PlainError' }
+              examples:
+                missing: { value: { status: error, message: No refresh token provided } }
+                expired: { value: { status: error, message: Invalid or expired refresh token } }
+                reuse: { value: { status: error, message: 'Token reuse detected, all sessions revoked' } }
+        '500': { $ref: '#/components/responses/AuthServerError' }
+
+  /api/auth/sandbox-token:
+    post:
+      tags: [Auth]
+      operationId: authSandboxToken
+      summary: Issue a 2-hour sandbox token for one AI run
+      description: |
+        Returns a JWT with audience `taksha-sandbox` and claim `sbx` = the sandbox id, valid for
+        2 hours. Only the sandbox sidecar accepts it, and only when `sub` is the sandbox owner.
+        Used by the AI service, not by the browser.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [sandboxId]
+              properties:
+                sandboxId: { $ref: '#/components/schemas/SandboxId' }
+      responses:
+        '200':
+          description: Sandbox token.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, token, expiresIn]
+                properties:
+                  status: { type: string, const: success }
+                  token: { type: string, description: 'RS256 JWT, aud taksha-sandbox, claims sub, id, sbx.' }
+                  expiresIn: { type: integer, const: 7200, description: Seconds. }
+        '400':
+          description: sandboxId missing or not a DNS label.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PlainError' }
+              example: { status: error, message: A valid sandboxId is required }
+        '401': { $ref: '#/components/responses/AuthUnauthorized' }
+        '429':
+          description: More than 30 sandbox tokens in one minute for this user.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PlainError' }
+              example: { status: error, message: Too many sandbox token requests. Try again in a minute. }
+        '500': { $ref: '#/components/responses/AuthServerError' }
+
+  /api/auth/logout:
+    post:
+      tags: [Auth]
+      operationId: authLogout
+      summary: Log out (blacklist the access token, clear the refresh cookie)
+      description: |
+        Blacklists the access token in Redis until it expires, deletes every refresh token of
+        this login (the cookie's family) and clears the cookie. Send it with
+        `credentials: 'include'` so the refresh cookie comes along.
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Logged out.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, message]
+                properties:
+                  status: { type: string, const: success }
+                  message: { type: string, example: Logged out successfully }
+        '401': { $ref: '#/components/responses/AuthUnauthorized' }
+        '500': { $ref: '#/components/responses/AuthServerError' }
+
+  /api/auth/profile:
+    get:
+      tags: [Profile and preferences]
+      operationId: getProfile
+      summary: Get my profile (created with defaults on first call)
+      description: Returns the profile of the signed-in user. The first call creates it with default values.
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: The profile.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, profile]
+                properties:
+                  status: { type: string, const: success }
+                  message: { type: string, example: Profile fetched successfully }
+                  profile: { $ref: '#/components/schemas/Profile' }
+        '401': { $ref: '#/components/responses/AuthUnauthorized' }
+        '500': { $ref: '#/components/responses/AuthServerError' }
+    put:
+      tags: [Profile and preferences]
+      operationId: updateProfile
+      summary: Update my profile (partial)
+      description: Sets only the fields sent. `userId` in the body is ignored.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ProfileInput' }
+      responses:
+        '200':
+          description: The updated profile.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, profile]
+                properties:
+                  status: { type: string, const: success }
+                  message: { type: string, example: Profile updated successfully }
+                  profile: { $ref: '#/components/schemas/Profile' }
+        '400': { $ref: '#/components/responses/AuthBadRequest' }
+        '401': { $ref: '#/components/responses/AuthUnauthorized' }
+        '500': { $ref: '#/components/responses/AuthServerError' }
+
+  /api/auth/preferences:
+    get:
+      tags: [Profile and preferences]
+      operationId: getPreferences
+      summary: Get my preferences (created with defaults on first call)
+      description: Returns theme, editor, copilot and notification settings of the signed-in user.
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: The preferences.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, preferences]
+                properties:
+                  status: { type: string, const: success }
+                  message: { type: string, example: Preferences fetched successfully }
+                  preferences: { $ref: '#/components/schemas/Preferences' }
+        '401': { $ref: '#/components/responses/AuthUnauthorized' }
+        '500': { $ref: '#/components/responses/AuthServerError' }
+    put:
+      tags: [Profile and preferences]
+      operationId: updatePreferences
+      summary: Update my preferences (deep partial merge)
+      description: |
+        Merges the sent fields into the stored preferences. Nested objects are merged field
+        by field, so `{ "editor": { "fontSize": "16px" } }` changes only the font size.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PreferencesInput' }
+      responses:
+        '200':
+          description: The updated preferences.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, preferences]
+                properties:
+                  status: { type: string, const: success }
+                  message: { type: string, example: Preferences updated successfully }
+                  preferences: { $ref: '#/components/schemas/Preferences' }
+        '400': { $ref: '#/components/responses/AuthBadRequest' }
+        '401': { $ref: '#/components/responses/AuthUnauthorized' }
+        '500': { $ref: '#/components/responses/AuthServerError' }
+
+  /.well-known/jwks.json:
+    servers:
+      - url: http://auth-service
+        description: In-cluster only. Not routed by the ingress.
+    get:
+      tags: [Auth, Internal]
+      operationId: authJwks
+      summary: JSON Web Key Set (public key for RS256 tokens)
+      description: |
+        RFC 7517 key set with one RSA key, `kid: auth-rsa-v1`. Cached by callers for 24 hours.
+        Look the key up by the `kid` header of the token.
+      security: []
+      responses:
+        '200':
+          description: The key set.
+          headers:
+            Cache-Control:
+              schema: { type: string, example: 'public, max-age=86400' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Jwks' }
+
+  /internal/sandbox-token:
+    servers:
+      - url: http://auth-service
+        description: In-cluster only.
+    post:
+      tags: [Internal, Auth]
+      operationId: internalSandboxToken
+      summary: Scoped short sandbox token for the MCP gateway
+      description: |
+        Signs a sandbox token for `userId` and `sandboxId` with a `scope` claim. The sidecar then
+        allows only `/mcp` and only the tools in those scopes. Default lifetime 10 minutes,
+        at most 15.
+      security:
+        - internalToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [userId, sandboxId, scopes]
+              properties:
+                userId: { type: string, pattern: '^[a-f0-9]{24}$', description: Mongo ObjectId of the user. }
+                sandboxId: { $ref: '#/components/schemas/SandboxId' }
+                scopes:
+                  type: array
+                  minItems: 1
+                  items: { $ref: '#/components/schemas/McpScope' }
+                ttlSeconds: { type: integer, minimum: 60, maximum: 900, default: 600 }
+      responses:
+        '200':
+          description: Scoped sandbox token.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, token, expiresIn]
+                properties:
+                  status: { type: string, const: success }
+                  token: { type: string, description: 'RS256 JWT, aud taksha-sandbox, claims sub, id, sbx, scope.' }
+                  expiresIn: { type: integer, description: Seconds. }
+        '400':
+          description: Invalid userId, sandboxId, scopes or ttlSeconds.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PlainError' }
+        '401': { $ref: '#/components/responses/InternalUnauthorized' }
+        '404':
+          description: No user with this id.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PlainError' }
+              example: { status: error, message: User not found }
+        '503': { $ref: '#/components/responses/InternalNotConfigured' }
+
+  /metrics:
+    servers:
+      - url: http://auth-service
+        description: In-cluster only.
+    get:
+      tags: [Health]
+      operationId: authMetrics
+      summary: Prometheus metrics (Auth)
+      description: '`prom-client` text format. Labels use the route template, never the raw URL.'
+      security: []
+      responses:
+        '200':
+          description: Metrics in Prometheus text format.
+          content:
+            text/plain:
+              schema: { type: string }
+
+  /healthz:
+    servers:
+      - url: http://auth-service
+      - url: http://payments-service
+      - url: http://notification-service
+    get:
+      tags: [Health]
+      operationId: healthz
+      summary: Liveness probe (Auth, Payments, Notification)
+      description: Answers 200 while the process runs. Body differs per service.
+      security: []
+      responses:
+        '200':
+          description: Alive.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+              examples:
+                auth: { value: { message: Server is healthy } }
+                payments: { value: { status: ok, service: payments } }
+                notification: { value: { message: Notification service is healthy.... } }
+  /readyz:
+    servers:
+      - url: http://auth-service
+      - url: http://payments-service
+      - url: http://notification-service
+    get:
+      tags: [Health]
+      operationId: readyz
+      summary: Readiness probe (Auth, Payments, Notification)
+      description: Payments checks its Postgres connection. Auth and Notification always answer 200.
+      security: []
+      responses:
+        '200':
+          description: Ready.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+              examples:
+                auth: { value: { message: Server is ready to use } }
+                payments: { value: { status: ok, service: payments, db: up } }
+                notification: { value: { message: Notification service is ready.... } }
+        '503':
+          description: Payments only, Postgres unreachable.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+              example: { status: error, service: payments, db: down }
+
+  /api/payments/credit/packages:
+    get:
+      tags: [Payments credits]
+      operationId: listPackages
+      summary: List the plans for sale (public)
+      description: Static list from `config/plans.config.js`. Use `id` as `packageId` in checkout.
+      security: []
+      responses:
+        '200':
+          description: The packages.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, packages]
+                properties:
+                  status: { type: string, const: success }
+                  packages:
+                    type: array
+                    items: { $ref: '#/components/schemas/Package' }
+
+  /api/payments/credit:
+    get:
+      tags: [Payments credits]
+      operationId: getCredit
+      summary: My credit window, usage totals and tier limits
+      description: |
+        One credit window per user, refilled every 5 hours (Free 20, Pro 150, Max 200 credits).
+        1 credit = `tokensPerCredit` tokens (default 1000). When the balance drops below
+        `tierConfig.creditLowerLimit` the window locks until `windowRefillAt`.
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: The credit view.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, credit]
+                properties:
+                  status: { type: string, const: success }
+                  credit: { $ref: '#/components/schemas/CreditView' }
+        '401': { $ref: '#/components/responses/FaultUnauthorized' }
+        '500': { $ref: '#/components/responses/FaultServerError' }
+        '503': { $ref: '#/components/responses/FaultServiceUnavailable' }
+
+  /api/payments/credit/check:
+    get:
+      tags: [Payments credits]
+      operationId: checkCredit
+      summary: Can I send an AI request now?
+      description: |
+        Returns the window state. `canQuery` is false when `creditsRemaining` is below the
+        tier's `creditLowerLimit`. `hasCredit` is the same value, kept for older clients.
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Window state.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - type: object
+                    required: [status]
+                    properties:
+                      status: { type: string, const: success }
+                  - $ref: '#/components/schemas/CreditCheck'
+        '401': { $ref: '#/components/responses/FaultUnauthorized' }
+        '500': { $ref: '#/components/responses/FaultServerError' }
+        '503': { $ref: '#/components/responses/FaultServiceUnavailable' }
+
+  /api/payments/credit/update:
+    post:
+      tags: [Payments credits]
+      operationId: recordCreditUsage
+      summary: Record AI token usage and deduct credits (idempotent)
+      description: |
+        Stores one `usage_events` row and deducts `totalTokens / tokensPerCredit` credits.
+        The pair (user, `requestId`) is unique: a repeat returns `duplicate: true` and deducts
+        nothing. `agentType: memory` is recorded with real tokens but deducts 0 credits
+        (shown as `creditsDiscounted`). Unknown providers are stored as `unknown`.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UsageInput' }
+      responses:
+        '200':
+          description: Recorded, or already recorded for this requestId.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, message, credit, usage]
+                properties:
+                  status: { type: string, const: success }
+                  message:
+                    type: string
+                    enum: [Usage recorded, Usage already recorded for this requestId]
+                  credit: { $ref: '#/components/schemas/CreditCheck' }
+                  usage:
+                    type: object
+                    properties:
+                      company: { type: string, enum: [nvidia, unknown] }
+                      subscription: { $ref: '#/components/schemas/Tier' }
+                      creditsDeducted: { type: number }
+                      creditsDiscounted: { type: number }
+                      totalTokens: { type: integer }
+                      duplicate: { type: boolean }
+        '400': { $ref: '#/components/responses/FaultBadRequest' }
+        '401': { $ref: '#/components/responses/FaultUnauthorized' }
+        '403': { $ref: '#/components/responses/FaultForbidden' }
+        '500': { $ref: '#/components/responses/FaultServerError' }
+
+  /api/payments/credit/transactions:
+    get:
+      tags: [Payments dashboard]
+      operationId: listCreditTransactions
+      summary: My billing transactions (paged, Frontend shape)
+      description: Newest first. `limit` is clamped to 1..100.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Limit'
+        - name: type
+          in: query
+          schema: { $ref: '#/components/schemas/TransactionType' }
+      responses:
+        '200':
+          description: One page of transactions.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, pagination, transactions]
+                properties:
+                  status: { type: string, const: success }
+                  pagination:
+                    type: object
+                    properties:
+                      page: { type: integer }
+                      limit: { type: integer }
+                      total: { type: integer }
+                      pages: { type: integer }
+                  transactions:
+                    type: array
+                    items: { $ref: '#/components/schemas/Transaction' }
+        '401': { $ref: '#/components/responses/FaultUnauthorized' }
+        '500': { $ref: '#/components/responses/FaultServerError' }
+
+  /api/payments/credit/transactions/summary:
+    get:
+      tags: [Payments dashboard]
+      operationId: getTransactionSummary
+      summary: My spend and usage summary
+      description: '`totalBillableINR` is always 0 (credits are not billed per use).'
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: The summary.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, summary]
+                properties:
+                  status: { type: string, const: success }
+                  summary:
+                    type: object
+                    additionalProperties: true
+                    properties:
+                      totalBillableINR: { type: number, const: 0 }
+                      currentSubscription: { $ref: '#/components/schemas/Tier' }
+                      currentPeriodStart: { type: [string, 'null'], format: date-time }
+                      currentPeriodEnd: { type: [string, 'null'], format: date-time }
+        '401': { $ref: '#/components/responses/FaultUnauthorized' }
+        '500': { $ref: '#/components/responses/FaultServerError' }
+
+  /api/payments/credit/analytics:
+    get:
+      tags: [Payments dashboard]
+      operationId: getCreditAnalytics
+      summary: My usage analytics (Frontend shape)
+      description: '`byAgent` covers only the last 30 events. For a time range use `GET /api/payments/usage-events/analytics`.'
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Analytics.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, analytics]
+                properties:
+                  status: { type: string, const: success }
+                  analytics:
+                    type: object
+                    properties:
+                      totals:
+                        type: object
+                        properties:
+                          promptTokens: { type: integer }
+                          completionTokens: { type: integer }
+                          totalTokens: { type: integer }
+                      byProvider:
+                        type: array
+                        items: { type: object, additionalProperties: true }
+                      byAgent:
+                        type: object
+                        additionalProperties:
+                          type: object
+                          properties:
+                            totalTokens: { type: integer }
+                            requestCount: { type: integer }
+                      recentEvents:
+                        type: array
+                        items: { $ref: '#/components/schemas/UsageEvent' }
+        '401': { $ref: '#/components/responses/FaultUnauthorized' }
+        '500': { $ref: '#/components/responses/FaultServerError' }
+
+  /api/payments/create/order:
+    post:
+      tags: [Payments checkout]
+      operationId: createOrder
+      summary: Create a Razorpay order for a plan
+      description: |
+        Returns what the Razorpay Checkout modal needs (`orderId`, `amount` in paise, `keyId`).
+        After payment, call `POST /api/payments/verify` with what the modal returned.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [packageId]
+              properties:
+                packageId:
+                  type: string
+                  description: Package id (`pro_regular`, `max_regular`) or a bare tier (`pro`, `max`).
+                  examples: [pro_regular]
+      responses:
+        '201':
+          description: Order created.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, data]
+                properties:
+                  status: { type: string, const: success }
+                  data:
+                    type: object
+                    required: [orderId, amount, currency, keyId, package]
+                    properties:
+                      orderId: { type: string, examples: [order_PnX1s0aB2c3d4e] }
+                      amount: { type: integer, description: Paise., examples: [49900] }
+                      currency: { type: string, const: INR }
+                      keyId: { type: string, description: Razorpay public key id for the modal. }
+                      package:
+                        type: object
+                        properties:
+                          id: { type: string }
+                          label: { type: string }
+                          tier: { $ref: '#/components/schemas/Tier' }
+                          priceINR: { type: number }
+        '400': { $ref: '#/components/responses/FaultBadRequest' }
+        '401': { $ref: '#/components/responses/FaultUnauthorized' }
+        '500': { $ref: '#/components/responses/FaultServerError' }
+        '503': { $ref: '#/components/responses/FaultServiceUnavailable' }
+
+  /api/payments/verify:
+    post:
+      tags: [Payments checkout]
+      operationId: verifyPayment
+      summary: Verify a Razorpay payment and apply the plan
+      description: |
+        Checks the signature, re-fetches the payment from Razorpay (never trusts the browser),
+        captures it if only authorized, and applies the plan in one database transaction.
+        Calling it twice, or racing with the webhook, is safe: `data.status` is then
+        `already_processed`. A second, different payment for an already paid order returns
+        `duplicate_payment` and is logged for a refund.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [orderId, paymentId, signature]
+              properties:
+                orderId: { type: string, maxLength: 200, description: razorpay_order_id }
+                paymentId: { type: string, maxLength: 200, description: razorpay_payment_id }
+                signature: { type: string, maxLength: 200, description: razorpay_signature }
+      responses:
+        '200':
+          description: Payment applied (or already applied).
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, message, data]
+                properties:
+                  status: { type: string, const: success }
+                  message:
+                    type: string
+                    enum:
+                      - Payment verified and subscription updated
+                      - Payment was already applied
+                      - This order was already paid. The extra payment is logged for a refund.
+                  data: { $ref: '#/components/schemas/PaymentResult' }
+        '400': { $ref: '#/components/responses/FaultBadRequest' }
+        '401': { $ref: '#/components/responses/FaultUnauthorized' }
+        '403': { $ref: '#/components/responses/FaultForbidden' }
+        '404': { $ref: '#/components/responses/FaultNotFound' }
+        '500': { $ref: '#/components/responses/FaultServerError' }
+        '503': { $ref: '#/components/responses/FaultServiceUnavailable' }
+
+  /api/payments/webhook:
+    post:
+      tags: [Payments checkout]
+      operationId: razorpayWebhook
+      summary: Razorpay webhook (server to server)
+      description: |
+        Handles `payment.captured`, `order.paid`, `payment.failed` and `refund.processed`.
+        Every handler is idempotent. Other events are acknowledged with `ignored`.
+        Do not put another body parser before this route: the HMAC needs the exact bytes.
+      security:
+        - razorpaySignature: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [event, payload]
+              properties:
+                event:
+                  type: string
+                  examples: [payment.captured]
+                payload:
+                  type: object
+                  description: 'Razorpay payload, for example `{ payment: { entity } }` or `{ refund: { entity } }`.'
+                  additionalProperties: true
+      responses:
+        '200':
+          description: Handled or ignored.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, enum: [received, ignored] }
+        '400':
+          description: Signature check failed or raw body missing.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/FaultError' }
+        '500': { $ref: '#/components/responses/FaultServerError' }
+
+  /api/payments/subscription:
+    get:
+      tags: [Payments dashboard]
+      operationId: getSubscription
+      summary: My active and queued plans
+      description: |
+        A user has at most one active slot and any number of queued slots. A queued slot keeps
+        its remaining time (`daysRemaining`) and starts when the active one ends.
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Subscription state.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, data]
+                properties:
+                  status: { type: string, const: success }
+                  data: { $ref: '#/components/schemas/Subscription' }
+        '401': { $ref: '#/components/responses/FaultUnauthorized' }
+        '500': { $ref: '#/components/responses/FaultServerError' }
+
+  /api/payments/transactions:
+    get:
+      tags: [Payments dashboard]
+      operationId: listTransactions
+      summary: My transactions (filtered, payments_frontend shape)
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Limit'
+        - name: type
+          in: query
+          schema: { $ref: '#/components/schemas/TransactionType' }
+        - name: status
+          in: query
+          schema: { type: string, enum: [PENDING, SUCCESS, FAILED, REFUNDED] }
+        - name: startDate
+          in: query
+          schema: { type: string, format: date-time }
+        - name: endDate
+          in: query
+          schema: { type: string, format: date-time }
+      responses:
+        '200':
+          description: One page and totals.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, data]
+                properties:
+                  status: { type: string, const: success }
+                  data:
+                    type: object
+                    properties:
+                      transactions:
+                        type: array
+                        items: { $ref: '#/components/schemas/Transaction' }
+                      total: { type: integer }
+                      page: { type: integer }
+                      totalPages: { type: integer }
+                      summary:
+                        type: object
+                        properties:
+                          totalSpentINR: { type: number }
+                          totalTransactions: { type: integer }
+                          successCount: { type: integer }
+        '401': { $ref: '#/components/responses/FaultUnauthorized' }
+        '500': { $ref: '#/components/responses/FaultServerError' }
+
+  /api/payments/transactions/{id}:
+    get:
+      tags: [Payments dashboard]
+      operationId: getTransaction
+      summary: One of my transactions
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: The transaction.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, data]
+                properties:
+                  status: { type: string, const: success }
+                  data: { $ref: '#/components/schemas/Transaction' }
+        '401': { $ref: '#/components/responses/FaultUnauthorized' }
+        '404': { $ref: '#/components/responses/FaultNotFound' }
+        '500': { $ref: '#/components/responses/FaultServerError' }
+
+  /api/payments/usage-events:
+    get:
+      tags: [Payments dashboard]
+      operationId: listUsageEvents
+      summary: My AI usage events (filtered, paged)
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Limit'
+        - name: company
+          in: query
+          description: Provider.
+          schema: { type: string, enum: [nvidia, unknown] }
+        - name: agentType
+          in: query
+          schema: { $ref: '#/components/schemas/AgentType' }
+        - name: search
+          in: query
+          description: Case-insensitive substring of the request id or the model id.
+          schema: { type: string }
+        - name: startDate
+          in: query
+          schema: { type: string, format: date-time }
+        - name: endDate
+          in: query
+          schema: { type: string, format: date-time }
+      responses:
+        '200':
+          description: One page of events.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, data]
+                properties:
+                  status: { type: string, const: success }
+                  data:
+                    type: object
+                    properties:
+                      events:
+                        type: array
+                        items: { $ref: '#/components/schemas/UsageEvent' }
+                      total: { type: integer }
+                      page: { type: integer }
+                      totalPages: { type: integer }
+        '401': { $ref: '#/components/responses/FaultUnauthorized' }
+        '500': { $ref: '#/components/responses/FaultServerError' }
+
+  /api/payments/usage-events/analytics:
+    get:
+      tags: [Payments dashboard]
+      operationId: getUsageAnalytics
+      summary: My usage analytics over N days
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: days
+          in: query
+          description: Days back from now, clamped to 1..365.
+          schema: { type: integer, minimum: 1, maximum: 365, default: 30 }
+      responses:
+        '200':
+          description: Analytics.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, data]
+                properties:
+                  status: { type: string, const: success }
+                  data: { $ref: '#/components/schemas/UsageAnalytics' }
+        '401': { $ref: '#/components/responses/FaultUnauthorized' }
+        '500': { $ref: '#/components/responses/FaultServerError' }
+
+  /api/payments/dashboard/overview:
+    get:
+      tags: [Payments dashboard]
+      operationId: getDashboardOverview
+      summary: Payments dashboard in one call
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Dashboard data.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, data]
+                properties:
+                  status: { type: string, const: success }
+                  data:
+                    type: object
+                    properties:
+                      subscription: { $ref: '#/components/schemas/Subscription' }
+                      credit: { $ref: '#/components/schemas/CreditView' }
+                      analytics: { $ref: '#/components/schemas/UsageAnalytics' }
+                      recentTransactions:
+                        type: array
+                        items: { $ref: '#/components/schemas/Transaction' }
+                      recentEvents:
+                        type: array
+                        items: { $ref: '#/components/schemas/UsageEvent' }
+        '401': { $ref: '#/components/responses/FaultUnauthorized' }
+        '500': { $ref: '#/components/responses/FaultServerError' }
+
+  /api/ai/code-agent/invoke:
+    post:
+      tags: [AI Orion]
+      operationId: orionInvoke
+      summary: Start an Orion coding run (SSE stream)
+      description: |
+        Starts Orion on the caller's sandbox and streams events. Every frame is
+        `id: <seq>`, `event: <name>`, `data: <json>`. Keep the last `id` to resume with
+        `GET /api/ai/code-agent/stream/{projectId}` and the `Last-Event-ID` header.
+        A `: ping` comment arrives every 15 seconds.
+
+        Event names: `agent:run`, `agent:session`, `agent:msg_created`, `agent:model`,
+        `agent:status`, `agent:thinking`, `agent:steps`, `agent:step`, `agent:message`,
+        `agent:message_retract`, `agent:tool_start`, `agent:tool_end`, `agent:tool_log`,
+        `agent:plan_review`, `agent:final`, `agent:done`, `agent:stopped`, `agent:error`,
+        `agent:snapshot` (only on re-attach).
+
+        Only one run per user and project at a time. Without `sessionId` a new chat is created
+        and announced in `agent:session`.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/OrionInvokeInput' }
+      responses:
+        '200':
+          description: SSE stream. Problems after this point arrive as `agent:error` events.
+          headers:
+            X-RateLimit-Limit: { $ref: '#/components/headers/XRateLimitLimit' }
+            X-RateLimit-Remaining: { $ref: '#/components/headers/XRateLimitRemaining' }
+          content:
+            text/event-stream:
+              schema:
+                type: string
+                description: Stream of `OrionEvent` frames (see the `x-sse-event` schema).
+                x-sse-event: { $ref: '#/components/schemas/OrionEvent' }
+              examples:
+                start:
+                  value: |
+                    retry: 3000
+
+                    id: 1
+                    event: agent:run
+                    data: {"runId":"m3x9a1b2c3","threadId":"019f...:1731600000000","projectId":"6735...","sessionId":"6736..."}
+
+                    id: 2
+                    event: agent:session
+                    data: {"sessionId":"6736...","title":"Add a dark mode toggle","isNew":true}
+        '401': { $ref: '#/components/responses/FaultUnauthorized' }
+        '402': { $ref: '#/components/responses/FaultInsufficientCredits' }
+        '403': { $ref: '#/components/responses/FaultForbidden' }
+        '429': { $ref: '#/components/responses/FaultRateLimited' }
+        '503': { $ref: '#/components/responses/FaultServiceUnavailable' }
+
+  /api/ai/code-agent/stream/{projectId}:
+    get:
+      tags: [AI Orion]
+      operationId: orionStream
+      summary: Re-attach to a live Orion run (SSE)
+      description: |
+        `204` means there is nothing to follow. Otherwise the stream replays missed events
+        after `Last-Event-ID`, or sends one `agent:snapshot` with the whole run state, and then
+        continues live.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectIdPath'
+        - name: sessionId
+          in: query
+          description: Follow the run only if it works in this chat.
+          schema: { $ref: '#/components/schemas/ObjectId' }
+        - name: lastEventId
+          in: query
+          description: Same as the `Last-Event-ID` header, for clients that cannot set headers.
+          schema: { type: integer }
+        - name: Last-Event-ID
+          in: header
+          schema: { type: integer }
+      responses:
+        '200':
+          description: SSE stream (replay or `agent:snapshot`, then live events).
+          content:
+            text/event-stream:
+              schema: { type: string }
+        '204':
+          description: No live run for this project (or it works in another chat).
+        '401': { $ref: '#/components/responses/FaultUnauthorized' }
+
+  /api/ai/code-agent/stop:
+    post:
+      tags: [AI Orion]
+      operationId: orionStop
+      summary: Stop my Orion run on a project
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ProjectRef' }
+      responses:
+        '200':
+          description: Stopping, or the run had already finished.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, const: ok }
+                  message: { type: string, enum: [Stopping the agent run, The run already finished] }
+        '401': { $ref: '#/components/responses/FaultUnauthorized' }
+        '404': { $ref: '#/components/responses/AiNoActiveRun' }
+
+  /api/ai/code-agent/plan-approve:
+    post:
+      tags: [AI Orion]
+      operationId: orionPlanApprove
+      summary: Approve the pending plan
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ProjectRef' }
+      responses:
+        '202':
+          description: Approved. Watch the SSE stream.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OkMessage' }
+        '401': { $ref: '#/components/responses/FaultUnauthorized' }
+        '404': { $ref: '#/components/responses/AiNoActiveRun' }
+        '409': { $ref: '#/components/responses/AiNoPlanPending' }
+
+  /api/ai/code-agent/plan-reject:
+    post:
+      tags: [AI Orion]
+      operationId: orionPlanReject
+      summary: Reject the pending plan with feedback
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/ProjectRef'
+                - type: object
+                  properties:
+                    feedback: { type: string, description: What to change in the plan. }
+      responses:
+        '202':
+          description: Re-planning. Watch the SSE stream.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OkMessage' }
+        '401': { $ref: '#/components/responses/FaultUnauthorized' }
+        '404': { $ref: '#/components/responses/AiNoActiveRun' }
+        '409': { $ref: '#/components/responses/AiNoPlanPending' }
+
+  /api/ai/app-agent/invoke:
+    post:
+      tags: [AI Clio]
+      operationId: clioInvoke
+      summary: Ask Clio (copilot), streamed
+      description: |
+        SSE with plain text frames. Order: `event: session` (JSON), many `data:` text chunks,
+        `event: final` (the whole answer as text), `event: done` with `[DONE]`.
+        A multi-line chunk is sent as several `data:` lines; join them with newlines.
+        On failure: `event: error` with JSON `{ message, code }`.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ClioInvokeInput' }
+      responses:
+        '200':
+          description: SSE stream.
+          headers:
+            X-RateLimit-Limit: { $ref: '#/components/headers/XRateLimitLimit' }
+            X-RateLimit-Remaining: { $ref: '#/components/headers/XRateLimitRemaining' }
+          content:
+            text/event-stream:
+              schema: { type: string }
+              example: |
+                event: session
+                data: {"id":"6736...","projectId":"6735...","title":"Explain useEffect","isNew":true}
+
+                data: useEffect runs after
+
+                data:  every render
+
+                event: final
+                data: useEffect runs after every render ...
+
+                event: done
+                data: [DONE]
+        '401': { $ref: '#/components/responses/FaultUnauthorized' }
+        '402': { $ref: '#/components/responses/FaultInsufficientCredits' }
+        '403': { $ref: '#/components/responses/FaultForbidden' }
+        '429': { $ref: '#/components/responses/FaultRateLimited' }
+        '503': { $ref: '#/components/responses/FaultServiceUnavailable' }
+
+  /api/ai/app-agent/title:
+    post:
+      tags: [AI Clio]
+      operationId: generateProjectTitle
+      summary: Generate a project title from a prompt
+      description: Returns at most 80 characters. Falls back to `Untitled Project` when the model fails.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                message: { type: string, description: The project idea. }
+                userPrompt: { type: string, description: Alias of message. }
+      responses:
+        '200':
+          description: The title.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [title]
+                properties:
+                  title: { type: string, maxLength: 80, examples: [Weather Dashboard] }
+        '400':
+          description: No message.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PlainError' }
+              example: { status: error, message: message or userPrompt is required }
+        '401': { $ref: '#/components/responses/FaultUnauthorized' }
+        '402': { $ref: '#/components/responses/FaultInsufficientCredits' }
+        '429': { $ref: '#/components/responses/FaultRateLimited' }
+
+  /api/ai/chats/{agentType}/sessions:
+    get:
+      tags: [AI chats]
+      operationId: listChatSessions
+      summary: List my chats in a project
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/AgentTypePath'
+        - name: projectId
+          in: query
+          required: true
+          schema: { type: string }
+        - name: before
+          in: query
+          description: Cursor. Only chats with lastMessageAt before this date.
+          schema: { type: string, format: date-time }
+      responses:
+        '200':
+          description: One page of chats.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, sessions, hasMore]
+                properties:
+                  status: { type: string, const: ok }
+                  sessions:
+                    type: array
+                    items: { $ref: '#/components/schemas/ChatSession' }
+                  hasMore: { type: boolean }
+                  liveSessionId:
+                    type: [string, 'null']
+                    description: codingAgent only. The chat a live Orion run is working in.
+        '400': { $ref: '#/components/responses/FaultBadRequest' }
+        '401': { $ref: '#/components/responses/FaultUnauthorized' }
+
+  /api/ai/chats/{agentType}/sessions/{sessionId}/messages:
+    get:
+      tags: [AI chats]
+      operationId: getChatMessages
+      summary: Messages of one of my chats
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/AgentTypePath'
+        - $ref: '#/components/parameters/SessionIdPath'
+      responses:
+        '200':
+          description: The chat and its messages.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, session, messages]
+                properties:
+                  status: { type: string, const: ok }
+                  session: { $ref: '#/components/schemas/ChatSession' }
+                  messages:
+                    type: array
+                    items: { $ref: '#/components/schemas/ChatMessage' }
+        '400': { $ref: '#/components/responses/FaultBadRequest' }
+        '401': { $ref: '#/components/responses/FaultUnauthorized' }
+        '404': { $ref: '#/components/responses/FaultNotFound' }
+
+  /api/ai/chats/{agentType}/sessions/{sessionId}:
+    patch:
+      tags: [AI chats]
+      operationId: renameChatSession
+      summary: Rename one of my chats
+      description: A renamed chat keeps its title; the memory agent stops naming it.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/AgentTypePath'
+        - $ref: '#/components/parameters/SessionIdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title]
+              properties:
+                title: { type: string, minLength: 1, maxLength: 80 }
+      responses:
+        '200':
+          description: Renamed.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, const: ok }
+                  session: { $ref: '#/components/schemas/ChatSession' }
+        '400': { $ref: '#/components/responses/FaultBadRequest' }
+        '401': { $ref: '#/components/responses/FaultUnauthorized' }
+        '404': { $ref: '#/components/responses/FaultNotFound' }
+    delete:
+      tags: [AI chats]
+      operationId: trashChatSession
+      summary: Move one of my chats to trash
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/AgentTypePath'
+        - $ref: '#/components/parameters/SessionIdPath'
+      responses:
+        '200':
+          description: In trash.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OkMessage' }
+        '400': { $ref: '#/components/responses/FaultBadRequest' }
+        '401': { $ref: '#/components/responses/FaultUnauthorized' }
+        '404': { $ref: '#/components/responses/FaultNotFound' }
+        '409': { $ref: '#/components/responses/FaultConflict' }
+
+  /api/ai/chats/{agentType}/sessions/{sessionId}/restore:
+    patch:
+      tags: [AI chats]
+      operationId: restoreChatSession
+      summary: Restore one of my chats from trash
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/AgentTypePath'
+        - $ref: '#/components/parameters/SessionIdPath'
+      responses:
+        '200':
+          description: Restored.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, const: ok }
+                  session: { $ref: '#/components/schemas/ChatSession' }
+        '400': { $ref: '#/components/responses/FaultBadRequest' }
+        '401': { $ref: '#/components/responses/FaultUnauthorized' }
+        '404': { $ref: '#/components/responses/FaultNotFound' }
+
+  /api/ai/chats/{agentType}/sessions/{sessionId}/permanent:
+    delete:
+      tags: [AI chats]
+      operationId: deleteChatSessionForever
+      summary: Permanently delete one of my trashed chats
+      description: Only works on a chat that is already in trash.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/AgentTypePath'
+        - $ref: '#/components/parameters/SessionIdPath'
+      responses:
+        '200':
+          description: Deleted.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OkMessage' }
+        '400': { $ref: '#/components/responses/FaultBadRequest' }
+        '401': { $ref: '#/components/responses/FaultUnauthorized' }
+        '404': { $ref: '#/components/responses/FaultNotFound' }
+
+  /api/ai/chats/trash:
+    get:
+      tags: [AI chats]
+      operationId: listChatTrash
+      summary: My trashed chats and messages
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Trash.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, const: ok }
+                  trashSessions:
+                    type: array
+                    items:
+                      allOf:
+                        - $ref: '#/components/schemas/ChatSession'
+                        - type: object
+                          properties:
+                            agentType: { $ref: '#/components/schemas/ChatAgentType' }
+                            deletedAt: { type: string, format: date-time }
+                  trashMessages:
+                    type: array
+                    items:
+                      allOf:
+                        - $ref: '#/components/schemas/ChatMessage'
+                        - type: object
+                          properties:
+                            _id: { type: string }
+                            projectId: { type: string }
+                            sessionId: { type: [string, 'null'] }
+                            agentType: { $ref: '#/components/schemas/ChatAgentType' }
+                            deletedAt: { type: string, format: date-time }
+        '401': { $ref: '#/components/responses/FaultUnauthorized' }
+
+  /api/ai/chats/message/batch-delete:
+    post:
+      tags: [AI chats]
+      operationId: trashChatMessagesBatch
+      summary: Move many of my messages to trash
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                ids:
+                  oneOf:
+                    - type: array
+                      items: { $ref: '#/components/schemas/ObjectId' }
+                    - type: string
+                      description: Comma separated ids.
+                agentType: { $ref: '#/components/schemas/ChatAgentType' }
+      responses:
+        '200':
+          description: Count of moved messages in the message.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OkMessage' }
+              example: { status: ok, message: 3 message(s) moved to trash }
+        '400': { $ref: '#/components/responses/FaultBadRequest' }
+        '401': { $ref: '#/components/responses/FaultUnauthorized' }
+  /api/ai/chats/message/{messageId}:
+    delete:
+      tags: [AI chats]
+      operationId: trashChatMessage
+      summary: Move one of my messages to trash
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/MessageIdPath'
+        - $ref: '#/components/parameters/AgentTypeQuery'
+      responses:
+        '200':
+          description: Moved (count 0 when the id was unknown).
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OkMessage' }
+        '400': { $ref: '#/components/responses/FaultBadRequest' }
+        '401': { $ref: '#/components/responses/FaultUnauthorized' }
+
+  /api/ai/chats/message/{messageId}/restore:
+    patch:
+      tags: [AI chats]
+      operationId: restoreChatMessage
+      summary: Restore one of my messages (and its chat)
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/MessageIdPath'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                agentType: { $ref: '#/components/schemas/ChatAgentType' }
+      responses:
+        '200':
+          description: Restored.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OkMessage' }
+        '400': { $ref: '#/components/responses/FaultBadRequest' }
+        '401': { $ref: '#/components/responses/FaultUnauthorized' }
+        '404': { $ref: '#/components/responses/FaultNotFound' }
+
+  /api/ai/chats/message/{messageId}/permanent:
+    delete:
+      tags: [AI chats]
+      operationId: deleteChatMessageForever
+      summary: Permanently delete one of my messages
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/MessageIdPath'
+        - $ref: '#/components/parameters/AgentTypeQuery'
+      responses:
+        '200':
+          description: Deleted.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OkMessage' }
+        '400': { $ref: '#/components/responses/FaultBadRequest' }
+        '401': { $ref: '#/components/responses/FaultUnauthorized' }
+        '404': { $ref: '#/components/responses/FaultNotFound' }
+
+  /api/ai/healthz:
+    get:
+      tags: [Health]
+      operationId: aiHealthz
+      summary: AI service liveness
+      security: []
+      responses:
+        '200':
+          description: Alive.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OkMessage' }
+              example: { status: ok, message: AI service is healthy }
+  /api/ai/readyz:
+    get:
+      tags: [Health]
+      operationId: aiReadyz
+      summary: AI service readiness
+      security: []
+      responses:
+        '200':
+          description: Ready.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OkMessage' }
+              example: { status: ok, message: AI service is ready }
+
+  /api/sandbox/create-project:
+    post:
+      tags: [Sandbox projects]
+      operationId: createProject
+      summary: Create a project (max 5, trash included)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title]
+              properties:
+                title: { type: string, minLength: 1 }
+      responses:
+        '201':
+          description: Created, status `not_started`.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, project, sandboxId]
+                properties:
+                  status: { type: string, const: success }
+                  message: { type: string, example: Project created successfully }
+                  project: { $ref: '#/components/schemas/Project' }
+                  sandboxId: { $ref: '#/components/schemas/SandboxId' }
+        '400':
+          description: Missing title, or already 5 projects.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PlainError' }
+        '401': { $ref: '#/components/responses/SandboxUnauthorized' }
+        '500': { $ref: '#/components/responses/SandboxServerError' }
+
+  /api/sandbox/projects:
+    get:
+      tags: [Sandbox projects]
+      operationId: listProjects
+      summary: My projects, reconciled with Kubernetes
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Projects.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, projects]
+                properties:
+                  status: { type: string, const: success }
+                  projects:
+                    type: array
+                    items: { $ref: '#/components/schemas/Project' }
+        '401': { $ref: '#/components/responses/SandboxUnauthorized' }
+        '500': { $ref: '#/components/responses/SandboxServerError' }
+
+  /api/sandbox/projects/trash:
+    get:
+      tags: [Sandbox projects]
+      operationId: listTrashProjects
+      summary: My projects in trash
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Trashed projects.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, const: success }
+                  projects:
+                    type: array
+                    items: { $ref: '#/components/schemas/Project' }
+        '401': { $ref: '#/components/responses/SandboxUnauthorized' }
+        '500': { $ref: '#/components/responses/SandboxServerError' }
+
+  /api/sandbox/project/{projectId}:
+    parameters:
+      - $ref: '#/components/parameters/ProjectIdPath'
+    get:
+      tags: [Sandbox projects]
+      operationId: getProject
+      summary: One of my projects, with live pod status
+      description: '`previewUrl` is set only when the project is `live`. It is hardcoded to `http://<sandboxId>.preview.localhost`.'
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: The project.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, const: success }
+                  project:
+                    type: object
+                    properties:
+                      _id: { type: string }
+                      title: { type: string }
+                      status: { $ref: '#/components/schemas/ProjectStatus' }
+                      sandboxId: { $ref: '#/components/schemas/SandboxId' }
+                      previewUrl: { type: string, description: Empty unless live. }
+                      createdAt: { type: string, format: date-time }
+        '400': { $ref: '#/components/responses/SandboxBadRequest' }
+        '401': { $ref: '#/components/responses/SandboxUnauthorized' }
+        '403': { $ref: '#/components/responses/SandboxForbidden' }
+        '404': { $ref: '#/components/responses/SandboxNotFound' }
+        '500': { $ref: '#/components/responses/SandboxServerError' }
+    delete:
+      tags: [Sandbox projects]
+      operationId: trashProject
+      summary: Move one of my projects to trash (stops its sandbox, revokes MCP tokens)
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: In trash.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, const: success }
+                  message: { type: string, example: Project moved to trash successfully }
+                  project: { $ref: '#/components/schemas/Project' }
+        '400': { $ref: '#/components/responses/SandboxBadRequest' }
+        '401': { $ref: '#/components/responses/SandboxUnauthorized' }
+        '403': { $ref: '#/components/responses/SandboxForbidden' }
+        '404': { $ref: '#/components/responses/SandboxNotFound' }
+        '500': { $ref: '#/components/responses/SandboxServerError' }
+
+  /api/sandbox/project/{projectId}/restore:
+    patch:
+      tags: [Sandbox projects]
+      operationId: restoreProject
+      summary: Restore one of my projects from trash
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectIdPath'
+      responses:
+        '200':
+          description: Restored.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, const: success }
+                  message: { type: string }
+                  project: { $ref: '#/components/schemas/Project' }
+        '400': { $ref: '#/components/responses/SandboxBadRequest' }
+        '401': { $ref: '#/components/responses/SandboxUnauthorized' }
+        '403': { $ref: '#/components/responses/SandboxForbidden' }
+        '404': { $ref: '#/components/responses/SandboxNotFound' }
+        '500': { $ref: '#/components/responses/SandboxServerError' }
+
+  /api/sandbox/project/{projectId}/permanent:
+    delete:
+      tags: [Sandbox projects]
+      operationId: deleteProjectForever
+      summary: Permanently delete one of my projects
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectIdPath'
+      responses:
+        '200':
+          description: Deleted.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SuccessMessage' }
+        '400': { $ref: '#/components/responses/SandboxBadRequest' }
+        '401': { $ref: '#/components/responses/SandboxUnauthorized' }
+        '403': { $ref: '#/components/responses/SandboxForbidden' }
+        '404': { $ref: '#/components/responses/SandboxNotFound' }
+        '500': { $ref: '#/components/responses/SandboxServerError' }
+
+  /api/sandbox/start/{projectId}:
+    post:
+      tags: [Sandbox projects]
+      operationId: startSandbox
+      summary: Start my project's sandbox
+      description: |
+        Creates the pod, Service and idle key. Answers when Kubernetes accepted the objects,
+        not when the app is ready: poll `GET /api/sandbox/project/{projectId}` until `live`.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectIdPath'
+      responses:
+        '200':
+          description: Started.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, const: success }
+                  message: { type: string }
+                  previewUrl: { type: string, examples: ['http://019f2c3a-....preview.localhost'] }
+                  sandboxId: { $ref: '#/components/schemas/SandboxId' }
+        '400': { $ref: '#/components/responses/SandboxBadRequest' }
+        '401': { $ref: '#/components/responses/SandboxUnauthorized' }
+        '403': { $ref: '#/components/responses/SandboxForbidden' }
+        '404': { $ref: '#/components/responses/SandboxNotFound' }
+        '500': { $ref: '#/components/responses/SandboxServerError' }
+
+  /api/sandbox/stop/{projectId}:
+    post:
+      tags: [Sandbox projects]
+      operationId: stopSandbox
+      summary: Stop my project's sandbox
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectIdPath'
+      responses:
+        '200':
+          description: Stopped.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SuccessMessage' }
+        '400':
+          description: Bad id, or the sandbox is not live.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PlainError' }
+              example: { status: error, message: 'Sandbox is not running (current status: down)' }
+        '401': { $ref: '#/components/responses/SandboxUnauthorized' }
+        '403': { $ref: '#/components/responses/SandboxForbidden' }
+        '404': { $ref: '#/components/responses/SandboxNotFound' }
+        '500': { $ref: '#/components/responses/SandboxServerError' }
+
+  /api/sandbox/project/{projectId}/mcp-tokens:
+    parameters:
+      - $ref: '#/components/parameters/ProjectIdPath'
+    get:
+      tags: [Sandbox MCP tokens]
+      operationId: listMcpTokens
+      summary: List the active MCP tokens of my project
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Tokens (without the secret) and the project's MCP URL.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, const: success }
+                  mcpUrl: { type: string, format: uri, examples: ['http://localhost/api/mcp/019f2c3a-...'] }
+                  tokens:
+                    type: array
+                    items: { $ref: '#/components/schemas/McpTokenView' }
+        '400': { $ref: '#/components/responses/SandboxBadRequest' }
+        '401': { $ref: '#/components/responses/SandboxUnauthorized' }
+        '403': { $ref: '#/components/responses/SandboxForbidden' }
+        '404': { $ref: '#/components/responses/SandboxNotFound' }
+        '500': { $ref: '#/components/responses/SandboxServerError' }
+    post:
+      tags: [Sandbox MCP tokens]
+      operationId: createMcpToken
+      summary: Create an MCP token for an external agent (shown once)
+      description: |
+        `read` is always included. `write` lets the agent change files, `exec` lets it run
+        shell commands: ask for them only when needed. At most 10 active tokens per project.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: { type: string, minLength: 1, maxLength: 60, examples: [Claude Code on laptop] }
+                scopes:
+                  type: array
+                  items: { $ref: '#/components/schemas/McpScope' }
+                  description: '`read` is added if missing.'
+                expiresInDays: { type: integer, minimum: 1, maximum: 90, default: 30 }
+      responses:
+        '201':
+          description: Created. Store `token` now; it is never shown again.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, token, mcpUrl, record]
+                properties:
+                  status: { type: string, const: success }
+                  token: { type: string, pattern: '^tks_mcp_[A-Za-z0-9_-]+$' }
+                  mcpUrl: { type: string, format: uri }
+                  record: { $ref: '#/components/schemas/McpTokenView' }
+        '400':
+          description: Bad name, scopes or days; 10 tokens already; or the project is in trash.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PlainError' }
+        '401': { $ref: '#/components/responses/SandboxUnauthorized' }
+        '403': { $ref: '#/components/responses/SandboxForbidden' }
+        '404': { $ref: '#/components/responses/SandboxNotFound' }
+        '500': { $ref: '#/components/responses/SandboxServerError' }
+
+  /api/sandbox/project/{projectId}/mcp-tokens/{tokenId}:
+    delete:
+      tags: [Sandbox MCP tokens]
+      operationId: revokeMcpToken
+      summary: Revoke one MCP token of my project
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectIdPath'
+        - name: tokenId
+          in: path
+          required: true
+          schema: { $ref: '#/components/schemas/ObjectId' }
+      responses:
+        '200':
+          description: Revoked.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SuccessMessage' }
+        '400': { $ref: '#/components/responses/SandboxBadRequest' }
+        '401': { $ref: '#/components/responses/SandboxUnauthorized' }
+        '403': { $ref: '#/components/responses/SandboxForbidden' }
+        '404':
+          description: Project not found, or no active token with this id in it.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PlainError' }
+        '500': { $ref: '#/components/responses/SandboxServerError' }
+
+  /internal/mcp-tokens/{hash}:
+    servers:
+      - url: http://sandbox-service
+        description: In-cluster only.
+    get:
+      tags: [Internal, Sandbox MCP tokens]
+      operationId: internalLookupMcpToken
+      summary: Look up an active MCP token by its SHA-256 hash
+      security:
+        - internalToken: []
+      parameters:
+        - name: hash
+          in: path
+          required: true
+          schema: { type: string, pattern: '^[a-f0-9]{64}$' }
+      responses:
+        '200':
+          description: Active token record.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, const: success }
+                  token: { $ref: '#/components/schemas/McpTokenRecord' }
+        '401': { $ref: '#/components/responses/InternalUnauthorized' }
+        '404':
+          description: Unknown, revoked or expired.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PlainError' }
+        '503': { $ref: '#/components/responses/InternalNotConfigured' }
+
+  /internal/sandboxes/{sandboxId}/wake:
+    servers:
+      - url: http://sandbox-service
+        description: In-cluster only.
+    post:
+      tags: [Internal, Sandbox projects]
+      operationId: internalWakeSandbox
+      summary: Start a stopped sandbox for the MCP gateway
+      security:
+        - internalToken: []
+      parameters:
+        - $ref: '#/components/parameters/SandboxIdPath'
+      responses:
+        '200':
+          description: Already live.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, const: success }
+                  state: { type: string, const: live }
+        '202':
+          description: Starting.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, const: success }
+                  state: { type: string, const: starting }
+        '400': { $ref: '#/components/responses/SandboxBadRequest' }
+        '401': { $ref: '#/components/responses/InternalUnauthorized' }
+        '404':
+          description: No active (non-trash) project for this sandbox.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PlainError' }
+        '500': { $ref: '#/components/responses/SandboxServerError' }
+        '503': { $ref: '#/components/responses/InternalNotConfigured' }
+
+  /api/sandbox/health:
+    get:
+      tags: [Health]
+      operationId: sandboxHealth
+      summary: Sandbox server liveness
+      security: []
+      responses:
+        '200':
+          description: Alive.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OkMessage' }
+              example: { status: ok, message: Sandbox API is working fine }
+  /api/sandbox/ready:
+    get:
+      tags: [Health]
+      operationId: sandboxReady
+      summary: Sandbox server readiness
+      security: []
+      responses:
+        '200':
+          description: Ready.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, const: ready }
+                  message: { type: string }
+
+  /api/mcp/{sandboxId}:
+    post:
+      tags: [MCP gateway]
+      operationId: mcpGateway
+      summary: MCP endpoint for external agents (JSON-RPC)
+      description: |
+        Send MCP JSON-RPC requests (`initialize`, `tools/list`, `tools/call`) with
+        `Accept: application/json, text/event-stream`. The server is stateless, so no
+        session id is needed. Which tools appear depends on the token's scopes (see
+        `POST /mcp` on the sidecar). A stopped sandbox is started automatically; the first
+        call can take up to 45 seconds or answer 503 with `Retry-After`.
+      security:
+        - mcpToken: []
+      parameters:
+        - $ref: '#/components/parameters/SandboxIdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/JsonRpcRequest' }
+            example:
+              jsonrpc: '2.0'
+              id: 1
+              method: tools/call
+              params: { name: read_file, arguments: { files: [src/App.jsx] } }
+      responses:
+        '200':
+          description: JSON-RPC response from the sandbox.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/JsonRpcResponse' }
+        '401': { $ref: '#/components/responses/JsonRpcUnauthorized' }
+        '403': { $ref: '#/components/responses/JsonRpcError' }
+        '404': { $ref: '#/components/responses/JsonRpcError' }
+        '405': { $ref: '#/components/responses/JsonRpcError' }
+        '429':
+          description: More than 120 calls in a minute for this token.
+          headers:
+            Retry-After: { schema: { type: integer, const: 60 } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/JsonRpcErrorBody' }
+        '502': { $ref: '#/components/responses/JsonRpcError' }
+        '503':
+          description: The sandbox is starting.
+          headers:
+            Retry-After: { schema: { type: integer, const: 15 } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/JsonRpcErrorBody' }
+
+  /api/router/health:
+    servers:
+      - url: http://router-service
+        description: In-cluster only.
+    get:
+      tags: [Health]
+      operationId: routerHealth
+      summary: Router liveness
+      security: []
+      responses:
+        '200':
+          description: Alive.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OkMessage' }
+  /api/router/ready:
+    servers:
+      - url: http://router-service
+        description: In-cluster only.
+    get:
+      tags: [Health]
+      operationId: routerReady
+      summary: Router readiness
+      security: []
+      responses:
+        '200':
+          description: Ready.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, const: ready }
+                  message: { type: string }
+
+  /mcp:
+    servers:
+      - url: http://sandbox-service-{sandboxId}:3000
+        description: In-cluster (AI service, router gateway).
+        variables:
+          sandboxId: { default: 019f2c3a-0000-7000-8000-000000000000 }
+      - url: http://{sandboxId}.agent.localhost
+        description: Through the router (Frontend editor).
+        variables:
+          sandboxId: { default: 019f2c3a-0000-7000-8000-000000000000 }
+    post:
+      tags: [Sandbox sidecar]
+      operationId: sidecarMcp
+      summary: Sandbox MCP server (JSON-RPC, certified tools)
+      description: |
+        Stateless MCP Streamable HTTP with JSON responses. Send `Accept: application/json, text/event-stream`.
+        `tools/list` shows the tools the token may use. A tool result is a text content part
+        holding JSON. `isError: true` with `{ error: true, message }` or `{ status: "error" }`
+        means the request failed; other `isError: true` results are a tool answer such as
+        "oldStr not found".
+
+        | Scope | Tools |
+        |---|---|
+        | read | `list_files`, `read_file`, `search_code`, `get_vite_runtime_errors` |
+        | write | `create_file`, `update_file`, `patch_file`, `delete_file` |
+        | exec | `execute_command` |
+      security:
+        - bearerAuth: []
+        - sandboxToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/JsonRpcRequest' }
+            example:
+              jsonrpc: '2.0'
+              id: 7
+              method: tools/call
+              params: { name: patch_file, arguments: { filePath: src/App.jsx, oldStr: 'Hello', newStr: 'Hi' } }
+      responses:
+        '200':
+          description: JSON-RPC response.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/JsonRpcResponse' }
+              example:
+                jsonrpc: '2.0'
+                id: 7
+                result:
+                  content: [{ type: text, text: '{"success":true,"patched":"src/App.jsx"}' }]
+                  isError: false
+        '401': { $ref: '#/components/responses/SidecarUnauthorized' }
+        '403': { $ref: '#/components/responses/SidecarForbidden' }
+        '500': { $ref: '#/components/responses/JsonRpcError' }
+    get:
+      tags: [Sandbox sidecar]
+      operationId: sidecarMcpGet
+      summary: Not allowed (stateless server, no SSE stream)
+      security:
+        - bearerAuth: []
+        - sandboxToken: []
+      responses:
+        '405': { $ref: '#/components/responses/JsonRpcError' }
+    delete:
+      tags: [Sandbox sidecar]
+      operationId: sidecarMcpDelete
+      summary: Not allowed (stateless server, no session to delete)
+      security:
+        - bearerAuth: []
+        - sandboxToken: []
+      responses:
+        '405': { $ref: '#/components/responses/JsonRpcError' }
+
+  /api/agent/report-error:
+    servers:
+      - url: http://{sandboxId}.preview.localhost
+        description: From the preview app, through Vite's proxy.
+        variables:
+          sandboxId: { default: 019f2c3a-0000-7000-8000-000000000000 }
+    post:
+      tags: [Sandbox sidecar]
+      operationId: sidecarReportError
+      summary: Report a browser error from the preview app (open, rate limited)
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                type: { type: string, enum: [runtime, promise, console], maxLength: 20 }
+                message: { type: string, maxLength: 2000 }
+                source: { type: string, maxLength: 2000 }
+                line: { type: integer }
+                col: { type: integer }
+                stack: { type: [string, 'null'], maxLength: 2000 }
+      responses:
+        '200':
+          description: Received.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, const: ok }
+        '429':
+          description: More than 30 reports in a minute for this sandbox.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PlainError' }
+
+  /api/agent/health:
+    servers:
+      - url: http://sandbox-service-{sandboxId}:3000
+        variables:
+          sandboxId: { default: 019f2c3a-0000-7000-8000-000000000000 }
+    get:
+      tags: [Health, Sandbox sidecar]
+      operationId: sidecarHealth
+      summary: Sidecar liveness
+      security: []
+      responses:
+        '200':
+          description: Alive.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OkMessage' }
+  /api/agent/ready:
+    servers:
+      - url: http://sandbox-service-{sandboxId}:3000
+        variables:
+          sandboxId: { default: 019f2c3a-0000-7000-8000-000000000000 }
+    get:
+      tags: [Health, Sandbox sidecar]
+      operationId: sidecarReady
+      summary: Sidecar readiness (used by the MCP gateway wake)
+      security: []
+      responses:
+        '200':
+          description: Ready.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, const: ready }
+                  message: { type: string }
+
+components:
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        Access token from `POST /api/auth/refresh`. RS256, `kid: auth-rsa-v1`,
+        `aud: takshacodespace-services`, 15 minutes. Keep it in memory only.
+    refreshCookie:
+      type: apiKey
+      in: cookie
+      name: refreshToken
+      description: Opaque refresh token. httpOnly, path `/api/auth`, 30 days, rotated on every use.
+    sandboxToken:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        Sandbox token from Auth (`aud: taksha-sandbox`, claim `sbx`). Accepted only by the sandbox
+        sidecar of that sandbox. Tokens with a `scope` claim may only call `/mcp`.
+    mcpToken:
+      type: http
+      scheme: bearer
+      bearerFormat: tks_mcp_<random>
+      description: MCP token made by the project owner. Accepted only by the router MCP gateway.
+    internalToken:
+      type: apiKey
+      in: header
+      name: X-Internal-Token
+      description: Shared `INTERNAL_SERVICE_TOKEN`. Only for `/internal/*`, which the ingress never routes.
+    razorpaySignature:
+      type: apiKey
+      in: header
+      name: X-Razorpay-Signature
+      description: HMAC-SHA256 of the raw webhook body with `RAZORPAY_WEBHOOK_SECRET`.
+
+  parameters:
+    Page:
+      name: page
+      in: query
+      description: Page number, starts at 1.
+      schema: { type: integer, minimum: 1, default: 1 }
+    Limit:
+      name: limit
+      in: query
+      description: Page size, clamped to 1..100.
+      schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+    ProjectIdPath:
+      name: projectId
+      in: path
+      required: true
+      description: Mongo id of the project (Sandbox server `projects._id`).
+      schema: { $ref: '#/components/schemas/ObjectId' }
+    SandboxIdPath:
+      name: sandboxId
+      in: path
+      required: true
+      schema: { $ref: '#/components/schemas/SandboxId' }
+    AgentTypePath:
+      name: agentType
+      in: path
+      required: true
+      description: '`codingAgent` (Orion) or `copilot` (Clio). Anything else is a 400.'
+      schema: { $ref: '#/components/schemas/ChatAgentType' }
+    AgentTypeQuery:
+      name: agentType
+      in: query
+      description: Which agent's messages. Default `codingAgent`.
+      schema: { $ref: '#/components/schemas/ChatAgentType' }
+    SessionIdPath:
+      name: sessionId
+      in: path
+      required: true
+      schema: { $ref: '#/components/schemas/ObjectId' }
+    MessageIdPath:
+      name: messageId
+      in: path
+      required: true
+      schema: { $ref: '#/components/schemas/ObjectId' }
+
+  headers:
+    XRateLimitLimit:
+      description: Bucket size of the caller's tier (free 20, pro and max 60).
+      schema: { type: integer }
+    XRateLimitRemaining:
+      description: Requests left in the bucket right now.
+      schema: { type: integer }
+
+  responses:
+    AuthUnauthorized:
+      description: No token, revoked token (logged out), or bad / expired token. Refresh once, then log in.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/PlainError' }
+          examples:
+            missing: { value: { status: error, message: 'Unauthorized: No token provided' } }
+            revoked: { value: { status: error, message: 'Unauthorized: Token has been revoked' } }
+            invalid: { value: { status: error, message: 'Unauthorized: Invalid or expired token' } }
+    AuthBadRequest:
+      description: The body does not fit the schema (for example a theme that is not dark, light or system).
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/PlainError' }
+    AuthServerError:
+      description: Unexpected error. The message is generic in production.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/PlainError' }
+          example: { status: error, message: Internal server error }
+
+    InternalUnauthorized:
+      description: X-Internal-Token missing or wrong.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/PlainError' }
+          example: { status: error, message: Unauthorized internal call }
+    InternalNotConfigured:
+      description: INTERNAL_SERVICE_TOKEN is not set on the service (fails closed).
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/PlainError' }
+          example: { status: error, message: Internal calls are not configured }
+
+    FaultBadRequest:
+      description: Invalid input. `error.code` is `BAD_REQUEST` or `VALIDATION_ERROR`.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/FaultError' }
+    FaultUnauthorized:
+      description: |
+        `UNAUTHORIZED` (no token, revoked), `TOKEN_EXPIRED` (refresh and retry) or
+        `TOKEN_INVALID` (bad signature, unknown kid).
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/FaultError' }
+          example:
+            success: false
+            error: { code: TOKEN_EXPIRED, message: Access token expired. Please refresh., details: null, requestId: 4f1c... }
+            requestId: 4f1c...
+    FaultInsufficientCredits:
+      description: |
+        `INSUFFICIENT_CREDITS`. The 5-hour credit window is used up. `error.details` has
+        `creditsRemaining`, `windowCreditsTotal`, `timeUntilRefillMs`, `subscription`.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/FaultError' }
+    FaultForbidden:
+      description: '`FORBIDDEN`. The resource belongs to another user (another order, sandbox or account).'
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/FaultError' }
+    FaultNotFound:
+      description: '`NOT_FOUND`.'
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/FaultError' }
+    FaultConflict:
+      description: '`CONFLICT`. For chats: Orion is still working in this chat, stop it first.'
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/FaultError' }
+    FaultRateLimited:
+      description: '`RATE_LIMIT_EXCEEDED`. Wait `Retry-After` seconds.'
+      headers:
+        Retry-After: { schema: { type: integer } }
+        X-RateLimit-Limit: { $ref: '#/components/headers/XRateLimitLimit' }
+        X-RateLimit-Remaining: { $ref: '#/components/headers/XRateLimitRemaining' }
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/FaultError' }
+    FaultServiceUnavailable:
+      description: |
+        `SERVICE_UNAVAILABLE`. A dependency is down: Auth JWKS, Redis (Payments money writes),
+        Razorpay, or the Sandbox service (AI ownership check). Retry later.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/FaultError' }
+    FaultServerError:
+      description: '`INTERNAL_SERVER_ERROR`. Generic message; quote `requestId` when reporting.'
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/FaultError' }
+
+    AiNoActiveRun:
+      description: No Orion run for this user and project.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/CodedError' }
+          example: { status: error, code: NO_ACTIVE_RUN, message: No active Orion run for this project }
+    AiNoPlanPending:
+      description: The run is not paused for plan review.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/CodedError' }
+          example: { status: error, code: NO_PLAN_PENDING, message: No plan is waiting for review }
+
+    SandboxBadRequest:
+      description: Invalid id format or invalid input.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/PlainError' }
+          example: { status: error, message: Invalid project ID format }
+    SandboxUnauthorized:
+      description: Missing, bad or expired Bearer token. `expired` is true when it only needs a refresh.
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: '#/components/schemas/PlainError'
+              - type: object
+                properties:
+                  expired: { type: boolean }
+    SandboxForbidden:
+      description: The project belongs to another user.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/PlainError' }
+          example: { status: error, message: You are not authorized to perform this action }
+    SandboxNotFound:
+      description: No project with this id.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/PlainError' }
+          example: { status: error, message: Project not found }
+    SandboxServerError:
+      description: Kubernetes, Mongo or Redis error.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/PlainError' }
+
+    SidecarUnauthorized:
+      description: Not the owner's token and not a sandbox token for this sandbox. `WWW-Authenticate` is set.
+      headers:
+        WWW-Authenticate: { schema: { type: string, const: Bearer } }
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/PlainError' }
+    SidecarForbidden:
+      description: A scoped token (external agent) on a route other than `/mcp`.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/PlainError' }
+          example: { status: error, message: This token only works for the MCP endpoint. }
+
+    JsonRpcError:
+      description: JSON-RPC error body.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/JsonRpcErrorBody' }
+    JsonRpcUnauthorized:
+      description: Missing, invalid, expired or revoked MCP token.
+      headers:
+        WWW-Authenticate: { schema: { type: string, const: Bearer } }
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/JsonRpcErrorBody' }
+          example:
+            jsonrpc: '2.0'
+            error: { code: -32000, message: 'This MCP token is invalid, expired or revoked.' }
+            id: null
+
+  schemas:
+
+    ObjectId:
+      type: string
+      pattern: '^[a-f0-9]{24}$'
+      description: MongoDB ObjectId.
+    SandboxId:
+      type: string
+      pattern: '^[a-z0-9](?:[a-z0-9-]{0,46}[a-z0-9])?$'
+      description: UUIDv7 given at project creation. Used in pod, Service and host names.
+      examples: [019f2c3a-7b1e-7c4d-9a2b-3c4d5e6f7a8b]
+    PlainError:
+      type: object
+      required: [status, message]
+      properties:
+        status: { type: string, const: error }
+        message: { type: string }
+    CodedError:
+      type: object
+      required: [status, code, message]
+      properties:
+        status: { type: string, const: error }
+        code: { type: string }
+        message: { type: string }
+    OkMessage:
+      type: object
+      properties:
+        status: { type: string, const: ok }
+        message: { type: string }
+    SuccessMessage:
+      type: object
+      properties:
+        status: { type: string, const: success }
+        message: { type: string }
+    FaultError:
+      type: object
+      required: [success, error]
+      properties:
+        success: { type: boolean, const: false }
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:
+              type: string
+              enum: [BAD_REQUEST, VALIDATION_ERROR, UNAUTHORIZED, TOKEN_EXPIRED, TOKEN_INVALID,
+                     INSUFFICIENT_CREDITS, FORBIDDEN, NOT_FOUND, CONFLICT, RATE_LIMIT_EXCEEDED,
+                     INTERNAL_SERVER_ERROR, SERVICE_UNAVAILABLE]
+            message: { type: string }
+            details: { description: 'Extra data, or null.' }
+            requestId: { type: string }
+        requestId: { type: string }
+
+    User:
+      type: object
+      properties:
+        _id: { $ref: '#/components/schemas/ObjectId' }
+        googleId: { type: string }
+        name: { type: string }
+        email: { type: string, format: email }
+        photo: { type: string, format: uri }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    ProfileInput:
+      type: object
+      properties:
+        linkedin: { type: string }
+        github: { type: string }
+        twitter: { type: string }
+        website: { type: string }
+        bio: { type: string }
+        location: { type: string }
+        company: { type: string }
+        jobTitle: { type: string }
+        skills: { type: array, items: { type: string } }
+        experienceYears: { type: number }
+    Profile:
+      allOf:
+        - $ref: '#/components/schemas/ProfileInput'
+        - type: object
+          properties:
+            _id: { $ref: '#/components/schemas/ObjectId' }
+            userId: { $ref: '#/components/schemas/ObjectId' }
+            createdAt: { type: string, format: date-time }
+            updatedAt: { type: string, format: date-time }
+    PreferencesInput:
+      type: object
+      properties:
+        theme: { type: string, enum: [dark, light, system] }
+        editor:
+          type: object
+          properties:
+            fontSize: { type: string, examples: [14px] }
+            tabSize: { type: string, examples: ['2'] }
+            autoSave: { type: boolean }
+            minimap: { type: boolean }
+            wordWrap: { type: boolean }
+        copilot:
+          type: object
+          properties:
+            modelPreference: { type: string, description: Stored only. The AI service does not read it. }
+            autoSuggest: { type: boolean }
+            interactiveMode: { type: string, enum: [concise, detailed] }
+        notifications:
+          type: object
+          properties:
+            emailLogins: { type: boolean }
+            securityAlerts: { type: boolean }
+    Preferences:
+      allOf:
+        - $ref: '#/components/schemas/PreferencesInput'
+        - type: object
+          properties:
+            _id: { $ref: '#/components/schemas/ObjectId' }
+            userId: { $ref: '#/components/schemas/ObjectId' }
+            createdAt: { type: string, format: date-time }
+            updatedAt: { type: string, format: date-time }
+    Jwks:
+      type: object
+      required: [keys]
+      properties:
+        keys:
+          type: array
+          items:
+            type: object
+            properties:
+              kty: { type: string, const: RSA }
+              use: { type: string, const: sig }
+              alg: { type: string, const: RS256 }
+              kid: { type: string, const: auth-rsa-v1 }
+              n: { type: string }
+              e: { type: string }
+
+    Tier:
+      type: string
+      enum: [free, pro, max]
+    AgentType:
+      type: string
+      enum: [codingAgent, copilot, appAgent, title, memory, unknown]
+    TransactionType:
+      type: string
+      enum: [SUBSCRIPTION_ACTIVATION, SUBSCRIPTION_EXTENSION, SUBSCRIPTION_QUEUED, SUBSCRIPTION_PROMOTED,
+             SUBSCRIPTION_EXPIRED, PAYMENT_FAILED, PAYMENT_REFUNDED, PAYMENT_DUPLICATE]
+    Package:
+      type: object
+      properties:
+        id: { type: string, enum: [free, pro_regular, max_regular] }
+        label: { type: string }
+        tier: { $ref: '#/components/schemas/Tier' }
+        pricingModel: { type: string, enum: [free, regular] }
+        priceINR: { type: number, examples: [499] }
+        description: { type: string }
+        highlights: { type: array, items: { type: string } }
+        badge: { type: [string, 'null'] }
+        popular: { type: boolean }
+    TierConfig:
+      type: object
+      properties:
+        id: { $ref: '#/components/schemas/Tier' }
+        label: { type: string }
+        billing: { type: string, const: credits }
+        dailyTokenCap: { type: [integer, 'null'] }
+        monthlyTokenCap: { type: [integer, 'null'] }
+        requestsPerMinute: { type: integer }
+        features: { type: object, additionalProperties: { type: boolean } }
+        windowCredits: { type: integer, description: 'Credits per window: free 20, pro 150, max 200.' }
+        windowHours: { type: integer, const: 5 }
+        creditLowerLimit: { type: integer, description: Below this the window locks until refill. }
+    CreditCheck:
+      type: object
+      properties:
+        canQuery: { type: boolean }
+        hasCredit: { type: boolean, description: Same as canQuery. }
+        subscription: { $ref: '#/components/schemas/Tier' }
+        creditsRemaining: { type: number }
+        windowCreditsTotal: { type: number }
+        creditLowerLimit: { type: integer }
+        nextRefillAt: { type: [string, 'null'], format: date-time }
+        windowExhaustedAt: { type: [string, 'null'], format: date-time }
+        timeUntilRefillMs: { type: [integer, 'null'] }
+    CreditView:
+      type: object
+      properties:
+        userId: { type: string }
+        accountId: { type: string }
+        subscription: { $ref: '#/components/schemas/Tier' }
+        credits: { type: number }
+        canQuery: { type: boolean }
+        windowCreditsTotal: { type: number }
+        windowCreditsRemaining: { type: number }
+        windowRefillAt: { type: [string, 'null'], format: date-time }
+        windowExhaustedAt: { type: [string, 'null'], format: date-time }
+        promptTokens: { type: integer }
+        completionTokens: { type: integer }
+        totalTokens: { type: integer }
+        providerCredits:
+          type: array
+          description: Usage per provider. All providers share the one window.
+          items:
+            type: object
+            properties:
+              company: { type: string }
+              creditsRemaining: { type: number }
+              creditsGranted: { type: number }
+              promptTokens: { type: integer }
+              completionTokens: { type: integer }
+              totalTokens: { type: integer }
+              requestCount: { type: integer }
+              creditsUsed: { type: number }
+              lastUsedAt: { type: [string, 'null'], format: date-time }
+        billing:
+          type: object
+          properties:
+            currency: { type: string, const: INR }
+            currentPeriodStart: { type: [string, 'null'], format: date-time }
+            currentPeriodEnd: { type: [string, 'null'], format: date-time }
+        tokensPerCredit: { type: integer, default: 1000 }
+        tierConfig: { $ref: '#/components/schemas/TierConfig' }
+    UsageInput:
+      type: object
+      properties:
+        userId: { type: string, description: "Optional. Must equal the token's user, else 403." }
+        requestId: { type: string, maxLength: 200, description: 'Idempotency key, for example orion:<runId>. Random if missing.' }
+        company: { type: string, description: 'Provider: nvidia. Anything else is stored as unknown.' }
+        provider: { type: string, description: Alias of company. }
+        modelId: { type: string, maxLength: 200 }
+        agentType: { $ref: '#/components/schemas/AgentType' }
+        projectId: { type: string, maxLength: 200 }
+        chatId: { type: string, maxLength: 200, description: Chat session id. }
+        promptTokens: { type: integer, minimum: 0, maximum: 2147483647 }
+        completionTokens: { type: integer, minimum: 0, maximum: 2147483647 }
+        totalTokens: { type: integer, minimum: 0, description: Default prompt + completion. Never less than that. }
+    Transaction:
+      type: object
+      properties:
+        _id: { type: string, format: uuid }
+        id: { type: string, format: uuid }
+        accountId: { type: string }
+        userId: { type: string }
+        type: { $ref: '#/components/schemas/TransactionType' }
+        status: { type: string, enum: [PENDING, SUCCESS, FAILED, REFUNDED] }
+        amountPaise: { type: integer }
+        amountINR: { type: number }
+        currency: { type: string }
+        razorpay:
+          type: object
+          properties:
+            orderId: { type: [string, 'null'] }
+            paymentId: { type: [string, 'null'] }
+        subscription:
+          type: object
+          properties:
+            plan: { type: [string, 'null'] }
+            billingCycle: { type: [string, 'null'] }
+        invoiceNumber: { type: [string, 'null'] }
+        description: { type: string }
+        metadata: { type: object, additionalProperties: true }
+        createdAt: { type: string, format: date-time }
+    UsageEvent:
+      type: object
+      properties:
+        _id: { type: string }
+        id: { type: string }
+        accountId: { type: string }
+        company: { type: string }
+        provider: { type: string }
+        modelId: { type: string }
+        agentType: { $ref: '#/components/schemas/AgentType' }
+        projectId: { type: string }
+        requestId: { type: string }
+        chatId: { type: [string, 'null'] }
+        subscription: { $ref: '#/components/schemas/Tier' }
+        promptTokens: { type: integer }
+        completionTokens: { type: integer }
+        totalTokens: { type: integer }
+        creditsDeducted: { type: number }
+        creditsDiscounted: { type: number, description: Credits the platform paid (memory agent). }
+        createdAt: { type: string, format: date-time }
+    UsageAnalytics:
+      type: object
+      properties:
+        timeframeDays: { type: integer }
+        totals:
+          type: object
+          properties:
+            totalTokens: { type: integer }
+            promptTokens: { type: integer }
+            completionTokens: { type: integer }
+            totalRequests: { type: integer }
+            totalCreditsDeducted: { type: number }
+            totalCreditsDiscounted: { type: number }
+        timeline:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+            properties:
+              date: { type: string }
+        byProvider:
+          type: array
+          items:
+            type: object
+            properties:
+              company: { type: string }
+              totalTokens: { type: integer }
+              requestCount: { type: integer }
+              creditsDeducted: { type: number }
+        byAgent:
+          type: array
+          items:
+            type: object
+            properties:
+              agentType: { $ref: '#/components/schemas/AgentType' }
+              totalTokens: { type: integer }
+              requestCount: { type: integer }
+              creditsDiscounted: { type: number }
+    SubscriptionSlot:
+      type: object
+      properties:
+        id: { type: string }
+        packageId: { type: string }
+        tier: { $ref: '#/components/schemas/Tier' }
+        planId: { type: string }
+        status: { type: string, enum: [active, queued, expired] }
+        validFrom: { type: [string, 'null'], format: date-time }
+        validUntil: { type: [string, 'null'], format: date-time }
+        daysRemaining: { type: integer }
+        paidAmountPaise: { type: integer }
+        carriedDays: { type: number }
+    Subscription:
+      type: object
+      properties:
+        activeTier: { $ref: '#/components/schemas/Tier' }
+        activePlanId: { type: string }
+        status: { type: string, enum: [ACTIVE, FREE] }
+        activeSlot:
+          oneOf:
+            - $ref: '#/components/schemas/SubscriptionSlot'
+            - type: 'null'
+        reservedSlots:
+          type: array
+          description: Queued plans with projected dates.
+          items: { $ref: '#/components/schemas/SubscriptionSlot' }
+        updatedAt: { type: string, format: date-time }
+    PaymentResult:
+      type: object
+      description: |
+        `status: success` carries the new plan state. `already_processed` carries nothing else.
+        `duplicate_payment` carries `duplicatePaymentId` and `originalPaymentId`.
+      properties:
+        status: { type: string, enum: [success, already_processed, duplicate_payment] }
+        verified: { type: boolean, const: true }
+        paymentStatus: { type: string, const: SUCCESS }
+        transactionId: { type: string, format: uuid }
+        transactionType: { $ref: '#/components/schemas/TransactionType' }
+        invoiceNumber: { type: string }
+        activeTier: { $ref: '#/components/schemas/Tier' }
+        activePlanId: { type: [string, 'null'] }
+        validUntil: { type: [string, 'null'], format: date-time }
+        carriedDays: { type: number }
+        reservedSlots:
+          type: array
+          items:
+            type: object
+            properties:
+              tier: { $ref: '#/components/schemas/Tier' }
+              remainingDays: { type: number }
+        duplicatePaymentId: { type: string }
+        originalPaymentId: { type: string }
+
+    ChatAgentType:
+      type: string
+      enum: [codingAgent, copilot]
+    ProjectRef:
+      type: object
+      properties:
+        projectId: { type: string, description: The project of the run. }
+        sandboxId: { type: string, description: Used when projectId is missing. }
+    OrionInvokeInput:
+      type: object
+      required: [projectId, sandboxId]
+      properties:
+        message: { type: string, description: The task. Required unless userPrompt is sent. }
+        userPrompt: { type: string, description: Alias of message. }
+        projectId: { type: string }
+        sandboxId: { $ref: '#/components/schemas/SandboxId' }
+        sessionId:
+          $ref: '#/components/schemas/ObjectId'
+          description: Continue this chat. Omit to start a new chat.
+        autoApprovePlan: { type: boolean, default: false, description: Skip the plan review pause. }
+        attachments:
+          type: array
+          maxItems: 5
+          description: Files pasted into the prompt. Each content is cut to 12,000 characters.
+          items:
+            type: object
+            properties:
+              path: { type: string }
+              content: { type: string }
+    ClioInvokeInput:
+      type: object
+      required: [projectId, sandboxId]
+      properties:
+        message: { type: string }
+        userPrompt: { type: string, description: Alias of message. }
+        projectId: { type: string }
+        sandboxId: { $ref: '#/components/schemas/SandboxId' }
+        sessionId: { $ref: '#/components/schemas/ObjectId' }
+        activeFile: { type: string, description: 'Path of the file open in the editor, or "none".' }
+        activeFileContent: { type: string }
+    OrionEvent:
+      type: object
+      description: |
+        One SSE frame of an Orion stream: `id: <seq>`, `event: <name>`, `data: <json>`.
+        Main payloads:
+        - `agent:run` `{ runId, threadId, projectId, sessionId }`
+        - `agent:session` `{ sessionId, title, isNew }`
+        - `agent:msg_created` `{ role: user | assistant, id }`
+        - `agent:model` `{ provider, modelId, label, fallback }`
+        - `agent:status` `{ phase, node, title, detail, status }`
+        - `agent:thinking` `{ node, text }`
+        - `agent:steps` `{ steps: [{ id, title, status }] }`
+        - `agent:step` `{ stepId, status, summary, filesWritten }`
+        - `agent:message` `{ segment, text }` (append to the answer); `agent:message_retract` `{ segment }` (remove it)
+        - `agent:tool_start` `{ id, node, toolName, input }`; `agent:tool_end` `{ id, node, toolName, ok, output }`
+        - `agent:tool_log` (one line for the activity log)
+        - `agent:plan_review` `{ plan, taskSubType, warnings, threadId }`
+        - `agent:final` `{ text, outcome }`; `agent:done` `{ outcome, filesTouched, assistantMsgId }`
+        - `agent:stopped` `{ message, text, assistantMsgId }`; `agent:error` `{ message, code, assistantMsgId? }`
+        - `agent:snapshot` (re-attach only) `{ runId, projectId, sessionId, status, task, model,
+          lastStatus, thinking, message, toolLogs, planReview, steps, startedAt }`
+      properties:
+        id: { type: integer }
+        event: { type: string }
+        data: { type: object, additionalProperties: true }
+    ChatSession:
+      type: object
+      properties:
+        id: { $ref: '#/components/schemas/ObjectId' }
+        projectId: { type: string }
+        title: { type: string }
+        lastMessageAt: { type: string, format: date-time }
+        createdAt: { type: string, format: date-time }
+    ChatMessage:
+      type: object
+      properties:
+        id: { $ref: '#/components/schemas/ObjectId' }
+        role: { type: string, enum: [user, assistant] }
+        content: { type: string }
+        status: { type: string, examples: [ok, error, stopped] }
+        toolLogs: { type: array, items: {} }
+        steps: { type: array, items: {} }
+        outcome: { type: [string, 'null'] }
+        file: { type: string, description: Clio only. The file that was open. }
+        timestamp: { type: string, format: date-time }
+
+    ProjectStatus:
+      type: string
+      enum: [not_started, building, live, down]
+    Project:
+      type: object
+      properties:
+        _id: { $ref: '#/components/schemas/ObjectId' }
+        user: { type: string, description: Owner user id. }
+        title: { type: string }
+        sandboxId: { $ref: '#/components/schemas/SandboxId' }
+        status: { $ref: '#/components/schemas/ProjectStatus' }
+        deletionStatus: { type: string, enum: [active, trash, deleted] }
+        deletedAt: { type: [string, 'null'], format: date-time }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    McpScope:
+      type: string
+      enum: [read, write, exec]
+    McpTokenView:
+      type: object
+      properties:
+        id: { $ref: '#/components/schemas/ObjectId' }
+        name: { type: string }
+        prefix: { type: string, description: 'First characters of the token, to recognise it.' }
+        scopes: { type: array, items: { $ref: '#/components/schemas/McpScope' } }
+        createdAt: { type: string, format: date-time }
+        expiresAt: { type: string, format: date-time }
+        lastUsedAt: { type: [string, 'null'], description: 'Epoch ms as text, from Redis.' }
+    McpTokenRecord:
+      type: object
+      description: What the gateway caches in Redis mcptoken:<hash>.
+      properties:
+        id: { type: string }
+        userId: { type: string }
+        projectId: { type: string }
+        sandboxId: { $ref: '#/components/schemas/SandboxId' }
+        scopes: { type: array, items: { $ref: '#/components/schemas/McpScope' } }
+        expiresAt: { type: string, format: date-time }
+
+    JsonRpcRequest:
+      type: object
+      required: [jsonrpc, method]
+      properties:
+        jsonrpc: { type: string, const: '2.0' }
+        id: { type: [integer, string] }
+        method: { type: string, examples: [initialize, tools/list, tools/call] }
+        params: { type: object, additionalProperties: true }
+    JsonRpcResponse:
+      type: object
+      properties:
+        jsonrpc: { type: string, const: '2.0' }
+        id: { type: [integer, string, 'null'] }
+        result:
+          type: object
+          additionalProperties: true
+          properties:
+            content:
+              type: array
+              items:
+                type: object
+                properties:
+                  type: { type: string, const: text }
+                  text: { type: string, description: JSON of the tool result. }
+            isError: { type: boolean }
+        error:
+          type: object
+          properties:
+            code: { type: integer }
+            message: { type: string }
+    JsonRpcErrorBody:
+      type: object
+      required: [jsonrpc, error]
+      properties:
+        jsonrpc: { type: string, const: '2.0' }
+        error:
+          type: object
+          properties:
+            code: { type: integer, examples: [-32000, -32603] }
+            message: { type: string }
+        id: { type: 'null' }
