@@ -46,6 +46,12 @@ docs/
 ├── api/                                               ← Low-Level API Designs & Contracts
 │   └── post-code-agent-invoke.md                      ← Detailed LLD for the POST /api/ai/agent/invoke stream
 │
+├── plans/                                             ← Design plans (check status line in each file)
+│   ├── mcp-sandbox-server.md                          ← Built: sandbox tools served only over MCP
+│   └── kafka-whatsapp-architecture.md                 ← Plan only: Kafka, WhatsApp, admin observability
+│
+├── reviews/                                           ← Drift report and fix plan (2026-10-26)
+│
 └── diagrams/                                          ← Schematics & Visual Design Assets
     ├── final-capstone.excalidraw                      ← Master system architecture Excalidraw canvas
     ├── codespace-latest.excalidraw                    ← Interactive workspace flow Excalidraw canvas
@@ -61,15 +67,15 @@ docs/
 
 | # | Master Document | Scope & System Responsibility | Key Engineering Decision |
 |---|---|---|---|
-| **01** | [01-ai-agent-orchestration.md](file:///Users/home/Desktop/Projects/Capstone/docs/architecture/01-ai-agent-orchestration.md) | Orion v3 LangGraph Brain & Clio Copilot | Decouples sub-100ms non-autoregressive Jev routing from System 2 frontier LLM coding; eliminates loops via SHA-256 error signature deduplication and tri-layer mechanical compiler verification. |
-| **02** | [02-mcp-sandbox-sidecar.md](file:///Users/home/Desktop/Projects/Capstone/docs/architecture/02-mcp-sandbox-sidecar.md) | Model Context Protocol in Sandboxes | Single role-agnostic MCP server (`POST /mcp`) in the sandbox sidecar. `Ai_orchestration` enforces least-privilege tool projection per agent role, cutting prompt tokens by >80% with 0.0ms cached discovery. |
-| **03** | [03-auth-and-security.md](file:///Users/home/Desktop/Projects/Capstone/docs/architecture/03-auth-and-security.md) | Distributed Identity & Key Management | RS256 asymmetric signing with JWKS (`/.well-known/jwks.json`). In-memory access tokens (XSS immune) + `httpOnly` refresh cookies with cryptographic Token Family replay protection. |
-| **04** | [04-distributed-transports-streaming.md](file:///Users/home/Desktop/Projects/Capstone/docs/architecture/04-distributed-transports-streaming.md) | Transport Protocols & Inter-Service RPC | Tri-modal transport: SSE over HTTP/2 for client streaming; gRPC over HTTP/2 with Protobuf for East-West credit/terminal RPC; RabbitMQ (AMQP) for decoupled fire-and-forget emails. |
-| **05** | [05-observability-and-error-handling.md](file:///Users/home/Desktop/Projects/Capstone/docs/architecture/05-observability-and-error-handling.md) | Telemetry, Metrics & Distributed Logging | FaultKit RFC-7807 error responses across all microservices, Pino structured JSON logging with credential redaction, and Prometheus Operator with strict route normalization (`/api/sandbox/:id`). |
-| **06** | [06-api-contracts-and-specifications.md](file:///Users/home/Desktop/Projects/Capstone/docs/architecture/06-api-contracts-and-specifications.md) | Universal API Specifications & Contracts | OpenAPI 3.1.0 monolithic specification (`docs/openapi.yaml`) driving compile-time TypeScript SDK generation (`openapi-typescript`) and ingress-layer schema validation. |
-| **07** | [07-payments-and-subscriptions.md](file:///Users/home/Desktop/Projects/Capstone/docs/architecture/07-payments-and-subscriptions.md) | Financial Ledger, Credits & Razorpay | Single-path synchronous client verification with mandatory server-side Razorpay `fetchPayment` capture confirmation. Idempotent ledger with zero day-waste subscription promotion queue. |
-| **08** | [08-browser-agent-extension.md](file:///Users/home/Desktop/Projects/Capstone/docs/architecture/08-browser-agent-extension.md) | Autonomous Browser QA & Telemetry | Manifest V3 Chrome Extension giving Orion/Clio "Eyes & Hands" (DOM accessibility tree inspection, screenshot deltas, and synthetic interactions) with zero compute overhead on K8s. |
-| **09** | [09-webgl-ui-performance.md](file:///Users/home/Desktop/Projects/Capstone/docs/architecture/09-webgl-ui-performance.md) | Hardware-Accelerated UI & Rendering | 60 FPS WebGL shader canvas with visibility gating, context loss recovery, and DPR clamping to preserve client battery and GPU resources. |
+| **01** | [01-ai-agent-orchestration.md](architecture/01-ai-agent-orchestration.md) | Orion v3 LangGraph Brain & Clio Copilot | Decouples sub-100ms non-autoregressive Jev routing from System 2 frontier LLM coding; eliminates loops via SHA-256 error signature deduplication and tri-layer mechanical compiler verification. |
+| **02** | [02-mcp-sandbox-sidecar.md](architecture/02-mcp-sandbox-sidecar.md) | Model Context Protocol in Sandboxes | Single role-agnostic MCP server (`POST /mcp`) in the sandbox sidecar. `Ai_orchestration` enforces least-privilege tool projection per agent role, cutting prompt tokens by >80% with 0.0ms cached discovery. |
+| **03** | [03-auth-and-security.md](architecture/03-auth-and-security.md) | Distributed Identity & Key Management | RS256 asymmetric signing with JWKS (`/.well-known/jwks.json`). In-memory access tokens (XSS immune) + `httpOnly` refresh cookies with cryptographic Token Family replay protection. |
+| **04** | [04-distributed-transports-streaming.md](architecture/04-distributed-transports-streaming.md) | Transport Protocols & Inter-Service RPC | Tri-modal transport: SSE over HTTP/2 for client streaming; gRPC over HTTP/2 with Protobuf for East-West credit/terminal RPC; RabbitMQ (AMQP) for decoupled fire-and-forget emails. |
+| **05** | [05-observability-and-error-handling.md](architecture/05-observability-and-error-handling.md) | Telemetry, Metrics & Distributed Logging | FaultKit RFC-7807 error responses across all microservices, Pino structured JSON logging with credential redaction, and Prometheus Operator with strict route normalization (`/api/sandbox/:id`). |
+| **06** | [06-api-contracts-and-specifications.md](architecture/06-api-contracts-and-specifications.md) | Universal API Specifications & Contracts | OpenAPI 3.1.0 monolithic specification (`docs/openapi.yaml`) driving compile-time TypeScript SDK generation (`openapi-typescript`) and ingress-layer schema validation. |
+| **07** | [07-payments-and-subscriptions.md](architecture/07-payments-and-subscriptions.md) | Financial Ledger, Credits & Razorpay | Single-path synchronous client verification with mandatory server-side Razorpay `fetchPayment` capture confirmation. Idempotent ledger with zero day-waste subscription promotion queue. |
+| **08** | [08-browser-agent-extension.md](architecture/08-browser-agent-extension.md) | Autonomous Browser QA & Telemetry | Manifest V3 Chrome Extension giving Orion/Clio "Eyes & Hands" (DOM accessibility tree inspection, screenshot deltas, and synthetic interactions) with zero compute overhead on K8s. |
+| **09** | [09-webgl-ui-performance.md](architecture/09-webgl-ui-performance.md) | Hardware-Accelerated UI & Rendering | 60 FPS WebGL shader canvas with visibility gating, context loss recovery, and DPR clamping to preserve client battery and GPU resources. |
 
 ---
 

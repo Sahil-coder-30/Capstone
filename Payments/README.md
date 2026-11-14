@@ -50,6 +50,10 @@ The checkout UI lives in `payments_frontend/`. It is a separate Vite app and is 
 - The Razorpay payment id is the primary key of `payments`, so the same payment from `/verify` and the webhook is applied once.
 - `/verify` checks that the order (from the `orders` table) belongs to the caller.
 - Synthetic test payments only work with `NODE_ENV=test`, test keys and `ALLOW_SYNTHETIC_PAYMENTS=true`.
+- A second captured payment for an already paid order is kept as a `PAYMENT_DUPLICATE` transaction marked for refund.
+- `refund.processed` webhooks are idempotent per refund id. A full refund marks the payment refunded and removes the 30 days it bought. A partial refund is logged.
+- Payment currency and Razorpay `order_id` must match the order. HMACs use a constant-time compare.
+- Missing, zero, negative or unsafe amounts, and token counts above int32, give 400.
 
 ---
 
@@ -78,6 +82,8 @@ Migrations:
 npm run db:generate   # after editing db/schema.js
 npm run db:migrate    # applies to DATABASE_URL
 ```
+
+Migration `0002_refund_and_duplicate_types.sql` adds the `PAYMENT_REFUNDED` and `PAYMENT_DUPLICATE` transaction types. Apply it to Supabase before deploying this version.
 
 ---
 
@@ -121,6 +127,9 @@ Set these in `.env` (local) or the k8s manifest:
 | `RAZORPAY_WEBHOOK_SECRET` | Webhook HMAC secret (separate from the key secret) |
 | `PLAN_ID_FREE`, `PLAN_ID_PRO`, `PLAN_ID_MAX` | Optional plan ids shown to clients |
 | `TOKENS_PER_AI_CREDIT` | Optional, default 1000 |
+| `RAZORPAY_TIMEOUT_MS` | Optional, default 10000. Razorpay calls fail with 503 after this |
+| `AUTH_BLACKLIST_FAIL_CLOSED` | Optional, default on. Logout blacklist writes return 503 when Redis is down |
+| `ALLOW_SYNTHETIC_PAYMENTS` | Tests only, default false |
 
 Use the direct Supabase host only if the service runs somewhere with IPv6. Docker and k8s need the pooler.
 
@@ -144,3 +153,5 @@ docker compose up -d      # Postgres 16 on localhost:5433
 npm test
 docker compose down
 ```
+
+The suite has 81 tests. `tests/adversarial/` (58 tests, Razorpay mocked) tries to break checkout, webhooks, refunds and credits.

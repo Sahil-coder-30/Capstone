@@ -1,5 +1,8 @@
 # 🛡️ Admin & Customer Care Service
 
+> [!WARNING]
+> Nothing below is built. This README is an old vision. The current plan is [PLAN.md](PLAN.md); notifications are in [docs/plans/kafka-whatsapp-architecture.md](../docs/plans/kafka-whatsapp-architecture.md).
+
 > The centralized operations, customer care, and real-time monitoring platform — combining an audit-logged Admin Operations Gateway, a real-time support escalation dashboard, and an embeddable AI Customer Care Agent exposed via Vite Module Federation.
 
 ![Version](https://img.shields.io/badge/version-1.0.0-blue)

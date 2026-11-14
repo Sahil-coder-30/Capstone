@@ -167,7 +167,7 @@ Both proxy `/api` to the ingress at `http://localhost`.
 | Health checks | `GET /healthz` and `/readyz` on Auth, Payments, Notification |
 
 > [!WARNING]
-> `cd Payments && npm test` clears collections in its database. Run it only against a throwaway database.
+> `cd Payments && npm test` truncates every table. It runs only against the local Postgres from `docker compose up -d` and refuses non-localhost.
 
 ## Project layout
 
@@ -185,6 +185,7 @@ Capstone/
 │   └── template/         seed project
 ├── Frontend/             cloud IDE
 ├── payments_frontend/    checkout app
+├── Admin/                admin platform plan, no code yet
 ├── k8s/                  manifests and ingress
 ├── docs/                 architecture, API and design docs
 ├── launch-video/         Remotion launch video
@@ -201,6 +202,8 @@ Capstone/
 | [docs/prd/](docs/prd/taksha-codespace-prd.md) | Product requirements |
 | [docs/infrastructure/](docs/infrastructure/k8s-skaffold-production-guide.md) | Kubernetes and Skaffold guide |
 | [docs/frontend/](docs/frontend/frontend-architecture-and-design-tokens.md) | Frontend architecture and design tokens |
+| [docs/plans/kafka-whatsapp-architecture.md](docs/plans/kafka-whatsapp-architecture.md) | Plan, not built: Kafka, WhatsApp, admin observability |
+| [Admin/PLAN.md](Admin/PLAN.md) | Plan, not built: admin platform |
 
 > [!NOTE]
 > Some pages in `docs/` describe planned work (gRPC, the Chrome extension, Loki, Admin). When a doc and the code disagree, the code is right. Current gaps are listed in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#known-gaps).

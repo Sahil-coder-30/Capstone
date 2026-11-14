@@ -1,8 +1,6 @@
 # CLAUDE.md
 
-All rules and the short project overview live in AGENTS.md, shared by every AI agent:
-
-@AGENTS.md
+Rules for AI agents and the checked project context. There is no `AGENTS.md` in this repo; this file is the single source.
 
 ## Claude Code specifics
 
@@ -37,7 +35,7 @@ Everything below was checked against the code. Where `docs/` or a README disagre
 | `Frontend/` | 5173 | n/a | n/a | IndexedDB (Dexie) |
 | `payments_frontend/` | 5174, base `/payments/` | n/a | n/a | n/a |
 
-`Admin/` holds only a README. There is no Admin code yet.
+`Admin/` has no code yet. `Admin/PLAN.md` (2026-11-13) is the admin platform plan: documents first (`Admin/docs/01-hld.md` is in progress), then the admin backend, mail through nodemailer until Kafka exists. `Admin/README.md` describes features that do not exist; trust `PLAN.md`.
 
 ### Ingress (`k8s/ingress.yml`)
 
@@ -115,6 +113,8 @@ Both frontends proxy `/api` to `http://localhost` (the ingress) in dev. `Fronten
 - `DATABASE_URL` must be the Supabase transaction pooler (port 6543, IPv4). The direct host is IPv6 only and fails from Docker/k8s.
 - Plans in `config/plans.config.js`: free, `pro_regular` (Rs 499), `max_regular` (Rs 999), plus tier limits.
 - Checkout: `POST /api/payments/create/order` (writes an `orders` row), Razorpay modal, then `POST /api/payments/verify` (order must belong to the caller, payment re-fetched from Razorpay) and/or `POST /api/payments/webhook` (HMAC over `req.rawBody`). `processSubscriptionPayment` runs in one transaction with an account row lock; the payment id is the `payments` primary key, so it applies once.
+- Money guards (commit `48aee60`): a second captured payment for a paid order is kept as a `PAYMENT_DUPLICATE` transaction marked for refund; `refund.processed` webhooks are idempotent per refund id, and a full refund removes the 30 days it bought; currency and `order_id` must match the order; HMACs use constant-time compare; bad amounts or token counts give 400; Razorpay calls time out (`RAZORPAY_TIMEOUT_MS`, default 10s) with 503; logout blacklist writes fail closed when Redis is down (`AUTH_BLACKLIST_FAIL_CLOSED`, default on).
+- Migration `0002_refund_and_duplicate_types.sql` adds `PAYMENT_REFUNDED` and `PAYMENT_DUPLICATE`. It was pending on Supabase as of 2026-11-13: run `npm run db:migrate` there before deploying Payments.
 - Subscriptions are slots: one active slot plus queued slots that keep `remaining_ms`. Expiry is promoted lazily on read and by a nightly cron.
 - Credits: one 5-hour window per user on `accounts` (Free 20, Pro 150, Max 200). Refill is lazy on read. `usage_events` is unique on `(user_id, request_id)`. Providers: `nvidia`, else `unknown`. Agent types in `PLATFORM_PAID_AGENT_TYPES` (`memory`) are recorded with real tokens but `credits_deducted = 0`; `creditsDiscounted` is derived from tokens in the serializers.
 - Only cron job: nightly slot promotion, behind a Redis `SET NX` lock.
@@ -123,6 +123,7 @@ Both frontends proxy `/api` to `http://localhost` (the ingress) in dev. `Fronten
 
 **6. Notification**
 - Consumes `auth_notification_queue` and `payment_notification_queue`, sends mail with nodemailer. Templates in `src/emails/template/`.
+- Planned, not built: Kafka event backbone, WhatsApp channel, delivery log, DLQ and admin observability in `docs/plans/kafka-whatsapp-architecture.md` (plan wins on notifications; `Admin/PLAN.md` wins on the admin portal). RabbitMQ is still the only broker in code.
 
 ### Commands
 
@@ -131,7 +132,8 @@ Both frontends proxy `/api` to `http://localhost` (the ingress) in dev. `Fronten
 | Run a backend service | `npm run dev` inside the service folder (nodemon `-L`) |
 | Run a frontend | `npm run dev` / `npm run build` / `npm run lint` |
 | Full cluster dev loop | `skaffold dev` (builds all images, applies `k8s/*.yml`) |
-| Payments tests (local Postgres only, they truncate tables and refuse non-localhost) | `cd Payments && docker compose up -d && npm test` |
+| Payments tests (local Postgres only, they truncate tables and refuse non-localhost; 81 tests incl. 58 adversarial in `tests/adversarial/`, Razorpay mocked) | `cd Payments && docker compose up -d && npm test` |
+| Launch video (Remotion) | see `launch-video/README.md` |
 | Auth load test | `k6 run Auth/src/k6/load-test.js` |
 | Guardrail self-test | `node .claude/hooks/test-guardrails.mjs` |
 
@@ -159,6 +161,8 @@ AI service: `cd Ai_orchestration && npm test` is offline (no network, no DB) and
 - Auth needs `certs/public.pem` at startup, and `RSA_PRIVATE_KEY` or `certs/private.pem`. Never open those files.
 - Port defaults in code differ from `.env.example` and k8s (for example Payments JWKS default `localhost:5000`). Always set the env var.
 - `docs/` describes some things that do not exist in code yet: gRPC, HTTP/2 SSE, the Chrome extension, the Admin service, Loki. Check the code before relying on a doc.
+- `docs/plans/`: `mcp-sandbox-server.md` is built (sandbox tools are MCP only); `kafka-whatsapp-architecture.md` is a plan only.
+- Each MCP tool call logs one line on both sides (`Sandbox/Agent/src/mcp/server.js`, `Ai_orchestration/src/agent/tools/sandbox.client.js`).
 
 ## Launch video rule
 
