@@ -21,7 +21,13 @@ export function stubSessions(Session) {
     const chain = { sort: () => chain, limit: () => chain, select: () => chain, lean: async () => sessions.filter((s) => matches(s, filter)) };
     return chain;
   };
-  Session.updateOne = async () => ({ modifiedCount: 1 });
+  Session.updateOne = async (_filter, update, options) => {
+    // Same rule as Mongoose 9: a pipeline update needs the updatePipeline option.
+    if (Array.isArray(update) && !options?.updatePipeline) {
+      throw new Error("Cannot pass an array to query updates unless the `updatePipeline` option is set.");
+    }
+    return { modifiedCount: 1 };
+  };
   return sessions;
 }
 

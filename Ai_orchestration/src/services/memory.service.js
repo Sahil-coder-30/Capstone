@@ -87,6 +87,7 @@ export async function updateMemory({ agentType, userId, projectId, sessionId, au
   await store.Session.updateOne(
     { _id: session._id, userId, summaryThrough: session.summaryThrough ?? null }, // skip if another job got here first
     [{ $set: set }],
+    { updatePipeline: true }, // Mongoose 9 rejects array (pipeline) updates without it
   );
 
   if (update.projectNotes) {
