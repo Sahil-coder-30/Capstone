@@ -21,11 +21,14 @@ const textResult = (data, isError) => ({
   isError,
 });
 
+// KEY=value, --token value, "Bearer x" and known token prefixes, masked before a command is logged.
+const SECRET_IN_TEXT = /([\w-]*(?:key|token|secret|passw(?:or)?d)[\w-]*\s*[=:]\s*|--?[\w-]*(?:key|token|secret|password)[\w-]*\s+|bearer\s+|\b(?:tks_mcp_|nvapi-|sk-))\S+/gi;
+
 /** File paths, pattern or command of a call, for the log line. Never file contents. */
-const argSummary = (args = {}) => {
+export const argSummary = (args = {}) => {
   const files = args.files || args.updates;
   const text = files ? files.map((f) => f?.file ?? f).join(",") : (args.filePath ?? args.pattern ?? args.command ?? "");
-  return String(text).slice(0, 80);
+  return String(text).replace(SECRET_IN_TEXT, "$1***").slice(0, 80);
 };
 
 const isFailure = (status, body) =>
