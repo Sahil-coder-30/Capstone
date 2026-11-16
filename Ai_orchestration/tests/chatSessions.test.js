@@ -24,7 +24,7 @@ let sandboxCalls = 0;
 axios.defaults.adapter = async (config) => {
   sandboxCalls += 1;
   const owner = config.headers.Authorization === "Bearer owner-token";
-  return { data: { projects: owner ? [{ _id: "p1", sandboxId: "sbx-1" }] : [] }, status: 200, headers: {}, config };
+  return { data: { projects: owner ? [{ _id: "p1", sandboxId: "sbx-1", status: "live" }, { _id: "p-down", sandboxId: "sbx-down", status: "down" }] : [] }, status: 200, headers: {}, config };
 };
 
 const record = (Model, name) => {
@@ -146,4 +146,11 @@ test("invoke routes use the verified projectId and reject a mismatch", async () 
 
   const bad = await run({ sandboxId: "sbx-1", projectId: "someone-elses" });
   assert.match(bad.err.message, /projectId does not match/);
+
+  // A stopped sandbox is refused up front (after a fresh look), not run tool by tool.
+  const before = sandboxCalls;
+  const down = await run({ sandboxId: "sbx-down" });
+  assert.equal(down.err?.statusCode ?? down.err?.status, 409);
+  assert.match(down.err.message, /not running/);
+  assert.equal(sandboxCalls, before + 1, "the cached list is refreshed once before refusing");
 });

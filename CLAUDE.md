@@ -96,7 +96,7 @@ Both frontends proxy `/api` to `http://localhost` (the ingress) in dev. `Fronten
 
 | Middleware | On failure |
 |---|---|
-| `requireOwnedSandbox` (asks Sandbox `/api/sandbox/projects` with the caller's token, 60s cache) | fails closed (503 / 403) |
+| `requireOwnedSandbox` (asks Sandbox `/api/sandbox/projects` with the caller's token, 60s cache) | fails closed (503 / 403); 409 when the sandbox is not `live` (checked again without the cache first) |
 | `aiRateLimiter` (Redis Lua token bucket) | fails open |
 | `creditLedger` (asks Payments `/api/payments/credit/check`) | fails open, except a real 402 |
 
