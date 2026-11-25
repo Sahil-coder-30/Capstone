@@ -5,7 +5,17 @@
       "Bash(*)",
       "Edit",
       "Write",
-      "Read"
+      "Read",
+      "Bash(agy:*)",
+      "Bash(node:*)",
+      "Bash(npx:*)",
+      "Bash(ls:*)",
+      "Bash(cat:*)",
+      "Bash(grep:*)",
+      "Bash(find:*)",
+      "Bash(mkdir:*)",
+      "Bash(git status:*)",
+      "Bash(git diff:*)"
     ],
     "deny": [
       "Read(**/.env)",
