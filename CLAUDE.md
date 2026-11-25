@@ -11,6 +11,7 @@ Rules for AI agents and the checked project context. There is no `AGENTS.md` in 
 - Secret files (`.env`, `private.pem`, `k8s/secrets.yml`) are blocked by deny rules in `.claude/settings.json`.
 - When a hook denies a call, report it to the developer. Do not retry the same thing another way.
 - After every finished feature or fix, big or small, test it and make one local commit on `main` without being asked. If the work is on another branch, ask the developer before moving it to `main`.
+- **One solid piece of work = one commit** (developer rule, 2026-11-25). Commit as you go so nothing is lost, but before the work is done squash your own local, unpushed commits for that work into one clean commit with one message that covers all of it. Small follow-ups to the same work (a test fix, a decision change) go into that commit too, not a new one. Never rewrite history that is already pushed, and never squash commits that are not yours.
 - Never add Claude as a contributor: no `Co-Authored-By: Claude` trailer and no Claude attribution in any commit or PR.
 - Never push or open a PR unless the developer asks.
 - Use `.env.example` files for config. Never read `.env`.
