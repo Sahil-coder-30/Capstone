@@ -4,6 +4,7 @@ import http from 'http';
 import { createProxyMiddleware } from 'http-proxy-middleware';
 import { redis, refreshTTL } from './config/redis.js';
 import { createMcpGateway } from './mcpGateway.js';
+import { createInternalMcpProxy } from './internalMcpProxy.js';
 
 const app = express();
 app.use(morgan('combined'));
@@ -25,6 +26,11 @@ app.get("/api/router/ready", (req, res) => {
 // External MCP agents: POST /api/mcp/<sandboxId> with an MCP token.
 // Registered before the host-based proxy so it is never shadowed.
 app.all("/api/mcp/:sandboxId", createMcpGateway({ redis, refreshTTL }));
+
+// Taksha's own services (the AI service): POST /internal/sandboxes/<id>/mcp.
+// Refreshes the sandbox idle TTL on every agent tool call. Not in the ingress
+// paths; needs INTERNAL_SERVICE_TOKEN and refuses sandbox hosts.
+app.all("/internal/sandboxes/:sandboxId/mcp", createInternalMcpProxy({ refreshTTL }));
 
 // The sandbox id is taken from the Host header and becomes part of the proxy
 // target hostname. Restrict it to a single DNS label so values such as

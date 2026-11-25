@@ -42,6 +42,18 @@ spec:
           # Mints the per-run sandbox token (POST /api/auth/sandbox-token).
           - name: AUTH_SERVICE_URL
             value: "http://auth-service"
+          # Agent tool calls go through the router (POST /internal/sandboxes/<id>/mcp),
+          # which refreshes the sandbox idle TTL. Without this secret agent tool calls
+          # fail closed (same pattern as the other services' /internal routes);
+          # sandbox pods accept traffic only from the router.
+          - name: SANDBOX_ROUTER_URL
+            value: "http://router-service"
+          - name: INTERNAL_SERVICE_TOKEN
+            valueFrom:
+              secretKeyRef:
+                name: internal-service
+                key: INTERNAL_SERVICE_TOKEN
+                optional: true
 
           - name: MONGO_URI
             valueFrom:

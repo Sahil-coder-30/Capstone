@@ -16,15 +16,30 @@ export const isValidSandboxId = (id) => typeof id === "string" && SANDBOX_ID_PAT
 export const sandboxIdFrom = (config) => config?.configurable?.sandboxId;
 
 /**
- * Sidecar origin for a sandbox. SANDBOX_URL_TEMPLATE overrides it for local
- * development, e.g. "http://localhost:3000" with a port-forwarded pod.
+ * Where a sandbox's MCP endpoint is reached, and the extra headers for it.
+ *
+ * - SANDBOX_URL_TEMPLATE set (local dev, tests, e2e:live): straight to that
+ *   origin + "/mcp", e.g. "http://localhost:3000" with a port-forwarded pod.
+ * - In the cluster: through the router, POST <SANDBOX_ROUTER_URL>/internal/sandboxes/<id>/mcp
+ *   with X-Internal-Token. The router refreshes the sandbox idle TTL on every
+ *   call, so a long agent run keeps its sandbox even with nobody in the editor.
+ * - No INTERNAL_SERVICE_TOKEN: fails closed. Sandbox pods are reached only
+ *   through the router; there is no direct path.
  */
-const sandboxOrigin = (sandboxId) => {
+export const sandboxMcpEndpoint = (sandboxId) => {
   if (!isValidSandboxId(sandboxId)) {
     throw new Error(`Invalid sandbox id: ${JSON.stringify(String(sandboxId)).slice(0, 80)}`);
   }
-  const template = process.env.SANDBOX_URL_TEMPLATE?.trim() || "http://sandbox-service-{sandboxId}:3000";
-  return template.replace("{sandboxId}", sandboxId);
+  const template = process.env.SANDBOX_URL_TEMPLATE?.trim();
+  if (template) return { url: `${template.replace("{sandboxId}", sandboxId)}/mcp`, headers: {} };
+
+  const internalToken = process.env.INTERNAL_SERVICE_TOKEN?.trim();
+  if (internalToken) {
+    const router = (process.env.SANDBOX_ROUTER_URL?.trim() || "http://router-service").replace(/\/+$/, "");
+    return { url: `${router}/internal/sandboxes/${sandboxId}/mcp`, headers: { "X-Internal-Token": internalToken } };
+  }
+
+  throw new Error("Sandbox access is not configured: INTERNAL_SERVICE_TOKEN is missing in the AI service.");
 };
 
 // Per-tool timeouts. execute_command covers npm install and builds.
@@ -41,9 +56,9 @@ export async function callSandboxTool(config, name, args = {}) {
 
   const key = config.configurable.credentialKey;
   const timeoutMs = TIMEOUT_MS[name] ?? 30_000;
-  let origin;
+  let endpoint;
   try {
-    origin = sandboxOrigin(sandboxIdFrom(config));
+    endpoint = sandboxMcpEndpoint(sandboxIdFrom(config));
   } catch (err) {
     return { ok: false, error: err.message };
   }
@@ -51,7 +66,7 @@ export async function callSandboxTool(config, name, args = {}) {
   const started = Date.now();
   let result;
   try {
-    result = await callMcpTool({ key, url: `${origin}/mcp`, token, signal: config?.signal }, name, args, { timeoutMs });
+    result = await callMcpTool({ key, url: endpoint.url, token, headers: endpoint.headers, signal: config?.signal }, name, args, { timeoutMs });
   } catch (err) {
     result = {
       ok: false,

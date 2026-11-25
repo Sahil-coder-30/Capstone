@@ -37,10 +37,10 @@ const sessions = new Map(); // credentialKey -> { token, client, offered: Set }
 
 const httpStatusOf = (err) => (err instanceof StreamableHTTPError ? err.code : undefined);
 
-const connect = async (url, token) => {
+const connect = async (url, token, headers = {}) => {
   const client = new Client(CLIENT_INFO);
   const transport = new StreamableHTTPClientTransport(new URL(url), {
-    requestInit: { headers: { Authorization: `Bearer ${token}` } },
+    requestInit: { headers: { ...headers, Authorization: `Bearer ${token}` } },
   });
   try {
     await client.connect(transport);
@@ -55,11 +55,11 @@ const connect = async (url, token) => {
   return { client, offered };
 };
 
-const sessionFor = async (key, url, token) => {
+const sessionFor = async (key, url, token, headers) => {
   const existing = sessions.get(key);
   if (existing && existing.token === token && existing.url === url) return existing;
   if (existing) await existing.client.close().catch(() => {});
-  const session = { token, url, ...(await connect(url, token)) };
+  const session = { token, url, ...(await connect(url, token, headers)) };
   sessions.set(key, session);
   return session;
 };
@@ -86,13 +86,13 @@ const parseText = (result) => {
  * a failing command) is ok: true with that data, exactly like a REST 200.
  * Throws McpUnavailableError when the sandbox has no /mcp (caller falls back to REST).
  */
-export async function callMcpTool({ key, url, token, signal }, name, args = {}, { timeoutMs = 30_000 } = {}) {
+export async function callMcpTool({ key, url, token, headers, signal }, name, args = {}, { timeoutMs = 30_000 } = {}) {
   if (!CERTIFIED_TOOLS.has(name)) return { ok: false, error: `"${name}" is not a certified sandbox tool.` };
 
   for (let attempt = 0; ; attempt += 1) {
     let session;
     try {
-      session = await sessionFor(key, url, token);
+      session = await sessionFor(key, url, token, headers);
       if (!session.offered.has(name)) return { ok: false, error: `The sandbox does not offer the "${name}" tool.` };
 
       const result = await session.client.callTool({ name, arguments: args }, undefined, {
