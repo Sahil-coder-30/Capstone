@@ -4,7 +4,7 @@
 |---|---|
 | **Product Name** | Taksha (`www.takshacodespace.in`) |
 | **Status** | Production Architecture & Beta Ready |
-| **Date & Version** | 2026-09-13, v1.0.0 |
+| **Date & Version** | 2026-09-13, v1.0.0. Updated 2026-11-25: V2 (GitHub source control) and V2.5 (Taksha Hosting) added |
 | **Product POC** | Sahil Sharma |
 | **Design POC** | Sahil Sharma |
 | **Tech POC** | Sahil Sharma |
@@ -47,7 +47,8 @@ The Taksha unified cloud environment collapses this entire loop into a single br
 
 - **No multi-language scaffolding in v1.0.** The default sandbox scaffold is strictly React 19 + Vite 8 + SCSS. Python, Go, Rust, and standalone Node backend runtimes are out of scope for the v1.0 release.
 - **No real-time multi-user concurrent editing in v1.0.** The Agent sidecar includes Yjs CRDT primitives for future collaborative workspaces, but multi-user collaboration sessions are disabled in the v1.0 UI.
-- **The AI agent does not deploy to production cloud infrastructure.** Agents can run `npm run build` and execute `vitest` unit tests inside the sandbox, but possess no credentials or tools to deploy to AWS, Vercel, Netlify, or external production environments.
+- **The AI agent does not deploy to production cloud infrastructure.** Agents can run `npm run build` and execute `vitest` unit tests inside the sandbox, but possess no credentials or tools to deploy to AWS, Vercel, Netlify, or external production environments. From V2.5 the **user** can deploy through Taksha Hosting (Flow 7); the agent still never deploys or pushes on its own.
+- **No server-side hosting in V2.5.** Taksha Hosting serves static builds only (the output of `npm run build`). API routes, serverless functions and databases are later work.
 - **The AI agent will never access platform databases or external microservices.** Tool execution is strictly isolated to the `/workspace` container directory via path containment (`safeResolve`) and container network isolation. Agents have zero network credentials for Auth, Payments, or Control servers.
 - **No visual or screenshot-based reasoning in v1.0.** Orion and Clio operate strictly over source code text, AST symbols, terminal PTY output, and Vite runtime error logs; visual multimodal layout inspection is scheduled for v2.
 - **No model training on user code.** User prompts and repository source files are never utilized for model training or fine-tuning. Data is processed transiently via model provider APIs under zero-retention enterprise terms.
@@ -481,6 +482,21 @@ Taksha balances high autonomy with real-time operational transparency:
 3. Ingress gateway validates the RS256 JWT, verifies user owns the target sandbox, and proxies the call to the container sidecar.
 4. The sidecar executes `read_file` or `patch_file` inside the cloud container and returns standard MCP responses to the local CLI.
 
+### Flow 6: GitHub Source Control (V2)
+1. User connects GitHub once (GitHub App) in Settings. Each new project can create a private repo on the user's own account, or link an existing one.
+2. The editor's Source Control panel (like VS Code and Antigravity) shows changes, staging, Monaco diffs, commit, branches, push, pull and sync. The same `.git` works from the terminal, including push and pull.
+3. GitHub tokens never reach the browser or rest in the pod: `git-service` mints a 1-hour, single-repo token for each remote operation and revokes it after.
+4. Orion's `git_keeper` node commits only its own changes after build and test gates pass, and asks before pushing.
+Detail: `docs/plans/github-source-control-plan.md`.
+
+### Flow 7: Taksha Hosting, publish a project (V2.5)
+1. The owner clicks **Share** in the editor, which opens the deployments dashboard (`/hosting/`).
+2. They create a site for the project (Free 1, Pro 3, Max 5 sites) and click Deploy.
+3. A locked-down build job builds a frozen snapshot of the project (`npm ci`, `npm run build`) and uploads the output as an immutable deployment.
+4. The site goes live at `<site>.<hosting domain>`, a separate `.app` domain on the Public Suffix List so user sites can never share cookies or "same-site" trust with `takshacodespace.in`. Pro and Max can add custom domains with automatic TLS.
+5. Every deployment keeps its own URL; rollback moves the production pointer back without rebuilding.
+Detail: `docs/plans/taksha-hosting-deployments-plan.md`.
+
 ---
 
 ## Non-Functional Requirements & System Envelopes
@@ -545,11 +561,11 @@ Taksha balances high autonomy with real-time operational transparency:
 
 ### Subscription Tiers & Resource Boundaries
 
-| Tier | Price | AI Credits & Token Allowance | Container Compute Quota | Inactivity Auto-Stop |
-|---|---|---|---|---|
-| **Free** | ₹0 | 20 credits/provider, 50,000 tokens/day cap | 0.5 vCPU, 512MB RAM | 15 minutes idle |
-| **Pro** | ₹499 / month | 5,000,000 tokens/month, 4x refill speed | 2.0 vCPU, 2GB RAM | 45 minutes idle |
-| **Max** | ₹999 / month | Unlimited tokens, priority queue access | 4.0 vCPU, 4GB RAM | 120 minutes idle |
+| Tier | Price | AI Credits & Token Allowance | Container Compute Quota | Inactivity Auto-Stop | Hosted Sites (V2.5) |
+|---|---|---|---|---|---|
+| **Free** | ₹0 | 20 credits/provider, 50,000 tokens/day cap | 0.5 vCPU, 512MB RAM | 15 minutes idle | 1, Taksha subdomain only |
+| **Pro** | ₹499 / month | 5,000,000 tokens/month, 4x refill speed | 2.0 vCPU, 2GB RAM | 45 minutes idle | 3, custom domains (2 per site) |
+| **Max** | ₹999 / month | Unlimited tokens, priority queue access | 4.0 vCPU, 4GB RAM | 120 minutes idle | 5, custom domains (5 per site) |
 
 ### Cost Breakdown per Active User-Hour
 - **Kubernetes Pod Compute** (AWS EKS `t3.medium` equivalent): $\approx \$0.035 / \text{hour}$.
@@ -574,6 +590,8 @@ Taksha balances high autonomy with real-time operational transparency:
 | **M8** | **[Beta Blocker]** Golden Eval Benchmark (50 Tasks) | 50-task automated test suite with build verification | ⬜ **Pending** |
 | **M9** | Closed Beta Release | Invite 20 pilot developers on `www.takshacodespace.in` | ⬜ **Target: Oct 2026** |
 | **M10** | Public GA Launch | Open registration and paid tier self-serve | ⬜ **Target: Q4 2026** |
+| **M11** | **V2** GitHub Source Control | GitHub connect, repo per project, Source Control panel, terminal git, `git_keeper` | ⬜ **Planned** (`github-source-control-plan.md`) |
+| **M12** | **V2.5** Taksha Hosting | Static deploys, separate `.app` hosting domain, custom domains, deployments dashboard behind Share | ⬜ **Planned** (`taksha-hosting-deployments-plan.md`) |
 
 ---
 
@@ -591,3 +609,4 @@ Taksha balances high autonomy with real-time operational transparency:
 | **8** | **Router Tenant Validation (Beta Blocker)** | **Open** | Router must validate that the authenticated `userId` in the JWT matches the owner of the requested `sandboxId` before proxying requests. |
 | **9** | **Context Window Compactor** | **Resolved** | Introduced `compactor.node.js` into Orion to prune tool call traces and summarize long conversation threads before hitting provider token limits. |
 | **10** | **Golden Eval Benchmark (Beta Blocker)** | **Open** | Build and baseline the 50-task golden evaluation harness to mathematically verify $\ge 80\%$ task completion before public release. |
+| **11** | **Hosting domain** | **Decided 2026-11-25** | User sites and sandbox previews must not live on `takshacodespace.in`: a separate `.app` domain on the Public Suffix List stops cookie tossing and same-site requests against Taksha's APIs (the reason GitHub uses `github.io` and Vercel `vercel.app`). |

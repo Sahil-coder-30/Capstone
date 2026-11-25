@@ -1,6 +1,6 @@
 # Admin Platform: High Level Design
 
-Status: **draft for review, nothing built.** Written 2026-11-13, checked against the code on 2026-11-14. Source of decisions: `Admin/PLAN.md`.
+Status: **draft for review, nothing built.** Written 2026-11-13, checked against the code on 2026-11-14. Source of decisions: `Admin/PLAN.md`, **except data access, which section 1a replaces (decision 2026-11-24)**. Where this file and `Admin/PLAN.md` disagree on data access, this file wins until `Admin/PLAN.md` is updated.
 
 Plan index and ownership rules: [README.md](README.md).
 
@@ -17,6 +17,48 @@ Plan index and ownership rules: [README.md](README.md).
 | Admin mail through the admin backend | WhatsApp alerts (Kafka plan, stage K6) |
 
 Hard rule: user-facing services keep working exactly as today. If the whole admin platform is down, users notice nothing. Changes outside `Admin/` are additive only, and section 11 lists every one of them.
+
+## 1a. Data access: through service APIs, never the databases (decision 2026-11-24)
+
+**Decided by Sahil on 2026-11-24** (audit [AUDIT-2026-11-24.md](AUDIT-2026-11-24.md)): the admin backend does **not** read or write any other service's database or Redis. This replaces the "readers with read-only database users, maintainer writers with write users, Redis `EXPIRE`" design in the first draft and in `Admin/PLAN.md` sections 5 to 7. Reason: the architecture-first rule in `CLAUDE.md` forbids reading another service's database instead of its API, and direct writes skip each service's own rules (Payments ledger and locks, the MCP token cache, the Sandbox server's ownership of `sandbox:<id>`, Auth's token families).
+
+```mermaid
+flowchart LR
+  P[Admin portal] --> AB[Admin backend<br/>gate: token, grants, limits, step-up, audit]
+  AB -- "/internal/admin/* (caller admin, F2)<br/>X-Admin-Actor, X-Admin-Reason, X-Admin-Limits" --> AUTH[Auth]
+  AB --> SBX[Sandbox server]
+  AB --> AI[AI service]
+  AB --> PAY[Payments]
+  AB --> NOTIF[Notification]
+  AB --> GIT[git-service]
+  AB -- "own data only" --> ADB[(Admin Postgres<br/>accounts, audit, outbox,<br/>analytics read models)]
+  K[Kafka topics<br/>payments.events, ai.usage,<br/>auth.events, sandbox.events] -- "consumer group admin-analytics" --> ADB
+  AB --> PROM[Prometheus, Loki, K8s API<br/>read-only]
+```
+
+| Need | How, now | Owner of the code |
+|---|---|---|
+| Read views (user 360, projects, chats, runs, payments, deliveries, git ops) | Each service exposes `GET /internal/admin/...` routes. The service applies the limits the admin backend passes (`X-Admin-Limits`: history days, PII mask, fields), runs its own indexed queries with its own `maxTimeMS` / `statement_timeout`, and returns `{rows, appliedLimits, nextCursor}` | Each service, in a `routes/internalAdmin.routes.js` |
+| Actions (suspend user, force logout, stop run, stop sandbox, revoke MCP token, replay delivery, refund) | `POST /internal/admin/...` on the owning service, which runs the **same service function** the product uses (`stopRun`, `deleteSandboxKey` flow, `revokeMcpToken`, Razorpay refund path) and writes its own audit line with the admin actor | Each service |
+| Analytics (P4) | Read models in the admin Postgres, built by a consumer group `admin-analytics` from Kafka events (Kafka plan section 7.5, now **required**, not optional). Until Kafka K4 exists, P4 uses per-service aggregate routes (`GET /internal/admin/stats?from&to&bucket=day`) with a 3 s budget | Admin backend (consumer), each service (stats route) |
+| Data explorer (P6) | **Reduced:** a per-service, allowlisted set of typed views and typed edits (for example "edit project title", "set credits window"), each a route in the owning service. No generic query console and no raw row edit across services | Each service |
+| Live sandboxes | `GET /internal/admin/sandboxes` and `POST /internal/admin/sandboxes/:id/stop` on the Sandbox server, which owns `sandbox:<id>` | Sandbox server |
+| Auth admin events for the mailer | `GET /internal/admin/auth-events?after=<cursor>` on Auth (cursor = event id), not a read-only Mongo user | Auth |
+
+**Contract for every `/internal/admin/*` route**
+
+| Rule | Detail |
+|---|---|
+| Caller | Only caller `admin` (foundation F2 per-caller identity). Not in any ingress |
+| Actor | `X-Admin-Actor: <adminId>` and, for chat views and every write, `X-Admin-Reason`. The service logs both with the request id |
+| Limits | `X-Admin-Limits` (JSON, signed by the admin backend with its caller token's HMAC so a service can trust it): `historyDays`, `maskPii`, `maxRows` (≤ 200). The service enforces them inside its query |
+| Writes | Idempotency key header, compare-and-set on the version the admin saw (`If-Match`), so the "only if the row still matches the preview" rule of section 5.5 now lives in the owning service |
+| Errors | `{status: 'error', code, message}` like the service's other routes. The admin backend shows "source unavailable" per module |
+| Load | Each route has a hard row cap and a time budget; services expose a `admin_requests_total` metric (K7) |
+
+**What this changes elsewhere in this document:** the Readers and Writers rows in section 3 become "Service clients", section 5.4 calls the Payments internal route instead of Postgres, section 5.5 becomes a typed edit through the owning service, section 6's access column lists routes, and section 11 now changes every service (one internal admin routes file each). Database users, `BYPASSRLS` roles and the Redis ACL user from `Admin/PLAN.md` are **not created**.
+
+**Cost, said plainly:** this is more work than read-only database users (about 6 to 8 extra days across six services), and the explorer is smaller. In return, no service's schema becomes a public contract, the admin platform cannot corrupt a ledger or a cache, and each service can change its storage freely.
 
 ## 2. System context
 
@@ -49,7 +91,8 @@ flowchart LR
     P -- login --> AUTH
     P -- everything else --> AB
     AUTH -- admins only --> G
-    AB -- read, maintainer write --> UDB
+    AB -- "/internal/admin/* APIs only" --> SVC[User-facing services<br/>own their databases]
+    SVC --> UDB
     AB --> ADB
     AB --> K8S
     AB --> MON
@@ -94,8 +137,8 @@ flowchart TB
 
     subgraph Access[Access layer]
         direction LR
-        RD[Readers<br/>read-only users, limits applied]
-        WR[Writers<br/>maintainer only]
+        RD[Service clients<br/>/internal/admin/* reads]
+        WR[Typed actions<br/>through owning service]
         KC[K8s, Prometheus,<br/>Loki clients]
     end
 
@@ -119,8 +162,8 @@ flowchart TB
 | Component | Responsibility | Never does |
 |---|---|---|
 | Request gate | Token check, account status, grant check, step-up check | Trust the frontend's idea of permissions |
-| Readers | One file per source service. Apply limits (date window, service list, PII mask) inside the query | Import code from other services, create indexes, run without a limit |
-| Writers | Maintainer edits with diff, transaction, before and after snapshot | Run for an admin, whatever the grants say |
+| Service clients | One client per service's `/internal/admin/*` routes. Pass actor, reason and limits; the service enforces them | Open a connection to another service's database or Redis |
+| Typed actions | Maintainer and admin actions as calls to the owning service, with idempotency key and `If-Match` | Write any row directly |
 | Audit log | Append only, written in the same transaction as admin-side changes | Update or delete rows (blocked by a trigger) |
 | Outbox and mailer | Sends admin mail, reads Auth admin events | Send bulk mail to users |
 | Jobs | Expire accounts, send the maintainer digest | Run twice at once (Postgres advisory lock) |
@@ -136,7 +179,7 @@ flowchart TB
 | Admin token to user services | They require `aud: takshacodespace-services` | Rejected everywhere |
 | Account and grant | Loaded from the admin Postgres on every request (30 s cache) | 403, suspended or expired accounts get nothing |
 | Sensitive action | `auth_time` under 5 min, else passkey again | 401 with `step_up_required` |
-| Admin backend to databases | Separate read-only users. Write users loaded only by the maintainer writers. | A reader bug cannot write |
+| Admin backend to services | Caller `admin` identity (F2), actor and reason headers, signed limits. No database credentials of other services exist in the admin backend | A bug in the admin backend can only call routes the services chose to expose |
 
 ## 5. Key flows
 
@@ -225,21 +268,23 @@ sequenceDiagram
     participant P as Portal
     participant AB as Admin backend
     participant ADB as Admin Postgres
-    participant PG as Payments Postgres
+    participant PS as Payments service
 
     P->>AB: GET user payments
     AB->>AB: verify token
     AB->>ADB: load account (cached 30 s)
     AB->>AB: can payments.view, limit historyDays 90
-    AB->>PG: SELECT ... WHERE created_at > now - 90 days LIMIT 50
-    PG-->>AB: rows
-    AB->>AB: mask PII if the grant says so
+    AB->>PS: GET /internal/admin/users/:id/payments (limits historyDays 90, maskPii)
+    PS->>PS: own query, WHERE created_at > now - 90 days LIMIT 50, mask PII
+    PS-->>AB: rows + appliedLimits
     AB-->>P: 200 rows + applied limits
 ```
 
 The response says which limits were applied, so the portal can show "last 90 days only".
 
 ### 5.5 Data explorer edit and revert (maintainer)
+
+**Changed 2026-11-24:** `T` below is the owning **service**, not its database. The preview and the "only if the row still matches" check are the service's `GET` and `If-Match` on a typed edit route; the admin backend never connects to the target store.
 
 ```mermaid
 %%{init: {"theme":"base","themeVariables":{"background":"transparent","actorBkg":"transparent","actorBorder":"#FF6A2B","actorTextColor":"#768390","actorLineColor":"#768390","signalColor":"#768390","signalTextColor":"#768390","labelBoxBkgColor":"transparent","labelBoxBorderColor":"#768390","labelTextColor":"#768390","loopTextColor":"#768390","noteBkgColor":"transparent","noteBorderColor":"#768390","noteTextColor":"#768390","activationBkgColor":"transparent","activationBorderColor":"#768390","textColor":"#768390"}}}%%
@@ -273,7 +318,7 @@ flowchart LR
     CH[Admin backend change] -- same transaction --> OB[(outbox)]
     AE[Auth admin events] --> AEV[(adminauthevents)]
     OB --> W[Mailer worker<br/>every 10 s]
-    AEV -- read-only, cursor --> W
+    AEV -- "Auth GET /internal/admin/auth-events?after=" --> W
     W --> SMTP[SMTP]
     W -. 3 failures .-> F[status failed<br/>shown in portal]
 ```
@@ -282,18 +327,18 @@ This flow needs no broker. When Kafka stage K6 is built, the worker publishes to
 
 ## 6. Data ownership
 
-| Data | Owner | Admin backend access |
+| Data | Owner | Admin backend access (all through the owner's `/internal/admin/*` routes, section 1a) |
 |---|---|---|
-| Admin identities, passkeys, admin refresh tokens, admin auth events | Auth (new Mongo collections) | Read-only (events for the mailer) |
-| Admin accounts, applications, templates, audit, outbox, tickets | Admin backend (own Supabase project) | Read and write |
-| Users, sessions | Auth Mongo | Read. Write: maintainer, force logout, and suspend (section 11) |
-| Projects, MCP tokens | Sandbox Mongo | Read. Write: maintainer |
-| Chats, memories | AI Mongo | Read. Write: maintainer |
-| Live agent runs | AI service memory (`agentRun.service.js`), not in any database | Stop only, through one internal AI route (section 11) |
-| Tool call records (only if the tool call analytics plan is built) | AI Mongo `toolcalls`, `toolstatshourly` | Read |
-| Accounts, orders, payments, usage | Payments Postgres | Read. Write: maintainer (with ledger warnings) |
-| Live sandboxes | Redis `sandbox:*` | Read, `EXPIRE` to stop a sandbox |
-| Pods, events, logs | Kubernetes | Read |
+| Admin identities, passkeys, admin refresh tokens, admin auth events | Auth (new Mongo collections) | `GET /internal/admin/auth-events?after=` for the mailer |
+| Admin accounts, applications, templates, audit, outbox, tickets, analytics read models | Admin backend (own Supabase project) | Read and write (its own data) |
+| Users, sessions | Auth | Read views; actions: force logout, suspend (section 11) |
+| Projects, MCP tokens, live sandboxes | Sandbox server (Mongo, Redis `sandbox:*`) | Read views; actions: revoke token, stop sandbox (the Sandbox server deletes the key itself) |
+| Chats, memories, agent runs | AI service (Mongo; runs in `agentruns` after foundation F1) | Read views; action: stop run |
+| Tool call records (if the analytics plan is built) | AI service | `GET /internal/admin/tool-stats` |
+| Accounts, orders, payments, usage | Payments | Read views; P8 actions (refund, credit adjustment) as typed routes that write the ledger the normal way |
+| Deliveries | Notification | Read views; action: replay |
+| Git connections and op log | git-service | Read views |
+| Pods, events, logs | Kubernetes | Read (ServiceAccount `admin-reader`) |
 | Metrics, log history | Prometheus, Loki | Read |
 
 ## 7. Deployment
@@ -330,9 +375,8 @@ flowchart TB
     ABP --> PROM
     ABP --> LOKI
     ALLOY --> LOKI
-    ABP --> ATLAS
     ABP --> SUPA
-    ABP --> REDIS
+    ABP -- internal admin APIs --> AUTHP
     ABP --> MAIL
 
     style NSD fill:transparent,stroke:#768390,stroke-dasharray:4 4
@@ -343,7 +387,7 @@ flowchart TB
 | Item | Detail |
 |---|---|
 | Manifests | `Admin/k8s/`, applied by `Admin/skaffold.yml`. The main `skaffold.yml` is untouched. |
-| Secrets | `admin-secrets` (read-only DB URIs, SMTP, admin Supabase URL) and `admin-writer-secrets` (maintainer write URIs), separate k8s secrets |
+| Secrets | `admin-secrets` (admin Supabase URL, SMTP, the admin caller token for F2). No URI of any other service's database |
 | ServiceAccount `admin-reader` | get, list, watch on pods, pods/log, events, services, deployments. Nothing else. |
 | Replicas | 1 admin backend, 1 portal. Jobs and mailer run in the backend with an advisory lock, safe if a second replica appears. |
 | Local | `admin.localhost`, passkey relying party `localhost` |
@@ -355,7 +399,7 @@ flowchart TB
 | Admin backend | Nothing | Down |
 | Auth | Their login fails as today | No new admin logins. Open sessions keep working until the 10 min token ends (JWKS is cached) |
 | Admin Postgres | Nothing | Fails closed: every route returns 503, nothing is served without a grant check |
-| One service database | That service's own problem | Only that module shows "source unavailable", the rest works |
+| One service (or its database) | That service's own problem | Only that module shows "source unavailable", the rest works |
 | Prometheus or Loki | Nothing | Metric and log history panels unavailable, live K8s logs still work |
 | AI service | Their agent runs fail as today | "Stop run" unavailable, every read view still works |
 | K8s API | Sandboxes cannot start (existing behavior) | Cluster pages unavailable |
@@ -367,7 +411,7 @@ flowchart TB
 |---|---|
 | Admin users | 1 maintainer, up to 20 admins |
 | API latency | p95 under 1 s for list and detail views, analytics under 3 s (`statement_timeout`) |
-| Load on shared databases | Pool max 2 per database, every query limited and indexed, `maxTimeMS` 3 s |
+| Load on services | Every `/internal/admin/*` route has a row cap (200) and a 3 s budget enforced by the service; analytics read from the admin read models, never from service databases |
 | Grant or suspend takes effect | Within 30 s |
 | Admin mail delivered | Within 1 min while SMTP is up |
 | Session | Access 10 min, refresh 8 h absolute, step-up window 5 min |
@@ -385,7 +429,7 @@ flowchart TB
 | CSRF | `SameSite=Strict` cookies on the admin host, Origin check on cookie routes |
 | Admin abuses access | Least grants, limits, PII masking, reason on chat views, audit, maintainer digest |
 | Internal service token leaks from the admin backend | It is loaded only for the stop-run action, in its own k8s secret reference. Internal routes are not routed by any ingress |
-| Admin backend pod compromised | Write credentials in a separate secret used only by maintainer writers. Read-only K8s SA. Rotate on suspicion. |
+| Admin backend pod compromised | It holds no database credentials of other services, only its caller token. Services log every admin call with actor and reason. Read-only K8s SA. Rotate the caller token on suspicion. |
 | Spam applications | Rate limit per IP, identities without an application are deleted after 7 days |
 | Mailbox of the maintainer stolen | Mail has no approve button, approval needs the passkey |
 
@@ -398,10 +442,11 @@ Every change is additive. No existing route, field or flow changes its behavior.
 | Auth | 2 lines in `src/app/app.js`, `@simplewebauthn/server`, new admin files and collections, 2 CLI scripts | P1 |
 | Auth | New optional field `suspendedAt` on `users`, checked in the Google callback and in refresh. Empty for every user today, so nothing changes until an admin sets it | P7 |
 | AI | One internal route, `POST` `internal/runs/stop` with `userId` and `projectId`, behind `INTERNAL_SERVICE_TOKEN`. It calls the same stop function as the public `code-agent/stop` route. Needs the `internal-service` secret in `k8s/ai-deployment.yml` | P7 |
-| Databases | New read-only and maintainer users, Postgres roles with `BYPASSRLS`, Redis ACL user | P0 |
+| Databases | **None.** No read-only users, no `BYPASSRLS` roles, no Redis ACL user (decision 2026-11-24) | |
+| Auth, Sandbox server, AI, Payments, Notification, git-service | One `routes/internalAdmin.routes.js` each, caller `admin` only (section 1a). Added per phase: P3 reads, P7 actions, P8 payments | P3, P7, P8 |
 | Cluster | ServiceAccount `admin-reader`, admin Ingress | P0 |
 | Cluster | `monitoring` namespace via Helm, values in `k8s/monitoring/`. Shared with Kafka plan stage K7: whichever runs first installs it, the other only checks it is there | P5 |
-| Notification, Payments, Sandbox, Router, Frontend | None | |
+| Router, Frontend | None | |
 
 Why the two service changes are needed (checked 2026-11-14):
 

@@ -3,7 +3,7 @@
 Status: **plan only, nothing is built yet.** Written 2026-11-11, checked against the code on 2026-11-14.
 Mode: learn first (HLD), then build, one lesson at a time.
 
-Plan index and ownership rules: [README.md](README.md).
+Plan index and ownership rules: [README.md](README.md). Audit 2026-11-24: [AUDIT-2026-11-24.md](AUDIT-2026-11-24.md). Changed here: AI and Auth use a Mongo outbox (no direct publish, no HTTP fallback for usage), tiered retry topics, WhatsApp pricing checked, admin reads go through Notification's internal admin API, K5 run control needs foundation F1, internal calls use per-caller identity (F2).
 
 | This plan owns | This plan does not own |
 |---|---|
@@ -82,7 +82,7 @@ flowchart LR
         T4[ai.runs]
         T5[sandbox.events]
         T6[whatsapp.inbound]
-        TR[notifications.retry]
+        TR[notifications.retry.1m / 10m / 1h]
         TD[notifications.dlq]
     end
 
@@ -142,7 +142,7 @@ The diagram shows the user-facing topics. `admin.events` and `notifications.broa
 | `whatsapp.inbound` | Notification webhook | `message.received` | notification command handler | K5 |
 | `admin.events` | Admin backend, Auth (admin identity) | see section 7.1 | notification | K6 |
 | `notifications.broadcast` | Admin backend | `announcement.requested` (one per recipient) | notification-broadcast | K6 |
-| `notifications.retry` | Notification | failed deliveries, with attempt count and `notBefore` | notification | K2 |
+| `notifications.retry.1m`, `.10m`, `.1h` | Notification | failed deliveries, with attempt count and `notBefore` | notification-retry-<tier> | K2 |
 | `notifications.dlq` | Notification | deliveries that failed every retry | a human, through a UI | K2 |
 
 `subscription.tier_changed` covers expiry too: `setTier` is called with `free` when the last slot ends. No separate `subscription.expired` event is needed.
@@ -181,7 +181,19 @@ Local: 3 partitions, replication factor 1. Scale lesson: 3 brokers, replication 
 4. The nightly cron deletes rows published more than 7 days ago.
 5. The two fire and forget email calls in `checkout.service.js`, `services/notification.service.js`, `config/mq.js` and the `closeMQ` call in `server.js` are deleted.
 
-Fixes P1 and P2. Auth and AI publish directly for now (their databases are Mongo, a Mongo outbox is a later lesson).
+Fixes P1 and P2.
+
+**Mongo outbox for AI and Auth (changed by the audit, 2026-11-24).** "Publish directly for now" is a dual write: the database write succeeds, the publish fails or the pod dies, and the event is gone. For `usage.recorded` that is money (problem P7), so it gets the same guarantee as payments. One small shared helper per Mongo service (`src/events/outbox.js`):
+
+| Step | Rule |
+|---|---|
+| Write | The `outbox` document (`_id` = `eventId`, `topic`, `key`, `payload`, `createdAt`, `publishedAt: null`, `claimedUntil: null`) is inserted **in the same Mongo transaction** as the business write: the chat message with its `tokenUsage` (AI), the user upsert (Auth). Atlas runs a replica set, so multi-document transactions work |
+| Relay | Every second: `findOneAndUpdate({publishedAt: null, claimedUntil < now}, {$set: {claimedUntil: now + 30 s}})` in a loop of up to 100, produce with `acks=all` and the idempotent producer, then set `publishedAt`. The claim makes two replicas safe, like `SKIP LOCKED` in Postgres |
+| Order | Per key (`userId`) order is kept because one relay claims oldest-first and Kafka keeps per-partition order; a retry after a crash can repeat an event, and every consumer is idempotent on `eventId` |
+| Clean up | TTL index on `publishedAt`, 7 days |
+| Change streams? | Not used: they need a resume token store and a single reader, and polling at 1 s is enough here |
+
+Auth's `user.logged_in` (a security notice) and `user.registered` use the same helper. The login redirect never waits on Kafka: the outbox insert is part of the user upsert that already happens.
 
 Tests: the Payments suite runs on local Postgres with Razorpay mocked. The outbox row is asserted in the same tests, and the Kafka producer is mocked the same way.
 
@@ -191,7 +203,7 @@ Tests: the Payments suite runs on local Postgres with Razorpay mocked. The outbo
 |---|---|
 | Datastore | Mongo, new database `notification`. Needs a `MONGO_URI` env in `k8s/notification-deployment.yml` and its secret key. Collections: `deliveries` (unique index on `eventId + channel`), and from K5 `recipients` (userId, phone, whatsappOptIn, marketingOptIn, windowOpenUntil). |
 | Idempotency | Upsert `deliveries` with status `pending` first. Then: status `sent` means skip. Status `pending` or `failed` means send, then set `sent`. A crash between send and the status update can repeat one message at most. An insert-only check would lose the message when the send fails after the insert. |
-| Retry | Fail, then publish to `notifications.retry` with `attempt + 1` and `notBefore`. The retry consumer pauses the partition until `notBefore`, because Kafka has no delayed delivery. After 3 attempts, publish to `notifications.dlq` and set the delivery to `failed`. The main topic is never blocked. |
+| Retry | Tiered retry topics with a fixed delay each: `notifications.retry.1m`, `notifications.retry.10m`, `notifications.retry.1h`. A failure goes to the next tier with `attempt + 1` and `notBefore = now + tier delay`. Each tier's consumer pauses its partition until the head record's `notBefore`; because every record in one tier has the same delay, records behind the head are never due earlier, so there is no head-of-line delay (a single retry topic with mixed delays has that problem). After the 1 h tier fails, publish to `notifications.dlq` and set the delivery to `failed`. The main topic is never blocked. |
 | Channels | `src/channels/email/` (existing nodemailer code moves here), `src/channels/whatsapp/` (K5). A small routing table maps event type to channels. |
 | Replay | `POST /internal/deliveries/:id/replay`, behind `INTERNAL_SERVICE_TOKEN` (add the `internal-service` secret to the manifest). |
 
@@ -201,9 +213,9 @@ Fixes P3, P4, P5, P9.
 
 | Win | How |
 |---|---|
-| P7 usage leak | AI publishes `usage.recorded` to `ai.usage`. A Payments consumer (`payments-usage`) calls the same service function as `POST /credit/update`. `usage_events` is already unique on `(user_id, request_id)`, so the consumer is idempotent for free. If the publish fails, AI falls back to today's HTTP call. The credit **check** stays HTTP. |
+| P7 usage leak | AI writes `usage.recorded` to its Mongo outbox in the same transaction as the turn's chat message, the relay publishes to `ai.usage`. A Payments consumer (`payments-usage`) calls the same service function as `POST /credit/update`. `usage_events` is already unique on `(user_id, request_id)`, so the consumer is idempotent for free. **No HTTP fallback:** a second delivery path is a silent bypass that hides relay failures; the outbox already survives Kafka being down, and the unpublished-row count is a K7 metric with an alert. The HTTP `credit/update` route is removed after K4. The credit **check** stays HTTP. |
 | P8 tier always free | A Redis key `tier:<userId>` in the AI service. Filled from two sources: the `subscription` field of the credit check response that `creditLedger` already receives, and `subscription.tier_changed` events. `aiRateLimiter` reads the key, and uses `free` when it is missing. The first half needs no Kafka and can ship at any time as a small fix. |
-| P6 login coupling | Auth publishes without `await`. The redirect never waits. |
+| P6 login coupling | Auth writes to its outbox inside the user upsert. The redirect never waits on Kafka. |
 
 ### 3.7 WhatsApp
 
@@ -239,9 +251,9 @@ The AI internal routes are also wanted by the admin plan (`ai.stop_run`). Whoeve
 
 Other changes this stage needs: an ingress path `/api/whatsapp` to `notification-service` in `k8s/ingress.yml`, `express.json({ verify })` in Notification to keep the raw body (same as Payments), and a "link phone" screen in `Frontend`.
 
-**Known limit:** AI runs live in memory on one replica. WhatsApp control works with that, but scaling AI needs a shared checkpointer first. Out of scope here.
+**Prerequisite:** foundation F1 ([platform-foundations-plan.md](platform-foundations-plan.md)). A plan sent to WhatsApp may be approved hours later, from a phone, while the AI service has restarted or scaled; that needs the Mongo checkpointer, the `agentruns` record and the compare-and-set resume. The internal routes use per-caller identity (F2): caller `notification` may call AI `/internal/runs/*`, Sandbox `/internal/users/:userId/projects` and Payments `/internal/credit/check`, nothing else.
 
-**Free tier limits to verify in Meta docs before Lesson 12** (from memory, not checked live): test number sends to at most 5 verified recipient numbers, business initiated messages need an approved template, replies inside the 24 hour window are free, webhook needs public HTTPS (use a free tunnel such as `cloudflared` locally).
+**Pricing, checked on Meta's pricing page 2026-11-24:** per-message pricing since 1 July 2025 (conversation pricing is gone). Free: every non-template message inside an open 24 hour customer service window, and **utility templates sent inside an open window**. Charged: every marketing template (window or not), and utility or authentication templates sent outside a window, per country rate card. So: status replies to a user who wrote in the last 24 hours are free; "payment received" when the window is closed is a paid utility template; offers (section 7.2) always cost money. Still to verify at Lesson 12: the test number's recipient limit (believed 5), and that the webhook needs public HTTPS (use a free tunnel such as `cloudflared` locally).
 
 ---
 
@@ -254,9 +266,9 @@ Build in this order. Each stage ends with its tests green and a local commit, an
 | K0 Learn | Lessons 1 to 5 | nothing | no code | Every decision in section 2 can be explained |
 | K1 Kafka core | Local Kafka (`infra/kafka/`), `k8s/kafka.yml` added to the `skaffold.yml` list, Kafka NetworkPolicy, topic script, envelope helper and `config/kafka.js` per service, `KAFKA_BROKERS` env. Nothing produces yet | K0 | infra, one new file per service | Produce and consume work from the CLI. Every service still starts with Kafka stopped |
 | K2 Payments mail on Kafka | Notification: Mongo, `deliveries`, consumer for `payments.events`, retry, DLQ. Then Payments: outbox, relay, old email calls deleted | K1 | Notification, Payments | A test payment sends exactly one email. With Kafka stopped during the payment, the email arrives after Kafka is back. Payments tests pass |
-| K3 Auth on Kafka, RabbitMQ removed | Auth publishes `user.registered` and `user.logged_in` without `await`. Notification consumes `auth.events`. Delete all three `mq.js`, `amqplib`, and `MQ_URL` from the manifests and `secrets.yml.example` | K2 | Auth, Notification, k8s | Login email arrives. A search for `amqplib` and `MQ_URL` in the code finds nothing |
-| K4 AI events | `ai.usage` with HTTP fallback, Payments consumer, tier cache, `ai.runs` | K1 | AI, Payments | With Payments stopped during a run, the usage row appears after it is back. A Pro user gets Pro rate limits |
-| K5 WhatsApp | Section 3.7: internal routes, linking, outbound, inbound, commands | K2, K4 | Notification, AI, Sandbox server, Payments, Auth, Frontend, ingress | `run`, `approve` and `status` work from a linked phone, and an unlinked phone gets nothing |
+| K3 Auth on Kafka, RabbitMQ removed | Auth writes `user.registered` and `user.logged_in` to its Mongo outbox in the user upsert; relay publishes. Notification consumes `auth.events`. Delete all three `mq.js`, `amqplib`, and `MQ_URL` from the manifests and `secrets.yml.example` | K2 | Auth, Notification, k8s | Login email arrives. A search for `amqplib` and `MQ_URL` in the code finds nothing |
+| K4 AI events | AI Mongo outbox and relay, `ai.usage`, Payments consumer, tier cache, `ai.runs`; remove HTTP `credit/update` after one release | K1 | AI, Payments | With Payments stopped during a run, the usage row appears after it is back. A Pro user gets Pro rate limits |
+| K5 WhatsApp | Section 3.7: internal routes, linking, outbound, inbound, commands | K2, K4, foundations F1 and F2 | Notification, AI, Sandbox server, Payments, Auth, Frontend, ingress | `run`, `approve` and `status` work from a linked phone, and an unlinked phone gets nothing |
 | K6 Admin on Kafka | Section 7 | K3, and admin phases P1 and P2 from `Admin/PLAN.md`. **Skip this stage while the admin backend does not exist** | Admin backend, Auth admin files, Notification | An approval email is sent by Notification, and a test announcement reaches only the chosen audience, once |
 | K7 Service metrics and logs | Section 6 | nothing (K1 only for the Kafka metrics) | every service | Every service answers `/metrics`, and a log line can be found by `requestId` |
 | K8 Scale | 3 brokers, replication, consumer lag, Strimzi | K3 | infra | A broker can be stopped with no lost event |
@@ -297,7 +309,7 @@ Lessons 8 and 9 swapped places on 2026-11-14 (consumer before producer, see the 
 
 | Choice | Options | Lean |
 |---|---|---|
-| Node client | `@confluentinc/kafka-javascript` (official, native build) vs `kafkajs` (pure JS, no longer maintained) | Official client. Every service image is `node:20-alpine`, so check at Lesson 6 that it installs there |
+| Node client | `@confluentinc/kafka-javascript` (official, librdkafka) vs `kafkajs` (pure JS, no longer maintained) | **Official client.** Checked 2026-11-24: prebuilt binaries for Node 18 to 22 on Linux x64 and arm64 for glibc **and musl/Alpine**, so `node:20-alpine` needs no compiler. Use its promise API for new code (the KafkaJS-compatible layer has gaps: no custom partitioners, `eachBatch` size 1) |
 | Local RAM | Kafka needs about 1 GB on top of the k8s cluster. The monitoring stack needs 1.5 to 2 GB more | Single node first. Do not run Kafka, monitoring and many sandboxes at once on Docker Desktop |
 | Schema checks | Plain JSON vs schema registry | Plain JSON with a `version` field. Registry is extra infra with no user today |
 
@@ -354,6 +366,8 @@ Auth, Payments, AI, Sandbox, Notification      Kafka
 | Docker Desktop | node-exporter sees the Docker VM, not the Mac. Fine for learning |
 | Sandbox pods | Per pod series are fine because pods are short lived, but never add `userId` or `sandboxId` as a label on service metrics |
 
+**Traces come later.** K7 covers metrics and logs. Distributed traces (OpenTelemetry to Grafana Tempo, `traceparent` in the event envelope) and LLM traces (Langfuse: tokens, cost, latency, errors per run, node and tool call) are in [llmops-evals-cicd-plan.md](llmops-evals-cicd-plan.md) section 6, the last phase. Keep a free `traceparent` field in the envelope from K1 so that work only fills it in.
+
 ---
 
 ## 7. Admin on Kafka (stage K6, added 2026-11-13)
@@ -391,9 +405,9 @@ Rules:
 | Step | Where |
 |---|---|
 | 1. Admin writes the announcement, picks audience (all, tier, user list) and channels | Admin portal, needs the `notify.send` grant and a passkey step-up |
-| 2. Admin backend resolves the audience to user ids and emails with its readers, and publishes one `announcement.requested` per user to `notifications.broadcast`, key `userId`, `eventId` = hash of announcement id and user id | Admin backend |
+| 2. Admin backend resolves the audience to user ids and emails through the services' internal admin routes (Payments for tier, Auth for emails, paged 500 at a time), and publishes one `announcement.requested` per user to `notifications.broadcast`, key `userId`, `eventId` = hash of announcement id and user id | Admin backend |
 | 3. Consumer group `notification-broadcast` sends through the channel rules below and writes `deliveries` | Notification |
-| 4. Portal shows sent, failed and skipped counts per announcement | Admin portal, read from `deliveries` |
+| 4. Portal shows sent, failed and skipped counts per announcement | Admin portal, through Notification's internal admin route |
 
 | Rule | Reason |
 |---|---|
@@ -407,8 +421,8 @@ Rules:
 
 | View | Source |
 |---|---|
-| Delivery log per user (what was sent, when, which channel, status) | `deliveries`, read-only. The admin backend gets a read-only user on the `notification` database, like its other readers |
-| Failed deliveries and the DLQ | `deliveries` with status failed |
+| Delivery log per user (what was sent, when, which channel, status) | Notification `GET /internal/admin/deliveries?userId=` (caller `admin`). No database user for the admin backend (admin decision 2026-11-24) |
+| Failed deliveries and the DLQ | Notification `GET /internal/admin/deliveries?status=failed` |
 | Replay a failed delivery | Command, so HTTP: `POST /internal/deliveries/:id/replay` on Notification |
 | Channel health (emails and WhatsApp sent and failed, consumer lag) | Prometheus, after K7 |
 
@@ -423,6 +437,6 @@ This is the "human, through a UI" consumer of `notifications.dlq` from section 3
 | Templates in `Admin/backend/src/emails/` | Moved to Notification `src/emails/template/` |
 | No announcements | Topic `notifications.broadcast`, group `notification-broadcast`, portal screens for the `notify` module |
 
-### 7.5 Rollups for admin analytics (optional, after K6)
+### 7.5 Rollups for admin analytics (required for admin P4 once K4 exists)
 
-The admin portal's analytics (admin phase P4) read the databases directly. If those queries get heavy, a consumer group `admin-analytics` in the admin backend folds `payments.events`, `ai.usage` and `auth.events` into hourly and daily tables in the admin Postgres, and the readers switch to those tables. The portal does not change. Build this only when a P4 query is measured as too slow.
+**Changed 2026-11-24:** the admin backend no longer reads service databases (admin decision), so this is the analytics source, not an optimisation. A consumer group `admin-analytics` in the admin backend folds `payments.events`, `ai.usage`, `auth.events` and `sandbox.events` into hourly and daily tables in the admin Postgres (upsert keyed by bucket, idempotent on `eventId` through a `processed_events` table with a 30-day TTL job). Backfill for the time before K4: one paged call per service to `GET /internal/admin/stats?from&to&bucket=day`. Until K4 is built, P4 uses those stats routes directly.

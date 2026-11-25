@@ -2,7 +2,7 @@
 
 Status: **plan only, nothing built.** Written 2026-11-13, checked against the code on 2026-11-14. This file is the source of truth. The Claude Doc "Taksha MCP tools: analysis and roadmap to a Claude Code level agent" (tab "Tool call analytics") holds the first draft, which was written without access to the code.
 
-Plan index and ownership rules: [README.md](README.md).
+Plan index and ownership rules: [README.md](README.md). Audit 2026-11-24 ([AUDIT-2026-11-24.md](AUDIT-2026-11-24.md)): the design holds. Changed: shutdown flush is awaited, admin reads go through an AI internal admin route, external agent calls later come from the router over Kafka, not by posting to the AI service.
 
 ## 1. Summary
 
@@ -43,7 +43,7 @@ Log every agent tool call to MongoDB from the AI service, and answer four questi
 | External agents through the router gateway (`tks_mcp_...` tokens) | No | They already print `[MCP] tool=... (external agent)` in the sidecar log. The router has Redis only |
 | The editor, file tree and logs panel in the frontend | No | These are user actions, not agent behaviour |
 
-Later, if external agent numbers are needed: the gateway posts small batches to a new `/internal/tool-calls` route on the AI service (`INTERNAL_SERVICE_TOKEN`). Not part of this plan.
+Later, if external agent numbers are needed: the router (the single entry point every external call already passes) publishes one small event per call to a Kafka topic `sandbox.toolcalls` (Kafka plan owns the topic), and the AI service's writer consumes it into the same `toolcalls` collection. Posting batches to an AI route would make the router depend on the AI service being up. Not part of this plan.
 
 ## 4. What gets logged
 
@@ -100,7 +100,7 @@ Output is never stored. Only its size, `status` and the error fields are.
 4. The record goes into an in-memory array.
 5. A writer drains the array every 2 seconds with one `insertMany`.
 6. If MongoDB is down, the array holds up to 5,000 records, then drops the oldest and counts the drops.
-7. On `SIGTERM`, the writer flushes once before the process exits.
+7. On `SIGTERM`, the server's shutdown hook **awaits** one flush (at most 5 s) before closing the Mongo connection. A plain `process.on('SIGTERM', flush)` does not wait for the insert.
 8. A job every 5 minutes folds raw records into hourly rollups.
 
 ```js
@@ -193,7 +193,7 @@ The rollup job runs every 5 minutes inside the AI service, recomputes the curren
 
 **Size check (estimate):** a record is about 0.5 to 1 KB before compression. At 100,000 calls a day that is under 100 MB a day raw, and less once time-series compression applies.
 
-**Admin portal:** the admin plan's read-only `ai` database user can read both collections with no new credential. A tool analytics page in the portal belongs to `Admin/PLAN.md` (P4 analytics), not to this plan.
+**Admin portal:** per the admin decision of 2026-11-24 the admin backend has no database user. It reads these numbers through `GET /internal/admin/tool-stats?from&to&tool=` on the AI service (caller `admin`, foundation F2), which queries `toolstatshourly`. A tool analytics page in the portal belongs to `Admin/PLAN.md` (P4 analytics), not to this plan.
 
 ## 7. Analytics
 
@@ -307,6 +307,8 @@ Five days, each ending in something that can be checked. One local commit per da
 | Paths reveal private info | A file path contains a client name | Paths are kept on purpose, because they are needed to debug. Covered by the 30-day expiry and database access rules |
 | Numbers mislead | A test run inflates the counts | `actor: test`, filtered out of every report |
 | A second AI replica appears | Two rollup jobs run | Harmless: the rollup recomputes and upserts the same documents |
+
+**Later (LLMOps plan, last phase):** [llmops-evals-cicd-plan.md](llmops-evals-cicd-plan.md) reuses `redactInput` and `redactText` before sending traces to Langfuse, and adds cost in money per request next to these per tool numbers. Write the redaction helpers so they can be imported from outside the tool logger.
 
 **Open questions:**
 

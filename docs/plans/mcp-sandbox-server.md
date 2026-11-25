@@ -1,6 +1,6 @@
 # Sandbox MCP server and shared MCP client
 
-Status: **phase 1 and phase 2 built** (2026-11-06). Phase 1: sandbox auth, pod hardening, MCP server, MCP client for Orion and Clio. Phase 2: external agents (Claude Code, Cursor) with MCP tokens through the router. File paths and the REST notes were checked against the code again on 2026-11-14.
+Status: **phase 1 and phase 2 built** (2026-11-06). AI tool path moved behind the router on 2026-11-24 (`3f800a6`, `8e0bf26`); audit notes in [AUDIT-2026-11-24.md](AUDIT-2026-11-24.md). Phase 1: sandbox auth, pod hardening, MCP server, MCP client for Orion and Clio. Phase 2: external agents (Claude Code, Cursor) with MCP tokens through the router. File paths and the REST notes were checked against the code again on 2026-11-14.
 
 This file records what is built. The next steps are separate plans: more and better tools in [taksha-agent-tools-build-plan.md](taksha-agent-tools-build-plan.md), tool call logging in [taksha-tool-call-analytics-plan.md](taksha-tool-call-analytics-plan.md). Index: [README.md](README.md).
 
@@ -9,7 +9,10 @@ This file records what is built. The next steps are separate plans: more and bet
 ```
 AI service (Orion, Clio)
   1. POST /api/auth/sandbox-token  -> 2h token, aud taksha-sandbox, sbx=<id>
-  2. POST http://sandbox-service-<id>:3000/mcp   Authorization: Bearer <sandbox token>
+  2. POST http://router-service/internal/sandboxes/<id>/mcp
+        X-Internal-Token: <INTERNAL_SERVICE_TOKEN>   Authorization: Bearer <sandbox token>
+        |  router: refuses sandbox hosts, refreshes sandbox:<id> TTL, rewrites to /mcp
+        |  (since 3f800a6 / 8e0bf26; no direct path, no fallback, fails closed)
         |
 agent container (port 3000, uid 1000)
   requireOwner  ->  /mcp (9 certified tools)  ->  tool handlers (controllers/index.js)
@@ -33,7 +36,7 @@ Design decisions (developer, 2026-11-05):
 | Topic | Decision |
 |---|---|
 | Where | MCP lives in the existing agent container, same port 3000, path `/mcp`. No new container, port or Service. |
-| Auth | The Auth RS256 JWT, verified with JWKS inside the sidecar. Only the sandbox owner (`sub == OWNER_USER_ID`). The router is not the guard, because the preview app's Vite proxy can also reach port 3000. |
+| Auth | The Auth RS256 JWT, verified with JWKS inside the sidecar. Only the sandbox owner (`sub == OWNER_USER_ID`). The router is not the **auth** guard, because the preview app's Vite proxy can also reach port 3000. The router **is** the only network path into a pod (network policy, `8e0bf26`), and it refreshes the idle TTL. |
 | Long runs | Access tokens last 15 minutes, Orion runs up to an hour, so the AI service gets a 2-hour sandbox token per run and renews it on plan approve/reject. |
 | Certified tools | Server: `CERTIFIED_TOOLS` in `Sandbox/Agent/src/mcp/tools.js`, frozen, nothing registers at runtime. Client: `CERTIFIED_TOOLS` in `mcp.client.js`; extra server tools are ignored; the model only sees the AI service's own descriptions. |
 
@@ -90,4 +93,6 @@ Later, and where each item is planned:
 
 - Old projects keep the template's old `vite.config.js` proxy (it lives in their workspace). That proxy now only reaches the auth check and returns 401.
 - NetworkPolicy is not enforced by Docker Desktop's Kubernetes.
-- Usage billing at the end of a long run uses the user's token from the last request (invoke or plan approve), which can be older than 15 minutes.
+- Usage billing at the end of a long run uses the user's token from the last request (invoke or plan approve), which can be older than 15 minutes. Fixed by the `ai.usage` outbox (Kafka plan K4) or an internal Payments route with caller `ai` (foundation F2), never by keeping the user token longer.
+- One shared `INTERNAL_SERVICE_TOKEN` opens every internal route. Replaced by per-caller identity in [platform-foundations-plan.md](platform-foundations-plan.md) F2.
+- The router's internal proxy swallows a Redis error on TTL refresh so a tool call still runs. Acceptable (the sandbox may then stop after 20 idle minutes), but count it as a metric once Kafka plan K7 adds `/metrics` to the router.

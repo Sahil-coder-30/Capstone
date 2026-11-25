@@ -2,7 +2,7 @@
 
 Status: **plan only, nothing built.** Written 2026-11-13, checked against the code on 2026-11-14. This file is the source of truth. The Claude Doc "Taksha MCP tools: analysis and roadmap to a Claude Code level agent" (tab "Build plan") holds the first draft, which was written without access to the code. Every open question of that draft is answered in section 2.
 
-Plan index and ownership rules: [README.md](README.md). What exists today: [mcp-sandbox-server.md](mcp-sandbox-server.md).
+Plan index and ownership rules: [README.md](README.md). What exists today: [mcp-sandbox-server.md](mcp-sandbox-server.md). Audit notes: [AUDIT-2026-11-24.md](AUDIT-2026-11-24.md) (changed here: router path, write-attribution log in P2, checkpoints persisted in P4, P4 pauses need foundation F1).
 
 ## 1. Summary
 
@@ -34,7 +34,7 @@ The order follows one idea: **give the agent eyes before giving it more hands.**
 |---|---|---|
 | Where does the MCP server run? | Inside the sandbox pod, in the `agent` container, port 3000, path `/mcp`. Stateless, a fresh server per request | `Sandbox/Agent/src/mcp/server.js` |
 | Is the agent server Node? | Yes, Express 5, ESM. Image `node:20-bullseye` (Debian), runs as uid 1000 | `Sandbox/Agent/` |
-| Who calls it? | The AI service directly in the cluster. External agents through the router gateway (`/api/mcp/<sandboxId>`). The frontend editor, file tree and logs panel through `*.agent.localhost` | `tools/sandbox.client.js`, `Sandbox/router/src/mcpGateway.js`, `Frontend/src/services/sandboxAgentClient.js` |
+| Who calls it? | Everyone through the router, which is the only network path into a pod (`8e0bf26`). The AI service through the router's internal path `POST /internal/sandboxes/<id>/mcp` (since `3f800a6`, refreshes the TTL). External agents through the router gateway (`/api/mcp/<sandboxId>`). The frontend editor, file tree and logs panel through `*.agent.localhost` | `tools/sandbox.client.js`, `Sandbox/router/src/internalMcpProxy.js`, `Sandbox/router/src/mcpGateway.js`, `Frontend/src/services/sandboxAgentClient.js` |
 | Which model drives the agent? | NVIDIA models through `ChatOpenAI`. Whether the model accepts images is not known. Check with `npm run check:model` before Phase 3 | `Ai_orchestration/src/agent/llm/` |
 | Can the pod take another container? | Yes, but each pod already has limits of 512Mi (Vite) + 512Mi (agent) + 256Mi (sync). The root filesystem is **not** read-only | `Sandbox/server/src/kubernetes/pod.js` |
 | Which templates exist? | One: Vite + React 19. No test runner in it | `Sandbox/template/` |
@@ -69,7 +69,10 @@ AI service                           Router gateway
    LangChain tool (own description)     token check, 120 calls/min, wake, scoped token
    guards, hash memory, 24,000 char cap |
    |  MCP, 2-hour sandbox token         |  MCP, 10-minute scoped token
+   |  POST router /internal/sandboxes/<id>/mcp
    +----------------+-------------------+
+                    v
+Router (only path into a pod, refreshes the idle TTL)
                     v
 Sandbox pod
    agent container :3000                         template container :5173
@@ -188,6 +191,8 @@ Phase 0 builds the base every later tool sits on, and records a score to beat. I
 
 **Gate:** the eval suite runs end to end on today's 9 tools, and the baseline pass rate and tokens per task are saved in `Ai_orchestration/evals/baseline.json`.
 
+**Later (LLMOps plan, last phase):** this runner becomes the base of the full eval pipeline in [llmops-evals-cicd-plan.md](llmops-evals-cicd-plan.md) section 3: golden datasets, context precision and recall (record which files each task read, so add a `filesRead` list to each task result now), LLM as judge, and a CI gate on every prompt or model change. Keep the result file format stable so that work only adds fields.
+
 ## 8. Phase 1: Observe (weeks 2 to 3)
 
 Phase 1 lets the agent read what the browser reports: console logs, errors and failed requests, plus the dev server log with a cursor.
@@ -231,6 +236,7 @@ Phase 1 lets the agent read what the browser reports: console logs, errors and f
 Phase 2 makes edits safe and cheap: small reads, many edits in one call, a diff on every write, and no silent overwrites.
 
 - [ ] One file layer in the sidecar (`Sandbox/Agent/src/workspace/files.js`) that every file tool uses: `safeResolve`, read with hash, atomic write, diff. Phase 5 hooks in here
+- [ ] The file layer appends `{path, at, actor}` to an in-memory write log (ring of 10,000) for every write: `run:<token jti>` for the AI service, `owner` for the editor, `external:<token id>` for MCP tokens. Cheap now, and the GitHub plan's `git_keeper` (G6b) needs it to tell the agent's changes from the user's
 - [ ] `read_file`: `offset`, `limit`, numbered lines, `totalLines`, and a `hash` (sha256 of the whole file) per file
 - [ ] `patch_file`: an `edits` array applied in order in memory, then one write. Any failed edit means nothing is written
 - [ ] `expectedHash` on `patch_file` and `write_file`, optional at the sidecar. A mismatch returns `STALE_WRITE` with the current hash
@@ -293,16 +299,17 @@ Phase 3 lets the agent run long commands and look at the app itself, with no use
 
 Phase 4 makes the agent safe to leave alone: every change can be undone, risky actions ask first, and "done" requires proof.
 
-- [ ] Checkpoints in a separate git directory outside the workspace: `GIT_DIR=/home/node/.taksha/checkpoints.git`, `GIT_WORK_TREE=/workspace`, created on the first `checkpoint`. The user's own `.git` (if they made one in the terminal) is never touched, and old projects work too
+- [ ] Checkpoints in a separate git directory outside the workspace: `GIT_DIR=/taksha-state/checkpoints.git`, `GIT_WORK_TREE=/workspace`, created on the first `checkpoint`. `/taksha-state` is a new `emptyDir` mounted in the `agent` and `sync-agent` containers only (not in `/workspace`, so Vite, the file tree and the user's repo never see it). The user's own `.git` is never touched, and old projects work too
+- [ ] Persist checkpoints with the same archive code path as the GitHub plan's `.git` archive (its section 4.5.1: lock check, `fsck`, 3 versions), under `<projectId>/.taksha/checkpoints/`. One implementation, two directories. This removes the "checkpoints vanish when the pod stops" limit instead of accepting it
 - [ ] `checkpoint`: commit the tree to `refs/taksha/checkpoints/<id>`, with `node_modules`, `dist` and `.taksha` excluded. Keep the last 50
 - [ ] `restore` and `get_diff`
 - [ ] The AI service takes a checkpoint at the start of every Orion run (a fixed call, not a model call)
-- [ ] Ask-first rule, version 1: fixed defaults in code, no per-project settings. `restore` and commands outside a small allowlist pause the run with `interrupt()`, the same way `plan_review` does, and the UI shows an approve or reject card like `PlanReviewCard`. Per-project allow, ask and deny rules come later
+- [ ] Ask-first rule, version 1: fixed defaults in code, no per-project settings. `restore` and commands outside a small allowlist pause the run with `interrupt()`, the same way `plan_review` does, and the UI shows an approve or reject card like `PlanReviewCard`. Per-project allow, ask and deny rules come later. **Needs foundation F1** (durable checkpointer and `agentruns`): a pause must survive an AI restart and be answerable from any replica
 - [ ] Explorer sub-agent: a graph node that only gets `READ_ONLY_TOOLS` (the set already exists in `tools/index.js`)
 - [ ] A short project map built at run start: framework, entry file, routes, scripts
 - [ ] Decide on `todo_write` from the eval results (see section 5)
 
-**Known limit:** checkpoints live in the agent container. They are gone when the sandbox stops (20 minutes idle) or the container restarts. Undo across sessions is not part of this plan.
+**Changed by the audit (2026-11-24):** checkpoints no longer die with the pod. They live in the shared `/taksha-state` volume and are archived to S3 by the sync-agent on stop (needs foundation F3, because today a pod is deleted with a 0 s grace period). Restore after a restart shows the checkpoints of the last session.
 
 **Already there, nothing to build:** per-token rate limit for external agents (120 calls a minute in the router gateway), turn budgets and the repeat-call stop in `core/toolLoop.js`.
 
@@ -371,7 +378,7 @@ Phase 5 makes the agent's edits appear live in the user's open Monaco tab, and m
 | Old projects miss the new script | P1 | Console and network tools stay empty for them | `report-error` keeps feeding the errors buffer. `lastBrowserEventAt` and the tool hint say why a list is empty |
 | Stale-write retries loop | P2 | The user keeps typing, so every patch is stale | After 2 stale writes on one file, the agent tells the user it is waiting |
 | Trash and temp files reach S3 | P2 | Deleted files are uploaded again | `.taksha` in the sync ignore list, in the same commit as the trash |
-| Checkpoints vanish | P4 | The pod stops and the undo history is gone | Stated as a known limit. The UI says "undo is available while the sandbox runs" |
+| Checkpoints vanish | P4 | The pod stops and the undo history is gone | Archived to S3 with the `.git` archive code path (P4 task), after foundation F3 |
 | Yjs echo loop | P5 | Bridge writes to disk, watcher fires, bridge writes to Yjs, and so on | The hash check in the bridge, plus the two-way stress test as a release gate |
 | NetworkPolicy is not enforced on Docker Desktop | P3 | A command can reach cluster services locally | Known gap of the local cluster. Do not rely on it in local tests |
 
