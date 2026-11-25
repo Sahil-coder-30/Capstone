@@ -1,0 +1,633 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Current Payments screens (main app)</title>
+<link rel="stylesheet" href="../../_shared/taksha-wireframe.css">
+<style>
+  .screen-cap { flex-wrap: wrap; }
+  .pay-shell { display: flex; flex-direction: column; background: var(--bg-canvas); font-size: 13px; position: relative; }
+  .pay-nav { display: flex; align-items: center; justify-content: space-between; gap: 16px; height: 58px; padding: 0 28px; border-bottom: 1px solid var(--border); background: var(--bg-surface); flex-shrink: 0; }
+  .pay-nav-l { display: flex; align-items: center; gap: 28px; min-width: 0; }
+  .pay-brand { padding: 0; gap: 10px; }
+  .pay-brand .title { font-size: 15px; font-weight: 700; color: var(--text-primary); letter-spacing: -0.01em; }
+  .pay-tabs { display: flex; align-items: center; gap: 6px; }
+  .pay-tab { padding: 7px 14px; border-radius: 8px; font-size: 13px; font-weight: 500; color: var(--text-muted); }
+  .pay-tab.on { background: var(--bg-element); color: var(--text-primary); font-weight: 600; }
+  .pay-nav-r { display: flex; align-items: center; gap: 12px; }
+  .pay-user-pill { display: inline-flex; align-items: center; gap: 8px; padding: 4px 12px 4px 5px; border-radius: 999px; background: var(--bg-canvas); border: 1px solid var(--border); font-size: 12.5px; color: var(--text-secondary); }
+  .pay-user-pill .av { width: 24px; height: 24px; border-radius: 50%; background: linear-gradient(135deg, var(--brand-primary), var(--accent-primary)); display: grid; place-items: center; font-size: 11px; font-weight: 700; color: var(--bg-canvas); }
+  :root.light-theme .pay-user-pill .av { color: var(--bg-surface); }
+
+  .pay-hero { padding: 34px 28px 26px; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 12px; background: radial-gradient(ellipse 65% 80% at 50% 0%, var(--accent-subtle), var(--brand-subtle) 45%, transparent 75%); }
+  .pay-hero h1 { font-size: 32px; font-weight: 700; line-height: 1.18; letter-spacing: -0.02em; color: var(--text-primary); }
+  .pay-hero h1 span { background: linear-gradient(135deg, var(--brand-primary), var(--accent-primary)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+  .pay-hero p { max-width: 62ch; font-size: 13.5px; line-height: 1.55; color: var(--text-muted); }
+  .pay-controls { display: flex; align-items: center; justify-content: center; gap: 12px; flex-wrap: wrap; margin-top: 6px; position: relative; }
+  .pay-region { display: inline-flex; align-items: center; gap: 7px; padding: 7px 14px; border-radius: 999px; background: var(--bg-surface); border: 1px solid var(--border); font-size: 12.5px; color: var(--text-muted); }
+  .pay-cycle { display: inline-flex; align-items: center; gap: 6px; padding: 4px; border-radius: 999px; background: var(--bg-surface); border: 1px solid var(--border); }
+  .pay-cycle .seg { border: none; background: transparent; padding: 0; }
+  .pay-cycle .seg button { border-radius: 999px; padding: 6px 16px; font-size: 12.5px; font-weight: 600; }
+  .pay-cycle .seg button.on { background: var(--brand-subtle); color: var(--brand-primary); border: 1px solid color-mix(in srgb, var(--brand-primary) 40%, transparent); }
+
+  .pay-cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; padding: 0 28px 28px; }
+  .plan-card { position: relative; background: var(--bg-surface); border: 1px solid var(--border); border-radius: 16px; padding: 22px 20px; display: flex; flex-direction: column; justify-content: space-between; gap: 16px; }
+  .plan-card.popular { border: 1.5px solid var(--brand-primary); background: linear-gradient(180deg, var(--brand-subtle) 0%, var(--bg-surface) 100%); }
+  .plan-card h3 { margin-top: 10px; font-size: 20px; font-weight: 700; color: var(--text-primary); }
+  .plan-price { display: flex; align-items: baseline; gap: 3px; margin: 10px 0 8px; font-variant-numeric: tabular-nums; }
+  .plan-price .cur { font-size: 16px; font-weight: 700; color: var(--text-primary); }
+  .plan-price .amt { font-size: 32px; font-weight: 700; color: var(--text-primary); line-height: 1; letter-spacing: -0.02em; }
+  .plan-price .per { font-size: 12.5px; color: var(--text-muted); }
+  .plan-specs { display: inline-block; font-size: 11.5px; font-weight: 600; color: var(--accent-hover); background: var(--accent-subtle); border: 1px solid color-mix(in srgb, var(--accent-primary) 25%, transparent); padding: 3px 10px; border-radius: 7px; margin-bottom: 10px; }
+  :root.light-theme .plan-specs { color: var(--accent-primary); }
+  .plan-desc { font-size: 12.5px; color: var(--text-muted); line-height: 1.5; }
+  .plan-inc { border-top: 1px solid var(--border); padding-top: 14px; display: flex; flex-direction: column; gap: 10px; }
+  .plan-inc-h { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-primary); }
+  .plan-inc-list { list-style: none; display: flex; flex-direction: column; gap: 8px; font-size: 12.5px; color: var(--text-secondary); }
+  .plan-inc-list li { display: flex; align-items: flex-start; gap: 8px; line-height: 1.4; }
+  .plan-inc-list svg { margin-top: 2px; color: var(--brand-primary); }
+  .plan-cta { width: 100%; border-radius: 999px; padding: 10px 18px; font-size: 13px; font-weight: 600; }
+  .plan-drawer-btn { width: 100%; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 4px 0; font-size: 12px; font-weight: 600; color: var(--text-muted); }
+
+  .matrix-wrap { padding: 28px; display: flex; flex-direction: column; gap: 18px; background: var(--bg-canvas); }
+  .matrix-head { text-align: center; display: flex; flex-direction: column; gap: 6px; align-items: center; }
+  .matrix-head h3 { font-size: 22px; font-weight: 700; color: var(--text-primary); }
+  .matrix-head p { max-width: 60ch; font-size: 13px; color: var(--text-muted); line-height: 1.5; }
+  .matrix-cat td { background: var(--bg-overlay); color: var(--brand-primary); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; padding: 8px 16px; }
+  .matrix-pro { color: var(--accent-hover); font-weight: 600; }
+  :root.light-theme .matrix-pro { color: var(--accent-primary); }
+
+  .specs-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .spec-item { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 9px; background: var(--bg-surface); }
+  .spec-ic { width: 32px; height: 32px; border-radius: 8px; background: var(--accent-subtle); color: var(--accent-hover); display: grid; place-items: center; flex-shrink: 0; }
+  :root.light-theme .spec-ic { color: var(--accent-primary); }
+  .spec-k { display: block; font-size: 11px; color: var(--text-muted); }
+  .spec-v { display: block; font-size: 12.5px; font-weight: 600; color: var(--text-primary); margin-top: 2px; }
+  .feat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 14px; font-size: 12.5px; color: var(--text-secondary); }
+  .feat-grid > div { display: flex; align-items: center; gap: 8px; }
+
+  .order-box { padding: 12px 14px; border: 1px solid var(--border); border-radius: 10px; background: var(--card); display: flex; flex-direction: column; gap: 4px; }
+  .order-top { display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; font-weight: 600; color: var(--text-primary); gap: 8px; }
+  .pay-methods { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+  .pay-m { display: flex; align-items: center; justify-content: center; gap: 5px; padding: 8px 6px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg-element); font-size: 11.5px; font-weight: 600; color: var(--text-muted); white-space: nowrap; }
+  .pay-m.on { border-color: var(--accent-primary); background: var(--accent-subtle); color: var(--accent-hover); }
+  :root.light-theme .pay-m.on { color: var(--accent-primary); }
+
+  .inv-wrap { padding: 26px 28px; display: flex; flex-direction: column; gap: 18px; background: var(--bg-canvas); }
+  .inv-kpis { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  .inv-kpi-l { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted); }
+  .inv-kpi-v { margin-top: 6px; font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .board-head code, .screen-cap .where, ol.notes code { overflow-wrap: anywhere; }
+</style>
+</head>
+<body>
+<main class="board">
+  <header class="board-head">
+    <div>
+      <h1>Payments screens in the main app (built)</h1>
+      <p style="overflow-wrap:anywhere">High-fidelity wireframes of the built billing screens in <code>Frontend/src/features/payments/components/</code>, mounted by <code>Frontend/src/App.jsx</code> on <code>?route=payments</code>. Today <code>App.jsx</code> sends <code>?route=payments</code> to the standalone billing app on port 5174, so these screens only flash before the redirect. Spec: <a href="screens.md">screens.md</a>.</p>
+    </div>
+    <button class="theme-toggle" type="button" data-theme-toggle><svg class="i"><use href="#i-sun"/></svg> Light theme</button>
+  </header>
+
+  <nav class="board-nav">
+    <a href="#cp01">CP-01 Overview &amp; Plans</a>
+    <a href="#cp02">CP-02 Feature comparison</a>
+    <a href="#cp03">CP-03 Plan detail modal</a>
+    <a href="#cp04">CP-04 Checkout modal</a>
+    <a href="#cp05">CP-05 Invoices &amp; Billing</a>
+    <a href="#payments-states">States</a>
+  </nav>
+
+  <!-- CP-01 -->
+  <section class="screen" id="cp01">
+    <div class="screen-cap"><span class="id">CP-01</span><h2>Overview &amp; Plans</h2><span class="where" style="overflow-wrap:anywhere">Frontend/src/features/payments/components/PaymentsLandingPage.jsx, PlanCard.jsx · ?route=payments</span></div>
+    <div class="frame-scroll"><div class="frame">
+      <div class="pay-shell">
+        <header class="pay-nav" style="position:relative">
+          <div class="pay-nav-l">
+            <div class="side-brand pay-brand"><div class="mark">T</div><span class="title">Taksha CodeSpace</span><span class="pill brand" style="font-weight:600;text-transform:uppercase;letter-spacing:0.05em">Plans &amp; Pricing</span></div>
+            <nav class="pay-tabs">
+              <button type="button" class="pay-tab on">Overview &amp; Plans</button>
+              <button type="button" class="pay-tab">Invoices &amp; Billing</button>
+              <span class="pin" style="position:static;margin-left:4px">1</span>
+            </nav>
+          </div>
+          <div class="pay-nav-r">
+            <div class="pay-user-pill"><div class="av">A</div><span style="font-weight:600;color:var(--text-primary)">Aarav Sharma</span><span class="t-accent" style="font-weight:700;text-transform:capitalize">(free)</span></div>
+            <button type="button" class="btn-secondary btn-sm" style="border-radius:999px">Return to IDE</button>
+          </div>
+        </header>
+
+        <div class="pay-hero">
+          <span class="pill brand" style="padding:4px 12px;font-size:11.5px;font-weight:600"><svg class="i s"><use href="#i-sparkles"/></svg>Supercharge your code with Taksha AI</span>
+          <h1>Power your coding workflow with a <span>Taksha AI Plan</span></h1>
+          <p>Access our most advanced AI coding agents, high-performance vCPU sandboxes, and enterprise token quotas built for modern software engineers.</p>
+          <div class="pay-controls">
+            <div class="pay-region"><svg class="i"><use href="#i-globe"/></svg><span>Region: India (INR ₹)</span></div>
+            <div class="pay-cycle" style="position:relative">
+              <div class="seg"><button type="button" class="on">Monthly</button><button type="button">Annual Billing</button></div>
+              <span class="pill accent" style="padding:3px 10px;font-size:11px;font-weight:700;margin-right:4px">Save 20%</span>
+              <span class="pin" style="right:-24px;top:11px">2</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="pay-cards">
+          <article class="plan-card">
+            <div>
+              <span class="pill" style="padding:3px 10px;font-size:10.5px;font-weight:700;text-transform:uppercase">Get Started</span>
+              <h3>Taksha AI Free</h3>
+              <div class="plan-price"><span class="amt">Free</span></div>
+              <div class="plan-specs">0.5 vCPU • 512 MB RAM</div>
+              <p class="plan-desc">Essential sandbox and AI model credits for developers getting started.</p>
+            </div>
+            <div class="plan-inc">
+              <div class="plan-inc-h">Includes:</div>
+              <ul class="plan-inc-list">
+                <li><svg class="i"><use href="#i-check-circle"/></svg><span>20 AI credits per provider daily</span></li>
+                <li><svg class="i"><use href="#i-check-circle"/></svg><span>50,000 daily token limit</span></li>
+                <li><svg class="i"><use href="#i-check-circle"/></svg><span>0.5 vCPU + 512 MB RAM container</span></li>
+                <li><svg class="i"><use href="#i-check-circle"/></svg><span>Coding Agent + Copilot</span></li>
+                <li><svg class="i"><use href="#i-check-circle"/></svg><span>Community Forum support</span></li>
+              </ul>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:10px">
+              <button type="button" class="btn-secondary plan-cta" disabled>Current Subscription</button>
+              <button type="button" class="plan-drawer-btn"><span>View plan benefits</span><svg class="i"><use href="#i-plus"/></svg></button>
+            </div>
+          </article>
+
+          <article class="plan-card popular">
+            <div>
+              <span class="pill brand" style="padding:3px 10px;font-size:10.5px;font-weight:700;text-transform:uppercase">Most Popular</span>
+              <h3>Taksha AI Pro</h3>
+              <div class="plan-price"><span class="cur">₹</span><span class="amt">499</span><span class="per">/mo</span></div>
+              <div class="plan-specs">2.0 vCPU • 2 GB RAM Isolated</div>
+              <p class="plan-desc">Full AI power with high-performance isolated sandbox containers.</p>
+            </div>
+            <div class="plan-inc">
+              <div class="plan-inc-h">Includes:</div>
+              <ul class="plan-inc-list">
+                <li><svg class="i"><use href="#i-check-circle"/></svg><span>4x higher usage limits in Taksha AI</span></li>
+                <li><svg class="i"><use href="#i-check-circle"/></svg><span>5,000,000 tokens per month cap</span></li>
+                <li><svg class="i"><use href="#i-check-circle"/></svg><span>2.0 vCPU + 2 GB RAM dedicated container</span></li>
+                <li><svg class="i"><use href="#i-check-circle"/></svg><span>Coding Agent + Copilot + App Agent</span></li>
+                <li><svg class="i"><use href="#i-check-circle"/></svg><span>Priority Email &amp; Discord support</span></li>
+              </ul>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:10px">
+              <div style="display:flex;align-items:center;gap:8px">
+                <button type="button" class="btn-solid plan-cta" style="flex:1"><span>Get Pro</span><svg class="i"><use href="#i-chev-r"/></svg></button>
+                <span class="pin" style="position:static;flex-shrink:0">3</span>
+              </div>
+              <div style="display:flex;align-items:center;justify-content:center;gap:8px">
+                <button type="button" class="plan-drawer-btn" style="width:auto"><span>View plan benefits</span><svg class="i"><use href="#i-plus"/></svg></button>
+                <span class="pin" style="position:static">4</span>
+              </div>
+            </div>
+          </article>
+
+          <article class="plan-card">
+            <div>
+              <span class="pill" style="padding:3px 10px;font-size:10.5px;font-weight:700;text-transform:uppercase">Flagship Tier</span>
+              <h3>Taksha AI Max</h3>
+              <div class="plan-price"><span class="cur">₹</span><span class="amt">999</span><span class="per">/mo</span></div>
+              <div class="plan-specs">4.0 vCPU • 4 GB RAM Dedicated</div>
+              <p class="plan-desc">Uncapped tokens, flagship LLMs, and priority worker execution queue.</p>
+            </div>
+            <div class="plan-inc">
+              <div class="plan-inc-h">Includes:</div>
+              <ul class="plan-inc-list">
+                <li><svg class="i"><use href="#i-check-circle"/></svg><span>Up to 20x higher usage limits than Pro</span></li>
+                <li><svg class="i"><use href="#i-check-circle"/></svg><span>Truly Unlimited Tokens with zero throttling</span></li>
+                <li><svg class="i"><use href="#i-check-circle"/></svg><span>4.0 vCPU + 4 GB RAM container allocation</span></li>
+                <li><svg class="i"><use href="#i-check-circle"/></svg><span>All Agents + Flagship LLM models</span></li>
+                <li><svg class="i"><use href="#i-check-circle"/></svg><span>Dedicated 24/7 technical manager</span></li>
+              </ul>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:10px">
+              <button type="button" class="btn-secondary plan-cta"><span>Get Max</span><svg class="i"><use href="#i-chev-r"/></svg></button>
+              <button type="button" class="plan-drawer-btn"><span>View plan benefits</span><svg class="i"><use href="#i-plus"/></svg></button>
+            </div>
+          </article>
+        </div>
+      </div>
+    </div></div>
+    <ol class="notes">
+      <li><b>Top nav tabs and user pill</b> switch Redux <code>activeView</code> between <code>Overview &amp; Plans</code> and <code>Invoices &amp; Billing</code>; user tier hydrates from <code>GET /api/payments/credit</code> via <code>usePayments().loadCredit()</code> and <code>Return to IDE</code> navigates to <code>/</code>.</li>
+      <li><b>Billing cycle toggle</b> switches <code>billingCycle</code> between <code>monthly</code> and <code>yearly</code> via <code>selectBillingCycle</code>; annual mode multiplies monthly prices by <code>0.8</code> (Save 20%), while <code>Region: India (INR ₹)</code> is static text.</li>
+      <li><b>Plan cards and primary CTA</b> render the 3 hardcoded <code>defaultPackages</code> in <code>PaymentsLandingPage.jsx</code> (ignoring <code>GET /api/payments/credit/packages</code>); the active tier disables its CTA as <code>Current Subscription</code>, and clicking <code>Get Pro</code> or <code>Get Max</code> runs <code>selectPlan</code> then <code>switchView('checkout')</code>.</li>
+      <li><b>View plan benefits toggle</b> expands an inline accordion inside <code>PlanCard.jsx</code> (<code>Boost productivity</code>, <code>Unleash creativity</code>, <code>Study &amp; Research</code>, <code>Code faster</code>, <code>And more</code>) using local <code>isExpanded</code> state.</li>
+    </ol>
+  </section>
+
+  <!-- CP-02 -->
+  <section class="screen" id="cp02">
+    <div class="screen-cap"><span class="id">CP-02</span><h2>Feature comparison</h2><span class="where" style="overflow-wrap:anywhere">Frontend/src/features/payments/components/FeatureComparisonTable.jsx</span></div>
+    <div class="frame-scroll"><div class="frame">
+      <div class="matrix-wrap">
+        <div class="matrix-head">
+          <h3>Detailed Feature Matrix</h3>
+          <p>Comprehensive breakdown of features, AI capabilities, and resource allocations across Taksha AI subscription tiers.</p>
+        </div>
+        <div class="pnl">
+          <table class="tbl">
+            <thead>
+              <tr>
+                <th style="width:28%;color:var(--text-primary);font-weight:700">Plan Features</th>
+                <th style="width:24%">
+                  <div style="color:var(--text-primary);font-weight:700;font-size:13.5px">Taksha AI Free</div>
+                  <div class="muted" style="font-weight:500;margin-top:2px;font-variant-numeric:tabular-nums">₹0 / mo</div>
+                </th>
+                <th style="width:24%">
+                  <span class="pill brand" style="text-transform:uppercase;font-weight:700;margin-bottom:4px">Popular</span>
+                  <div style="color:var(--text-primary);font-weight:700;font-size:13.5px">Taksha AI Pro</div>
+                  <div class="muted" style="font-weight:500;margin-top:2px;font-variant-numeric:tabular-nums">₹499 / mo</div>
+                </th>
+                <th style="width:24%">
+                  <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:4px">
+                    <span class="pill accent" style="text-transform:uppercase;font-weight:700">Flagship</span>
+                    <span class="pin" style="position:static">1</span>
+                  </div>
+                  <div style="color:var(--text-primary);font-weight:700;font-size:13.5px">Taksha AI Max</div>
+                  <div class="muted" style="font-weight:500;margin-top:2px;font-variant-numeric:tabular-nums">₹999 / mo</div>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr class="matrix-cat"><td colspan="4">Productivity &amp; AI Models</td></tr>
+              <tr><td style="font-weight:600;color:var(--text-primary)">Supported AI Models</td><td class="muted">NVIDIA Nemotron 3.5 Lightning</td><td class="matrix-pro">NVIDIA Nemotron 3 Ultra</td><td class="matrix-pro">All NVIDIA-hosted models</td></tr>
+              <tr><td style="font-weight:600;color:var(--text-primary)">Daily &amp; Monthly Token Quotas</td><td class="muted">50,000 / day cap</td><td class="matrix-pro">5,000,000 / month cap</td><td class="matrix-pro">Truly Unlimited (Uncapped)</td></tr>
+              <tr><td style="font-weight:600;color:var(--text-primary)">Agentic Code Execution</td><td class="muted">Single-file Copilot</td><td class="matrix-pro">Full Coding Agent + App Agent</td><td class="matrix-pro">Multi-Agent Swarm &amp; Auto Browse</td></tr>
+              <tr><td style="font-weight:600;color:var(--text-primary)">Deep Repository Search</td><td class="muted">Basic context search</td><td class="matrix-pro">Full repo index &amp; symbols</td><td class="matrix-pro">Deep Research Agent &amp; security audit</td></tr>
+              <tr class="matrix-cat"><td colspan="4"><div style="display:flex;align-items:center;justify-content:space-between"><span>Cloud Infrastructure &amp; Sandboxes</span><span class="pin" style="position:static">2</span></div></td></tr>
+              <tr><td style="font-weight:600;color:var(--text-primary)">vCPU Container Allocation</td><td class="muted">0.5 vCPU Shared</td><td class="matrix-pro">2.0 vCPU Dedicated</td><td class="matrix-pro">4.0 vCPU High-Performance</td></tr>
+              <tr><td style="font-weight:600;color:var(--text-primary)">Container Memory (RAM)</td><td class="muted">512 MB</td><td class="matrix-pro">2 GB Isolated</td><td class="matrix-pro">4 GB Dedicated</td></tr>
+              <tr><td style="font-weight:600;color:var(--text-primary)">Persistent Workspace Storage</td><td class="muted">5 GB</td><td class="matrix-pro">20 GB Persistent SSD</td><td class="matrix-pro">50 GB Persistent NVMe</td></tr>
+              <tr><td style="font-weight:600;color:var(--text-primary)">Worker Execution Queue</td><td class="muted">Standard Queue</td><td class="matrix-pro">Priority Queue</td><td class="matrix-pro">VIP Zero-Latency Queue</td></tr>
+              <tr class="matrix-cat"><td colspan="4">Dev Credits &amp; Support</td></tr>
+              <tr><td style="font-weight:600;color:var(--text-primary)">Monthly Cloud Dev Credits</td><td class="muted">-</td><td class="matrix-pro">$10 / month</td><td class="matrix-pro">$40 / month</td></tr>
+              <tr><td style="font-weight:600;color:var(--text-primary)">Team Workspace Seats</td><td class="muted">1 Seat</td><td class="matrix-pro">Up to 5 Seats</td><td class="matrix-pro">Up to 10 Seats</td></tr>
+              <tr><td style="font-weight:600;color:var(--text-primary)">Support Level</td><td class="muted">Community Forum</td><td class="matrix-pro">Priority Email &amp; Discord</td><td class="matrix-pro">Dedicated 24/7 Support Manager</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div></div>
+    <ol class="notes">
+      <li><b>Plan matrix headers</b> hardcode monthly prices (<code>₹0 / mo</code>, <code>₹499 / mo</code>, <code>₹999 / mo</code>) inside <code>FeatureComparisonTable.jsx</code> without reading <code>billingCycle</code> or <code>GET /api/payments/credit/packages</code>.</li>
+      <li><b>Feature rows</b> come from a static 3-group client array in <code>FeatureComparisonTable.jsx</code>; it lists <code>Priority Queue</code> on Pro even though <code>TIER_LIMITS.pro.features.priorityQueue</code> in <code>Payments/config/plans.config.js</code> is <code>false</code>.</li>
+    </ol>
+  </section>
+
+  <!-- CP-03 -->
+  <section class="screen" id="cp03">
+    <div class="screen-cap"><span class="id">CP-03</span><h2>Plan detail modal</h2><span class="where" style="overflow-wrap:anywhere">Frontend/src/features/payments/components/PlanDetailModal.jsx · open over CP-01</span></div>
+    <div class="frame-scroll"><div class="frame">
+      <div class="pay-shell" style="min-height:540px">
+        <header class="pay-nav">
+          <div class="pay-nav-l">
+            <div class="side-brand pay-brand"><div class="mark">T</div><span class="title">Taksha CodeSpace</span><span class="pill brand" style="font-weight:600;text-transform:uppercase;letter-spacing:0.05em">Plans &amp; Pricing</span></div>
+            <nav class="pay-tabs"><button type="button" class="pay-tab on">Overview &amp; Plans</button><button type="button" class="pay-tab">Invoices &amp; Billing</button></nav>
+          </div>
+          <div class="pay-nav-r">
+            <div class="pay-user-pill"><div class="av">A</div><span>Aarav Sharma</span><span class="t-accent" style="font-weight:700;text-transform:capitalize">(free)</span></div>
+            <button type="button" class="btn-secondary btn-sm" style="border-radius:999px">Return to IDE</button>
+          </div>
+        </header>
+        <div class="pay-hero" style="padding:28px 28px 18px">
+          <span class="pill brand">Supercharge your code with Taksha AI</span>
+          <h1>Power your coding workflow with a <span>Taksha AI Plan</span></h1>
+          <p>Access our most advanced AI coding agents, high-performance vCPU sandboxes, and enterprise token quotas built for modern software engineers.</p>
+        </div>
+        <div class="pay-cards" style="padding-bottom:24px">
+          <div class="plan-card"><div><h3>Taksha AI Free</h3><div class="plan-price"><span class="amt">Free</span></div><div class="plan-specs">0.5 vCPU • 512 MB RAM</div></div></div>
+          <div class="plan-card popular"><div><h3>Taksha AI Pro</h3><div class="plan-price"><span class="cur">₹</span><span class="amt">499</span><span class="per">/mo</span></div><div class="plan-specs">2.0 vCPU • 2 GB RAM Isolated</div></div></div>
+          <div class="plan-card"><div><h3>Taksha AI Max</h3><div class="plan-price"><span class="cur">₹</span><span class="amt">999</span><span class="per">/mo</span></div><div class="plan-specs">4.0 vCPU • 4 GB RAM Dedicated</div></div></div>
+        </div>
+
+        <div class="scrim">
+          <div class="modal" style="max-width:640px;gap:16px;position:relative">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;border-bottom:1px solid var(--border);padding-bottom:12px;position:relative">
+              <div>
+                <h3>Taksha AI Pro, Detailed Explanation</h3>
+                <span class="t-accent" style="font-size:12px;font-weight:600">Pricing: ₹499/month</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:6px">
+                <span class="pin" style="position:static">1</span>
+                <button type="button" class="icon-btn" aria-label="Close breakdown"><svg class="i"><use href="#i-x"/></svg></button>
+              </div>
+            </div>
+
+            <div style="display:flex;flex-direction:column;gap:6px">
+              <div style="font-size:13.5px;font-weight:600;color:var(--text-primary)">Overview &amp; Capabilities</div>
+              <p style="font-size:12.5px">Full AI power with high-performance isolated sandbox containers. Built specifically for engineers and development teams requiring high-performance isolated sandboxes, automated AI agent workflows, and seamless cloud execution.</p>
+            </div>
+
+            <div style="display:flex;flex-direction:column;gap:8px;position:relative">
+              <div style="display:flex;align-items:center;justify-content:space-between">
+                <span style="font-size:13.5px;font-weight:600;color:var(--text-primary)">Hardware &amp; Infrastructure Specifications</span>
+                <span class="pin" style="position:static">2</span>
+              </div>
+              <div class="specs-grid">
+                <div class="spec-item"><div class="spec-ic"><svg class="i"><use href="#i-cpu"/></svg></div><div><span class="spec-k">Container Resources</span><span class="spec-v">2.0 vCPU + 2GB RAM Isolated</span></div></div>
+                <div class="spec-item"><div class="spec-ic"><svg class="i"><use href="#i-zap"/></svg></div><div><span class="spec-k">AI Token Allowance</span><span class="spec-v">5,000,000 Tokens / Month</span></div></div>
+                <div class="spec-item"><div class="spec-ic"><svg class="i"><use href="#i-database"/></svg></div><div><span class="spec-k">Storage Quotas</span><span class="spec-v">20GB High Speed Workspace</span></div></div>
+                <div class="spec-item"><div class="spec-ic"><svg class="i"><use href="#i-shield-check"/></svg></div><div><span class="spec-k">Priority SLA Queue</span><span class="spec-v">Priority Queue Execution</span></div></div>
+              </div>
+            </div>
+
+            <div style="display:flex;flex-direction:column;gap:8px">
+              <div style="font-size:13.5px;font-weight:600;color:var(--text-primary)">Key Features Included</div>
+              <div class="feat-grid">
+                <div><svg class="i t-ok"><use href="#i-check-circle"/></svg><span>4x higher usage limits in Taksha AI</span></div>
+                <div><svg class="i t-ok"><use href="#i-check-circle"/></svg><span>5,000,000 tokens per month cap</span></div>
+                <div><svg class="i t-ok"><use href="#i-check-circle"/></svg><span>2.0 vCPU + 2 GB RAM dedicated container</span></div>
+                <div><svg class="i t-ok"><use href="#i-check-circle"/></svg><span>Coding Agent + Copilot + App Agent</span></div>
+                <div><svg class="i t-ok"><use href="#i-check-circle"/></svg><span>Priority Email &amp; Discord support</span></div>
+              </div>
+            </div>
+
+            <div class="acts" style="position:relative">
+              <span class="pin" style="position:static">3</span>
+              <button type="button" class="btn-secondary">Close Breakdown</button>
+              <button type="button" class="btn-primary"><span>Select Taksha AI Pro</span><svg class="i s"><use href="#i-chev-r"/></svg></button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div></div>
+    <ol class="notes">
+      <li><b>Plan detail header</b> computes <code>Pricing: ₹{finalPrice}/month</code> from <code>plan.priceINR</code> and <code>billingCycle</code> (<code>0.8</code> multiplier when yearly); <code>usePayments().openPlanDetail</code> sets <code>activeView = 'detail'</code>, though <code>PaymentsLandingPage.jsx</code> does not mount this modal.</li>
+      <li><b>Hardware &amp; Infrastructure Specifications</b> switches on <code>plan.tier</code> inside <code>PlanDetailModal.jsx</code> to populate 4 cards; the component uses <code>.plan-detail-overlay</code>, <code>.plan-detail-card</code>, and <code>.specs-grid</code> classes that have no CSS rules in <code>payments.scss</code>.</li>
+      <li><b>Select Taksha AI Pro</b> calls <code>onClose()</code> followed by <code>onCheckout(plan.id)</code> to transition into CP-04 (<code>CheckoutModal.jsx</code>).</li>
+    </ol>
+  </section>
+
+  <!-- CP-04 -->
+  <section class="screen" id="cp04">
+    <div class="screen-cap"><span class="id">CP-04</span><h2>Checkout modal</h2><span class="where" style="overflow-wrap:anywhere">Frontend/src/features/payments/components/CheckoutModal.jsx · activeView === 'checkout'</span></div>
+    <div class="row-frames">
+      <div class="frame" style="height:490px;background:var(--bg-canvas)">
+        <div class="scrim">
+          <div class="modal" style="max-width:480px;gap:14px">
+            <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--border);padding-bottom:10px">
+              <div style="display:flex;align-items:center;gap:8px"><svg class="i t-ok"><use href="#i-lock"/></svg><h3>Checkout &amp; Activation</h3></div>
+              <button type="button" class="icon-btn" aria-label="Close checkout"><svg class="i"><use href="#i-x"/></svg></button>
+            </div>
+
+            <div style="display:flex;align-items:center;gap:8px">
+              <div class="order-box" style="flex:1">
+                <div class="order-top"><span>Taksha AI Pro Subscription (monthly)</span><span class="mono" style="font-size:13px">₹499 / mo</span></div>
+                <span class="muted" style="font-size:11.5px">Includes 256-bit SSL secure payment processing &amp; instant invoice generation.</span>
+              </div>
+              <span class="pin" style="position:static;flex-shrink:0">1</span>
+            </div>
+
+            <div class="field" style="position:relative">
+              <label style="display:flex;justify-content:space-between;align-items:center"><span>Select Payment Method</span><span class="pin" style="position:static">2</span></label>
+              <div class="pay-methods">
+                <button type="button" class="pay-m on"><svg class="i s"><use href="#i-phone"/></svg><span>UPI / QR</span></button>
+                <button type="button" class="pay-m"><svg class="i s"><use href="#i-card"/></svg><span>Card</span></button>
+                <button type="button" class="pay-m"><svg class="i s"><use href="#i-columns"/></svg><span>Net Banking</span></button>
+              </div>
+            </div>
+
+            <div class="field">
+              <label>UPI ID (GPay / PhonePe / Paytm)</label>
+              <div class="input ph">username@okaxis or 9876543210@upi</div>
+            </div>
+
+            <div style="position:relative;display:flex;align-items:center;gap:8px">
+              <button type="button" class="btn-primary" style="width:100%;padding:10px 14px"><svg class="i s"><use href="#i-shield-check"/></svg><span>Pay ₹499 &amp; Upgrade Now</span></button>
+              <span class="pin" style="position:static;flex-shrink:0">3</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="frame" style="height:490px;background:var(--bg-canvas)">
+        <div class="scrim">
+          <div class="modal" style="max-width:480px;gap:14px">
+            <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--border);padding-bottom:10px">
+              <div style="display:flex;align-items:center;gap:8px"><svg class="i t-ok"><use href="#i-lock"/></svg><h3>Checkout &amp; Activation</h3></div>
+              <button type="button" class="icon-btn" aria-label="Close checkout"><svg class="i"><use href="#i-x"/></svg></button>
+            </div>
+
+            <div class="order-box">
+              <div class="order-top"><span>Taksha AI Pro Subscription (yearly)</span><span class="mono" style="font-size:13px">₹399 / mo</span></div>
+              <span class="muted" style="font-size:11.5px">Includes 256-bit SSL secure payment processing &amp; instant invoice generation.</span>
+            </div>
+
+            <div class="field">
+              <label>Select Payment Method</label>
+              <div class="pay-methods">
+                <button type="button" class="pay-m"><svg class="i s"><use href="#i-phone"/></svg><span>UPI / QR</span></button>
+                <button type="button" class="pay-m on"><svg class="i s"><use href="#i-card"/></svg><span>Card</span></button>
+                <button type="button" class="pay-m"><svg class="i s"><use href="#i-columns"/></svg><span>Net Banking</span></button>
+              </div>
+            </div>
+
+            <div class="field">
+              <label>Card Number</label>
+              <div class="input ph mono">4532 •••• •••• 8910</div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+              <div class="field"><label>Expiry (MM/YY)</label><div class="input ph mono">12/28</div></div>
+              <div class="field"><label>CVC / CVV</label><div class="input ph mono">•••</div></div>
+            </div>
+
+            <button type="button" class="btn-primary" style="width:100%;padding:10px 14px"><svg class="i s"><use href="#i-shield-check"/></svg><span>Pay ₹399 &amp; Upgrade Now</span></button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <ol class="notes">
+      <li><b>Order summary box</b> calculates <code>displayPrice()</code> using <code>billingCycle</code> (<code>₹499 / mo</code> monthly, <code>₹399 / mo</code> yearly). In <code>PaymentsLandingPage.jsx</code>, <code>activeView === 'checkout'</code> renders <code>&lt;CheckoutModal /&gt;</code> with no props, so <code>if (!plan) return null</code> hides it in practice.</li>
+      <li><b>Payment method selector</b> toggles local <code>method</code> state across <code>UPI / QR</code> (left), <code>Card</code> (right), and <code>Net Banking</code> (renders no bank selector or input fields).</li>
+      <li><b>Pay &amp; Upgrade submit button</b> calls <code>onConfirmPayment(plan.tier)</code>, which is not yet wired to any endpoint in <code>Frontend/src/features/payments/service/payments.api.js</code>, then switches to <code>Subscription Activated</code>.</li>
+    </ol>
+  </section>
+
+  <!-- CP-05 -->
+  <section class="screen" id="cp05">
+    <div class="screen-cap"><span class="id">CP-05</span><h2>Invoices &amp; Billing</h2><span class="where" style="overflow-wrap:anywhere">Frontend/src/features/payments/components/InvoicesView.jsx · activeView === 'invoices'</span></div>
+    <div class="frame-scroll"><div class="frame">
+      <div class="pay-shell">
+        <header class="pay-nav">
+          <div class="pay-nav-l">
+            <div class="side-brand pay-brand"><div class="mark">T</div><span class="title">Taksha CodeSpace</span><span class="pill brand" style="font-weight:600;text-transform:uppercase;letter-spacing:0.05em">Plans &amp; Pricing</span></div>
+            <nav class="pay-tabs">
+              <button type="button" class="pay-tab">Overview &amp; Plans</button>
+              <button type="button" class="pay-tab on">Invoices &amp; Billing</button>
+            </nav>
+          </div>
+          <div class="pay-nav-r">
+            <div class="pay-user-pill"><div class="av">A</div><span style="font-weight:600;color:var(--text-primary)">Aarav Sharma</span><span class="t-accent" style="font-weight:700;text-transform:capitalize">(pro)</span></div>
+            <button type="button" class="btn-secondary btn-sm" style="border-radius:999px">Return to IDE</button>
+          </div>
+        </header>
+
+        <div class="inv-wrap">
+          <div class="page-h">
+            <div>
+              <h2>Billing &amp; Invoices</h2>
+              <p>View your complete payment audit trail, subscription charges, and token usage history.</p>
+            </div>
+            <div class="r" style="position:relative">
+              <span class="pin" style="position:static">1</span>
+              <div class="seg">
+                <button type="button" class="on">All</button>
+                <button type="button">Payments</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="inv-kpis" style="position:relative">
+            <div class="kpi"><div class="inv-kpi-l">Total Spent</div><div class="inv-kpi-v">₹2,495</div></div>
+            <div class="kpi"><div class="inv-kpi-l">Active Subscription</div><div class="inv-kpi-v t-accent" style="text-transform:capitalize">Pro</div></div>
+            <div class="kpi" style="position:relative"><div class="inv-kpi-l">Tokens Consumed</div><div class="inv-kpi-v t-brand">1,842,500</div><span class="pin" style="right:12px;top:12px">2</span></div>
+          </div>
+
+          <div class="pnl">
+            <table class="tbl">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Description</th>
+                  <th>Type</th>
+                  <th>Amount</th>
+                  <th><span style="display:inline-flex;align-items:center;gap:6px">Status <span class="pin" style="position:static">3</span></span></th>
+                  <th style="text-align:right">Receipt</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>24 Nov 2026</td>
+                  <td style="font-weight:600;color:var(--text-primary)">Taksha AI Pro Subscription (Monthly)</td>
+                  <td class="mono">SUBSCRIPTION</td>
+                  <td style="font-weight:700;color:var(--text-primary);font-variant-numeric:tabular-nums">₹499</td>
+                  <td><span class="t-brand" style="display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:600"><svg class="i s"><use href="#i-check-circle"/></svg>Completed</span></td>
+                  <td style="text-align:right"><button type="button" class="t-accent" style="display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:600"><svg class="i s"><use href="#i-download"/></svg>PDF</button></td>
+                </tr>
+                <tr>
+                  <td>14 Nov 2026</td>
+                  <td style="font-weight:600;color:var(--text-primary)">AI Credit Top-Up (500 Credits)</td>
+                  <td class="mono">CREDIT_PURCHASE</td>
+                  <td style="font-weight:700;color:var(--text-primary);font-variant-numeric:tabular-nums">₹299</td>
+                  <td><span class="t-brand" style="display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:600"><svg class="i s"><use href="#i-check-circle"/></svg>Completed</span></td>
+                  <td style="text-align:right"><button type="button" class="t-accent" style="display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:600"><svg class="i s"><use href="#i-download"/></svg>PDF</button></td>
+                </tr>
+                <tr>
+                  <td>24 Oct 2026</td>
+                  <td style="font-weight:600;color:var(--text-primary)">Taksha AI Pro Subscription (Monthly)</td>
+                  <td class="mono">SUBSCRIPTION</td>
+                  <td style="font-weight:700;color:var(--text-primary);font-variant-numeric:tabular-nums">₹499</td>
+                  <td><span class="t-brand" style="display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:600"><svg class="i s"><use href="#i-check-circle"/></svg>Completed</span></td>
+                  <td style="text-align:right"><button type="button" class="t-accent" style="display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:600"><svg class="i s"><use href="#i-download"/></svg>PDF</button></td>
+                </tr>
+                <tr>
+                  <td>02 Oct 2026</td>
+                  <td style="font-weight:600;color:var(--text-primary)">AI Credit Top-Up (500 Credits)</td>
+                  <td class="mono">CREDIT_PURCHASE</td>
+                  <td style="font-weight:700;color:var(--text-primary);font-variant-numeric:tabular-nums">₹299</td>
+                  <td><span class="t-brand" style="display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:600"><svg class="i s"><use href="#i-check-circle"/></svg>Completed</span></td>
+                  <td style="text-align:right"><button type="button" class="t-accent" style="display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:600"><svg class="i s"><use href="#i-download"/></svg>PDF</button></td>
+                </tr>
+                <tr>
+                  <td>24 Sep 2026</td>
+                  <td style="font-weight:600;color:var(--text-primary)">Taksha AI Pro Subscription (Monthly)</td>
+                  <td class="mono">SUBSCRIPTION</td>
+                  <td style="font-weight:700;color:var(--text-primary);font-variant-numeric:tabular-nums">₹499</td>
+                  <td><span class="t-brand" style="display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:600"><svg class="i s"><use href="#i-check-circle"/></svg>Completed</span></td>
+                  <td style="text-align:right"><button type="button" class="t-accent" style="display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:600"><svg class="i s"><use href="#i-download"/></svg>PDF</button></td>
+                </tr>
+                <tr>
+                  <td>08 Sep 2026</td>
+                  <td style="font-weight:600;color:var(--text-primary)">Taksha AI Pro Annual Upgrade Proration</td>
+                  <td class="mono">SUBSCRIPTION</td>
+                  <td style="font-weight:700;color:var(--text-primary);font-variant-numeric:tabular-nums">₹400</td>
+                  <td><span class="t-brand" style="display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:600"><svg class="i s"><use href="#i-check-circle"/></svg>Completed</span></td>
+                  <td style="text-align:right"><button type="button" class="t-accent" style="display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:600"><svg class="i s"><use href="#i-download"/></svg>PDF</button></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div></div>
+    <ol class="notes">
+      <li><b>All and Payments filter</b> filters the loaded <code>transactions</code> array from <code>GET /api/payments/credit/transactions?page=1&amp;limit=20</code>; selecting <code>Payments</code> matches only <code>tx.type === 'CREDIT_PURCHASE'</code> and omits pagination controls.</li>
+      <li><b>Summary cards</b> display <code>summary.totalSpentINR</code>, <code>summary.currentSubscription</code>, and <code>summary.totalTokensConsumed</code> from <code>GET /api/payments/credit/transactions/summary</code> (<code>PaymentsLandingPage.jsx</code> also calls <code>GET /api/payments/credit/analytics</code> without passing it down).</li>
+      <li><b>Transactions rows and PDF receipt</b> format dates with <code>en-IN</code> locale, hardcode <code>Completed</code> status in ember on every row regardless of status, and render a <code>PDF</code> button with no click handler.</li>
+    </ol>
+  </section>
+
+  <!-- States -->
+  <section class="screen" id="payments-states">
+    <div class="screen-cap"><span class="id">States</span><h2>Loading, empty, error and done</h2><span class="where" style="overflow-wrap:anywhere">Frontend/src/features/payments/components/ · CheckoutModal.jsx, InvoicesView.jsx</span></div>
+    <div class="states">
+      <div class="state">
+        <span class="state-label">Loading</span>
+        <div class="frame" style="padding:14px;display:flex;flex-direction:column;gap:12px">
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
+            <div class="kpi" style="padding:10px"><span class="sk" style="width:65%"></span><span class="sk h" style="margin-top:8px;width:55%"></span></div>
+            <div class="kpi" style="padding:10px"><span class="sk" style="width:70%"></span><span class="sk h" style="margin-top:8px;width:45%"></span></div>
+            <div class="kpi" style="padding:10px"><span class="sk" style="width:68%"></span><span class="sk h" style="margin-top:8px;width:60%"></span></div>
+          </div>
+          <div class="pnl">
+            <div style="display:flex;gap:12px;padding:10px 12px;border-bottom:1px solid var(--border)"><span class="sk" style="width:20%"></span><span class="sk" style="width:42%"></span><span class="sk" style="width:16%"></span><span class="sk" style="width:14%"></span></div>
+            <div style="display:flex;gap:12px;padding:10px 12px;border-bottom:1px solid var(--border)"><span class="sk" style="width:22%"></span><span class="sk" style="width:38%"></span><span class="sk" style="width:18%"></span><span class="sk" style="width:14%"></span></div>
+            <div style="display:flex;gap:12px;padding:10px 12px"><span class="sk" style="width:19%"></span><span class="sk" style="width:44%"></span><span class="sk" style="width:15%"></span><span class="sk" style="width:14%"></span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="state">
+        <span class="state-label">Empty</span>
+        <div class="frame">
+          <div class="pnl" style="border:none;border-radius:0;height:100%">
+            <div class="pnl-h"><h3>Billing &amp; Invoices</h3></div>
+            <div class="empty">
+              <div class="em-ic"><svg class="i"><use href="#i-file"/></svg></div>
+              <h4>No invoice or transaction records found.</h4>
+              <p>Completed plan upgrades and credit top-ups appear here once processed.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="state">
+        <span class="state-label">Error</span>
+        <div class="frame" style="padding:14px;display:flex;flex-direction:column;gap:10px;justify-content:center">
+          <div class="notice err"><svg class="i s"><use href="#i-x-circle"/></svg><span><b>Payments service rejected checkout.</b> Payment failed. Check your UPI ID or card details and try again.</span></div>
+          <div class="notice err"><svg class="i s"><use href="#i-alert"/></svg><span><b>Payments service timed out.</b> Showing default Free limits until transactions reload. <a href="#">Retry</a></span></div>
+        </div>
+      </div>
+
+      <div class="state">
+        <span class="state-label">Done</span>
+        <div class="frame" style="padding:16px;display:flex;flex-direction:column;align-items:center;justify-content:space-between;gap:14px">
+          <div style="text-align:center;display:flex;flex-direction:column;align-items:center;gap:8px;padding-top:6px">
+            <svg class="i l t-ok" style="width:32px;height:32px"><use href="#i-check-circle"/></svg>
+            <h4 style="font-size:15px;font-weight:700;color:var(--text-primary)">Subscription Activated</h4>
+            <p class="muted" style="font-size:12px;line-height:1.5;max-width:34ch">You have successfully upgraded to Taksha AI Pro. Your new credits, LLMs, and sandbox container specs are live.</p>
+            <button type="button" class="btn-solid btn-sm">Done</button>
+          </div>
+          <div class="toast"><svg class="i s t-ok"><use href="#i-check"/></svg>Upgraded to Taksha AI Pro</div>
+        </div>
+      </div>
+    </div>
+    <ol class="notes">
+      <li><b>Loading</b> sketches skeleton KPI cards and table rows matching <code>InvoicesView.jsx</code> (<code>PaymentsLandingPage.jsx</code> destructures <code>isLoading</code> without rendering a loading state).</li>
+      <li><b>Empty</b> uses the exact title rendered by <code>InvoicesView.jsx</code> when <code>filtered.length === 0</code>.</li>
+      <li><b>Error</b> pairs the inline <code>CheckoutModal.jsx</code> fallback string (<code>Payment failed</code>) with the 3 s Payments service timeout behavior from <code>payments.api.js</code>.</li>
+      <li><b>Done</b> reproduces the <code>Subscription Activated</code> panel built in <code>CheckoutModal.jsx</code> alongside a confirmation toast reusing the checkout button verb (<code>Pay ₹499 &amp; Upgrade Now</code> to <code>Upgraded to Taksha AI Pro</code>).</li>
+    </ol>
+  </section>
+</main>
+<script src="../../_shared/kit.js"></script>
+</body>
+</html>

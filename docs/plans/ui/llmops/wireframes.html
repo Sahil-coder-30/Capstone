@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LLM quality and cost screens</title>
+<link rel="stylesheet" href="../_shared/taksha-wireframe.css">
+<style>
+  .delta.up { color: var(--success); } .delta.down { color: var(--error); }
+  .gate { display: flex; align-items: center; gap: 12px; padding: 14px 16px; border: 1px solid rgba(239, 68, 68, 0.4); border-radius: 12px; background: var(--error-bg); }
+  .gate b { color: var(--error); }
+</style>
+</head>
+<body>
+<main class="board">
+  <header class="board-head">
+    <div>
+      <h1>LLM quality and cost screens</h1>
+      <p><a href="../../llmops-evals-cicd-plan.md">llmops-evals-cicd-plan.md</a> has no user-facing screens: evals run in CI, traces live in Langfuse, dashboards in Grafana. This board is a <b>proposal</b> for one summary page in the admin portal, the "Quality and cost" tab of AI runs, so the numbers the plan produces (eval scores, cost per request, cache hits, routing) sit next to the rest of the AI data. Build it only if Grafana and Langfuse are not enough. Spec: <a href="screens.md">screens.md</a>.</p>
+    </div>
+    <button class="theme-toggle" data-theme-toggle><svg class="i"><use href="#i-sun"/></svg> Light theme</button>
+  </header>
+  <nav class="board-nav"><a href="#lm1">LM-1 Quality and cost</a><a href="#lm2">LM-2 Eval run compare</a><a href="#lm-states">States</a></nav>
+
+  <section class="screen" id="lm1">
+    <div class="screen-cap"><span class="id">LM-1</span><h2>Quality and cost</h2><span class="where">Proposal · /ai/quality, analytics.view ai</span></div>
+    <div class="frame-scroll"><div class="frame">
+      <div class="shell tall">
+        <aside class="side" data-active="ai"></aside>
+        <div class="main">
+          <div class="topbar"><div class="crumbs">AI runs <svg class="i s"><use href="#i-chev-r"/></svg> <b>Quality and cost</b></div><div class="r"><div class="seg"><button>Runs</button><button>Usage</button><button>Agent tools</button><button class="on">Quality and cost</button></div></div></div>
+          <div class="content">
+            <div class="kpis">
+              <div class="kpi" style="position:relative"><span class="pin" style="right:10px;top:10px">1</span><div class="l">Agent task pass rate</div><div class="v">82%</div><div class="d"><span class="up">↑ 3</span> vs baseline · 50 tasks</div></div>
+              <div class="kpi"><div class="l">Cost per request, median</div><div class="v">₹1.84</div><div class="d"><span class="up">↓ 22%</span> since routing</div></div>
+              <div class="kpi"><div class="l">p95 latency, Orion run</div><div class="v">74 s</div><div class="d">first token 1.9 s</div></div>
+              <div class="kpi"><div class="l">Semantic cache hits</div><div class="v">18%</div><div class="d">Clio general only</div></div>
+            </div>
+            <div class="grid-3-2">
+              <div class="pnl" style="position:relative"><span class="pin" style="right:10px;top:10px">2</span><div class="pnl-h"><div><h3>Eval suites on main</h3><div class="sub">Latest CI run vs baseline.json</div></div><a class="btn-ghost btn-sm" style="text-decoration:none"><svg class="i s"><use href="#i-external"/></svg>Langfuse</a></div>
+                <table class="tbl"><tr><th>Suite</th><th>Metric</th><th class="num">Now</th><th class="num">Baseline</th><th class="num">Change</th><th>Gate</th></tr>
+                  <tr><td>Router</td><td class="muted">accuracy</td><td class="num">94.5%</td><td class="num">93.0%</td><td class="num delta up">+1.5</td><td><span class="badge ok">Pass</span></td></tr>
+                  <tr><td>Planner, reviewer</td><td class="muted">zod parse rate</td><td class="num">99.2%</td><td class="num">99.0%</td><td class="num delta up">+0.2</td><td><span class="badge ok">Pass</span></td></tr>
+                  <tr><td>Context retrieval</td><td class="muted">precision / recall</td><td class="num">0.71 / 0.83</td><td class="num">0.74 / 0.82</td><td class="num delta down">−0.03</td><td><span class="badge warn">Watch</span></td></tr>
+                  <tr><td>Memory recall</td><td class="muted">recall, leaks</td><td class="num">88%, 0</td><td class="num">86%, 0</td><td class="num delta up">+2</td><td><span class="badge ok">Pass</span></td></tr>
+                  <tr><td>Agent tasks</td><td class="muted">pass rate, holdout</td><td class="num">82%</td><td class="num">79%</td><td class="num delta up">+3</td><td><span class="badge ok">Pass</span></td></tr>
+                  <tr><td>Clio answers</td><td class="muted">judge score 1 to 5</td><td class="num">4.1</td><td class="num">4.0</td><td class="num delta up">+0.1</td><td><span class="badge ok">Pass</span></td></tr>
+                </table></div>
+              <div class="pnl" style="position:relative"><span class="pin" style="right:10px;top:10px">3</span><div class="pnl-h"><div><h3>Where the tokens go</h3><div class="sub">Share of input tokens per Orion run</div></div></div><div class="pnl-b barlist">
+                <div class="r"><span class="name">tool outputs</span><div class="meter"><span style="width:41%"></span></div><span class="v">41%</span></div>
+                <div class="r"><span class="name">history</span><div class="meter"><span style="width:24%"></span></div><span class="v">24%</span></div>
+                <div class="r"><span class="name">tool guides</span><div class="meter"><span style="width:17%"></span></div><span class="v">17%</span></div>
+                <div class="r"><span class="name">system prompt</span><div class="meter"><span style="width:12%"></span></div><span class="v">12%</span></div>
+                <div class="r"><span class="name">memory</span><div class="meter"><span style="width:6%"></span></div><span class="v">6%</span></div>
+              </div></div>
+            </div>
+            <div class="grid2">
+              <div class="pnl" style="position:relative"><span class="pin" style="left:8px;top:8px">4</span><div class="pnl-h"><div><h3>Cost per request by agent</h3><div class="sub">Median, last 30 days</div></div><div class="legend"><span><i></i>Orion</span><span><i class="b"></i>Clio</span></div></div><div class="pnl-b"><div class="chart"><div class="y"><span>₹2.4</span><span>₹1.8</span><span>₹1.2</span><span>₹0.6</span><span>0</span></div><div class="bars group"><span><i style="height:70%"></i><i style="height:18%"></i></span><span><i style="height:66%"></i><i style="height:16%"></i></span><span><i style="height:58%"></i><i style="height:12%"></i></span><span><i style="height:54%"></i><i style="height:10%"></i></span></div><div class="axis"><span>Week 1</span><span>Week 2</span><span>Week 3</span><span>Week 4</span></div></div></div></div>
+              <div class="pnl"><div class="pnl-h"><div><h3>Model routing</h3><div class="sub">Share of Clio and general queries</div></div></div><div class="pnl-b barlist">
+                <div class="r"><span class="name">fast model</span><div class="meter"><span style="width:63%;background:var(--accent-primary)"></span></div><span class="v">63%</span></div>
+                <div class="r"><span class="name">main model</span><div class="meter"><span style="width:33%"></span></div><span class="v">33%</span></div>
+                <div class="r"><span class="name">fallback to main</span><div class="meter warn"><span style="width:4%"></span></div><span class="v">4%</span></div>
+                <p class="muted" style="font-size:12px;margin-top:4px">Judge win rate of fast vs main: 52% (gate 50%).</p>
+              </div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div></div>
+    <ol class="notes">
+      <li>KPIs map to plan tracks E (pass rate), T (cost, latency, cache). Each links to its Grafana panel or Langfuse view.</li>
+      <li>Eval table reads the CI result files (<code>Ai_orchestration/evals/results/</code>) for the latest run on <code>main</code>. "Watch" when a metric drops but stays inside the threshold; "Fail" when <code>eval:compare</code> fails.</li>
+      <li>Token breakdown from T3, so prompt compression (T4) has a target.</li>
+      <li>Cost per request (T2) uses <code>pricing.js</code>. Prices are config, never hard-coded in the page.</li>
+    </ol>
+  </section>
+
+  <section class="screen" id="lm2">
+    <div class="screen-cap"><span class="id">LM-2</span><h2>Eval run compare</h2><span class="where">Proposal · /ai/quality/runs/:id, same data as npm run eval:compare</span></div>
+    <div class="frame-scroll"><div class="frame">
+      <div class="shell short">
+        <aside class="side" data-active="ai"></aside>
+        <div class="main">
+          <div class="topbar"><div class="crumbs">Quality and cost <svg class="i s"><use href="#i-chev-r"/></svg> <b>Run 2026-11-24 #412</b></div><div class="r"><span class="chip">PR #88 · prompt change in planner</span></div></div>
+          <div class="content">
+            <div class="gate"><svg class="i l t-err"><use href="#i-x-circle"/></svg><div style="font-size:13px"><b>Regression gate failed.</b> <span class="muted">Context recall dropped 6 points, threshold is 3. The baseline was not changed.</span></div></div>
+            <div class="pnl"><table class="tbl">
+              <tr><th>Task</th><th>Split</th><th>Baseline</th><th>This run</th><th class="num">Tokens</th><th class="num">Cost</th><th></th></tr>
+              <tr><td>seed-07 add theme slice</td><td class="muted">holdout</td><td><span class="badge ok">pass</span></td><td><span class="badge err">fail</span></td><td class="num">51k</td><td class="num">₹2.10</td><td><a class="t-accent" style="font-size:12px">Trace</a></td></tr>
+              <tr><td>seed-12 fix 404 route</td><td class="muted">dev</td><td><span class="badge err">fail</span></td><td><span class="badge ok">pass</span></td><td class="num">33k</td><td class="num">₹1.40</td><td><a class="t-accent" style="font-size:12px">Trace</a></td></tr>
+              <tr><td>seed-19 rename component</td><td class="muted">dev</td><td><span class="badge ok">pass</span></td><td><span class="badge ok">pass</span></td><td class="num">18k</td><td class="num">₹0.72</td><td><a class="t-accent" style="font-size:12px">Trace</a></td></tr>
+            </table></div>
+          </div>
+        </div>
+      </div>
+    </div></div>
+    <ol class="notes"><li>Changed outcomes first. Each row links to the Langfuse trace with the eval score attached (O7). The page never edits <code>baseline.json</code>; updating it stays a deliberate commit.</li></ol>
+  </section>
+
+  <!-- States ─────────────────────────────────────────────────────────── -->
+  <section class="screen" id="lm-states">
+    <div class="screen-cap"><span class="id">States</span><h2>Missing results and unreachable sources</h2><span class="where">Quality and cost tab</span></div>
+    <div class="states"><div class="state"><span class="state-label">No eval run</span><div class="frame" style="position:relative;"><div class="pnl" style="border:none;border-radius:0;height:100%"><div class="pnl-h"><h3>Eval suites on main</h3></div><div class="empty "><div class="em-ic"><svg class="i"><use href="#i-target"/></svg></div><h4>No eval run on main yet</h4><p>Results appear after the first CI run of <code>npm run eval</code> on main.</p></div></div></div></div><div class="state"><span class="state-label">Source down</span><div class="frame" style="position:relative;"><div class="pnl" style="border:none;border-radius:0;height:100%"><div class="pnl-h"><h3>Cost per request</h3></div><div style="padding:16px"><div class="notice err"><svg class="i s"><use href="#i-server"/></svg><span><b>Could not read Prometheus</b> (timed out after 3 s). Eval results still load from CI. <a href="#">Open Grafana</a></span></div></div></div></div></div></div>
+    <ol class="notes"><li>Each panel reads one source, so one failure never blanks the page.</li></ol>
+  </section>
+</main>
+<script src="../_shared/kit.js"></script>
+<script src="../_shared/admin-shell.js"></script>
+</body>
+</html>

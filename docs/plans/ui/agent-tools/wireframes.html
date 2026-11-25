@@ -1,0 +1,442 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Agent tools screens</title>
+<link rel="stylesheet" href="../_shared/taksha-wireframe.css">
+<style>
+  .shot { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; padding: 8px; }
+  .shot figure { border: 1px solid var(--border); border-radius: 6px; overflow: hidden; background: var(--bg-canvas); }
+  .shot .img { height: 96px; display: grid; place-items: center; color: var(--text-disabled); font-size: 11px; background: repeating-linear-gradient(45deg, var(--card), var(--card) 6px, transparent 6px, transparent 12px); }
+  .shot figcaption { padding: 4px 6px; font-size: 10.5px; color: var(--text-muted); display: flex; justify-content: space-between; }
+  .job-out { margin: 0 8px 8px; padding: 6px 8px; border-radius: 6px; background: var(--bg-canvas); font-family: var(--font-mono); font-size: 11px; line-height: 17px; color: var(--text-muted); }
+  .prob { display: grid; grid-template-columns: 18px 1fr auto; gap: 10px; align-items: start; padding: 8px 12px; border-bottom: 1px solid var(--border); font-size: 12px; }
+  .prob .t { color: var(--text-secondary); }
+  .prob .w { margin-top: 2px; font-family: var(--font-mono); font-size: 11px; color: var(--text-muted); }
+  .prob .x { display: flex; gap: 6px; align-items: center; }
+  .prob-group { display: flex; align-items: center; gap: 8px; padding: 6px 12px; font-size: 11px; font-weight: 600; color: var(--text-muted); background: rgba(var(--color-rgb-text), 0.02); border-bottom: 1px solid var(--border); }
+  .agent-label { position: absolute; right: 16px; top: -1px; padding: 1px 6px; border-radius: 0 0 4px 4px; background: var(--accent-primary); color: #fff; font-family: var(--font-sans); font-size: 10px; font-weight: 600; }
+  .cursor-agent { display: inline-block; width: 2px; height: 16px; vertical-align: -3px; background: var(--accent-primary); }
+  .cursor-user { display: inline-block; width: 2px; height: 16px; vertical-align: -3px; background: var(--brand-primary); }
+  .presence { display: flex; gap: 6px; align-items: center; margin-left: auto; padding-right: 10px; font-size: 11px; color: var(--text-muted); }
+  .presence .who { display: inline-flex; gap: 5px; align-items: center; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--border); }
+  .diffcols { flex: 1; display: grid; grid-template-columns: 1fr 1fr; min-height: 0; }
+  .diffcols > div { overflow: hidden; border-right: 1px solid var(--border); }
+  .hunk-bar { display: flex; align-items: center; gap: 8px; padding: 4px 12px; background: var(--accent-subtle); font-family: var(--font-sans); font-size: 11px; color: var(--accent-hover); }
+  :root.light-theme .hunk-bar { color: var(--accent-primary); }
+  .hunk-bar .r { margin-left: auto; display: flex; gap: 6px; }
+  .review-files { width: 250px; border-right: 1px solid var(--border); background: var(--bg-sidebar); flex-shrink: 0; display: flex; flex-direction: column; }
+  .tl { position: relative; padding-left: 18px; }
+  .tl::before { content: ''; position: absolute; left: 5px; top: 6px; bottom: 6px; width: 1px; background: var(--border); }
+  .tl-item { position: relative; padding: 4px 0; font-size: 12px; }
+  .tl-item::before { content: ''; position: absolute; left: -17px; top: 9px; width: 9px; height: 9px; border-radius: 50%; border: 2px solid var(--bg-sidebar); background: var(--border-strong); }
+  .tl-item.cp::before { background: var(--accent-primary); }
+  .tl-item .r { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+</style>
+</head>
+<body>
+<main class="board">
+  <header class="board-head">
+    <div>
+      <h1>Agent tools screens</h1>
+      <p>Screens for <a href="../../taksha-agent-tools-build-plan.md">taksha-agent-tools-build-plan.md</a>, phases P1 to P5. Everything lives inside today's IDE: the Orion panel on the left, Preview and Code in the middle, Problems, Output, Terminal and Ports at the bottom. No new page and no new chrome. Spec for each screen: <a href="screens.md">screens.md</a>.</p>
+    </div>
+    <button class="theme-toggle" data-theme-toggle><svg class="i"><use href="#i-sun"/></svg> Light theme</button>
+  </header>
+  <nav class="board-nav">
+    <a href="#at1">AT-1 Problems</a><a href="#at2">AT-2 Output</a><a href="#at3">AT-3 Tool steps</a><a href="#at4">AT-4 Ask first</a><a href="#at5">AT-5 Checkpoints</a><a href="#at6">AT-6 Live editor</a><a href="#at7">AT-7 Diff review</a>
+  <a href="#at-states">States</a></nav>
+
+  <!-- AT-1 ───────────────────────────────────────────────────────────── -->
+  <section class="screen" id="at1">
+    <div class="screen-cap"><span class="id">AT-1</span><h2>Problems tab with browser and build errors</h2><span class="where">Phase 1 · bottom panel, replaces today's placeholder</span></div>
+    <div class="frame-scroll"><div class="frame">
+      <div class="ide short">
+        <div class="sbx-header">
+          <div class="left"><button class="icon-btn"><svg class="i"><use href="#i-chev-l"/></svg></button><div class="toggles"><span class="icon-btn brand"><svg class="i"><use href="#i-sparkles"/></svg></span><span class="icon-btn"><svg class="i"><use href="#i-folder-tree"/></svg></span><span class="icon-btn brand"><svg class="i"><use href="#i-terminal"/></svg></span></div></div>
+          <h1>quiz-arena</h1>
+          <div class="right"><span class="sbx-live"><span class="dot ok"></span>Sandbox Live</span><button class="btn-secondary btn-sm">Share</button><span class="icon-btn"><svg class="i"><use href="#i-plug"/></svg></span><span class="icon-btn"><svg class="i"><use href="#i-settings"/></svg></span></div>
+        </div>
+        <div class="ide-body">
+          <div class="center">
+            <div class="tab-bar"><button class="tab-btn active"><svg class="i"><use href="#i-eye"/></svg>Preview</button><button class="tab-btn"><svg class="i"><use href="#i-code"/></svg>Code</button></div>
+            <div class="pv"><div class="pv-bar"><span class="icon-btn"><svg class="i s"><use href="#i-refresh"/></svg></span><div class="pv-url"><span class="dim">port 5173</span> /</div><span class="pill err"><svg class="i s"><use href="#i-x-circle"/></svg>2 errors</span></div><div class="pv-page" aria-label="The user's app renders a blank white page after the crash"></div></div>
+            <div class="bottom tall" style="position:relative">
+              <span class="pin" style="left:120px;top:8px">1</span>
+              <div class="tab-bar" style="justify-content:space-between;padding-right:12px">
+                <div style="display:flex;height:100%;gap:2px">
+                  <button class="tab-btn active"><svg class="i"><use href="#i-info"/></svg>Problems <span class="count">3</span></button>
+                  <button class="tab-btn"><svg class="i"><use href="#i-alert"/></svg>Output</button>
+                  <button class="tab-btn"><svg class="i"><use href="#i-terminal"/></svg>Terminal</button>
+                  <button class="tab-btn"><svg class="i"><use href="#i-plug"/></svg>Ports</button>
+                </div>
+                <div style="display:flex;gap:6px;align-items:center">
+                  <span class="pin" style="position:static">2</span>
+                  <button class="btn-solid btn-sm"><svg class="i s"><use href="#i-sparkles"/></svg>Fix with Orion</button>
+                  <button class="btn-ghost btn-sm">Clear</button>
+                  <button class="icon-btn"><svg class="i"><use href="#i-x"/></svg></button>
+                </div>
+              </div>
+              <div style="flex:1;overflow:hidden">
+                <div class="prob-group"><svg class="i s"><use href="#i-chev-d"/></svg>Browser <span class="pill err">2</span><span class="muted" style="font-weight:400;margin-left:auto">From the preview, last 2 min</span></div>
+                <div class="prob"><svg class="i t-err"><use href="#i-x-circle"/></svg><div><div class="t">TypeError: Cannot read properties of undefined (reading 'theme')</div><div class="w">src/features/ui/ThemeToggle.jsx:14:22 · at ThemeToggle → App</div></div><div class="x"><span class="pill">×7</span><button class="btn-ghost btn-sm">Open file</button></div></div>
+                <div class="prob"><svg class="i t-err"><use href="#i-x-circle"/></svg><div><div class="t">Unhandled promise rejection: GET /api/scores 404</div><div class="w">src/features/scores/scores.api.js:9:5</div></div><div class="x"><span class="pill">×2</span><button class="btn-ghost btn-sm">Open file</button></div></div>
+                <div class="prob-group"><svg class="i s"><use href="#i-chev-d"/></svg>Build <span class="pill warn">1</span><span class="muted" style="font-weight:400;margin-left:auto">From the Vite dev server</span></div>
+                <div class="prob"><svg class="i t-warn"><use href="#i-alert"/></svg><div><div class="t">[vite] Failed to resolve import "../features/ui/uiSlice"</div><div class="w">src/app/store.js:3:23</div></div><div class="x"><span class="pill">×1</span><button class="btn-ghost btn-sm">Open file</button></div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="status-bar"><div class="sec"><span class="status-item"><svg class="i s"><use href="#i-git-branch"/></svg>main</span><span class="status-item"><span class="dot ok"></span><span class="t-ok">Sandbox Active</span></span><span class="status-item t-err"><svg class="i s"><use href="#i-x-circle"/></svg>2 <svg class="i s t-warn"><use href="#i-alert"/></svg><span class="t-warn">1</span></span></div><div class="sec"><span class="status-item">Port: 5173</span><span class="status-item brand">CodeSpace IDE v1.0</span></div></div>
+      </div>
+    </div></div>
+    <ol class="notes">
+      <li><b>Count badge</b> on the Problems tab and in the status bar, red for errors, amber for warnings. Errors come from <code>get_browser_errors</code> (deduped, with a count) and <code>get_dev_server_log</code> level error.</li>
+      <li><b>Fix with Orion</b> opens the chat with a prefilled prompt naming the top error. It never sends on its own. Clear calls the tool with <code>clear: true</code>.</li>
+      <li>Empty state stays today's: green check and "No problems have been detected in the workspace."</li>
+      <li>Error text is user app output. Render as plain text, never as Markdown or HTML.</li>
+    </ol>
+  </section>
+
+  <!-- AT-2 ───────────────────────────────────────────────────────────── -->
+  <section class="screen" id="at2">
+    <div class="screen-cap"><span class="id">AT-2</span><h2>Output tab: console, network and dev server</h2><span class="where">Phase 1 · bottom panel, extends RuntimeLogs</span></div>
+    <div class="frame-scroll"><div class="frame">
+      <div style="height:320px;display:flex;flex-direction:column;background:var(--bg-overlay);position:relative">
+        <div class="tab-bar" style="justify-content:space-between;padding-right:12px">
+          <div style="display:flex;height:100%;gap:2px"><button class="tab-btn"><svg class="i"><use href="#i-info"/></svg>Problems <span class="count">3</span></button><button class="tab-btn active"><svg class="i"><use href="#i-alert"/></svg>Output</button><button class="tab-btn"><svg class="i"><use href="#i-terminal"/></svg>Terminal</button><button class="tab-btn"><svg class="i"><use href="#i-plug"/></svg>Ports</button></div>
+          <button class="icon-btn"><svg class="i"><use href="#i-x"/></svg></button>
+        </div>
+        <div class="log-toolbar">
+          <span class="pin" style="position:static">1</span>
+          <div class="seg"><button class="on">Console</button><button>Network</button><button>Dev server</button></div>
+          <span class="pin" style="position:static">2</span>
+          <div class="seg"><button class="on">All</button><button>Errors</button><button>Warnings</button><button>Info</button></div>
+          <div class="search"><svg class="i s"><use href="#i-search"/></svg>Filter text</div>
+          <div style="margin-left:auto;display:flex;gap:8px;align-items:center;font-size:11px" class="muted"><span class="pin" style="position:static">3</span><span class="dot ok" style="animation:pulse 1.6s infinite"></span>Live · 142 lines<button class="icon-btn" title="Pause"><svg class="i"><use href="#i-pause"/></svg></button><button class="icon-btn" title="Clear"><svg class="i"><use href="#i-trash"/></svg></button></div>
+        </div>
+        <div class="log">
+          <div class="log-row"><span class="ts">18:41:02.114</span><span class="lv muted">log</span><span class="msg">[HMR] connected</span></div>
+          <div class="log-row"><span class="ts">18:41:02.380</span><span class="lv muted">log</span><span class="msg">Loaded 12 questions from /api/questions</span></div>
+          <div class="log-row warn"><span class="ts">18:41:03.006</span><span class="lv">warn</span><span class="msg">Each child in a list should have a unique "key" prop. Check the render method of `Leaderboard`.</span></div>
+          <div class="log-row err"><span class="ts">18:41:05.771</span><span class="lv">error</span><span class="msg">TypeError: Cannot read properties of undefined (reading 'theme') at ThemeToggle (ThemeToggle.jsx:14)</span></div>
+          <div class="log-row"><span class="ts">18:41:05.772</span><span class="lv muted">log</span><span class="msg">token=<span class="mono t-accent">tks_••••••••</span> saved   <span class="dim">(masked on the way in)</span></span></div>
+          <div class="log-row err"><span class="ts">18:41:06.020</span><span class="lv">error</span><span class="msg">Uncaught (in promise) Error: GET /api/scores 404</span></div>
+          <div class="log-row"><span class="ts">18:41:06.311</span><span class="lv muted">log</span><span class="msg">[vite] hot updated: /src/features/ui/ThemeToggle.jsx</span></div>
+          <div class="log-row err"><span class="ts">18:41:06.315</span><span class="lv">error</span><span class="msg">TypeError: Cannot read properties of undefined (reading 'theme') at ThemeToggle (ThemeToggle.jsx:14)  ×2</span></div>
+          <div class="log-row"><span class="ts">18:41:07.002</span><span class="lv muted">info</span><span class="msg">Download the React DevTools for a better development experience</span></div>
+          <div class="log-row"><span class="ts">18:41:09.540</span><span class="lv muted">log</span><span class="msg">score submitted { player: "ria", points: 840 }</span></div>
+        </div>
+      </div>
+    </div></div>
+    <ol class="notes">
+      <li><b>Source switch</b>: Console (<code>get_console_logs</code>), Network (<code>get_network_log</code>, failed and slow requests only, table of method, URL, status, ms) and Dev server (<code>get_dev_server_log</code>, today's Vite log).</li>
+      <li><b>Level filter and text filter</b> map to the tools' <code>levels</code> and <code>search</code> params, so the panel and the agent see the same slice.</li>
+      <li><b>Live</b> follows <code>nextCursor</code>. Pause freezes the view without stopping collection. Secrets arrive already masked, shown in the accent colour.</li>
+    </ol>
+  </section>
+
+  <!-- AT-3 ───────────────────────────────────────────────────────────── -->
+  <section class="screen" id="at3">
+    <div class="screen-cap"><span class="id">AT-3</span><h2>New tool steps in the Orion run</h2><span class="where">Phases 1 to 3 · Orion panel, ToolStepList</span></div>
+    <div class="row-frames">
+      <div class="frame">
+        <div class="panel" style="height:860px;position:relative">
+          <div class="orion-header"><span class="icon-btn"><svg class="i"><use href="#i-history"/></svg></span><h1><span class="brand">Orion</span><span class="chat">Fix the theme toggle crash</span></h1><span class="orion-state working"><span class="dot brand"></span>Working</span></div>
+          <div class="chat-scroll">
+            <div class="u-msg">The page goes white when I click the theme toggle. Fix it.</div>
+            <div class="a-turn">
+              <div class="run-line"><svg class="i s spin t-brand"><use href="#i-refresh"/></svg>Checking the fix in the browser · 38s</div>
+              <ul class="steps">
+                <li class="step"><svg class="i s t-ok"><use href="#i-check"/></svg><span class="verb">Read browser errors</span><span class="target">1 error, ×7</span></li>
+                <li class="step link"><svg class="i s t-ok"><use href="#i-check"/></svg><span class="verb">Read</span><span class="target">ThemeToggle.jsx:1-40</span></li>
+                <li class="step link"><svg class="i s t-ok"><use href="#i-check"/></svg><span class="verb">Searched</span><span class="target">"useSelector(state.ui" in src/**</span><span class="meta">2 hits</span></li>
+              </ul>
+              <span class="pin" style="position:relative;margin:-4px 0 -8px">1</span>
+              <div class="card">
+                <div class="card-title"><svg class="i s t-ok"><use href="#i-check"/></svg>Edited <span class="mono" style="color:var(--text-secondary)">src/app/store.js</span><span class="r"><span class="pill ok">+2</span><span class="pill err">−0</span><svg class="i s"><use href="#i-chev-d"/></svg></span></div>
+                <div class="diff">
+                  <div class="h">@@ -1,6 +1,7 @@</div>
+                  <div class="x"> import { configureStore } from '@reduxjs/toolkit';</div>
+                  <div class="a">+import uiReducer from '../features/ui/uiSlice';</div>
+                  <div class="x"> import scoresReducer from '../features/scores/scoresSlice';</div>
+                  <div class="x">   reducer: {</div>
+                  <div class="x">     scores: scoresReducer,</div>
+                  <div class="a">+    ui: uiReducer,</div>
+                </div>
+              </div>
+              <span class="pin" style="position:relative;margin:-4px 0 -8px">2</span>
+              <div class="card">
+                <div class="card-title"><svg class="i s spin t-brand"><use href="#i-refresh"/></svg>Running in background <span class="mono" style="color:var(--text-secondary)">npm run build</span><span class="r"><span class="muted">0:21</span><button class="btn-ghost btn-sm"><svg class="i s"><use href="#i-square"/></svg>Stop</button></span></div>
+                <div class="job-out">vite v7.1 building for production...<br>✓ 48 modules transformed.<br><span class="dim">…</span></div>
+              </div>
+              <span class="pin" style="position:relative;margin:-4px 0 -8px">3</span>
+              <div class="card">
+                <div class="card-title"><svg class="i s t-err"><use href="#i-flask"/></svg>Tests <span class="r"><span class="pill ok">11 passed</span><span class="pill err">1 failed</span></span></div>
+                <div class="card-body" style="display:flex;flex-direction:column;gap:6px">
+                  <div class="notice err" style="padding:6px 8px"><svg class="i s"><use href="#i-x-circle"/></svg><div><b>toggles to dark</b> · <span class="mono">ThemeToggle.test.jsx:22</span><br>Expected "dark", received "light"</div></div>
+                </div>
+              </div>
+              <span class="pin" style="position:relative;margin:-4px 0 -8px">4</span>
+              <div class="card">
+                <div class="card-title"><svg class="i s t-ok"><use href="#i-camera"/></svg>Screenshot of <span class="mono" style="color:var(--text-secondary)">/</span><span class="r"><span class="pill ok">no errors on load</span></span></div>
+                <div class="shot"><figure><div class="img">1280 × 800</div><figcaption><span>Desktop</span><svg class="i s"><use href="#i-external"/></svg></figcaption></figure><figure><div class="img">390 × 844</div><figcaption><span>Phone</span><svg class="i s"><use href="#i-external"/></svg></figcaption></figure></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div>
+        <div class="frame" style="padding:16px;background:var(--bg-sidebar)">
+          <h3 style="font-size:13px;color:var(--text-primary);margin-bottom:10px">Step verbs for every new tool</h3>
+          <table class="tbl wrap" style="font-size:12px">
+            <tr><th>Tool</th><th>Running</th><th>Done</th><th>Target text</th></tr>
+            <tr><td class="mono">get_console_logs</td><td>Reading console</td><td>Read console</td><td>12 lines, 1 error</td></tr>
+            <tr><td class="mono">get_browser_errors</td><td>Reading browser errors</td><td>Read browser errors</td><td>1 error, ×7</td></tr>
+            <tr><td class="mono">get_network_log</td><td>Reading network</td><td>Read network</td><td>2 failed requests</td></tr>
+            <tr><td class="mono">get_dev_server_log</td><td>Reading dev server log</td><td>Read dev server log</td><td>since last check</td></tr>
+            <tr><td class="mono">read_file</td><td>Reading</td><td>Read</td><td>file:from-to</td></tr>
+            <tr><td class="mono">patch_file</td><td>Editing</td><td>Edited</td><td>path, +n −n (card)</td></tr>
+            <tr><td class="mono">write_file</td><td>Writing</td><td>Created / Rewrote</td><td>path (card)</td></tr>
+            <tr><td class="mono">move_file</td><td>Moving</td><td>Moved</td><td>a → b, n imports to fix</td></tr>
+            <tr><td class="mono">delete_file</td><td>Deleting</td><td>Moved to trash</td><td>path</td></tr>
+            <tr><td class="mono">glob_files</td><td>Finding files</td><td>Found files</td><td>pattern, n files</td></tr>
+            <tr><td class="mono">search_code</td><td>Searching</td><td>Searched</td><td>"query" in glob, n hits</td></tr>
+            <tr><td class="mono">execute_command</td><td>Running</td><td>Ran</td><td>command (card if background)</td></tr>
+            <tr><td class="mono">run_tests</td><td>Running tests</td><td>Tests</td><td>card with pass / fail</td></tr>
+            <tr><td class="mono">restart_dev_server</td><td>Restarting dev server</td><td>Dev server ready</td><td>ready in n s</td></tr>
+            <tr><td class="mono">get_dom</td><td>Reading page</td><td>Read page</td><td>route</td></tr>
+            <tr><td class="mono">browser_action</td><td>Clicking through</td><td>Checked</td><td>route, n steps (card)</td></tr>
+            <tr><td class="mono">screenshot</td><td>Taking screenshot</td><td>Screenshot</td><td>card with images</td></tr>
+            <tr><td class="mono">checkpoint</td><td>Saving checkpoint</td><td>Checkpoint</td><td>label</td></tr>
+            <tr><td class="mono">restore</td><td>Restoring</td><td>Restored</td><td>n files changed</td></tr>
+            <tr><td class="mono">get_diff</td><td>Comparing</td><td>Compared</td><td>since checkpoint</td></tr>
+          </table>
+        </div>
+      </div>
+    </div>
+    <ol class="notes">
+      <li><b>Edit card</b> for <code>patch_file</code> and <code>write_file</code>: the same unified diff the tool returned. Collapsed to 8 lines, click to expand, click the path to open the file. Multi-edit shows one card per file.</li>
+      <li><b>Background job card</b> streams <code>get_job_output</code> with a timer and Stop (<code>stop_job</code>). It stays in the run after the job ends, with the exit code.</li>
+      <li><b>Test card</b> from <code>run_tests</code>: pass and fail pills, then each failure with file and line. A failure line opens the file at that line.</li>
+      <li><b>Screenshot card</b>: both viewports from <code>screenshot</code>, click opens full size. Load errors show as a red pill instead of the green one.</li>
+    </ol>
+  </section>
+
+  <!-- AT-4 ───────────────────────────────────────────────────────────── -->
+  <section class="screen" id="at4">
+    <div class="screen-cap"><span class="id">AT-4</span><h2>Ask first: approve a risky step</h2><span class="where">Phase 4 · Orion panel, same pattern as PlanReviewCard</span></div>
+    <div class="row-frames">
+      <div class="frame">
+        <div class="panel" style="height:520px;position:relative">
+          <div class="orion-header"><span class="icon-btn"><svg class="i"><use href="#i-history"/></svg></span><h1><span class="brand">Orion</span><span class="chat">Add a leaderboard API</span></h1><span class="pin" style="position:static">1</span><span class="orion-state waiting"><span class="dot warn"></span>Waiting for you</span></div>
+          <div class="chat-scroll">
+            <div class="a-turn">
+              <ul class="steps"><li class="step"><svg class="i s t-ok"><use href="#i-check"/></svg><span class="verb">Edited</span><span class="target">package.json</span></li></ul>
+              <span class="pin" style="position:relative;margin:-4px 0 -8px">2</span>
+              <div class="card wait">
+                <div class="card-title" style="color:var(--warning)"><svg class="i s"><use href="#i-shield"/></svg>Orion wants to run a command</div>
+                <div class="card-body" style="display:flex;flex-direction:column;gap:10px">
+                  <div class="job-out" style="margin:0;color:var(--text-primary)">npm install express-rate-limit@7</div>
+                  <p class="muted" style="font-size:12px;line-height:1.5">Installs a package from the internet into this project. Commands outside the safe list always ask first.</p>
+                  <div class="field"><label style="font-size:11.5px">Tell Orion why, if you reject (optional)</label><div class="input ph" style="height:30px;font-size:12px">Use the built-in limiter instead</div></div>
+                  <div style="display:flex;gap:8px;justify-content:flex-end"><button class="btn-ghost">Reject</button><button class="btn-solid"><svg class="i s"><use href="#i-check"/></svg>Run command</button></div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="composer"><div class="ph">Orion is waiting for your answer above</div><div class="bar"><span class="muted" style="font-size:11px">Answer the card to continue</span><button class="btn-solid btn-sm" disabled style="opacity:.5">Send</button></div></div>
+        </div>
+      </div>
+      <div class="frame">
+        <div class="panel" style="height:520px">
+          <div class="orion-header"><span class="icon-btn"><svg class="i"><use href="#i-history"/></svg></span><h1><span class="brand">Orion</span><span class="chat">Undo the store change</span></h1><span class="orion-state waiting"><span class="dot warn"></span>Waiting for you</span></div>
+          <div class="chat-scroll">
+            <div class="a-turn">
+              <span class="pin" style="position:relative;margin:-4px 0 -8px">3</span>
+              <div class="card wait">
+                <div class="card-title" style="color:var(--warning)"><svg class="i s"><use href="#i-rotate"/></svg>Orion wants to restore a checkpoint</div>
+                <div class="card-body" style="display:flex;flex-direction:column;gap:10px">
+                  <p style="font-size:12.5px;color:var(--text-secondary)">Go back to <b>Before "Add leaderboard API"</b>, saved 18:32. These files will change:</p>
+                  <ul class="steps" style="border:1px solid var(--border);border-radius:6px;padding:2px">
+                    <li class="step"><span class="pill">M</span><span class="target">src/app/store.js</span></li>
+                    <li class="step"><span class="pill">M</span><span class="target">package.json</span></li>
+                    <li class="step"><span class="pill err">delete</span><span class="target">src/api/leaderboard.js</span></li>
+                  </ul>
+                  <div class="notice warn"><svg class="i s"><use href="#i-alert"/></svg>Your own edits to these files since 18:32 are lost too.</div>
+                  <div style="display:flex;gap:8px;justify-content:flex-end"><button class="btn-ghost">Keep files</button><button class="btn-solid">Restore 3 files</button></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <ol class="notes">
+      <li>The header state reads <b>Waiting for you</b> (amber), the state ChatHeader already has. The composer is disabled until the card is answered.</li>
+      <li><b>Command card</b>: the exact command in mono, one sentence on why it asks, an optional reason field for Reject. The button names the action: "Run command". Resumes the run through the same <code>interrupt()</code> path as plan review.</li>
+      <li><b>Restore card</b>: names the checkpoint and lists the files that will change, from <code>get_diff</code>. Button says how many files.</li>
+    </ol>
+  </section>
+
+  <!-- AT-5 ───────────────────────────────────────────────────────────── -->
+  <section class="screen" id="at5">
+    <div class="screen-cap"><span class="id">AT-5</span><h2>Checkpoints in a run, and undo by the user</h2><span class="where">Phase 4 · Orion panel, RunItem footer and a modal</span></div>
+    <div class="frame-scroll"><div class="frame">
+      <div class="ide short">
+        <div class="ide-body">
+          <div class="panel chat-panel" style="width:380px">
+            <div class="orion-header"><span class="icon-btn"><svg class="i"><use href="#i-history"/></svg></span><h1><span class="brand">Orion</span><span class="chat">Add a leaderboard API</span></h1><span class="orion-state"><span class="dot ok"></span>Ready</span></div>
+            <div class="chat-scroll">
+              <div class="a-turn">
+                <p>Done. The leaderboard reads from <code>/api/scores</code>, the build passes, and the page has no errors.</p>
+                <div class="card">
+                  <div class="card-title"><svg class="i s"><use href="#i-file-diff"/></svg>Changed files<span class="r"><span class="pin" style="position:static">1</span><button class="btn-ghost btn-sm">Review changes</button></span></div>
+                  <ul class="steps" style="padding:2px">
+                    <li class="step link"><span class="target" style="flex:1">src/api/leaderboard.js</span><span class="pill ok">create</span></li>
+                    <li class="step link"><span class="target" style="flex:1">src/app/store.js</span><span class="pill">edit</span></li>
+                    <li class="step link"><span class="target" style="flex:1">src/pages/Leaderboard.jsx</span><span class="pill">edit</span></li>
+                  </ul>
+                </div>
+                <span class="pin" style="position:relative;margin:-4px 0 -8px">2</span>
+                <div class="card">
+                  <div class="card-title"><svg class="i s"><use href="#i-history"/></svg>Checkpoints in this run</div>
+                  <div class="card-body tl">
+                    <div class="tl-item cp"><div class="r"><span>Before "Add leaderboard API"</span><span class="muted">18:32</span></div></div>
+                    <div class="tl-item cp"><div class="r"><span>After API route</span><span><span class="muted">18:35</span> <button class="btn-ghost btn-sm">Restore</button></span></div></div>
+                    <div class="tl-item"><div class="r"><span class="muted">Now</span><span class="muted">18:38</span></div></div>
+                  </div>
+                </div>
+                <span class="pin" style="position:relative;margin:-4px 0 -8px">3</span>
+                <div class="notice"><svg class="i s"><use href="#i-info"/></svg>Undo is available while the sandbox runs. Stopping the sandbox clears checkpoints.</div>
+              </div>
+            </div>
+          </div>
+          <div class="center" style="position:relative">
+            <div class="tab-bar"><button class="tab-btn active"><svg class="i"><use href="#i-eye"/></svg>Preview</button><button class="tab-btn"><svg class="i"><use href="#i-code"/></svg>Code</button></div>
+            <div style="flex:1"></div>
+            <div class="scrim">
+              <div class="modal">
+                <span class="pin" style="position:static">4</span>
+                <h3>Restore "After API route"?</h3>
+                <p>The workspace goes back to 18:35. 2 files change and 1 file you created after that is moved to trash.</p>
+                <ul class="steps" style="border:1px solid var(--border);border-radius:6px;padding:2px">
+                  <li class="step"><span class="pill">M</span><span class="target">src/pages/Leaderboard.jsx</span></li>
+                  <li class="step"><span class="pill">M</span><span class="target">src/app/store.js</span></li>
+                  <li class="step"><span class="pill err">trash</span><span class="target">src/components/Medal.jsx</span></li>
+                </ul>
+                <div class="acts"><button class="btn-secondary">Cancel</button><button class="btn-primary">Restore 3 files</button></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div></div>
+    <ol class="notes">
+      <li><b>Review changes</b> on the existing ChangedFiles card opens AT-7 for this run.</li>
+      <li><b>Checkpoints</b>: a small timeline at the end of each run that made a checkpoint. Restore per row, newest last. Hidden when a run made none.</li>
+      <li>The known limit from the plan, said once, in the muted notice style.</li>
+      <li>User-started restore uses the app's modal card. It lists the same files as AT-4 and names the count on the button.</li>
+    </ol>
+  </section>
+
+  <!-- AT-6 ───────────────────────────────────────────────────────────── -->
+  <section class="screen" id="at6">
+    <div class="screen-cap"><span class="id">AT-6</span><h2>Live editor: Orion edits while you type</h2><span class="where">Phase 5 · Code tab, Monaco with y-monaco</span></div>
+    <div class="frame-scroll"><div class="frame">
+      <div class="ide short">
+        <div class="ide-body">
+          <div class="panel chat-panel" style="width:330px">
+            <div class="orion-header"><span class="icon-btn"><svg class="i"><use href="#i-history"/></svg></span><h1><span class="brand">Orion</span><span class="chat">Add medals</span></h1><span class="orion-state working"><span class="dot brand"></span>Working</span></div>
+            <div class="chat-scroll">
+              <div class="a-turn">
+                <ul class="steps"><li class="step"><svg class="i s t-ok"><use href="#i-check"/></svg><span class="verb">Edited</span><span class="target">Leaderboard.jsx</span></li><li class="step"><svg class="i s t-warn"><use href="#i-alert"/></svg><span class="verb">File changed while editing</span><span class="target">Leaderboard.jsx</span></li></ul>
+                <span class="pin" style="position:relative;margin:-4px 0 -8px">4</span>
+                <div class="notice warn"><svg class="i s"><use href="#i-hourglass"/></svg>You are editing Leaderboard.jsx. Orion will wait until you pause, then try again.</div>
+              </div>
+            </div>
+          </div>
+          <div class="center">
+            <div class="tab-bar"><button class="tab-btn"><svg class="i"><use href="#i-eye"/></svg>Preview</button><button class="tab-btn active"><svg class="i"><use href="#i-code"/></svg>Code</button></div>
+            <div class="workspace">
+              <div class="editor">
+                <div class="editor-tabs"><div class="editor-tab active"><span class="dot" style="background:var(--accent-primary)"></span>Leaderboard.jsx</div><div class="editor-tab">store.js</div>
+                  <div class="presence"><span class="pin" style="position:static">1</span><span class="who"><span class="dot brand"></span>You</span><span class="who"><span class="dot" style="background:var(--accent-primary)"></span>Orion</span></div></div>
+                <div class="code">
+                  <div class="ln"><i>1</i><span class="k">import</span> { useSelector } <span class="k">from</span> <span class="s">&#39;react-redux&#39;</span>;</div><div class="ln"><i>2</i><span class="k">import</span> { selectScores } <span class="k">from</span> <span class="s">&#39;../features/scores/scoresSlice&#39;</span>;</div><div class="ln"><i>3</i><span class="k">import</span> <span class="s">&#39;./Leaderboard.css&#39;</span>;</div><div class="ln"><i>4</i></div><div class="ln"><i>5</i><span class="c">/**</span></div><div class="ln"><i>6</i><span class="c"> * Top ten players for the current quiz.</span></div><div class="ln"><i>7</i><span class="c"> * Medals for the first three places.</span></div><div class="ln"><i>8</i><span class="c"> */</span></div><div class="ln"><i>9</i><span class="k">const</span> EMPTY = [];</div><div class="ln"><i>10</i></div><div class="ln"><i>11</i><span class="c">// eslint-disable-next-line react/prop-types</span></div><div class="ln"><i>12</i><span class="k">export default function</span> <span class="f">Leaderboard</span>({ scores }) {</div>
+                  <div class="ln"><i>13</i>  <span class="k">const</span> top = scores.<span class="f">slice</span>(<span class="n">0</span>, <span class="n">10</span>);<span class="cursor-user"></span></div>
+                  <div class="ln agent" style="position:relative"><i>14</i><span class="gutter" style="background:var(--accent-primary)"></span>  <span class="k">const</span> medal = (i) =&gt; [<span class="s">'🥇'</span>, <span class="s">'🥈'</span>, <span class="s">'🥉'</span>][i] ?? <span class="s">''</span>;<span class="cursor-agent"></span><span class="agent-label">Orion</span><span class="pin" style="left:auto;right:70px;top:1px">2</span></div>
+                  <div class="ln"><i>15</i>  <span class="k">return</span> (</div>
+                  <div class="ln"><i>16</i>    &lt;<span class="tg">ol</span> className=<span class="s">"board"</span>&gt;</div>
+                  <div class="ln agent" style="position:relative"><i>17</i><span class="gutter" style="background:var(--accent-primary)"></span>      {top.<span class="f">map</span>((s, i) =&gt; &lt;<span class="tg">li</span> key={s.id}&gt;{<span class="f">medal</span>(i)} {s.name}&lt;/<span class="tg">li</span>&gt;)}</div>
+                  <div class="ln"><i>18</i>    &lt;/<span class="tg">ol</span>&gt;</div>
+                  <div class="ln"><i>19</i>  );</div>
+                  <div class="ln"><i>20</i>}</div><div class="ln"><i>21</i></div><div class="ln"><i>22</i><span class="k">export function</span> <span class="f">LeaderboardPage</span>() {</div><div class="ln"><i>23</i>  <span class="k">const</span> scores = <span class="f">useSelector</span>(selectScores) ?? EMPTY;</div><div class="ln"><i>24</i>  <span class="k">return</span> &lt;<span class="tg">Leaderboard</span> scores={scores} /&gt;;</div><div class="ln"><i>25</i>}</div>
+                </div>
+              </div>
+            </div>
+            <div class="status-bar" style="position:relative"><div class="sec"><span class="status-item"><svg class="i s"><use href="#i-git-branch"/></svg>main</span><span class="status-item"><span class="dot ok"></span><span class="t-ok">Sandbox Active</span></span></div><div class="sec"><span class="pin" style="position:static">3</span><span class="status-item"><svg class="i s t-ok"><use href="#i-check"/></svg>Saved</span><span class="status-item">Ln 13, Col 41</span><span class="status-item brand">CodeSpace IDE v1.0</span></div></div>
+          </div>
+        </div>
+      </div>
+    </div></div>
+    <ol class="notes">
+      <li><b>Presence chips</b> in the editor tab strip, shown only while Orion has the open file in a live document. Your colour is ember, Orion's is indigo.</li>
+      <li><b>Agent lines</b>: indigo tint and gutter bar for about 4 s after Orion's change lands, with an "Orion" flag on the first changed line (Yjs awareness). Ctrl+Z undoes only your typing.</li>
+      <li><b>Save state</b> in the status bar: "Saving…" during the 400 ms quiet window, then "Saved". Replaces any manual save hint for live files.</li>
+      <li><b>Stale write</b>: after 2 stale writes on one file, Orion says it is waiting, in the amber notice. It clears when the write goes through.</li>
+    </ol>
+  </section>
+
+  <!-- AT-7 ───────────────────────────────────────────────────────────── -->
+  <section class="screen" id="at7">
+    <div class="screen-cap"><span class="id">AT-7</span><h2>Review Orion's changes</h2><span class="where">Phase 5 · Code tab, Monaco DiffEditor fed by get_diff</span></div>
+    <div class="frame-scroll"><div class="frame">
+      <div class="ide short">
+        <div class="ide-body">
+          <div class="center">
+            <div class="tab-bar" style="justify-content:space-between;padding-right:10px"><div style="display:flex;height:100%"><button class="tab-btn"><svg class="i"><use href="#i-eye"/></svg>Preview</button><button class="tab-btn active"><svg class="i"><use href="#i-code"/></svg>Code</button></div>
+              <div style="display:flex;gap:8px;align-items:center"><span class="pin" style="position:static">1</span><span class="muted" style="font-size:12px">Reviewing run "Add a leaderboard API" · 3 files, 5 changes</span><div class="seg"><button class="on">Side by side</button><button>Inline</button></div><button class="btn-ghost btn-sm">Reject all</button><button class="btn-solid btn-sm">Accept all</button><button class="icon-btn" title="Close review"><svg class="i"><use href="#i-x"/></svg></button></div></div>
+            <div class="workspace">
+              <div class="review-files">
+                <div class="panel-header"><div class="panel-title"><svg class="i"><use href="#i-file-diff"/></svg>Changes</div></div>
+                <div class="tree">
+                  <div class="tree-row sel"><svg class="i s"><use href="#i-file"/></svg><span class="name">Leaderboard.jsx</span><span class="pill">2 of 3</span></div>
+                  <div class="tree-row"><svg class="i s"><use href="#i-file"/></svg><span class="name">store.js</span><span class="pill ok">done</span></div>
+                  <div class="tree-row"><svg class="i s"><use href="#i-file"/></svg><span class="name">leaderboard.js</span><span class="pill">new</span></div>
+                </div>
+              </div>
+              <div class="editor">
+                <div class="diffcols">
+                  <div class="code" style="padding-top:0">
+                    <div class="ln"><i>1</i><span class="k">import</span> { useSelector } <span class="k">from</span> <span class="s">&#39;react-redux&#39;</span>;</div><div class="ln"><i>2</i><span class="k">import</span> { selectScores } <span class="k">from</span> <span class="s">&#39;../features/scores/scoresSlice&#39;</span>;</div><div class="ln"><i>3</i><span class="k">import</span> <span class="s">&#39;./Leaderboard.css&#39;</span>;</div><div class="ln"><i>4</i></div><div class="ln"><i>5</i><span class="c">/**</span></div><div class="ln"><i>6</i><span class="c"> * Top ten players for the current quiz.</span></div><div class="ln"><i>7</i><span class="c"> * Medals for the first three places.</span></div><div class="ln"><i>8</i><span class="c"> */</span></div><div class="ln"><i>9</i><span class="k">const</span> EMPTY = [];</div><div class="ln"><i>10</i></div><div class="ln"><i>11</i><span class="c">// eslint-disable-next-line react/prop-types</span></div><div class="ln"><i>12</i><span class="k">export default function</span> <span class="f">Leaderboard</span>({ scores }) {</div><div class="ln"><i>13</i>  <span class="k">const</span> top = scores.<span class="f">slice</span>(<span class="n">0</span>, <span class="n">10</span>);</div><div class="hunk-gap"></div><div class="ln fill"><i></i></div><div class="ln"><i>14</i>  <span class="k">return</span> (</div><div class="ln del"><i>15</i>    &lt;<span class="tg">ul</span>&gt;</div><div class="ln del"><i>16</i>      {top.<span class="f">map</span>(s =&gt; &lt;<span class="tg">li</span>&gt;{s.name}&lt;/<span class="tg">li</span>&gt;)}</div><div class="ln del"><i>17</i>    &lt;/<span class="tg">ul</span>&gt;</div><div class="ln"><i>18</i>  );</div><div class="ln"><i>19</i>}</div>
+                  </div>
+                  <div class="code" style="padding-top:0;position:relative">
+                    <div class="ln"><i>1</i><span class="k">import</span> { useSelector } <span class="k">from</span> <span class="s">&#39;react-redux&#39;</span>;</div><div class="ln"><i>2</i><span class="k">import</span> { selectScores } <span class="k">from</span> <span class="s">&#39;../features/scores/scoresSlice&#39;</span>;</div><div class="ln"><i>3</i><span class="k">import</span> <span class="s">&#39;./Leaderboard.css&#39;</span>;</div><div class="ln"><i>4</i></div><div class="ln"><i>5</i><span class="c">/**</span></div><div class="ln"><i>6</i><span class="c"> * Top ten players for the current quiz.</span></div><div class="ln"><i>7</i><span class="c"> * Medals for the first three places.</span></div><div class="ln"><i>8</i><span class="c"> */</span></div><div class="ln"><i>9</i><span class="k">const</span> EMPTY = [];</div><div class="ln"><i>10</i></div><div class="ln"><i>11</i><span class="c">// eslint-disable-next-line react/prop-types</span></div><div class="ln"><i>12</i><span class="k">export default function</span> <span class="f">Leaderboard</span>({ scores }) {</div><div class="ln"><i>13</i>  <span class="k">const</span> top = scores.<span class="f">slice</span>(<span class="n">0</span>, <span class="n">10</span>);</div><div class="hunk-bar"><span class="pin" style="position:static">2</span>Change 2 of 3<span class="r"><button class="btn-ghost btn-sm">Reject</button><button class="btn-solid btn-sm">Accept</button></span></div><div class="ln add"><i>14</i>  <span class="k">const</span> medal = (i) =&gt; [<span class="s">&#39;🥇&#39;</span>, <span class="s">&#39;🥈&#39;</span>, <span class="s">&#39;🥉&#39;</span>][i] ?? <span class="s">&#39;&#39;</span>;</div><div class="ln"><i>15</i>  <span class="k">return</span> (</div><div class="ln add"><i>16</i>    &lt;<span class="tg">ol</span> className=<span class="s">&quot;board&quot;</span>&gt;</div><div class="ln add"><i>17</i>      {top.<span class="f">map</span>((s, i) =&gt; &lt;<span class="tg">li</span> key={s.id}&gt;{<span class="f">medal</span>(i)} {s.name}&lt;/<span class="tg">li</span>&gt;)}</div><div class="ln add"><i>18</i>    &lt;/<span class="tg">ol</span>&gt;</div><div class="ln"><i>19</i>  );</div><div class="ln"><i>20</i>}</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="status-bar"><div class="sec"><span class="status-item"><svg class="i s"><use href="#i-git-branch"/></svg>main</span></div><div class="sec"><span class="pin" style="position:static">3</span><span class="status-item"><span class="kbd-k">Alt</span>+<span class="kbd-k">↓</span> next change</span><span class="status-item brand">CodeSpace IDE v1.0</span></div></div>
+      </div>
+    </div></div>
+    <ol class="notes">
+      <li><b>Review bar</b> replaces the editor's tab strip while reviewing. It names the run and the counts. Accept all and Reject all apply to every change left.</li>
+      <li><b>Per change</b>: Accept keeps it, Reject writes the old lines back through <code>patch_file</code>. The right side stays editable, like Monaco's own diff editor.</li>
+      <li>Keyboard: <span class="kbd-k">Alt</span>+<span class="kbd-k">↓</span> / <span class="kbd-k">↑</span> moves between changes, <span class="kbd-k">Esc</span> closes the review. Same DiffEditor as the Source Control plan, so both share one component.</li>
+    </ol>
+  </section>
+
+  <!-- States ─────────────────────────────────────────────────────────── -->
+  <section class="screen" id="at-states">
+    <div class="screen-cap"><span class="id">States</span><h2>Empty, waiting, failed and done</h2><span class="where">Every new panel and card, beside the main screens</span></div>
+    <div class="states"><div class="state"><span class="state-label">Empty</span><div class="frame" style="position:relative;background:var(--bg-overlay)"><div class="panel-header"><span class="panel-title"><svg class="i"><use href="#i-alert"/></svg>Problems</span></div><div class="empty ok"><div class="em-ic"><svg class="i"><use href="#i-check"/></svg></div><h4>No problems have been detected in the workspace.</h4><p>Browser errors from the preview and build errors from the dev server show up here as they happen.</p></div></div></div><div class="state"><span class="state-label">Sandbox stopped</span><div class="frame" style="position:relative;background:var(--bg-overlay)"><div class="panel-header"><span class="panel-title"><svg class="i"><use href="#i-terminal"/></svg>Output</span></div><div class="empty "><div class="em-ic"><svg class="i"><use href="#i-pause"/></svg></div><h4>The sandbox is stopped</h4><p>Console, network and dev server logs start again when the sandbox runs.</p><div style="margin-top:4px"><button class="btn-solid btn-sm"><svg class="i s"><use href="#i-play"/></svg>Start sandbox</button></div></div></div></div><div class="state"><span class="state-label">Loading</span><div class="frame" style="position:relative;background:var(--bg-overlay)"><div class="panel-header"><span class="panel-title"><svg class="i"><use href="#i-terminal"/></svg>Output</span></div><div style="padding:12px 14px;display:flex;flex-direction:column;gap:10px"><span class="sk" style="width:72%"></span><span class="sk" style="width:58%"></span><span class="sk" style="width:80%"></span><span class="sk" style="width:46%"></span><span class="sk" style="width:66%"></span></div></div></div><div class="state"><span class="state-label">Tool failed</span><div class="frame" style="position:relative;"><div style="padding:14px;display:flex;flex-direction:column;gap:8px"><ul class="steps"><li class="step"><svg class="i s t-err"><use href="#i-x"/></svg><span class="verb">Could not edit</span><span class="target">src/app/store.js</span><span class="meta">TOOL_ERROR</span></li></ul><div class="notice err"><svg class="i s"><use href="#i-x-circle"/></svg><span><b>oldStr not found.</b> The file changed since Orion read it. Orion reads it again and retries once.</span></div><div class="notice"><svg class="i s"><use href="#i-info"/></svg><span>Checkpoints are cleared when the sandbox restarts, so undo is not available for runs before 18:20.</span></div></div></div></div><div class="state"><span class="state-label">Done</span><div class="frame" style="position:relative;"><div style="height:100%;min-height:240px;display:grid;place-items:end center;padding:20px"><div class="toast"><svg class="i s t-ok"><use href="#i-check"/></svg>Restored 3 files<span class="act">Undo</span></div></div></div></div></div>
+    <ol class="notes"><li><b>Empty</b> keeps today's Problems copy. A panel with nothing to show says what would appear there.</li><li><b>Stopped</b>: the Output tab cannot read logs from a stopped sandbox, so it offers the one action that fixes that.</li><li><b>Loading</b> uses skeleton lines, never a spinner over the whole panel. <code>prefers-reduced-motion</code> stops the shimmer.</li><li><b>Failed tool</b>: the step names the error code, the notice says what happened and what Orion does next.</li><li><b>Toasts</b> reuse the button's verb ("Restore 3 files" → "Restored 3 files") and offer Undo for 8 s.</li></ol>
+  </section>
+</main>
+<script src="../_shared/kit.js"></script>
+</body>
+</html>

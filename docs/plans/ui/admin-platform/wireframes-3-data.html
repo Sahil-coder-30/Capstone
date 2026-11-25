@@ -1,0 +1,275 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Admin portal data screens</title>
+<link rel="stylesheet" href="../_shared/taksha-wireframe.css">
+<style>
+  .u360 { display: grid; grid-template-columns: 280px 1fr; gap: 16px; min-height: 0; flex: 1; }
+  .who { display: flex; flex-direction: column; gap: 12px; }
+  .who .big { width: 48px; height: 48px; border-radius: 50%; background: var(--bg-element); border: 1px solid var(--border); display: grid; place-items: center; font-weight: 600; color: var(--text-secondary); }
+  .tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--border); }
+  .tabs span { padding: 8px 12px; font-size: 12.5px; color: var(--text-muted); border-bottom: 2px solid transparent; margin-bottom: -1px; }
+  .tabs span.on { color: var(--text-primary); border-bottom-color: var(--brand-primary); }
+  .gate { max-width: 460px; margin: 40px auto; padding: 24px; border: 1px solid var(--border); border-radius: 14px; background: var(--bg-surface); display: flex; flex-direction: column; gap: 12px; }
+  .transcript { display: flex; flex-direction: column; gap: 10px; font-size: 13px; line-height: 1.5; }
+  .watermark { position: absolute; inset: 0; pointer-events: none; display: grid; place-items: center; font-size: 13px; color: rgba(var(--color-rgb-text), 0.05); transform: rotate(-18deg); white-space: nowrap; }
+</style>
+</head>
+<body>
+<main class="board">
+  <header class="board-head">
+    <div>
+      <h1>Admin portal, part 3: data and analytics</h1>
+      <p>Overview, users 360, projects, chats, AI runs and usage, payments (read only) and the analytics dashboards. <code>Admin/PLAN.md</code> phases P3 and P4. Every list shows the scope the backend applied (history days, masking). Other parts: <a href="wireframes-1-access.html">1 access</a>, <a href="wireframes-2-organization.html">2 organization</a>, <a href="wireframes-4-ops.html">4 operations</a>. Spec: <a href="screens.md">screens.md</a>.</p>
+    </div>
+    <button class="theme-toggle" data-theme-toggle><svg class="i"><use href="#i-sun"/></svg> Light theme</button>
+  </header>
+  <nav class="board-nav"><a href="#ad20">AD-20 Overview</a><a href="#ad21">AD-21 User 360</a><a href="#ad22">AD-22 Projects</a><a href="#ad23">AD-23 Chats</a><a href="#ad24">AD-24 AI runs</a><a href="#ad25">AD-25 Payments</a><a href="#ad26">AD-26 Analytics</a><a href="#ad-states">States</a></nav>
+
+  <section class="screen" id="ad20">
+    <div class="screen-cap"><span class="id">AD-20</span><h2>Overview</h2><span class="where">P4 · / (home after sign in)</span></div>
+    <div class="frame-scroll"><div class="frame">
+      <div class="shell">
+        <aside class="side" data-active="overview"></aside>
+        <div class="main">
+          <div class="topbar"><div class="crumbs"><b>Overview</b></div><div class="r"><div class="seg"><button>24 h</button><button class="on">7 d</button><button>30 d</button></div></div></div>
+          <div class="content">
+            <div class="kpis">
+              <div class="kpi"><div class="l">Active users</div><div class="v">1,842</div><div class="d"><span class="up">↑ 12%</span> vs last 7 d</div><svg class="spark " viewBox="0 0 84 26" preserveAspectRatio="none" aria-hidden="true"><path class="area" d="M0.0,24.0 L14.0,20.1 L28.0,16.9 L42.0,18.9 L56.0,11.1 L70.0,7.3 L84.0,2.0 L84,26 L0,26 Z"/><path d="M0.0,24.0 L14.0,20.1 L28.0,16.9 L42.0,18.9 L56.0,11.1 L70.0,7.3 L84.0,2.0"/></svg></div>
+              <div class="kpi"><div class="l">Agent runs</div><div class="v">9,310</div><div class="d"><span class="up">↑ 8%</span> · 91% finished</div><svg class="spark " viewBox="0 0 84 26" preserveAspectRatio="none" aria-hidden="true"><path class="area" d="M0.0,21.2 L14.0,13.0 L28.0,17.8 L42.0,6.8 L56.0,2.0 L70.0,24.0 L84.0,8.2 L84,26 L0,26 Z"/><path d="M0.0,21.2 L14.0,13.0 L28.0,17.8 L42.0,6.8 L56.0,2.0 L70.0,24.0 L84.0,8.2"/></svg></div>
+              <div class="kpi"><div class="l">Sandboxes running now</div><div class="v">37</div><div class="d">of 60 pod slots</div><div class="meter" style="position:absolute;right:14px;bottom:20px;width:84px"><span style="width:62%"></span></div></div>
+              <div class="kpi"><div class="l">Revenue</div><div class="v">₹48,200</div><div class="d"><span class="down">↓ 3%</span> · 22 new Pro</div><svg class="spark b" viewBox="0 0 84 26" preserveAspectRatio="none" aria-hidden="true"><path class="area" d="M0.0,2.0 L14.0,7.1 L28.0,10.5 L42.0,3.7 L56.0,15.5 L70.0,12.2 L84.0,24.0 L84,26 L0,26 Z"/><path d="M0.0,2.0 L14.0,7.1 L28.0,10.5 L42.0,3.7 L56.0,15.5 L70.0,12.2 L84.0,24.0"/></svg></div>
+            </div>
+            <div class="grid-3-2">
+              <div class="pnl"><div class="pnl-h"><div><h3>Agent runs per day</h3><div class="sub">Orion and Clio, last 7 days</div></div><div class="legend"><span><i></i>Orion</span><span><i class="b"></i>Clio</span></div></div>
+                <div class="pnl-b"><div class="chart"><div class="y"><span>1.6k</span><span>1.2k</span><span>800</span><span>400</span><span>0</span></div><div class="tip" style="left:66%;top:8px"><b>Thu 20 Nov</b><span><i></i>Orion 1,124</span><br><span><i class="b"></i>Clio 289</span></div><div class="bars stack"><span><i style="height:58%"></i><i style="height:14%"></i></span><span><i style="height:62%"></i><i style="height:16%"></i></span><span><i style="height:55%"></i><i style="height:12%"></i></span><span class="hl"><i style="height:70%"></i><i style="height:18%"></i></span><span><i style="height:74%"></i><i style="height:15%"></i></span><span><i style="height:48%"></i><i style="height:10%"></i></span><span><i style="height:66%"></i><i style="height:19%"></i></span></div><div class="axis"><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span></div></div></div></div>
+              <div class="pnl"><div class="pnl-h"><h3>Needs attention</h3></div>
+                <div class="pnl-b" style="display:flex;flex-direction:column;gap:8px">
+                  <div class="notice err"><svg class="i s"><use href="#i-server"/></svg><span><b>ai-service</b> restarted 3 times in 1 h. <a href="#" style="color:inherit;font-weight:600">Cluster</a></span></div>
+                  <div class="notice warn"><svg class="i s"><use href="#i-wrench"/></svg><span><b>patch_file</b> failing 27% this hour. <a href="#" style="color:inherit;font-weight:600">Agent tools</a></span></div>
+                  <div class="notice"><svg class="i s"><use href="#i-user-check"/></svg><span>2 admin applications waiting. <a href="#">Review</a></span></div>
+                  <div class="notice"><svg class="i s"><use href="#i-ticket"/></svg><span>3 open tickets, oldest 6 h. <a href="#">Tickets</a></span></div>
+                </div></div>
+            </div>
+            <div class="grid-3-2">
+              <div class="pnl"><div class="pnl-h"><div><h3>Recent admin actions</h3><div class="sub">From the audit log, newest first</div></div><a class="btn-ghost btn-sm" href="#" style="text-decoration:none">Audit log</a></div>
+                <table class="tbl"><thead><tr><th>When</th><th>Admin</th><th>Action</th><th>Target</th></tr></thead><tbody>
+                  <tr><td class="mono">24 Nov, 18:52</td><td>Riya K.</td><td><span class="badge warn">stop_sandbox</span></td><td class="mono">quiz-arena</td></tr>
+                  <tr><td class="mono">24 Nov, 18:40</td><td>Maintainer</td><td><span class="badge accent">approve_admin</span></td><td>Arjun Mehta</td></tr>
+                  <tr><td class="mono">24 Nov, 17:05</td><td>Riya K.</td><td><span class="badge">view_chat</span></td><td class="mono">chat_8f21…</td></tr>
+                </tbody></table></div>
+              <div class="pnl"><div class="pnl-h"><div><h3>Sandboxes right now</h3><div class="sub">37 of 60 pod slots</div></div></div><div class="pnl-b barlist">
+                <div class="r"><span class="name">running</span><div class="meter ok"><span style="width:62%"></span></div><span class="v">37</span></div>
+                <div class="r"><span class="name">starting</span><div class="meter"><span style="width:5%"></span></div><span class="v">3</span></div>
+                <div class="r"><span class="name">idle, stops soon</span><div class="meter warn"><span style="width:15%"></span></div><span class="v">9</span></div>
+                <div class="r"><span class="name">failed</span><div class="meter err"><span style="width:2%"></span></div><span class="v">1</span></div>
+              </div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div></div>
+    <ol class="notes">
+      <li>Four KPIs only, each with its comparison. Each card links to the analytics tab it comes from. Cards for modules the admin cannot see are left out, not greyed.</li>
+      <li>"Needs attention" collects warnings from other modules (cluster restarts, tool warnings from the analytics plan, applications, tickets). Empty state: "Nothing needs you right now."</li>
+    </ol>
+  </section>
+
+  <section class="screen" id="ad21">
+    <div class="screen-cap"><span class="id">AD-21</span><h2>Users list and User 360</h2><span class="where">P3 · /users, /users/:id</span></div>
+    <div class="frame-scroll"><div class="frame">
+      <div class="shell">
+        <aside class="side" data-active="users" data-role="support"></aside>
+        <div class="main">
+          <div class="topbar"><div class="crumbs">Users <svg class="i s"><use href="#i-chev-r"/></svg> <b>s•••@g••••.com</b></div><div class="r"><button class="btn-secondary"><svg class="i s"><use href="#i-log-out"/></svg>Force logout</button></div></div>
+          <div class="content">
+            <div class="scope"><svg class="i s"><use href="#i-eye-off"/></svg><span>Your access: personal details <b>masked</b>. Suspend is not in your grants.</span></div>
+            <div class="u360">
+              <div class="who">
+                <div class="pnl"><div class="pnl-b" style="display:flex;flex-direction:column;gap:12px">
+                  <div style="display:flex;gap:12px;align-items:center"><div class="big">S</div><div><div style="color:var(--text-primary);font-weight:600">S••••• S•••••</div><div class="masked">s•••@g••••.com</div></div></div>
+                  <dl class="kv" style="grid-template-columns:90px 1fr"><dt>User id</dt><dd class="mono">5c0e…a91f</dd><dt>Joined</dt><dd>3 Sep 2026</dd><dt>Plan</dt><dd><span class="badge brand">Pro</span></dd><dt>Credits</dt><dd>1,240 left</dd><dt>Last seen</dt><dd>12 min ago</dd><dt>Status</dt><dd><span class="badge ok">Active</span></dd></dl>
+                </div></div>
+                <div class="pnl"><div class="pnl-h"><h3>Sign-ins</h3></div><div class="pnl-b" style="font-size:12px;display:flex;flex-direction:column;gap:6px"><div class="muted">Today 18:20 · Google · Chrome, Mac</div><div class="muted">Yesterday · Google · Safari, iPhone</div></div></div>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:12px;min-width:0">
+                <div class="tabs"><span class="on">Projects 4</span><span>Chats 23</span><span>AI runs 312</span><span>Usage</span><span>Payments</span><span>Notifications</span><span>Tickets 1</span></div>
+                <div class="pnl"><table class="tbl">
+                  <tr><th>Project</th><th>Sandbox</th><th>Last opened</th><th class="num">Runs, 30 d</th><th></th></tr>
+                  <tr><td style="color:var(--text-primary)">quiz-arena</td><td><span class="badge ok"><span class="dot ok"></span>Running</span></td><td class="muted">12 min ago</td><td class="num">88</td><td><button class="btn-ghost btn-sm">Trace</button></td></tr>
+                  <tr><td style="color:var(--text-primary)">portfolio</td><td><span class="badge">Stopped</span></td><td class="muted">3 days ago</td><td class="num">41</td><td><button class="btn-ghost btn-sm">Trace</button></td></tr>
+                  <tr><td style="color:var(--text-primary)">todo-sync</td><td><span class="badge">Stopped</span></td><td class="muted">2 weeks ago</td><td class="num">6</td><td><button class="btn-ghost btn-sm">Trace</button></td></tr>
+                  <tr><td style="color:var(--text-primary)">hello-world</td><td><span class="badge">Stopped</span></td><td class="muted">3 Sep</td><td class="num">0</td><td><button class="btn-ghost btn-sm">Trace</button></td></tr>
+                </table></div>
+                <div class="pnl"><div class="pnl-h"><div><h3>Recent activity</h3><div class="sub">Sources your grants cover. Payments is not one of them.</div></div></div>
+                  <div class="tl2">
+                    <div class="row"><span class="muted">18:52</span><span class="src"><span class="badge">chat</span></span><span>Asked Orion "It stopped again, what happened?"</span></div>
+                    <div class="row"><span class="muted">18:50</span><span class="src"><span class="badge accent">ai run</span></span><span>orion:66a1 <span class="t-err">failed</span> in quiz-arena</span></div>
+                    <div class="row"><span class="muted">18:20</span><span class="src"><span class="badge">sign in</span></span><span>Google, Chrome on Mac</span></div>
+                    <div class="row"><span class="muted">18:53</span><span class="src"><span class="badge warn">ticket</span></span><span>#112 opened from Help</span></div>
+                  </div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div></div>
+    <ol class="notes">
+      <li>Seen as a Support Agent: the sidebar only lists granted modules, the scope strip says what is masked and what is missing.</li>
+      <li>One page per user, tabs per data source. Each tab reads its own service DB through the readers and loads on open. Tabs for modules outside the grant are hidden.</li>
+      <li>Actions sit in the top bar and only appear when granted: Force logout, Suspend (P7). Both need a reason and step-up.</li>
+    </ol>
+  </section>
+
+  <section class="screen" id="ad22" data-rows-added>
+    <div class="screen-cap"><span class="id">AD-22</span><h2>Projects</h2><span class="where">P3 · /projects</span></div>
+    <div class="frame-scroll"><div class="frame">
+      <div class="shell short">
+        <aside class="side" data-active="projects"></aside>
+        <div class="main">
+          <div class="topbar"><div class="crumbs"><b>Projects</b></div></div>
+          <div class="content">
+            <div class="filters"><div class="search" style="min-width:240px"><svg class="i s"><use href="#i-search"/></svg>Project, id or owner</div><span class="chip on"><span class="dot ok"></span>Running 37</span><span class="chip">Stopped</span><span class="chip">Template: all <svg class="i s"><use href="#i-chev-d"/></svg></span></div>
+            <div class="pnl"><table class="tbl">
+              <tr><th>Project</th><th>Owner</th><th>Sandbox</th><th>Pod</th><th class="num">CPU</th><th class="num">Memory</th><th>Idle for</th><th></th></tr>
+              <tr><td style="color:var(--text-primary)">quiz-arena</td><td class="masked">s•••@g••••.com</td><td><span class="badge ok">Running</span></td><td class="mono">sbx-5c0e-q1</td><td class="num">120m</td><td class="num">640 Mi</td><td class="muted">1 min</td><td><button class="btn-ghost btn-sm">Stop sandbox</button></td></tr>
+              <tr><td style="color:var(--text-primary)">shop-ui</td><td class="masked">r•••@o••••.in</td><td><span class="badge warn">Starting</span></td><td class="mono">sbx-91aa-s3</td><td class="num">—</td><td class="num">—</td><td class="muted">—</td><td></td></tr>
+              <tr><td style="color:var(--text-primary)">ml-notes</td><td class="masked">a•••@g••••.com</td><td><span class="badge ok">Running</span></td><td class="mono">sbx-7f20-m2</td><td class="num">8m</td><td class="num">410 Mi</td><td class="t-warn">18 min</td><td><button class="btn-ghost btn-sm">Stop sandbox</button></td></tr>
+            <tr><td style="color:var(--text-primary)">portfolio</td><td class="masked">s•••@g••••.com</td><td><span class="badge">Stopped</span></td><td class="dim">—</td><td class="num">—</td><td class="num">—</td><td class="muted">3 days</td><td></td></tr><tr><td style="color:var(--text-primary)">chat-widget</td><td class="masked">m•••@h••••.com</td><td><span class="badge ok">Running</span></td><td class="mono">sbx-2c11-k9</td><td class="num">240m</td><td class="num">812 Mi</td><td class="muted">now</td><td><button class="btn-ghost btn-sm">Stop sandbox</button></td></tr><tr><td style="color:var(--text-primary)">landing-v2</td><td class="masked">p•••@g••••.com</td><td><span class="badge ok">Running</span></td><td class="mono">sbx-a4d0-q2</td><td class="num">32m</td><td class="num">388 Mi</td><td class="muted">4 min</td><td><button class="btn-ghost btn-sm">Stop sandbox</button></td></tr><tr><td style="color:var(--text-primary)">expense-tracker</td><td class="masked">k•••@y••••.com</td><td><span class="badge err">Failed</span></td><td class="mono">sbx-e91b-r7</td><td class="num">—</td><td class="num">—</td><td class="t-err">ImagePullBackOff</td><td></td></tr><tr><td style="color:var(--text-primary)">blog-engine</td><td class="masked">r•••@o••••.in</td><td><span class="badge ok">Running</span></td><td class="mono">sbx-6b3e-t1</td><td class="num">15m</td><td class="num">402 Mi</td><td class="t-warn">22 min</td><td><button class="btn-ghost btn-sm">Stop sandbox</button></td></tr></table><div class="tbl-foot"><span>8 of 1,204 projects</span><div class="pg"><span>‹</span><span class="on">1</span><span>2</span><span>3</span><span>›</span></div></div></div>
+          </div>
+        </div>
+      </div>
+    </div></div>
+    <ol class="notes"><li>Stop sandbox (P7, <code>projects.stop_sandbox</code>) expires the Redis key, so the normal idle shutdown runs. Confirm dialog says "The user's open editor will show Sandbox Offline. Their files are saved."</li></ol>
+  </section>
+
+  <section class="screen" id="ad23">
+    <div class="screen-cap"><span class="id">AD-23</span><h2>Chats: reason first, then a read-only transcript</h2><span class="where">P3 · /chats/:id, chats.view, reason + step-up every time</span></div>
+    <div class="row-frames">
+      <div class="frame"><div class="shell short" style="grid-template-columns:200px 1fr">
+        <aside class="side" data-active="chats" data-role="support"></aside>
+        <div class="main"><div class="topbar"><div class="crumbs">Chats <svg class="i s"><use href="#i-chev-r"/></svg> <b>Open a chat</b></div></div>
+          <div class="content"><div class="gate">
+            <h3 style="font-size:15px;color:var(--text-primary)">Why do you need to read this chat?</h3>
+            <p class="muted" style="font-size:12.5px;line-height:1.55">Chats are private. Your reason is saved in the audit log and in the maintainer's daily digest.</p>
+            <div class="field"><label>Reason</label><div class="input">Ticket #182</div><span class="hint">Link a ticket, or write at least 10 characters.</span></div>
+            <div style="display:flex;justify-content:flex-end;gap:8px"><button class="btn-secondary">Cancel</button><button class="btn-primary"><svg class="i s"><use href="#i-fingerprint"/></svg>Open with passkey</button></div>
+          </div></div></div>
+      </div></div>
+      <div class="frame"><div class="shell short" style="grid-template-columns:200px 1fr">
+        <aside class="side" data-active="chats" data-role="support"></aside>
+        <div class="main" style="position:relative"><div class="topbar"><div class="crumbs">Chats <svg class="i s"><use href="#i-chev-r"/></svg> <b>Fix the theme toggle crash</b></div><div class="r"><span class="badge accent"><svg class="i s"><use href="#i-eye"/></svg>Read only · closes in 14:20</span></div></div>
+          <div class="content"><div class="transcript">
+            <div class="u-msg" style="align-self:flex-start;max-width:90%">The page goes white when I click the theme toggle. Fix it.</div>
+            <div class="a-turn"><ul class="steps"><li class="step"><svg class="i s t-ok"><use href="#i-check"/></svg><span class="verb">Read browser errors</span><span class="target">1 error</span></li><li class="step"><svg class="i s t-ok"><use href="#i-check"/></svg><span class="verb">Edited</span><span class="target">src/app/store.js</span></li></ul><p>The store had no <code>ui</code> reducer. I added it and the toggle works.</p></div>
+          </div><div class="watermark">Viewed by Riya Kapoor · Ticket #182 · 24 Nov 10:12</div></div></div>
+      </div></div>
+    </div>
+    <ol class="notes">
+      <li>Every open asks for a reason and a fresh passkey (plan: "reason + step-up every time"). Tickets can be picked from a list.</li>
+      <li>The transcript reuses the Orion message and step styles, read only, with a faint watermark naming viewer, reason and time, and a timer: access to that chat closes after 15 minutes.</li>
+    </ol>
+  </section>
+
+  <section class="screen" id="ad24" data-rows-added>
+    <div class="screen-cap"><span class="id">AD-24</span><h2>AI runs and usage</h2><span class="where">P3 · /ai, ai.view_runs, ai.view_usage, ai.stop_run (P7)</span></div>
+    <div class="frame-scroll"><div class="frame">
+      <div class="shell">
+        <aside class="side" data-active="ai"></aside>
+        <div class="main" style="position:relative">
+          <div class="topbar"><div class="crumbs"><b>AI runs</b></div><div class="r"><div class="seg"><button class="on">Runs</button><button>Usage</button><button>Agent tools</button><button>Quality and cost</button></div></div></div>
+          <div class="content">
+            <div class="filters"><span class="chip on"><span class="dot brand"></span>Running 6</span><span class="chip">Waiting for user 3</span><span class="chip">Failed</span><span class="chip">Agent: all <svg class="i s"><use href="#i-chev-d"/></svg></span><span class="chip">Model: all <svg class="i s"><use href="#i-chev-d"/></svg></span></div>
+            <div class="pnl"><table class="tbl">
+              <tr><th>Run</th><th>User</th><th>Agent</th><th>State</th><th class="num">Tool calls</th><th class="num">Tokens</th><th class="num">Time</th><th></th></tr>
+              <tr class="sel"><td class="mono">orion:66a1…</td><td class="masked">s•••@g••••.com</td><td>Orion</td><td><span class="badge brand"><svg class="i s spin"><use href="#i-refresh"/></svg>Coding, step 3 of 5</span></td><td class="num">41</td><td class="num">182k</td><td class="num">6:12</td><td><button class="btn-danger btn-sm">Stop run</button></td></tr>
+              <tr><td class="mono">orion:91c0…</td><td class="masked">r•••@o••••.in</td><td>Orion</td><td><span class="badge warn">Waiting for plan approval</span></td><td class="num">8</td><td class="num">22k</td><td class="num">1:40</td><td></td></tr>
+              <tr><td class="mono">clio:0b77…</td><td class="masked">a•••@g••••.com</td><td>Clio</td><td><span class="badge brand"><svg class="i s spin"><use href="#i-refresh"/></svg>Answering</span></td><td class="num">2</td><td class="num">4k</td><td class="num">0:09</td><td></td></tr>
+            <tr><td class="mono">orion:4e2d…</td><td class="masked">m•••@h••••.com</td><td>Orion</td><td><span class="badge brand"><svg class="i s spin"><use href="#i-refresh"/></svg>Coding, step 1 of 4</span></td><td class="num">6</td><td class="num">31k</td><td class="num">0:52</td><td></td></tr><tr><td class="mono">clio:7a10…</td><td class="masked">p•••@g••••.com</td><td>Clio</td><td><span class="badge brand"><svg class="i s spin"><use href="#i-refresh"/></svg>Answering</span></td><td class="num">1</td><td class="num">3k</td><td class="num">0:04</td><td></td></tr><tr><td class="mono">orion:b830…</td><td class="masked">k•••@y••••.com</td><td>Orion</td><td><span class="badge warn">Waiting for answer</span></td><td class="num">12</td><td class="num">40k</td><td class="num">4:18</td><td></td></tr><tr><td class="mono">orion:12fa…</td><td class="masked">d•••@g••••.com</td><td>Orion</td><td><span class="badge brand"><svg class="i s spin"><use href="#i-refresh"/></svg>Reviewing</span></td><td class="num">19</td><td class="num">88k</td><td class="num">6:02</td><td></td></tr></table><div class="tbl-foot"><span>7 runs live · updates every 5 s</span></div></div>
+          </div>
+          <div class="drawer"><div class="drawer-h"><h3 class="mono" style="font-size:13px">orion:66a1…</h3><span class="icon-btn"><svg class="i"><use href="#i-x"/></svg></span></div>
+            <div class="drawer-b"><dl class="kv"><dt>Project</dt><dd>quiz-arena</dd><dt>Model</dt><dd>codestral-latest</dd><dt>Started</dt><dd>18:34</dd></dl>
+              <div class="muted" style="font-size:12px">Tool calls (from tool call logs)</div>
+              <ul class="steps" style="border:1px solid var(--border);border-radius:8px;padding:4px"><li class="step"><svg class="i s t-ok"><use href="#i-check"/></svg><span class="verb">read_file</span><span class="target">store.js</span><span class="meta">41 ms</span></li><li class="step"><svg class="i s t-err"><use href="#i-x"/></svg><span class="verb">patch_file</span><span class="target">STALE_WRITE</span><span class="meta">88 ms</span></li><li class="step"><svg class="i s t-ok"><use href="#i-check"/></svg><span class="verb">patch_file</span><span class="target">store.js</span><span class="meta">92 ms</span></li></ul>
+              <div class="notice warn"><svg class="i s"><use href="#i-alert"/></svg><span>Stopping ends the run like the user's own Stop. The user sees "Stopped by Taksha support".</span></div></div>
+            <div class="drawer-f"><button class="btn-secondary">Open trace</button><button class="btn-danger">Stop run</button></div></div>
+        </div>
+      </div>
+    </div></div>
+    <ol class="notes">
+      <li>Tabs: Runs (live, from the AI service), Usage (tokens and credits per user, model, day), <a href="../tool-call-analytics/wireframes.html" style="color:var(--accent-hover)">Agent tools</a> (tool call analytics plan) and <a href="../llmops/wireframes.html" style="color:var(--accent-hover)">Quality and cost</a> (LLMOps plan). The last two appear when those plans ship.</li>
+      <li>Stop run needs <code>ai.stop_run</code>, a reason and step-up, and calls the AI internal stop route (HLD section 11).</li>
+    </ol>
+  </section>
+
+  <section class="screen" id="ad25" data-rows-added>
+    <div class="screen-cap"><span class="id">AD-25</span><h2>Payments, read only</h2><span class="where">P3 · /payments, payments.view (history days limit)</span></div>
+    <div class="frame-scroll"><div class="frame">
+      <div class="shell short">
+        <aside class="side" data-active="payments"></aside>
+        <div class="main">
+          <div class="topbar"><div class="crumbs"><b>Payments</b></div><div class="r"><div class="seg"><button class="on">Transactions</button><button>Subscriptions</button><button>Credits ledger</button><button>Webhooks</button></div></div></div>
+          <div class="content">
+            <div class="scope"><svg class="i s"><use href="#i-clock"/></svg><span>Your access: <b>last 90 days</b> only.</span></div>
+            <div class="pnl"><table class="tbl">
+              <tr><th>When</th><th>User</th><th>Type</th><th class="num">Amount</th><th>Status</th><th>Razorpay id</th><th>Invoice</th></tr>
+              <tr><td class="muted">18:40</td><td class="masked">s•••@g••••.com</td><td>Pro monthly</td><td class="num">₹999</td><td><span class="badge ok">Paid</span></td><td class="mono">pay_P9x…</td><td><a href="#" class="t-accent" style="font-size:12px">INV-2026-1182</a></td></tr>
+              <tr><td class="muted">16:02</td><td class="masked">r•••@o••••.in</td><td>Credit pack 500</td><td class="num">₹299</td><td><span class="badge warn">Duplicate</span></td><td class="mono">pay_P8q…</td><td class="dim">—</td></tr>
+              <tr><td class="muted">Yesterday</td><td class="masked">k•••@y••••.com</td><td>Pro monthly</td><td class="num">₹999</td><td><span class="badge accent">Refunded</span></td><td class="mono">pay_P7m…</td><td><a href="#" class="t-accent" style="font-size:12px">INV-2026-1174</a></td></tr>
+            <tr><td class="muted">Yesterday</td><td class="masked">m•••@h••••.com</td><td>Credit pack 2,000</td><td class="num">₹899</td><td><span class="badge ok">Paid</span></td><td class="mono">pay_P6z…</td><td><a href="#" class="t-accent" style="font-size:12px">INV-2026-1171</a></td></tr><tr><td class="muted">22 Nov, 21:14</td><td class="masked">d•••@g••••.com</td><td>Pro yearly</td><td class="num">₹9,990</td><td><span class="badge ok">Paid</span></td><td class="mono">pay_P5q…</td><td><a href="#" class="t-accent" style="font-size:12px">INV-2026-1168</a></td></tr><tr><td class="muted">22 Nov, 10:02</td><td class="masked">a•••@g••••.com</td><td>Pro monthly</td><td class="num">₹999</td><td><span class="badge err">Failed</span></td><td class="mono">pay_P5c…</td><td class="dim">—</td></tr><tr><td class="muted">21 Nov, 19:47</td><td class="masked">p•••@g••••.com</td><td>Credit pack 500</td><td class="num">₹299</td><td><span class="badge ok">Paid</span></td><td class="mono">pay_P4x…</td><td><a href="#" class="t-accent" style="font-size:12px">INV-2026-1160</a></td></tr><tr><td class="muted">21 Nov, 08:30</td><td class="masked">r•••@o••••.in</td><td>Pro monthly</td><td class="num">₹999</td><td><span class="badge ok">Paid</span></td><td class="mono">pay_P4f…</td><td><a href="#" class="t-accent" style="font-size:12px">INV-2026-1157</a></td></tr></table><div class="tbl-foot"><span>8 of 412 in the last 90 days</span><div class="pg"><span>‹</span><span class="on">1</span><span>2</span><span>3</span><span>›</span></div></div></div>
+          </div>
+        </div>
+      </div>
+    </div></div>
+    <ol class="notes"><li>Statuses match the Payments service, including <code>PAYMENT_REFUNDED</code> and <code>PAYMENT_DUPLICATE</code> from migration 0002. Actions (refund, credit grant) only arrive in P8, see AD-60.</li></ol>
+  </section>
+
+  <section class="screen" id="ad26">
+    <div class="screen-cap"><span class="id">AD-26</span><h2>Analytics dashboards</h2><span class="where">P4 · /analytics/{product,ai,revenue}</span></div>
+    <div class="frame-scroll"><div class="frame">
+      <div class="shell">
+        <aside class="side" data-active="analytics"></aside>
+        <div class="main">
+          <div class="topbar"><div class="crumbs"><b>Analytics</b></div><div class="r"><div class="seg"><button>Product</button><button class="on">AI</button><button>Revenue</button></div><div class="seg"><button>7 d</button><button class="on">30 d</button><button>90 d</button></div></div></div>
+          <div class="content">
+            <div class="kpis">
+              <div class="kpi"><div class="l">Runs finished</div><div class="v">91.4%</div><div class="d"><span class="up">↑ 2.1</span> pts</div></div>
+              <div class="kpi"><div class="l">Tokens per run, median</div><div class="v">38k</div><div class="d"><span class="up">↓ 9%</span></div></div>
+              <div class="kpi"><div class="l">Plan approvals</div><div class="v">78%</div><div class="d">22% rejected or edited</div></div>
+              <div class="kpi"><div class="l">Credits used</div><div class="v">2.4M</div><div class="d">62% by Pro users</div></div>
+            </div>
+            <div class="grid2">
+              <div class="pnl"><div class="pnl-h"><div><h3>Tokens per day</h3><div class="sub">Input and output</div></div><div class="legend"><span><i></i>Input</span><span><i class="b"></i>Output</span></div></div><div class="pnl-b"><div class="chart"><div class="y"><span>20M</span><span>15M</span><span>10M</span><span>5M</span><span>0</span></div><div class="bars stack"><span><i style="height:40%"></i><i style="height:12%"></i></span><span><i style="height:48%"></i><i style="height:14%"></i></span><span><i style="height:52%"></i><i style="height:15%"></i></span><span><i style="height:45%"></i><i style="height:13%"></i></span><span><i style="height:60%"></i><i style="height:18%"></i></span><span><i style="height:66%"></i><i style="height:20%"></i></span><span><i style="height:58%"></i><i style="height:17%"></i></span><span><i style="height:70%"></i><i style="height:21%"></i></span><span><i style="height:64%"></i><i style="height:19%"></i></span><span><i style="height:72%"></i><i style="height:22%"></i></span></div><div class="axis"><span>26 Oct</span><span>24 Nov</span></div></div></div></div>
+              <div class="pnl"><div class="pnl-h"><div><h3>Runs by outcome</h3><div class="sub">Share of runs, 30 d</div></div></div><div class="pnl-b barlist">
+                <div class="r"><span class="name">done</span><div class="meter ok"><span style="width:91%"></span></div><span class="v">91.4%</span></div>
+                <div class="r"><span class="name">stopped by user</span><div class="meter"><span style="width:4%;background:var(--text-muted)"></span></div><span class="v">4.1%</span></div>
+                <div class="r"><span class="name">failed</span><div class="meter err"><span style="width:3%"></span></div><span class="v">3.2%</span></div>
+                <div class="r"><span class="name">out of credits</span><div class="meter warn"><span style="width:1.3%"></span></div><span class="v">1.3%</span></div>
+              </div></div>
+            </div>
+            <div class="pnl"><div class="pnl-h"><div><h3>Models</h3><div class="sub">30 d, from usage_events</div></div><span class="sub">Source: <code>usage_events</code> grouped by model</span></div>
+              <table class="tbl"><tr><th>Model</th><th>Used by</th><th class="num">Runs</th><th class="num">Tokens</th><th class="num">Median latency</th><th class="num">Share</th></tr>
+                <tr><td class="mono" style="color:var(--text-primary)">codestral-latest</td><td>Orion coder</td><td class="num">6,912</td><td class="num">262M</td><td class="num">48 s</td><td class="num">71%</td></tr>
+                <tr><td class="mono" style="color:var(--text-primary)">mistral-large-latest</td><td>Orion planner, reviewer</td><td class="num">6,912</td><td class="num">71M</td><td class="num">9 s</td><td class="num">19%</td></tr>
+                <tr><td class="mono" style="color:var(--text-primary)">mistral-small-latest</td><td>Clio, router</td><td class="num">2,398</td><td class="num">37M</td><td class="num">2.1 s</td><td class="num">10%</td></tr>
+              </table></div>
+          </div>
+        </div>
+      </div>
+    </div></div>
+    <ol class="notes"><li>Three dashboards, each its own grant limit (<code>analytics.view</code> with product, ai, revenue). Charts use the payments_frontend chart pair: ember for the main series, indigo for the second. Each number must match a direct DB query (P4 gate), so every panel has an "i" tooltip naming its source.</li></ol>
+  </section>
+
+  <!-- States ─────────────────────────────────────────────────────────── -->
+  <section class="screen" id="ad-states">
+    <div class="screen-cap"><span class="id">States</span><h2>Page states every list uses</h2><span class="where">Loading, empty, reader error, no access and filtered</span></div>
+    <div class="states"><div class="state"><span class="state-label">Loading</span><div class="frame" style="position:relative;"><div class="pnl" style="border:none;border-radius:0;height:100%"><div class="pnl-h"><h3>Users</h3></div><div style="display:flex;gap:16px;align-items:center;padding:12px 16px;border-bottom:1px solid var(--border)"><span class="sk" style="width:30%"></span><span class="sk" style="width:27%"></span><span class="sk" style="width:19%"></span><span class="sk" style="width:18%"></span></div><div style="display:flex;gap:16px;align-items:center;padding:12px 16px;border-bottom:1px solid var(--border)"><span class="sk" style="width:37%"></span><span class="sk" style="width:25%"></span><span class="sk" style="width:26%"></span><span class="sk" style="width:16%"></span></div><div style="display:flex;gap:16px;align-items:center;padding:12px 16px;border-bottom:1px solid var(--border)"><span class="sk" style="width:35%"></span><span class="sk" style="width:23%"></span><span class="sk" style="width:24%"></span><span class="sk" style="width:14%"></span></div><div style="display:flex;gap:16px;align-items:center;padding:12px 16px;border-bottom:1px solid var(--border)"><span class="sk" style="width:33%"></span><span class="sk" style="width:30%"></span><span class="sk" style="width:22%"></span><span class="sk" style="width:12%"></span></div><div style="display:flex;gap:16px;align-items:center;padding:12px 16px;border-bottom:1px solid var(--border)"><span class="sk" style="width:31%"></span><span class="sk" style="width:28%"></span><span class="sk" style="width:20%"></span><span class="sk" style="width:19%"></span></div></div></div></div><div class="state"><span class="state-label">Empty</span><div class="frame" style="position:relative;"><div class="pnl" style="border:none;border-radius:0;height:100%"><div class="pnl-h"><h3>Applications</h3></div><div class="empty "><div class="em-ic"><svg class="i"><use href="#i-inbox"/></svg></div><h4>No pending applications</h4><p>New ones appear here and in your email.</p></div></div></div></div><div class="state"><span class="state-label">Reader error</span><div class="frame" style="position:relative;"><div class="pnl" style="border:none;border-radius:0;height:100%"><div class="pnl-h"><h3>AI runs</h3></div><div style="padding:16px"><div class="notice err"><svg class="i s"><use href="#i-database"/></svg><span><b>Could not read Mongo ai</b> (timed out after 3 s). Other panels still work. <a href="#">Retry</a></span></div></div></div></div></div><div class="state"><span class="state-label">No access</span><div class="frame" style="position:relative;"><div style="min-height:240px;display:grid;place-items:center"><div class="empty lock"><div class="em-ic"><svg class="i"><use href="#i-lock"/></svg></div><h4>You do not have access to Payments</h4><p>Ask the maintainer to add it to your grants.</p></div></div></div></div><div class="state"><span class="state-label">Filtered</span><div class="frame" style="position:relative;"><div class="pnl" style="border:none;border-radius:0;height:100%"><div class="pnl-h"><h3>Logs</h3></div><div style="padding:16px;display:flex;flex-direction:column;gap:12px"><div class="scope"><svg class="i s"><use href="#i-clock"/></svg><span>Your access: services <b>ai, sandbox</b>, last <b>7 days</b>.</span></div><div class="empty "><div class="em-ic"><svg class="i"><use href="#i-search"/></svg></div><h4>No lines match</h4><p>Nothing in ai or sandbox matched "heap" in the last 7 days. Other services are outside your access.</p></div></div></div></div></div></div>
+    <ol class="notes"><li>Skeleton rows match the table's columns, never a full page spinner.</li><li>An empty list says what would appear there and why it is empty.</li><li>A failing reader breaks one panel, named by its service. The rest of the page keeps working.</li><li>A direct URL to a hidden module shows this page instead of a 403.</li><li>When filters and grant limits both apply, the empty state says the limits may be the reason.</li></ol>
+  </section>
+</main>
+<script src="../_shared/kit.js"></script>
+<script src="../_shared/admin-shell.js"></script>
+</body>
+</html>

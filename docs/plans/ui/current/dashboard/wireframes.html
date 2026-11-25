@@ -1,0 +1,769 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dashboard screens</title>
+<link rel="stylesheet" href="../../_shared/taksha-wireframe.css">
+<style>
+  .screen-cap { flex-wrap: wrap; }
+  .screen-cap .where { overflow-wrap: anywhere; min-width: 0; }
+  .board-head > div, .screen-cap h2, .notes li { min-width: 0; overflow-wrap: anywhere; }
+  .board-head code, .notes code { overflow-wrap: anywhere; }
+  .d-shell { position: relative; grid-template-columns: 240px 1fr; min-height: 580px; }
+  .d-side { position: relative; justify-content: space-between; overflow: visible; padding: 14px 10px; }
+  .d-brand { border-bottom: 1px solid var(--border); margin: 0 -10px 8px; padding: 2px 18px 14px; }
+  .d-nav { display: flex; flex-direction: column; gap: 4px; }
+  .d-nav .side-link { width: 100%; font-size: 13.5px; height: 36px; padding: 0 12px; }
+  .d-nav .side-link.on { background: var(--brand-subtle); border: 1px solid color-mix(in srgb, var(--brand-primary) 30%, transparent); color: var(--brand-hover); font-weight: 600; }
+  :root.light-theme .d-nav .side-link.on { color: var(--brand-primary); }
+  .sb-toggle { position: absolute; top: 22px; right: -13px; z-index: 6; width: 26px; height: 26px; border-radius: 50%; border: 1px solid var(--border-strong); background: var(--bg-overlay); color: var(--text-muted); display: grid; place-items: center; }
+  .d-recents { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 6px; }
+  .d-recents-h { display: flex; align-items: center; justify-content: space-between; padding: 0 8px 2px; }
+  .d-recents-t { font-size: 10px; font-weight: 700; letter-spacing: 0.06em; color: var(--text-muted); text-transform: uppercase; }
+  .d-recents-list { display: flex; flex-direction: column; gap: 3px; }
+  .d-recent { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 6px; font-size: 12.5px; color: var(--text-secondary); border: 1px solid transparent; text-align: left; width: 100%; }
+  .d-recent:hover { background: var(--card-hover); color: var(--text-primary); }
+  .d-recent.live { background: var(--success-glow); border-color: color-mix(in srgb, var(--success) 25%, transparent); }
+  .d-recent .nm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
+  .d-foot { margin-top: auto; padding-top: 8px; }
+  .d-profile { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; padding: 8px 10px; border-radius: 8px; border: 1px solid transparent; text-align: left; }
+  .d-profile:hover, .d-profile.open { background: var(--bg-element); border-color: var(--border); }
+  .d-profile-l { display: flex; align-items: center; gap: 8px; min-width: 0; }
+  .d-tier { display: inline-block; font-size: 9.5px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-muted); }
+  .d-main { padding: 24px 32px; gap: 18px; position: relative; }
+  .d-top { display: flex; justify-content: flex-end; align-items: center; }
+
+  .d-pg { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; padding: 8px 0; }
+  .d-pg-h { display: flex; align-items: center; gap: 10px; font-size: 28px; font-weight: 700; letter-spacing: -0.02em; color: var(--text-primary); }
+  .d-pg-sub { font-size: 14px; color: var(--text-muted); text-align: center; max-width: 50ch; line-height: 1.55; margin-bottom: 8px; }
+  .d-prompt-wrap { width: 100%; max-width: 680px; padding: 2px; border-radius: 16px; border: 1px solid var(--border-strong); background: var(--bg-element); }
+  .d-prompt-wrap.typing { border-color: var(--brand-primary); box-shadow: 0 0 0 3px var(--brand-subtle); }
+  .d-prompt { border-radius: 14px; background: var(--bg-overlay); padding: 16px 20px; display: flex; flex-direction: column; gap: 14px; }
+  .d-prompt-txt { min-height: 76px; font-size: 15px; line-height: 1.55; color: var(--text-primary); }
+  .d-prompt-foot { display: flex; align-items: center; justify-content: space-between; border-top: 1px solid var(--border); padding-top: 12px; }
+  .d-chips { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; max-width: 680px; margin-top: 4px; }
+  .d-chip { padding: 6px 14px; border-radius: 20px; border: 1px solid var(--border); background: var(--bg-element); font-size: 12.5px; color: var(--text-muted); }
+
+  .d-prov { width: 100%; max-width: 600px; padding: 28px; border-radius: 16px; border: 1px solid var(--border-strong); background: var(--bg-overlay); display: flex; flex-direction: column; align-items: center; text-align: center; gap: 14px; }
+  .d-rings { position: relative; width: 72px; height: 72px; display: grid; place-items: center; margin-bottom: 4px; }
+  .d-ring-out { position: absolute; inset: 0; border-radius: 50%; border: 2px solid transparent; border-top-color: var(--brand-primary); border-bottom-color: var(--brand-subtle); }
+  .d-ring-in { position: absolute; inset: 12px; border-radius: 50%; border: 2px solid transparent; border-left-color: var(--accent-primary); border-right-color: var(--accent-subtle); }
+  .d-ring-core { width: 24px; height: 24px; border-radius: 50%; background: var(--brand-subtle); }
+  .d-prov h2 { font-size: 18px; font-weight: 700; color: var(--text-primary); }
+  .d-prov p { font-size: 12.5px; color: var(--text-muted); max-width: 42ch; line-height: 1.5; }
+  .d-prov-steps { width: 100%; display: flex; flex-direction: column; gap: 10px; padding: 14px 16px; border-radius: 10px; border: 1px solid var(--border); background: var(--bg-surface); text-align: left; font-size: 13px; }
+  .d-prov-step { display: flex; align-items: center; gap: 10px; color: var(--text-muted); }
+  .d-prov-step.done { color: var(--text-secondary); }
+  .d-prov-step.done svg { color: var(--success); }
+  .d-prov-step.active { color: var(--text-primary); font-weight: 500; }
+  .d-prov-step.active svg { color: var(--accent-hover); }
+  :root.light-theme .d-prov-step.active svg { color: var(--accent-primary); }
+  .d-console { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg-canvas); font-family: var(--font-mono); font-size: 11px; line-height: 1.55; color: var(--brand-hover); text-align: left; display: flex; flex-direction: column; gap: 2px; }
+  :root.light-theme .d-console { color: var(--brand-primary); }
+  .d-console .pr { color: var(--accent-primary); margin-right: 6px; }
+
+  .d-panel-h { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+  .d-panel-h h2 { font-size: 22px; font-weight: 700; letter-spacing: -0.02em; color: var(--text-primary); display: flex; align-items: center; gap: 8px; }
+  .d-panel-h p { margin-top: 4px; font-size: 13.5px; color: var(--text-muted); }
+  .d-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  .d-search { display: flex; align-items: center; gap: 8px; height: 36px; min-width: 240px; max-width: 380px; flex: 1; padding: 0 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-surface); font-size: 13px; color: var(--text-disabled); }
+  .d-pills { display: flex; gap: 6px; }
+  .d-pill { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 20px; border: 1px solid var(--border); background: var(--bg-surface); font-size: 12px; font-weight: 600; color: var(--text-muted); }
+  .d-pill.on { background: var(--brand-subtle); color: var(--brand-primary); border-color: color-mix(in srgb, var(--brand-primary) 40%, transparent); }
+  .d-spot { border-radius: 14px; padding: 16px 18px; border: 1px solid color-mix(in srgb, var(--brand-primary) 30%, transparent); background: var(--brand-subtle); display: flex; flex-direction: column; gap: 12px; }
+  .d-spot-h { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+  .d-spot-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+  .d-spot-card { background: var(--bg-surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px; display: flex; flex-direction: column; gap: 12px; }
+  .d-cap { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 14px; border-radius: 8px; background: var(--bg-overlay); border: 1px solid var(--border); font-family: var(--font-mono); font-size: 12px; color: var(--text-muted); }
+  .d-cap-bars { display: flex; gap: 4px; }
+  .d-cap-bars i { display: block; width: 20px; height: 4px; border-radius: 2px; background: var(--border); }
+  .d-cap-bars i.on { background: var(--brand-primary); }
+  .d-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+  .d-card { position: relative; background: var(--bg-surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+  .d-card-h { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .d-card-id { display: flex; align-items: center; gap: 10px; min-width: 0; }
+  .d-card-ico { width: 34px; height: 34px; border-radius: 9px; border: 1px solid var(--border); background: var(--bg-element); display: grid; place-items: center; color: var(--brand-primary); flex-shrink: 0; }
+  .d-card-ico.live { background: var(--success-glow); border-color: color-mix(in srgb, var(--success) 30%, transparent); color: var(--success); }
+  .d-card-title { font-size: 14.5px; font-weight: 700; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .d-card-meta { display: flex; flex-direction: column; gap: 5px; font-family: var(--font-mono); font-size: 11.5px; }
+  .d-card-row { display: flex; justify-content: space-between; gap: 8px; }
+  .d-card-row span:first-child { color: var(--text-muted); }
+  .d-card-row span:last-child { color: var(--text-secondary); }
+  .d-card-open { width: 100%; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 7px 12px; border-radius: 6px; background: var(--bg-element); border: 1px solid var(--border); font-size: 12.5px; font-weight: 600; color: var(--text-primary); }
+  .d-flyout { left: 252px; bottom: 12px; width: 250px; padding: 0; overflow: hidden; border-radius: 14px; }
+  .d-flyout-h { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-bottom: 1px solid var(--border); background: var(--card); }
+  .menu-item.d-flyout-up { background: var(--warning-bg); border: 1px solid color-mix(in srgb, var(--warning) 35%, transparent); color: var(--warning); }
+</style>
+</head>
+<body>
+<main class="board">
+  <header class="board-head">
+    <div>
+      <h1>Dashboard screens</h1>
+      <p>Built screens in <code>Frontend/src/features/dashboard/components/Dashboard.jsx</code> and <code>Frontend/src/App.jsx</code> (<code>?tab=playground</code>, <code>recents</code>, <code>my-apps</code>). Shows the dashboard sidebar, prompt playground, sandbox provisioning, recents search, project cards, create and delete modals, and the account menu. Spec: <a href="screens.md">screens.md</a>.</p>
+    </div>
+    <button class="theme-toggle" data-theme-toggle><svg class="i"><use href="#i-sun"/></svg> Light theme</button>
+  </header>
+  <nav class="board-nav">
+    <a href="#cd01">CD-01 Playground</a>
+    <a href="#cd02">CD-02 Assembling sandbox</a>
+    <a href="#cd03">CD-03 Recents</a>
+    <a href="#cd04">CD-04 My Apps</a>
+    <a href="#cd05">CD-05 Create modal</a>
+    <a href="#cd06">CD-06 Delete confirm</a>
+    <a href="#cd07">CD-07 Account menu</a>
+    <a href="#dashboard-states">States</a>
+  </nav>
+
+  <!-- CD-01 ──────────────────────────────────────────────────────────── -->
+  <section class="screen" id="cd01">
+    <div class="screen-cap"><span class="id">CD-01</span><h2>Playground: describe a new app</h2><span class="where">Dashboard.jsx · ?tab=playground (default)</span></div>
+    <div class="frame-scroll"><div class="frame">
+      <div class="shell d-shell">
+        <aside class="side d-side">
+          <button type="button" class="sb-toggle" title="Collapse Sidebar"><svg class="i"><use href="#i-chev-l"/></svg></button>
+          <div style="position:relative">
+            <span class="pin" style="right:4px;top:76px">1</span>
+            <div class="side-brand d-brand"><div class="mark">T</div><div><b>TAKSHA</b><span>CODESPACE</span></div></div>
+            <nav class="d-nav">
+              <button type="button" class="side-link on"><svg class="i"><use href="#i-terminal"/></svg>Playground</button>
+              <button type="button" class="side-link"><svg class="i"><use href="#i-plus"/></svg>New App</button>
+              <button type="button" class="side-link"><svg class="i"><use href="#i-clock"/></svg>Recents<span class="n">2</span></button>
+              <button type="button" class="side-link"><svg class="i"><use href="#i-layers"/></svg>My Apps</button>
+            </nav>
+            <div class="d-recents">
+              <div class="d-recents-h"><span class="d-recents-t">ACTIVE &amp; RECENTS</span><span class="pill">4</span></div>
+              <div class="d-recents-list">
+                <button type="button" class="d-recent live"><span class="dot ok"></span><span class="nm">quiz-arena</span><svg class="i s dim"><use href="#i-chev-r"/></svg></button>
+                <button type="button" class="d-recent"><span class="dot warn"></span><span class="nm">chat-widget</span><svg class="i s dim"><use href="#i-chev-r"/></svg></button>
+                <button type="button" class="d-recent"><span class="dot"></span><span class="nm">portfolio</span><svg class="i s dim"><use href="#i-chev-r"/></svg></button>
+                <button type="button" class="d-recent"><span class="dot"></span><span class="nm">expense-tracker</span><svg class="i s dim"><use href="#i-chev-r"/></svg></button>
+              </div>
+            </div>
+          </div>
+          <div class="d-foot">
+            <button type="button" class="d-profile" title="Account menu">
+              <div class="d-profile-l"><div class="avatar">AS</div><div style="min-width:0"><div style="font-size:13px;font-weight:600;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Aarav Sharma</div><span class="d-tier">Free</span></div></div>
+              <svg class="i s dim"><use href="#i-chev-r"/></svg>
+            </button>
+          </div>
+        </aside>
+        <div class="main d-main">
+          <div class="d-top"><button type="button" class="icon-btn" title="Refresh active lists"><svg class="i"><use href="#i-refresh"/></svg></button></div>
+          <section class="d-pg">
+            <div class="d-pg-h"><svg class="i l t-brand"><use href="#i-sparkles"/></svg><span>Build your ideas with CodeSpace</span></div>
+            <p class="d-pg-sub">Spin up a containerized React + Vite workspace dynamically and let the agent implement your details instantly.</p>
+            <div class="d-prompt-wrap typing" style="position:relative">
+              <span class="pin" style="left:-8px;top:-8px">2</span>
+              <div class="d-prompt">
+                <div class="d-prompt-txt">Build a live quiz arena with room codes, countdown rounds, and a top-10 leaderboard.</div>
+                <div class="d-prompt-foot">
+                  <div style="display:flex;gap:6px">
+                    <button type="button" class="icon-btn" title="Voice Input"><svg class="i"><use href="#i-activity"/></svg></button>
+                    <button type="button" class="icon-btn" title="Attach Design Spec"><svg class="i"><use href="#i-file"/></svg></button>
+                  </div>
+                  <div style="display:flex;gap:8px;align-items:center;position:relative">
+                    <span class="pin" style="left:-26px;top:4px">3</span>
+                    <button type="button" class="btn-ghost btn-sm"><svg class="i s t-brand"><use href="#i-sparkles"/></svg>I'm feeling lucky</button>
+                    <button type="button" class="btn-solid">Create App</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="d-chips" style="position:relative">
+              <span class="pin" style="left:-24px;top:6px">4</span>
+              <button type="button" class="d-chip">React Dashboard</button>
+              <button type="button" class="d-chip">Metallic Three.js Scene</button>
+              <button type="button" class="d-chip">Pricing Calculator</button>
+              <button type="button" class="d-chip">Developer Portfolio</button>
+            </div>
+          </section>
+        </div>
+      </div>
+    </div></div>
+    <ol class="notes">
+      <li><b>Dashboard sidebar</b> switches <code>activeTab</code> between <code>playground</code>, <code>recents</code>, and <code>my-apps</code> (synced to <code>?tab=</code> in <code>App.jsx</code>). <code>ACTIVE &amp; RECENTS</code> shows up to 6 projects from IndexedDB cache (<code>getCachedProjects</code>) then <code>GET /api/sandbox/projects</code>.</li>
+      <li><b>Prompt composer</b> shows placeholder <code>"Describe an app and let CodeSpace do the rest..."</code> when empty; pressing <code>Enter</code> without <code>Shift</code> submits if non-empty. On submit it saves the prompt to <code>sessionStorage</code> under <code>initialPrompt_&lt;projectId&gt;</code> for the IDE chat.</li>
+      <li><b>Feeling lucky and Create App</b>: <code>I'm feeling lucky</code> fills one of four local prompt presets. <code>Create App</code> stays disabled until trimmed input exists, checks the 5-project limit, then calls <code>POST /api/ai/app-agent/title</code> and transitions to CD-02.</li>
+      <li><b>Template chips</b> (<code>React Dashboard</code>, <code>Metallic Three.js Scene</code>, <code>Pricing Calculator</code>, <code>Developer Portfolio</code>) populate the textarea with preset prompts without submitting automatically.</li>
+    </ol>
+  </section>
+
+  <!-- CD-02 ──────────────────────────────────────────────────────────── -->
+  <section class="screen" id="cd02">
+    <div class="screen-cap"><span class="id">CD-02</span><h2>Provisioning panel</h2><span class="where">Dashboard.jsx · allocationStep &gt; 0</span></div>
+    <div class="frame-scroll"><div class="frame">
+      <div class="shell d-shell">
+        <aside class="side d-side">
+          <button type="button" class="sb-toggle" title="Collapse Sidebar"><svg class="i"><use href="#i-chev-l"/></svg></button>
+          <div>
+            <div class="side-brand d-brand"><div class="mark">T</div><div><b>TAKSHA</b><span>CODESPACE</span></div></div>
+            <nav class="d-nav">
+              <button type="button" class="side-link on"><svg class="i"><use href="#i-terminal"/></svg>Playground</button>
+              <button type="button" class="side-link"><svg class="i"><use href="#i-plus"/></svg>New App</button>
+              <button type="button" class="side-link"><svg class="i"><use href="#i-clock"/></svg>Recents<span class="n">2</span></button>
+              <button type="button" class="side-link"><svg class="i"><use href="#i-layers"/></svg>My Apps</button>
+            </nav>
+            <div class="d-recents">
+              <div class="d-recents-h"><span class="d-recents-t">ACTIVE &amp; RECENTS</span><span class="pill">4</span></div>
+              <div class="d-recents-list">
+                <button type="button" class="d-recent live"><span class="dot ok"></span><span class="nm">quiz-arena</span><svg class="i s dim"><use href="#i-chev-r"/></svg></button>
+                <button type="button" class="d-recent"><span class="dot warn"></span><span class="nm">chat-widget</span><svg class="i s dim"><use href="#i-chev-r"/></svg></button>
+                <button type="button" class="d-recent"><span class="dot"></span><span class="nm">portfolio</span><svg class="i s dim"><use href="#i-chev-r"/></svg></button>
+                <button type="button" class="d-recent"><span class="dot"></span><span class="nm">expense-tracker</span><svg class="i s dim"><use href="#i-chev-r"/></svg></button>
+              </div>
+            </div>
+          </div>
+          <div class="d-foot">
+            <button type="button" class="d-profile" title="Account menu">
+              <div class="d-profile-l"><div class="avatar">AS</div><div style="min-width:0"><div style="font-size:13px;font-weight:600;color:var(--text-primary)">Aarav Sharma</div><span class="d-tier">Free</span></div></div>
+              <svg class="i s dim"><use href="#i-chev-r"/></svg>
+            </button>
+          </div>
+        </aside>
+        <div class="main d-main">
+          <div class="d-top"><button type="button" class="icon-btn" title="Refresh active lists"><svg class="i"><use href="#i-refresh"/></svg></button></div>
+          <section class="d-pg">
+            <div class="d-prov" style="position:relative">
+              <span class="pin" style="right:14px;top:14px">1</span>
+              <div class="d-rings"><div class="d-ring-core"></div><div class="d-ring-out"></div><div class="d-ring-in"></div></div>
+              <h2>Assembling Sandbox</h2>
+              <p>Configuring a virtual sandbox environment on the Capstone orchestrator. Just a few seconds...</p>
+              <div class="d-prov-steps" style="position:relative">
+                <span class="pin" style="right:10px;top:10px">2</span>
+                <div class="d-prov-step done"><svg class="i"><use href="#i-sparkles"/></svg><span>Synthesizing project title &amp; features</span></div>
+                <div class="d-prov-step done"><svg class="i"><use href="#i-layers"/></svg><span>Creating workspace directories</span></div>
+                <div class="d-prov-step active"><svg class="i"><use href="#i-cpu"/></svg><span>Spinning up sandbox pod</span></div>
+              </div>
+              <div class="d-console" style="position:relative">
+                <span class="pin" style="right:10px;top:10px">3</span>
+                <div><span class="pr">&gt;</span><span>Initializing AI pipeline session...</span></div>
+                <div><span class="pr">&gt;</span><span>Synthesized project title: &quot;quiz-arena&quot;</span></div>
+                <div><span class="pr">&gt;</span><span>Sandbox ID: 5c0e8f21-4a2b-49c0-91a3-9b7e12d4f001</span></div>
+                <div><span class="pr">&gt;</span><span>Requesting sandbox pod boot...</span></div>
+                <div><span class="pr">&gt;</span><span>Provisioning sandbox container…</span></div>
+              </div>
+            </div>
+          </section>
+        </div>
+      </div>
+    </div></div>
+    <ol class="notes">
+      <li><b>Assembling Sandbox panel</b> replaces the Playground prompt card while <code>allocationStep &gt; 0</code>. On failure it resets <code>allocationStep</code> to <code>0</code> and prints <code>allocationError</code> above the Playground form.</li>
+      <li><b>Step list</b> advances through <code>POST /api/ai/app-agent/title</code> (step 1), <code>POST /api/sandbox/create-project</code> plus Dexie <code>upsertCachedProject</code> (step 2), and <code>POST /api/sandbox/start/:projectId</code> (step 3).</li>
+      <li><b>Console output</b> appends stage messages and <code>warmingMessage</code> from <code>useSandbox</code> while <code>GET /api/preview-ping</code> polls every 2 s (up to 90 s), then redirects via <code>onSelectProject</code>.</li>
+    </ol>
+  </section>
+
+  <!-- CD-03 ──────────────────────────────────────────────────────────── -->
+  <section class="screen" id="cd03">
+    <div class="screen-cap"><span class="id">CD-03</span><h2>Recents with search</h2><span class="where">Dashboard.jsx · ?tab=recents</span></div>
+    <div class="frame-scroll"><div class="frame">
+      <div class="shell d-shell">
+        <aside class="side d-side">
+          <button type="button" class="sb-toggle" title="Collapse Sidebar"><svg class="i"><use href="#i-chev-l"/></svg></button>
+          <div>
+            <div class="side-brand d-brand"><div class="mark">T</div><div><b>TAKSHA</b><span>CODESPACE</span></div></div>
+            <nav class="d-nav">
+              <button type="button" class="side-link"><svg class="i"><use href="#i-terminal"/></svg>Playground</button>
+              <button type="button" class="side-link"><svg class="i"><use href="#i-plus"/></svg>New App</button>
+              <button type="button" class="side-link on"><svg class="i"><use href="#i-clock"/></svg>Recents<span class="n">2</span></button>
+              <button type="button" class="side-link"><svg class="i"><use href="#i-layers"/></svg>My Apps</button>
+            </nav>
+            <div class="d-recents">
+              <div class="d-recents-h"><span class="d-recents-t">ACTIVE &amp; RECENTS</span><span class="pill">5</span></div>
+              <div class="d-recents-list">
+                <button type="button" class="d-recent live"><span class="dot ok"></span><span class="nm">quiz-arena</span><svg class="i s dim"><use href="#i-chev-r"/></svg></button>
+                <button type="button" class="d-recent"><span class="dot warn"></span><span class="nm">chat-widget</span><svg class="i s dim"><use href="#i-chev-r"/></svg></button>
+                <button type="button" class="d-recent"><span class="dot"></span><span class="nm">portfolio</span><svg class="i s dim"><use href="#i-chev-r"/></svg></button>
+                <button type="button" class="d-recent"><span class="dot"></span><span class="nm">expense-tracker</span><svg class="i s dim"><use href="#i-chev-r"/></svg></button>
+                <button type="button" class="d-recent"><span class="dot"></span><span class="nm">ml-notes</span><svg class="i s dim"><use href="#i-chev-r"/></svg></button>
+              </div>
+            </div>
+          </div>
+          <div class="d-foot">
+            <button type="button" class="d-profile" title="Account menu">
+              <div class="d-profile-l"><div class="avatar">AS</div><div style="min-width:0"><div style="font-size:13px;font-weight:600;color:var(--text-primary)">Aarav Sharma</div><span class="d-tier">Free</span></div></div>
+              <svg class="i s dim"><use href="#i-chev-r"/></svg>
+            </button>
+          </div>
+        </aside>
+        <div class="main d-main">
+          <div class="d-top"><button type="button" class="icon-btn" title="Refresh active lists"><svg class="i"><use href="#i-refresh"/></svg></button></div>
+          <div class="d-panel-h">
+            <div><h2><svg class="i l t-brand"><use href="#i-clock"/></svg>Recents</h2><p>Fast access to your active sandbox environments and recently updated workspaces.</p></div>
+            <div style="display:flex;gap:8px;align-items:center">
+              <button type="button" class="icon-btn" title="Refresh active lists"><svg class="i"><use href="#i-refresh"/></svg></button>
+              <button type="button" class="btn-solid"><svg class="i s"><use href="#i-plus"/></svg>New App</button>
+            </div>
+          </div>
+          <div class="d-toolbar">
+            <div class="d-search" style="position:relative"><span class="pin" style="left:-8px;top:-8px">1</span><svg class="i s"><use href="#i-search"/></svg><span>Search active or recent projects...</span></div>
+            <div class="d-pills" style="position:relative">
+              <span class="pin" style="right:-8px;top:-8px">2</span>
+              <button type="button" class="d-pill on">All (5)</button>
+              <button type="button" class="d-pill"><span class="dot ok"></span>Active (2)</button>
+              <button type="button" class="d-pill">Offline (3)</button>
+            </div>
+          </div>
+          <div class="d-spot" style="position:relative">
+            <span class="pin" style="right:14px;top:14px">3</span>
+            <div class="d-spot-h">
+              <span class="badge brand"><span class="dot brand"></span>ACTIVE NOW (2)</span>
+              <span class="muted" style="font-size:12px">Running container instances with instant codespace access</span>
+            </div>
+            <div class="d-spot-grid">
+              <div class="d-spot-card">
+                <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
+                  <div style="display:flex;gap:10px;align-items:center"><span class="dot brand"></span><div><div style="font-weight:700;color:var(--text-primary);font-size:14px">quiz-arena</div><div class="mono muted" style="font-size:11px">ID: 5c0e8f21-4…</div></div></div>
+                  <span class="badge ok"><span class="dot ok"></span>Live</span>
+                </div>
+                <div style="display:flex;gap:8px">
+                  <button type="button" class="btn-solid" style="flex:1"><svg class="i s"><use href="#i-play"/></svg>Open Workspace</button>
+                  <button type="button" class="btn-secondary"><svg class="i s"><use href="#i-square"/></svg>Stop</button>
+                </div>
+              </div>
+              <div class="d-spot-card">
+                <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
+                  <div style="display:flex;gap:10px;align-items:center"><span class="dot warn"></span><div><div style="font-weight:700;color:var(--text-primary);font-size:14px">chat-widget</div><div class="mono muted" style="font-size:11px">ID: 2c119e4a-8…</div></div></div>
+                  <span class="badge warn"><span class="dot warn"></span>Building</span>
+                </div>
+                <div style="display:flex;gap:8px">
+                  <button type="button" class="btn-solid" style="flex:1"><svg class="i s"><use href="#i-play"/></svg>Open Workspace</button>
+                  <button type="button" class="btn-secondary"><svg class="i s"><use href="#i-square"/></svg>Stop</button>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="d-grid" style="position:relative">
+            <span class="pin" style="left:-8px;top:-8px">4</span>
+            <div class="d-card">
+              <div class="d-card-h"><div class="d-card-id"><div class="d-card-ico live"><svg class="i"><use href="#i-code"/></svg></div><span class="d-card-title">quiz-arena</span></div><div style="display:flex;align-items:center;gap:4px"><span class="badge ok"><span class="dot ok"></span>Live</span><button type="button" class="icon-btn" title="More options"><svg class="i"><use href="#i-more"/></svg></button></div></div>
+              <div class="d-card-meta"><div class="d-card-row"><span>SANDBOX ID</span><span>5c0e8f21…</span></div><div class="d-card-row"><span>CREATED</span><span>Nov 24, 2026</span></div></div>
+              <button type="button" class="d-card-open"><svg class="i s"><use href="#i-play"/></svg>Open Codespace</button>
+            </div>
+            <div class="d-card">
+              <div class="d-card-h"><div class="d-card-id"><div class="d-card-ico"><svg class="i"><use href="#i-code"/></svg></div><span class="d-card-title">chat-widget</span></div><div style="display:flex;align-items:center;gap:4px"><span class="badge warn"><span class="dot warn"></span>Building</span><button type="button" class="icon-btn" title="More options"><svg class="i"><use href="#i-more"/></svg></button></div></div>
+              <div class="d-card-meta"><div class="d-card-row"><span>SANDBOX ID</span><span>2c119e4a…</span></div><div class="d-card-row"><span>CREATED</span><span>Nov 24, 2026</span></div></div>
+              <button type="button" class="d-card-open"><svg class="i s"><use href="#i-play"/></svg>Open Codespace</button>
+            </div>
+            <div class="d-card">
+              <div class="d-card-h"><div class="d-card-id"><div class="d-card-ico"><svg class="i"><use href="#i-code"/></svg></div><span class="d-card-title">portfolio</span></div><div style="display:flex;align-items:center;gap:4px"><span class="badge err"><span class="dot err"></span>Offline</span><button type="button" class="icon-btn" title="More options"><svg class="i"><use href="#i-more"/></svg></button></div></div>
+              <div class="d-card-meta"><div class="d-card-row"><span>SANDBOX ID</span><span>6c3a910d…</span></div><div class="d-card-row"><span>CREATED</span><span>Nov 21, 2026</span></div></div>
+              <button type="button" class="d-card-open"><svg class="i s"><use href="#i-play"/></svg>Open Codespace</button>
+            </div>
+            <div class="d-card">
+              <div class="d-card-h"><div class="d-card-id"><div class="d-card-ico"><svg class="i"><use href="#i-code"/></svg></div><span class="d-card-title">expense-tracker</span></div><div style="display:flex;align-items:center;gap:4px"><span class="badge"><span class="dot"></span>Not Started</span><button type="button" class="icon-btn" title="More options"><svg class="i"><use href="#i-more"/></svg></button></div></div>
+              <div class="d-card-meta"><div class="d-card-row"><span>SANDBOX ID</span><span>91ab44e2…</span></div><div class="d-card-row"><span>CREATED</span><span>Nov 18, 2026</span></div></div>
+              <button type="button" class="d-card-open"><svg class="i s"><use href="#i-play"/></svg>Open Codespace</button>
+            </div>
+            <div class="d-card">
+              <div class="d-card-h"><div class="d-card-id"><div class="d-card-ico"><svg class="i"><use href="#i-code"/></svg></div><span class="d-card-title">ml-notes</span></div><div style="display:flex;align-items:center;gap:4px"><span class="badge err"><span class="dot err"></span>Offline</span><button type="button" class="icon-btn" title="More options"><svg class="i"><use href="#i-more"/></svg></button></div></div>
+              <div class="d-card-meta"><div class="d-card-row"><span>SANDBOX ID</span><span>7f20c83b…</span></div><div class="d-card-row"><span>CREATED</span><span>Nov 12, 2026</span></div></div>
+              <button type="button" class="d-card-open"><svg class="i s"><use href="#i-play"/></svg>Open Codespace</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div></div>
+    <ol class="notes">
+      <li><b>Search box</b> filters the cached project list locally by <code>title</code> or <code>sandboxId</code> (case-insensitive). Entering any query hides the <code>ACTIVE NOW</code> spotlight and shows a clear button.</li>
+      <li><b>Filter pills</b> toggle <code>recentsFilter</code> between <code>All</code>, <code>Active</code> (<code>live</code> or <code>building</code>), and <code>Offline</code> (<code>down</code> or <code>not_started</code>).</li>
+      <li><b>Active Now spotlight</b> renders only when active containers exist, filter is not <code>Offline</code>, and search is empty. <code>Open Workspace</code> opens the IDE; <code>Stop</code> calls <code>POST /api/sandbox/stop/:projectId</code>.</li>
+      <li><b>Project cards grid</b> renders the filtered subset of projects from <code>GET /api/sandbox/projects</code> (capped at 5 total projects per account).</li>
+    </ol>
+  </section>
+
+  <!-- CD-04 ──────────────────────────────────────────────────────────── -->
+  <section class="screen" id="cd04">
+    <div class="screen-cap"><span class="id">CD-04</span><h2>My Apps grid with project cards</h2><span class="where">Dashboard.jsx · ?tab=my-apps</span></div>
+    <div class="frame-scroll"><div class="frame">
+      <div class="shell d-shell">
+        <aside class="side d-side">
+          <button type="button" class="sb-toggle" title="Collapse Sidebar"><svg class="i"><use href="#i-chev-l"/></svg></button>
+          <div>
+            <div class="side-brand d-brand"><div class="mark">T</div><div><b>TAKSHA</b><span>CODESPACE</span></div></div>
+            <nav class="d-nav">
+              <button type="button" class="side-link"><svg class="i"><use href="#i-terminal"/></svg>Playground</button>
+              <button type="button" class="side-link"><svg class="i"><use href="#i-plus"/></svg>New App</button>
+              <button type="button" class="side-link"><svg class="i"><use href="#i-clock"/></svg>Recents<span class="n">2</span></button>
+              <button type="button" class="side-link on"><svg class="i"><use href="#i-layers"/></svg>My Apps</button>
+            </nav>
+            <div class="d-recents">
+              <div class="d-recents-h"><span class="d-recents-t">ACTIVE &amp; RECENTS</span><span class="pill">5</span></div>
+              <div class="d-recents-list">
+                <button type="button" class="d-recent live"><span class="dot ok"></span><span class="nm">quiz-arena</span><svg class="i s dim"><use href="#i-chev-r"/></svg></button>
+                <button type="button" class="d-recent"><span class="dot warn"></span><span class="nm">chat-widget</span><svg class="i s dim"><use href="#i-chev-r"/></svg></button>
+                <button type="button" class="d-recent"><span class="dot"></span><span class="nm">portfolio</span><svg class="i s dim"><use href="#i-chev-r"/></svg></button>
+                <button type="button" class="d-recent"><span class="dot"></span><span class="nm">expense-tracker</span><svg class="i s dim"><use href="#i-chev-r"/></svg></button>
+                <button type="button" class="d-recent"><span class="dot"></span><span class="nm">ml-notes</span><svg class="i s dim"><use href="#i-chev-r"/></svg></button>
+              </div>
+            </div>
+          </div>
+          <div class="d-foot">
+            <button type="button" class="d-profile" title="Account menu">
+              <div class="d-profile-l"><div class="avatar">AS</div><div style="min-width:0"><div style="font-size:13px;font-weight:600;color:var(--text-primary)">Aarav Sharma</div><span class="d-tier">Free</span></div></div>
+              <svg class="i s dim"><use href="#i-chev-r"/></svg>
+            </button>
+          </div>
+        </aside>
+        <div class="main d-main">
+          <div class="d-top"><button type="button" class="icon-btn" title="Refresh active lists"><svg class="i"><use href="#i-refresh"/></svg></button></div>
+          <div class="d-panel-h">
+            <div><h2>My Projects</h2><p>Create and manage up to 5 sandbox development environments.</p></div>
+            <div style="position:relative"><span class="pin" style="left:-24px;top:6px">1</span><button type="button" class="btn-solid" disabled><svg class="i s"><use href="#i-plus"/></svg>New Project</button></div>
+          </div>
+          <div class="d-cap" style="position:relative">
+            <span class="pin" style="left:-8px;top:-8px">2</span>
+            <span>ENVIRONMENTS: <b style="color:var(--text-secondary)">5</b> / 5</span>
+            <div class="d-cap-bars"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i></div>
+            <span class="t-warn" style="display:inline-flex;align-items:center;gap:4px"><svg class="i s"><use href="#i-alert"/></svg>Capacity reached</span>
+          </div>
+          <div class="d-grid">
+            <div class="d-card" style="position:relative">
+              <span class="pin" style="right:-8px;top:6px">3</span>
+              <div class="d-card-h"><div class="d-card-id"><div class="d-card-ico live"><svg class="i"><use href="#i-code"/></svg></div><span class="d-card-title">quiz-arena</span></div><div style="display:flex;align-items:center;gap:4px"><span class="badge ok"><span class="dot ok"></span>Live</span><button type="button" class="icon-btn on" title="More options"><svg class="i"><use href="#i-more"/></svg></button></div></div>
+              <div class="menu" style="right:16px;top:46px;min-width:165px">
+                <button type="button" class="menu-item" style="width:100%"><svg class="i s"><use href="#i-square"/></svg>Stop Sandbox</button>
+                <button type="button" class="menu-item" style="width:100%"><span class="t-err" style="display:inline-flex;align-items:center;gap:8px"><svg class="i s"><use href="#i-trash"/></svg>Delete Project</span></button>
+              </div>
+              <div class="d-card-meta"><div class="d-card-row"><span>SANDBOX ID</span><span>5c0e8f21…</span></div><div class="d-card-row"><span>CREATED</span><span>Nov 24, 2026</span></div></div>
+              <button type="button" class="d-card-open"><svg class="i s"><use href="#i-play"/></svg>Open Codespace</button>
+            </div>
+            <div class="d-card">
+              <div class="d-card-h"><div class="d-card-id"><div class="d-card-ico"><svg class="i"><use href="#i-code"/></svg></div><span class="d-card-title">chat-widget</span></div><div style="display:flex;align-items:center;gap:4px"><span class="badge warn"><span class="dot warn"></span>Building</span><button type="button" class="icon-btn" title="More options"><svg class="i"><use href="#i-more"/></svg></button></div></div>
+              <div class="d-card-meta"><div class="d-card-row"><span>SANDBOX ID</span><span>2c119e4a…</span></div><div class="d-card-row"><span>CREATED</span><span>Nov 24, 2026</span></div></div>
+              <button type="button" class="d-card-open"><svg class="i s"><use href="#i-play"/></svg>Open Codespace</button>
+            </div>
+            <div class="d-card">
+              <div class="d-card-h"><div class="d-card-id"><div class="d-card-ico"><svg class="i"><use href="#i-code"/></svg></div><span class="d-card-title">portfolio</span></div><div style="display:flex;align-items:center;gap:4px"><span class="badge err"><span class="dot err"></span>Offline</span><button type="button" class="icon-btn" title="More options"><svg class="i"><use href="#i-more"/></svg></button></div></div>
+              <div class="d-card-meta"><div class="d-card-row"><span>SANDBOX ID</span><span>6c3a910d…</span></div><div class="d-card-row"><span>CREATED</span><span>Nov 21, 2026</span></div></div>
+              <button type="button" class="d-card-open"><svg class="i s"><use href="#i-play"/></svg>Open Codespace</button>
+            </div>
+            <div class="d-card">
+              <div class="d-card-h"><div class="d-card-id"><div class="d-card-ico"><svg class="i"><use href="#i-code"/></svg></div><span class="d-card-title">expense-tracker</span></div><div style="display:flex;align-items:center;gap:4px"><span class="badge"><span class="dot"></span>Not Started</span><button type="button" class="icon-btn" title="More options"><svg class="i"><use href="#i-more"/></svg></button></div></div>
+              <div class="d-card-meta"><div class="d-card-row"><span>SANDBOX ID</span><span>91ab44e2…</span></div><div class="d-card-row"><span>CREATED</span><span>Nov 18, 2026</span></div></div>
+              <button type="button" class="d-card-open"><svg class="i s"><use href="#i-play"/></svg>Open Codespace</button>
+            </div>
+            <div class="d-card" style="position:relative">
+              <span class="pin" style="left:-8px;bottom:14px">4</span>
+              <div class="d-card-h"><div class="d-card-id"><div class="d-card-ico"><svg class="i"><use href="#i-code"/></svg></div><span class="d-card-title">ml-notes</span></div><div style="display:flex;align-items:center;gap:4px"><span class="badge err"><span class="dot err"></span>Offline</span><button type="button" class="icon-btn" title="More options"><svg class="i"><use href="#i-more"/></svg></button></div></div>
+              <div class="d-card-meta"><div class="d-card-row"><span>SANDBOX ID</span><span>7f20c83b…</span></div><div class="d-card-row"><span>CREATED</span><span>Nov 12, 2026</span></div></div>
+              <button type="button" class="d-card-open"><svg class="i s"><use href="#i-play"/></svg>Open Codespace</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div></div>
+    <ol class="notes">
+      <li><b>New Project button</b> opens CD-05 (Create project modal) when <code>projects.length &lt; 5</code> and becomes disabled once 5 projects exist.</li>
+      <li><b>Capacity strip</b> visualizes the 5-project limit with 5 progress bars and reveals <code>Capacity reached</code> in amber when full.</li>
+      <li><b>Card action menu</b> renders <code>Stop Sandbox</code> (<code>POST /api/sandbox/stop/:projectId</code>) only for <code>live</code> or <code>building</code> projects, and <code>Delete Project</code> (opens CD-06) for all projects.</li>
+      <li><b>Open Codespace</b> dispatches <code>initializeSandboxForProject</code> in Redux and mounts the IDE view in <code>App.jsx</code> (<code>?project=&lt;id&gt;&amp;title=&lt;title&gt;</code>), which then reconciles pod status via <code>GET /api/sandbox/project/:projectId</code>.</li>
+    </ol>
+  </section>
+
+  <!-- CD-05 ──────────────────────────────────────────────────────────── -->
+  <section class="screen" id="cd05">
+    <div class="screen-cap"><span class="id">CD-05</span><h2>Create project modal</h2><span class="where">Dashboard.jsx · isCreateOpen === true</span></div>
+    <div class="frame-scroll"><div class="frame">
+      <div class="shell d-shell" style="position:relative">
+        <aside class="side d-side">
+          <div>
+            <div class="side-brand d-brand"><div class="mark">T</div><div><b>TAKSHA</b><span>CODESPACE</span></div></div>
+            <nav class="d-nav">
+              <button type="button" class="side-link"><svg class="i"><use href="#i-terminal"/></svg>Playground</button>
+              <button type="button" class="side-link"><svg class="i"><use href="#i-plus"/></svg>New App</button>
+              <button type="button" class="side-link"><svg class="i"><use href="#i-clock"/></svg>Recents<span class="n">2</span></button>
+              <button type="button" class="side-link on"><svg class="i"><use href="#i-layers"/></svg>My Apps</button>
+            </nav>
+            <div class="d-recents">
+              <div class="d-recents-h"><span class="d-recents-t">ACTIVE &amp; RECENTS</span><span class="pill">4</span></div>
+              <div class="d-recents-list">
+                <button type="button" class="d-recent live"><span class="dot ok"></span><span class="nm">quiz-arena</span><svg class="i s dim"><use href="#i-chev-r"/></svg></button>
+                <button type="button" class="d-recent"><span class="dot warn"></span><span class="nm">chat-widget</span><svg class="i s dim"><use href="#i-chev-r"/></svg></button>
+                <button type="button" class="d-recent"><span class="dot"></span><span class="nm">portfolio</span><svg class="i s dim"><use href="#i-chev-r"/></svg></button>
+                <button type="button" class="d-recent"><span class="dot"></span><span class="nm">expense-tracker</span><svg class="i s dim"><use href="#i-chev-r"/></svg></button>
+              </div>
+            </div>
+          </div>
+          <div class="d-foot">
+            <button type="button" class="d-profile"><div class="d-profile-l"><div class="avatar">AS</div><div><div style="font-size:13px;font-weight:600;color:var(--text-primary)">Aarav Sharma</div><span class="d-tier">Free</span></div></div><svg class="i s dim"><use href="#i-chev-r"/></svg></button>
+          </div>
+        </aside>
+        <div class="main d-main">
+          <div class="d-top"><button type="button" class="icon-btn" title="Refresh active lists"><svg class="i"><use href="#i-refresh"/></svg></button></div>
+          <div class="d-panel-h"><div><h2>My Projects</h2><p>Create and manage up to 5 sandbox development environments.</p></div><button type="button" class="btn-solid"><svg class="i s"><use href="#i-plus"/></svg>New Project</button></div>
+          <div class="d-cap"><span>ENVIRONMENTS: <b style="color:var(--text-secondary)">4</b> / 5</span><div class="d-cap-bars"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i></i></div></div>
+          <div class="d-grid">
+            <div class="d-card"><div class="d-card-h"><div class="d-card-id"><div class="d-card-ico live"><svg class="i"><use href="#i-code"/></svg></div><span class="d-card-title">quiz-arena</span></div><span class="badge ok"><span class="dot ok"></span>Live</span></div><div class="d-card-meta"><div class="d-card-row"><span>SANDBOX ID</span><span>5c0e8f21…</span></div><div class="d-card-row"><span>CREATED</span><span>Nov 24, 2026</span></div></div><button type="button" class="d-card-open"><svg class="i s"><use href="#i-play"/></svg>Open Codespace</button></div>
+            <div class="d-card"><div class="d-card-h"><div class="d-card-id"><div class="d-card-ico"><svg class="i"><use href="#i-code"/></svg></div><span class="d-card-title">chat-widget</span></div><span class="badge warn"><span class="dot warn"></span>Building</span></div><div class="d-card-meta"><div class="d-card-row"><span>SANDBOX ID</span><span>2c119e4a…</span></div><div class="d-card-row"><span>CREATED</span><span>Nov 24, 2026</span></div></div><button type="button" class="d-card-open"><svg class="i s"><use href="#i-play"/></svg>Open Codespace</button></div>
+            <div class="d-card"><div class="d-card-h"><div class="d-card-id"><div class="d-card-ico"><svg class="i"><use href="#i-code"/></svg></div><span class="d-card-title">portfolio</span></div><span class="badge err"><span class="dot err"></span>Offline</span></div><div class="d-card-meta"><div class="d-card-row"><span>SANDBOX ID</span><span>6c3a910d…</span></div><div class="d-card-row"><span>CREATED</span><span>Nov 21, 2026</span></div></div><button type="button" class="d-card-open"><svg class="i s"><use href="#i-play"/></svg>Open Codespace</button></div>
+            <div class="d-card"><div class="d-card-h"><div class="d-card-id"><div class="d-card-ico"><svg class="i"><use href="#i-code"/></svg></div><span class="d-card-title">expense-tracker</span></div><span class="badge"><span class="dot"></span>Not Started</span></div><div class="d-card-meta"><div class="d-card-row"><span>SANDBOX ID</span><span>91ab44e2…</span></div><div class="d-card-row"><span>CREATED</span><span>Nov 18, 2026</span></div></div><button type="button" class="d-card-open"><svg class="i s"><use href="#i-play"/></svg>Open Codespace</button></div>
+          </div>
+        </div>
+        <div class="scrim">
+          <div class="modal" style="max-width:400px;position:relative">
+            <span class="pin" style="left:-8px;top:-8px">1</span>
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px">
+              <div><h3>Name Your CodeSpace</h3><p style="margin-top:4px;font-size:13px">Give a title to initialize your sandbox.</p></div>
+              <button type="button" class="icon-btn" title="Close"><svg class="i"><use href="#i-x"/></svg></button>
+            </div>
+            <div class="field" style="position:relative">
+              <span class="pin" style="right:-8px;top:24px">2</span>
+              <label style="text-transform:uppercase;letter-spacing:0.06em;font-size:11.5px;color:var(--text-muted)">Workspace Name</label>
+              <div class="input focus">landing-v2</div>
+            </div>
+            <div class="acts" style="position:relative">
+              <span class="pin" style="left:-8px;bottom:4px">3</span>
+              <button type="button" class="btn-secondary">Cancel</button>
+              <button type="button" class="btn-primary"><svg class="i s"><use href="#i-play"/></svg>Initialize</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div></div>
+    <ol class="notes">
+      <li><b>Create modal header</b> opens from <code>New Project</code> in My Apps (when fewer than 5 projects exist). Clicking the backdrop, close button, or <code>Cancel</code> resets <code>newTitle</code> and <code>validationError</code>.</li>
+      <li><b>Workspace Name input</b> auto-focuses after 80 ms, caps length at 50 chars, and shows placeholder <code>"e.g. My Creative App, Vite Sandbox..."</code>. Empty submit displays <code>"Project title is required"</code>; reaching 5 projects shows <code>"You can only create up to 5 projects"</code>.</li>
+      <li><b>Initialize button</b> calls <code>POST /api/sandbox/create-project</code> via <code>useDashboard().createProject</code>, caches the project in IndexedDB (<code>upsertCachedProject</code>), and enters the IDE directly.</li>
+    </ol>
+  </section>
+
+  <!-- CD-06 ──────────────────────────────────────────────────────────── -->
+  <section class="screen" id="cd06">
+    <div class="screen-cap"><span class="id">CD-06</span><h2>Delete project confirm</h2><span class="where">Dashboard.jsx · ConfirmModal (deleteTarget)</span></div>
+    <div class="frame-scroll"><div class="frame">
+      <div class="shell d-shell" style="position:relative">
+        <aside class="side d-side">
+          <div>
+            <div class="side-brand d-brand"><div class="mark">T</div><div><b>TAKSHA</b><span>CODESPACE</span></div></div>
+            <nav class="d-nav">
+              <button type="button" class="side-link"><svg class="i"><use href="#i-terminal"/></svg>Playground</button>
+              <button type="button" class="side-link"><svg class="i"><use href="#i-plus"/></svg>New App</button>
+              <button type="button" class="side-link"><svg class="i"><use href="#i-clock"/></svg>Recents<span class="n">2</span></button>
+              <button type="button" class="side-link on"><svg class="i"><use href="#i-layers"/></svg>My Apps</button>
+            </nav>
+            <div class="d-recents">
+              <div class="d-recents-h"><span class="d-recents-t">ACTIVE &amp; RECENTS</span><span class="pill">5</span></div>
+              <div class="d-recents-list">
+                <button type="button" class="d-recent live"><span class="dot ok"></span><span class="nm">quiz-arena</span><svg class="i s dim"><use href="#i-chev-r"/></svg></button>
+                <button type="button" class="d-recent"><span class="dot warn"></span><span class="nm">chat-widget</span><svg class="i s dim"><use href="#i-chev-r"/></svg></button>
+                <button type="button" class="d-recent"><span class="dot"></span><span class="nm">portfolio</span><svg class="i s dim"><use href="#i-chev-r"/></svg></button>
+                <button type="button" class="d-recent"><span class="dot"></span><span class="nm">expense-tracker</span><svg class="i s dim"><use href="#i-chev-r"/></svg></button>
+                <button type="button" class="d-recent"><span class="dot"></span><span class="nm">ml-notes</span><svg class="i s dim"><use href="#i-chev-r"/></svg></button>
+              </div>
+            </div>
+          </div>
+          <div class="d-foot">
+            <button type="button" class="d-profile"><div class="d-profile-l"><div class="avatar">AS</div><div><div style="font-size:13px;font-weight:600;color:var(--text-primary)">Aarav Sharma</div><span class="d-tier">Free</span></div></div><svg class="i s dim"><use href="#i-chev-r"/></svg></button>
+          </div>
+        </aside>
+        <div class="main d-main">
+          <div class="d-top"><button type="button" class="icon-btn" title="Refresh active lists"><svg class="i"><use href="#i-refresh"/></svg></button></div>
+          <div class="d-panel-h"><div><h2>My Projects</h2><p>Create and manage up to 5 sandbox development environments.</p></div><button type="button" class="btn-solid" disabled><svg class="i s"><use href="#i-plus"/></svg>New Project</button></div>
+          <div class="d-cap"><span>ENVIRONMENTS: <b style="color:var(--text-secondary)">5</b> / 5</span><div class="d-cap-bars"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i></div><span class="t-warn" style="display:inline-flex;align-items:center;gap:4px"><svg class="i s"><use href="#i-alert"/></svg>Capacity reached</span></div>
+          <div class="d-grid">
+            <div class="d-card"><div class="d-card-h"><div class="d-card-id"><div class="d-card-ico live"><svg class="i"><use href="#i-code"/></svg></div><span class="d-card-title">quiz-arena</span></div><span class="badge ok"><span class="dot ok"></span>Live</span></div><div class="d-card-meta"><div class="d-card-row"><span>SANDBOX ID</span><span>5c0e8f21…</span></div><div class="d-card-row"><span>CREATED</span><span>Nov 24, 2026</span></div></div><button type="button" class="d-card-open"><svg class="i s"><use href="#i-play"/></svg>Open Codespace</button></div>
+            <div class="d-card"><div class="d-card-h"><div class="d-card-id"><div class="d-card-ico"><svg class="i"><use href="#i-code"/></svg></div><span class="d-card-title">chat-widget</span></div><span class="badge warn"><span class="dot warn"></span>Building</span></div><div class="d-card-meta"><div class="d-card-row"><span>SANDBOX ID</span><span>2c119e4a…</span></div><div class="d-card-row"><span>CREATED</span><span>Nov 24, 2026</span></div></div><button type="button" class="d-card-open"><svg class="i s"><use href="#i-play"/></svg>Open Codespace</button></div>
+            <div class="d-card"><div class="d-card-h"><div class="d-card-id"><div class="d-card-ico"><svg class="i"><use href="#i-code"/></svg></div><span class="d-card-title">portfolio</span></div><span class="badge err"><span class="dot err"></span>Offline</span></div><div class="d-card-meta"><div class="d-card-row"><span>SANDBOX ID</span><span>6c3a910d…</span></div><div class="d-card-row"><span>CREATED</span><span>Nov 21, 2026</span></div></div><button type="button" class="d-card-open"><svg class="i s"><use href="#i-play"/></svg>Open Codespace</button></div>
+            <div class="d-card"><div class="d-card-h"><div class="d-card-id"><div class="d-card-ico"><svg class="i"><use href="#i-code"/></svg></div><span class="d-card-title">expense-tracker</span></div><span class="badge"><span class="dot"></span>Not Started</span></div><div class="d-card-meta"><div class="d-card-row"><span>SANDBOX ID</span><span>91ab44e2…</span></div><div class="d-card-row"><span>CREATED</span><span>Nov 18, 2026</span></div></div><button type="button" class="d-card-open"><svg class="i s"><use href="#i-play"/></svg>Open Codespace</button></div>
+            <div class="d-card"><div class="d-card-h"><div class="d-card-id"><div class="d-card-ico"><svg class="i"><use href="#i-code"/></svg></div><span class="d-card-title">ml-notes</span></div><span class="badge err"><span class="dot err"></span>Offline</span></div><div class="d-card-meta"><div class="d-card-row"><span>SANDBOX ID</span><span>7f20c83b…</span></div><div class="d-card-row"><span>CREATED</span><span>Nov 12, 2026</span></div></div><button type="button" class="d-card-open"><svg class="i s"><use href="#i-play"/></svg>Open Codespace</button></div>
+          </div>
+        </div>
+        <div class="scrim">
+          <div class="modal" style="max-width:400px;position:relative">
+            <span class="pin" style="left:-8px;top:-8px">1</span>
+            <h3>Delete Project</h3>
+            <p>Are you sure you want to permanently delete &quot;portfolio&quot;? This will also tear down any running sandbox and cannot be undone.</p>
+            <div class="acts" style="position:relative">
+              <span class="pin" style="left:-8px;bottom:4px">2</span>
+              <button type="button" class="btn-secondary">Cancel</button>
+              <span class="pin" style="right:-8px;top:-12px">3</span>
+              <button type="button" class="btn-danger" style="min-width:80px">Delete</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div></div>
+    <ol class="notes">
+      <li><b>ConfirmModal</b> opens from <code>Delete Project</code> in any <code>ProjectCard</code> dropdown. It interpolates <code>deleteTarget.title</code> into the confirmation prompt and listens for <code>Escape</code> to close.</li>
+      <li><b>Cancel button</b> clears <code>deleteTarget</code> immediately unless <code>deleteLoading</code> is true (both buttons disable while deleting).</li>
+      <li><b>Delete button</b> calls <code>DELETE /api/sandbox/project/:projectId</code> via <code>useSandbox().deleteProject</code>, clears IndexedDB entries (<code>deleteCachedProject</code>), then triggers a silent <code>fetchProjects(true)</code> refresh.</li>
+    </ol>
+  </section>
+
+  <!-- CD-07 ──────────────────────────────────────────────────────────── -->
+  <section class="screen" id="cd07">
+    <div class="screen-cap"><span class="id">CD-07</span><h2>Account menu over sidebar footer</h2><span class="where">Dashboard.jsx · profileMenuOpen === true</span></div>
+    <div class="frame-scroll"><div class="frame">
+      <div class="shell d-shell" style="position:relative">
+        <aside class="side d-side">
+          <button type="button" class="sb-toggle" title="Collapse Sidebar"><svg class="i"><use href="#i-chev-l"/></svg></button>
+          <div>
+            <div class="side-brand d-brand"><div class="mark">T</div><div><b>TAKSHA</b><span>CODESPACE</span></div></div>
+            <nav class="d-nav">
+              <button type="button" class="side-link on"><svg class="i"><use href="#i-terminal"/></svg>Playground</button>
+              <button type="button" class="side-link"><svg class="i"><use href="#i-plus"/></svg>New App</button>
+              <button type="button" class="side-link"><svg class="i"><use href="#i-clock"/></svg>Recents<span class="n">2</span></button>
+              <button type="button" class="side-link"><svg class="i"><use href="#i-layers"/></svg>My Apps</button>
+            </nav>
+            <div class="d-recents">
+              <div class="d-recents-h"><span class="d-recents-t">ACTIVE &amp; RECENTS</span><span class="pill">4</span></div>
+              <div class="d-recents-list">
+                <button type="button" class="d-recent live"><span class="dot ok"></span><span class="nm">quiz-arena</span><svg class="i s dim"><use href="#i-chev-r"/></svg></button>
+                <button type="button" class="d-recent"><span class="dot warn"></span><span class="nm">chat-widget</span><svg class="i s dim"><use href="#i-chev-r"/></svg></button>
+                <button type="button" class="d-recent"><span class="dot"></span><span class="nm">portfolio</span><svg class="i s dim"><use href="#i-chev-r"/></svg></button>
+                <button type="button" class="d-recent"><span class="dot"></span><span class="nm">expense-tracker</span><svg class="i s dim"><use href="#i-chev-r"/></svg></button>
+              </div>
+            </div>
+          </div>
+          <div class="d-foot" style="position:relative">
+            <span class="pin" style="left:-4px;top:-6px">1</span>
+            <button type="button" class="d-profile open" title="Account menu">
+              <div class="d-profile-l"><div class="avatar">AS</div><div style="min-width:0"><div style="font-size:13px;font-weight:600;color:var(--text-primary)">Aarav Sharma</div><span class="d-tier">Free</span></div></div>
+              <svg class="i s dim" style="transform:rotate(90deg)"><use href="#i-chev-r"/></svg>
+            </button>
+          </div>
+        </aside>
+        <div class="menu d-flyout">
+          <div class="d-flyout-h">
+            <div class="avatar" style="width:36px;height:36px;font-size:13px">AS</div>
+            <div style="min-width:0"><div style="font-size:13px;font-weight:700;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Aarav Sharma</div><div class="muted" style="font-size:11.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">aarav.sharma@takshadev.in</div></div>
+          </div>
+          <div style="padding:6px;display:flex;flex-direction:column;gap:2px;position:relative">
+            <span class="pin" style="right:-8px;top:18px">2</span>
+            <button type="button" class="menu-item" style="width:100%"><svg class="i"><use href="#i-user"/></svg>My Profile</button>
+            <button type="button" class="menu-item" style="width:100%"><svg class="i"><use href="#i-settings"/></svg>Settings</button>
+            <div style="position:relative">
+              <span class="pin" style="right:-8px;top:24px">3</span>
+              <button type="button" class="menu-item d-flyout-up" style="width:100%"><svg class="i"><use href="#i-sparkles"/></svg>Upgrade to Pro<span class="ab-badge" style="position:static;margin-left:auto;padding:0 6px"><svg class="i s" style="margin-right:2px"><use href="#i-zap"/></svg>PRO</span></button>
+              <button type="button" class="menu-item" style="width:100%"><svg class="i"><use href="#i-card"/></svg>Billing &amp; Plans</button>
+              <button type="button" class="menu-item" style="width:100%"><svg class="i"><use href="#i-sun"/></svg>Light Mode</button>
+            </div>
+            <div class="menu-sep"></div>
+            <div style="position:relative">
+              <span class="pin" style="right:-8px;top:6px">4</span>
+              <button type="button" class="menu-item" style="width:100%"><span class="t-err" style="display:inline-flex;align-items:center;gap:8px"><svg class="i"><use href="#i-log-out"/></svg>Logout</span></button>
+            </div>
+          </div>
+        </div>
+        <div class="main d-main">
+          <div class="d-top"><button type="button" class="icon-btn" title="Refresh active lists"><svg class="i"><use href="#i-refresh"/></svg></button></div>
+          <section class="d-pg">
+            <div class="d-pg-h"><svg class="i l t-brand"><use href="#i-sparkles"/></svg><span>Build your ideas with CodeSpace</span></div>
+            <p class="d-pg-sub">Spin up a containerized React + Vite workspace dynamically and let the agent implement your details instantly.</p>
+            <div class="d-prompt-wrap">
+              <div class="d-prompt">
+                <div class="d-prompt-txt muted">Describe an app and let CodeSpace do the rest...</div>
+                <div class="d-prompt-foot">
+                  <div style="display:flex;gap:6px"><button type="button" class="icon-btn" title="Voice Input"><svg class="i"><use href="#i-activity"/></svg></button><button type="button" class="icon-btn" title="Attach Design Spec"><svg class="i"><use href="#i-file"/></svg></button></div>
+                  <div style="display:flex;gap:8px;align-items:center"><button type="button" class="btn-ghost btn-sm"><svg class="i s t-brand"><use href="#i-sparkles"/></svg>I'm feeling lucky</button><button type="button" class="btn-secondary" disabled>Create App</button></div>
+                </div>
+              </div>
+            </div>
+            <div class="d-chips">
+              <button type="button" class="d-chip">React Dashboard</button><button type="button" class="d-chip">Metallic Three.js Scene</button><button type="button" class="d-chip">Pricing Calculator</button><button type="button" class="d-chip">Developer Portfolio</button>
+            </div>
+          </section>
+        </div>
+      </div>
+    </div></div>
+    <ol class="notes">
+      <li><b>Account trigger</b> reads user name, email, and photo from Redux <code>state.auth.user</code> (from <code>GET /api/auth/getMe</code>) and subscription tier from <code>GET /api/payments/credit</code> (<code>useSettings().loadCredit</code>).</li>
+      <li><b>My Profile and Settings</b> both invoke <code>onNavigateSettings</code>, switching <code>App.jsx</code> to <code>SettingsPage</code> at <code>?route=settings</code>.</li>
+      <li><b>Plans and theme actions</b>: <code>Upgrade to Pro</code> (<code>Upgrade to Max</code> on Pro, <code>Manage Plan</code> on Max) and <code>Billing &amp; Plans</code> redirect to port 5174; <code>Light Mode</code> toggles <code>.light-theme</code> on <code>document.documentElement</code> and saves to <code>localStorage.theme</code>.</li>
+      <li><b>Logout</b> closes the flyout, calls <code>POST /api/auth/logout</code> via <code>authLogout()</code>, clears the in-memory access token, and returns to the signed-out Landing page.</li>
+    </ol>
+  </section>
+
+  <!-- States ─────────────────────────────────────────────────────────── -->
+  <section class="screen" id="dashboard-states">
+    <div class="screen-cap"><span class="id">States</span><h2>Loading, empty, project limit, error and done</h2><span class="where">Dashboard.jsx · all dashboard tabs and modals</span></div>
+    <div class="states">
+      <div class="state">
+        <span class="state-label">Loading</span>
+        <div class="frame" style="padding:16px;display:flex;flex-direction:column;gap:12px">
+          <div style="display:flex;justify-content:space-between;align-items:center"><span class="sk h" style="width:120px"></span><span class="sk" style="width:74px;height:26px"></span></div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <div class="d-card" style="padding:12px;gap:10px"><div style="display:flex;gap:8px;align-items:center"><span class="sk c"></span><span class="sk" style="width:65%"></span></div><span class="sk" style="width:85%"></span><span class="sk" style="width:70%"></span><span class="sk h"></span></div>
+            <div class="d-card" style="padding:12px;gap:10px"><div style="display:flex;gap:8px;align-items:center"><span class="sk c"></span><span class="sk" style="width:60%"></span></div><span class="sk" style="width:80%"></span><span class="sk" style="width:65%"></span><span class="sk h"></span></div>
+          </div>
+        </div>
+      </div>
+      <div class="state">
+        <span class="state-label">Empty</span>
+        <div class="frame">
+          <div class="empty">
+            <div class="em-ic"><svg class="i"><use href="#i-folder-tree"/></svg></div>
+            <h4>No Projects Yet</h4>
+            <p>Use the Playground tab to describe what you want to build and spin up a workspace.</p>
+          </div>
+        </div>
+      </div>
+      <div class="state">
+        <span class="state-label">No search match</span>
+        <div class="frame">
+          <div class="empty">
+            <div class="em-ic"><svg class="i"><use href="#i-search"/></svg></div>
+            <h4>No matching projects found</h4>
+            <p>Try clearing your search query or changing filters.</p>
+          </div>
+        </div>
+      </div>
+      <div class="state">
+        <span class="state-label">5-project limit</span>
+        <div class="frame" style="padding:14px;display:flex;flex-direction:column;gap:10px">
+          <div class="d-cap" style="padding:8px 10px;font-size:11px"><span>ENVIRONMENTS: 5 / 5</span><span class="t-warn" style="display:inline-flex;align-items:center;gap:4px"><svg class="i s"><use href="#i-alert"/></svg>Capacity reached</span></div>
+          <div class="notice warn"><svg class="i s"><use href="#i-alert"/></svg><span><b>5-project limit.</b> You have reached the maximum of 5 projects. Please delete one to create a new app.</span></div>
+          <div class="notice err"><svg class="i s"><use href="#i-x-circle"/></svg><span><b>Create modal:</b> You can only create up to 5 projects</span></div>
+        </div>
+      </div>
+      <div class="state">
+        <span class="state-label">Error</span>
+        <div class="frame" style="padding:16px;display:flex;flex-direction:column;gap:12px">
+          <div class="notice err"><svg class="i s"><use href="#i-alert"/></svg><span><b>Sandbox service failed to fetch projects.</b> Cached projects remain visible when offline. <a href="#">Refresh</a></span></div>
+          <div class="notice err"><svg class="i s"><use href="#i-x-circle"/></svg><span><b>Sandbox service failed to create workspace.</b> Check quota or try again from Playground.</span></div>
+        </div>
+      </div>
+      <div class="state">
+        <span class="state-label">Done</span>
+        <div class="frame" style="padding:14px 14px 36px;display:flex;flex-direction:column;gap:10px;position:relative">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <span style="font-size:13px;font-weight:700;color:var(--text-primary)">My Projects</span>
+            <span class="mono muted" style="font-size:11px">4 / 5</span>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;flex:1">
+            <div class="d-card" style="padding:9px;gap:8px;min-width:0">
+              <div style="display:flex;flex-direction:column;gap:4px;min-width:0">
+                <span class="d-card-title" style="font-size:12.5px">quiz-arena</span>
+                <span class="badge ok" style="align-self:flex-start"><span class="dot ok"></span>Live</span>
+              </div>
+              <div class="d-card-meta" style="font-size:10.5px"><div>5c0e8f21…</div><div class="muted">Nov 24, 2026</div></div>
+              <button type="button" class="d-card-open" style="font-size:10.5px;padding:5px 6px;gap:4px"><svg class="i s"><use href="#i-play"/></svg>Open Codespace</button>
+            </div>
+            <div class="d-card" style="padding:9px;gap:8px;min-width:0">
+              <div style="display:flex;flex-direction:column;gap:4px;min-width:0">
+                <span class="d-card-title" style="font-size:12.5px">chat-widget</span>
+                <span class="badge warn" style="align-self:flex-start"><span class="dot warn"></span>Building</span>
+              </div>
+              <div class="d-card-meta" style="font-size:10.5px"><div>2c119e4a…</div><div class="muted">Nov 24, 2026</div></div>
+              <button type="button" class="d-card-open" style="font-size:10.5px;padding:5px 6px;gap:4px"><svg class="i s"><use href="#i-play"/></svg>Open Codespace</button>
+            </div>
+          </div>
+          <div class="toast" style="position:absolute;left:50%;bottom:10px;transform:translateX(-50%);white-space:nowrap;z-index:4"><svg class="i s t-ok"><use href="#i-check"/></svg>Deleted portfolio</div>
+        </div>
+      </div>
+    </div>
+    <ol class="notes">
+      <li><b>Loading</b> represents project cards with skeleton blocks matching the card grid (shipped code currently shows a spinner with <code>"Loading environments…"</code>).</li>
+      <li><b>Empty and Search empty</b> use the exact copy from My Apps (<code>No Projects Yet</code>) and Recents (<code>No matching projects found</code>).</li>
+      <li><b>5-project limit</b> gathers the capacity warning (<code>Capacity reached</code>), Playground submit alert, and Create modal validation error from <code>Dashboard.jsx</code>.</li>
+      <li><b>Error and Done</b>: Errors name the Sandbox service alongside the real banner text (<code>Failed to fetch projects</code> / <code>Failed to create workspace</code>); Done reuses the button verb from CD-06 (<code>Delete</code> to <code>Deleted portfolio</code>).</li>
+    </ol>
+  </section>
+</main>
+<script src="../../_shared/kit.js"></script>
+</body>
+</html>

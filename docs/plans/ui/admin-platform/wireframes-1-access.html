@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Admin portal access screens</title>
+<link rel="stylesheet" href="../_shared/taksha-wireframe.css">
+<style>
+  .auth .host { position: absolute; top: 14px; left: 16px; z-index: 2; display: flex; gap: 8px; align-items: center; font-size: 12px; color: var(--text-muted); }
+  .auth .host .mark { width: 22px; height: 22px; border-radius: 6px; background: linear-gradient(135deg, var(--brand-primary), var(--accent-primary)); display: grid; place-items: center; color: #fff; font-size: 11px; font-weight: 700; }
+  .gbtn { display: flex; align-items: center; justify-content: center; gap: 10px; height: 38px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-element); font-size: 13px; font-weight: 600; color: var(--text-primary); }
+  .g { width: 16px; height: 16px; border-radius: 50%; background: conic-gradient(#4285F4 0 25%, #34A853 0 50%, #FBBC05 0 75%, #EA4335 0); }
+  .status-page { display: grid; place-items: center; height: 420px; padding: 12px; background: var(--bg-canvas); }
+  .status-card { width: 100%; max-width: 380px; padding: 24px; border: 1px solid var(--border); border-radius: 14px; background: var(--bg-surface); display: flex; flex-direction: column; gap: 12px; }
+  .status-card h3 { font-size: 16px; color: var(--text-primary); }
+  .status-card p { font-size: 13px; color: var(--text-muted); line-height: 1.55; }
+  .ico { width: 40px; height: 40px; border-radius: 10px; display: grid; place-items: center; }
+  .secret { display: grid; grid-template-columns: 90px 1fr; gap: 6px 10px; padding: 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-canvas); font-size: 12px; }
+</style>
+</head>
+<body>
+<main class="board">
+  <header class="board-head">
+    <div>
+      <h1>Admin portal, part 1: access</h1>
+      <p>Login, enrollment, registration, step-up and account status pages for <a href="../../admin-platform-hld.md">admin-platform-hld.md</a> and <code>Admin/PLAN.md</code> sections 3 and 4.1 (phases P1 and P2). The portal is its own app on <code>admin.takshacodespace.in</code>, built with the main app's tokens. Other parts: <a href="wireframes-2-organization.html">2 organization</a>, <a href="wireframes-3-data.html">3 data and analytics</a>, <a href="wireframes-4-ops.html">4 operations, explorer, support, payments</a>. Spec: <a href="screens.md">screens.md</a>.</p>
+    </div>
+    <button class="theme-toggle" data-theme-toggle><svg class="i"><use href="#i-sun"/></svg> Light theme</button>
+  </header>
+  <nav class="board-nav"><a href="#ad01">AD-01 Maintainer sign in</a><a href="#ad02">AD-02 Passkey</a><a href="#ad03">AD-03 Enrollment</a><a href="#ad04">AD-04 Admin registration</a><a href="#ad05">AD-05 Step-up</a><a href="#ad06">AD-06 Account status</a></nav>
+
+  <section class="screen" id="ad01">
+    <div class="screen-cap"><span class="id">AD-01</span><h2>Maintainer sign in, page 1</h2><span class="where">P1 · /login/maintainer</span></div>
+    <div class="row-frames">
+      <div class="frame"><div class="auth">
+        <div class="host"><div class="mark">T</div>Taksha Admin</div>
+        <div class="auth-card">
+          <div class="steps-dots"><i class="on"></i><i></i></div>
+          <h3>Maintainer sign in</h3>
+          <div class="field"><label>Username</label><div class="input focus mono" style="font-size:12.5px">k7Qm2xV9pL4…</div></div>
+          <div class="field"><label>Password</label><div class="input mono">••••••••••••••••••••••••••••<svg class="i s" style="margin-left:auto"><use href="#i-eye"/></svg></div></div>
+          <button class="btn-primary" style="height:36px">Continue</button>
+          <div style="text-align:center;font-size:12.5px" class="muted">Admin? <a href="#" style="color:var(--accent-hover)">Sign in with Google</a></div>
+        </div>
+      </div></div>
+      <div class="frame"><div class="auth">
+        <div class="host"><div class="mark">T</div>Taksha Admin</div>
+        <div class="auth-card">
+          <div class="steps-dots"><i class="on"></i><i></i></div>
+          <h3>Maintainer sign in</h3>
+          <div class="notice err"><svg class="i s"><use href="#i-lock"/></svg><span>Sign in is locked for 30 minutes after 5 failed tries. An alert was sent to the maintainer email. Try again at 19:24.</span></div>
+          <div class="field"><label>Username</label><div class="input" style="opacity:.5"></div></div>
+          <div class="field"><label>Password</label><div class="input" style="opacity:.5"></div></div>
+          <button class="btn-primary" style="height:36px;opacity:.5">Continue</button>
+        </div>
+      </div></div>
+    </div>
+    <ol class="notes">
+      <li>Two step dots show where you are: credentials, then passkey. Wrong username or password always says only "Invalid credentials" under the form.</li>
+      <li>Lockout state: the form is disabled and the notice gives the time it opens again. No reset link (recovery is only by CLI).</li>
+      <li>Fields are monospace because the credentials are 32 and 28 random characters, pasted from a password manager. Paste is allowed.</li>
+    </ol>
+  </section>
+
+  <section class="screen" id="ad02">
+    <div class="screen-cap"><span class="id">AD-02</span><h2>Passkey, page 2</h2><span class="where">P1 · same route, after the pre-auth cookie</span></div>
+    <div class="row-frames">
+      <div class="frame"><div class="auth">
+        <div class="host"><div class="mark">T</div>Taksha Admin</div>
+        <div class="auth-card" style="text-align:center">
+          <div class="steps-dots"><i class="on"></i><i class="on"></i></div>
+          <div class="passkey-ring"><svg class="i"><use href="#i-fingerprint"/></svg></div>
+          <h3>Use your passkey</h3>
+          <p>Touch your security key or use Touch ID on this device. This step expires in 4:12.</p>
+          <button class="btn-primary" style="height:36px">Use passkey</button>
+          <a href="#" class="muted" style="font-size:12.5px">Use the backup key instead</a>
+        </div>
+      </div></div>
+      <div class="frame"><div class="auth">
+        <div class="host"><div class="mark">T</div>Taksha Admin</div>
+        <div class="auth-card" style="text-align:center">
+          <div class="steps-dots"><i class="on"></i><i class="on"></i></div>
+          <div class="passkey-ring" style="color:var(--error);border-color:rgba(239,68,68,.5);background:var(--error-glow)"><svg class="i"><use href="#i-x"/></svg></div>
+          <h3>Passkey not accepted</h3>
+          <p>The prompt was closed or the key did not match. Try again, or start over if the 5 minutes ran out.</p>
+          <button class="btn-primary" style="height:36px">Try again</button>
+          <a href="#" class="muted" style="font-size:12.5px">Start over</a>
+        </div>
+      </div></div>
+    </div>
+    <ol class="notes">
+      <li>One big ring as the only visual, ember. The browser's own WebAuthn sheet opens on click, never on load, so the user knows why it appeared.</li>
+      <li>Failure keeps the same layout with an error ring. After the 5 minute pre-auth window: "Start over" returns to page 1.</li>
+    </ol>
+  </section>
+
+  <section class="screen" id="ad03">
+    <div class="screen-cap"><span class="id">AD-03</span><h2>Maintainer enrollment (once)</h2><span class="where">P1 · /enroll, open only with a valid CLI code</span></div>
+    <div class="row-frames">
+      <div class="frame"><div class="auth" style="height:640px">
+        <div class="host"><div class="mark">T</div>Taksha Admin</div>
+        <div class="auth-card">
+          <div class="steps-dots"><i class="on"></i><i></i><i></i></div>
+          <h3>Set up the maintainer account</h3>
+          <p>Enter what <code>npm run admin:init-maintainer</code> printed. The enrollment code works for 10 minutes.</p>
+          <div class="field"><label>Username</label><div class="input mono"></div></div>
+          <div class="field"><label>Password</label><div class="input mono"></div></div>
+          <div class="field"><label>Enrollment code</label><div class="input mono ph">XXXX-XXXX</div></div>
+          <button class="btn-primary" style="height:36px">Continue</button>
+        </div>
+      </div></div>
+      <div class="frame"><div class="auth" style="height:640px">
+        <div class="host"><div class="mark">T</div>Taksha Admin</div>
+        <div class="auth-card">
+          <div class="steps-dots"><i class="on"></i><i class="on"></i><i class="on"></i></div>
+          <h3>Add two passkeys</h3>
+          <p>One on this device and one backup security key. Synced passkeys are not accepted for the maintainer.</p>
+          <div class="s-row" style="border:1px solid var(--border);border-radius:8px;padding:10px 12px"><div style="display:flex;gap:10px;align-items:center"><svg class="i l t-ok"><use href="#i-check-circle"/></svg><div><div class="t">This Mac (Touch ID)</div><div class="d">Added just now</div></div></div><span class="badge ok">Main</span></div>
+          <div class="s-row" style="border:1px dashed var(--border-strong);border-radius:8px;padding:10px 12px"><div style="display:flex;gap:10px;align-items:center"><svg class="i l"><use href="#i-key"/></svg><div><div class="t">Backup security key</div><div class="d">Plug it in, then add</div></div></div><button class="btn-secondary btn-sm">Add backup key</button></div>
+          <button class="btn-primary" style="height:36px;opacity:.5">Finish setup</button>
+          <p class="dim" style="font-size:11.5px">Finish turns enrollment off for good. Recovery is only by <code>npm run admin:reset-maintainer</code>.</p>
+        </div>
+      </div></div>
+    </div>
+    <ol class="notes">
+      <li>Without a valid code the route shows 404, like any unknown page.</li>
+      <li>Finish stays disabled until both passkeys exist, because the plan asks for a main device and a backup key.</li>
+    </ol>
+  </section>
+
+  <section class="screen" id="ad04">
+    <div class="screen-cap"><span class="id">AD-04</span><h2>Admin registration, three pages</h2><span class="where">P1 and P2 · /join</span></div>
+    <div class="row-frames" style="grid-template-columns:repeat(3,1fr)">
+      <div class="frame"><div class="auth" style="height:600px">
+        <div class="auth-card" style="max-width:340px">
+          <div class="steps-dots"><i class="on"></i><i></i><i></i></div>
+          <h3>Apply for admin access</h3>
+          <p>Sign in with the Google account you use for work. The maintainer approves every admin.</p>
+          <button class="gbtn"><span class="g"></span>Continue with Google</button>
+          <p class="dim" style="font-size:11.5px">This is separate from your Taksha user account.</p>
+        </div>
+      </div></div>
+      <div class="frame"><div class="auth" style="height:600px">
+        <div class="auth-card" style="max-width:340px;text-align:center">
+          <div class="steps-dots"><i class="on"></i><i class="on"></i><i></i></div>
+          <div class="passkey-ring"><svg class="i"><use href="#i-fingerprint"/></svg></div>
+          <h3>Add a passkey</h3>
+          <p>You need it every time you sign in. Adding it now means nobody who gets into your Google account can add their own device later.</p>
+          <button class="btn-primary" style="height:36px">Add passkey</button>
+        </div>
+      </div></div>
+      <div class="frame"><div class="auth" style="height:600px">
+        <div class="auth-card" style="max-width:340px;gap:12px">
+          <div class="steps-dots"><i class="on"></i><i class="on"></i><i class="on"></i></div>
+          <h3>Your application</h3>
+          <div class="field"><label>Name</label><div class="input">Riya Kapoor</div></div>
+          <div class="field"><label>Team</label><div class="input">Support</div></div>
+          <div class="field"><label>Role you need</label><div class="input">Support Agent<svg class="i s" style="margin-left:auto"><use href="#i-chev-d"/></svg></div></div>
+          <div class="field"><label>Why you need it</label><div class="textarea" style="min-height:56px">Answer user tickets about failed runs.</div></div>
+          <div class="field"><label>For how long</label><div class="seg" style="align-self:flex-start"><button>30 days</button><button class="on">90 days</button><button>180 days</button></div></div>
+          <button class="btn-primary" style="height:36px">Send application</button>
+        </div>
+      </div></div>
+    </div>
+    <ol class="notes">
+      <li>Google first (strategy <code>google-admin</code>). If the Google account already has an admin account, it goes straight to sign in.</li>
+      <li>Passkey before approval, as the plan requires. Synced passkeys are fine for admins.</li>
+      <li>Role options are the role templates (Viewer, Support Agent, DevOps, Finance, AI Ops). Duration defaults to 90 days. Send leads to AD-06 "pending".</li>
+    </ol>
+  </section>
+
+  <section class="screen" id="ad05">
+    <div class="screen-cap"><span class="id">AD-05</span><h2>Step-up for a sensitive action</h2><span class="where">P1 · global dialog on 401 step_up_required</span></div>
+    <div class="frame-scroll"><div class="frame">
+      <div class="shell short">
+        <aside class="side" data-active="chats"></aside>
+        <div class="main" style="position:relative">
+          <div class="topbar"><div class="crumbs">Chats <svg class="i s"><use href="#i-chev-r"/></svg> <b>Open a chat</b></div></div>
+          <div class="content"></div>
+          <div class="scrim">
+            <div class="modal" style="max-width:420px">
+              <div style="display:flex;gap:14px;align-items:flex-start"><div class="passkey-ring" style="width:48px;height:48px;margin:0;flex-shrink:0"><svg class="i" style="width:22px;height:22px"><use href="#i-fingerprint"/></svg></div><div><h3>Confirm it is you</h3><p style="margin-top:4px">Reading a user's chat needs a fresh passkey check. Your last check was 12 minutes ago.</p></div></div>
+              <div class="kv"><dt>Action</dt><dd>Read chat "Fix the theme toggle crash"</dd><dt>User</dt><dd><span class="masked">s•••@g••••.com</span></dd><dt>Reason</dt><dd>Ticket #182</dd></div>
+              <div class="acts"><button class="btn-secondary">Cancel</button><button class="btn-primary"><svg class="i s"><use href="#i-fingerprint"/></svg>Use passkey</button></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div></div>
+    <ol class="notes">
+      <li>One shared dialog for every step-up. It names the exact action and target, so the person knows what the passkey confirms. After success the original request is retried once.</li>
+      <li>Used for: reading chats, suspending, stopping runs, data explorer edits, approvals, announcements, payments actions.</li>
+    </ol>
+  </section>
+
+  <section class="screen" id="ad06">
+    <div class="screen-cap"><span class="id">AD-06</span><h2>Account status pages</h2><span class="where">P2 · shown instead of the portal for every status except active</span></div>
+    <div class="row-frames" style="grid-template-columns:repeat(4,1fr)">
+      <div class="frame"><div class="status-page"><div class="status-card"><div class="ico" style="background:var(--accent-subtle);color:var(--accent-hover)"><svg class="i l"><use href="#i-hourglass"/></svg></div><h3>Waiting for approval</h3><p>You applied as Support Agent on 24 Nov. You get an email when the maintainer decides.</p><button class="btn-secondary">Sign out</button></div></div></div>
+      <div class="frame"><div class="status-page"><div class="status-card"><div class="ico" style="background:var(--error-glow);color:var(--error)"><svg class="i l"><use href="#i-x-circle"/></svg></div><h3>Application not approved</h3><p>"Use the support inbox for now." You can apply again on 1 Dec.</p><button class="btn-secondary" style="opacity:.5">Apply again</button></div></div></div>
+      <div class="frame"><div class="status-page"><div class="status-card"><div class="ico" style="background:var(--warning-bg);color:var(--warning)"><svg class="i l"><use href="#i-ban"/></svg></div><h3>Access suspended</h3><p>The maintainer suspended your access. Contact them if you think this is a mistake.</p><button class="btn-secondary">Sign out</button></div></div></div>
+      <div class="frame"><div class="status-page"><div class="status-card"><div class="ico" style="background:var(--bg-element);color:var(--text-muted)"><svg class="i l"><use href="#i-clock"/></svg></div><h3>Access expired</h3><p>Your 90 days ended on 20 Nov. Ask for more time and the maintainer reviews it.</p><button class="btn-primary">Ask to renew</button></div></div></div>
+    </div>
+    <ol class="notes">
+      <li>Each status from <code>Admin/PLAN.md</code> 4.1 gets one card: icon, title, one or two sentences with the facts (role, date, reason), one action. No navigation is shown.</li>
+    </ol>
+  </section>
+</main>
+<script src="../_shared/kit.js"></script>
+<script src="../_shared/admin-shell.js"></script>
+</body>
+</html>

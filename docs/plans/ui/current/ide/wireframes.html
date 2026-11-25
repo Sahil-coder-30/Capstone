@@ -1,0 +1,1210 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>IDE screens</title>
+<link rel="stylesheet" href="../../_shared/taksha-wireframe.css">
+<style>
+  .ide-preview-app { flex: 1; margin: 10px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg-surface); display: flex; flex-direction: column; overflow: hidden; }
+  .ide-preview-nav { display: flex; align-items: center; justify-content: space-between; padding: 10px 16px; border-bottom: 1px solid var(--border); background: var(--bg-overlay); }
+  .ide-preview-body { flex: 1; padding: 18px 20px; display: flex; flex-direction: column; gap: 12px; justify-content: center; }
+  .ide-quiz-opts { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .ide-quiz-opt { padding: 9px 12px; border: 1px solid var(--border); border-radius: 7px; background: var(--bg-element); font-size: 12px; color: var(--text-secondary); text-align: left; }
+  .ide-quiz-opt.sel { border-color: var(--brand-primary); background: var(--brand-subtle); color: var(--text-primary); font-weight: 600; }
+  .term-body { flex: 1; padding: 12px; font-family: var(--font-mono); font-size: 12px; line-height: 1.65; color: var(--text-secondary); background: var(--bg-overlay); overflow: hidden; }
+  .term-toolbar { display: flex; align-items: center; justify-content: space-between; height: 40px; padding: 0 14px; border-bottom: 1px solid var(--border); background: var(--bg-overlay); flex-shrink: 0; font-size: 12px; }
+  .warm-wrap { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 20px; padding: 20px; text-align: center; background: var(--bg-overlay); }
+  .warm-card { width: 100%; max-width: 380px; background: var(--bg-surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; text-align: left; display: flex; flex-direction: column; gap: 10px; }
+  .warm-dots { display: flex; gap: 4px; align-items: center; }
+  .warm-dots i { width: 6px; height: 6px; border-radius: 50%; background: var(--border-strong); display: block; }
+  .warm-dots i:first-child { background: var(--text-muted); }
+  .warm-dots i:nth-child(2) { background: var(--text-dark); }
+  .offline-ring { width: 64px; height: 64px; border-radius: 50%; display: grid; place-items: center; background: var(--accent-subtle); border: 1px solid var(--border); color: var(--text-muted); }
+  .exp-sub { display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; border-bottom: 1px solid var(--border); background: var(--bg-overlay); font-size: 11px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: var(--text-muted); }
+  .ed-bar { display: flex; align-items: center; justify-content: space-between; gap: 8px; height: 42px; padding: 0 14px; border-bottom: 1px solid var(--border); background: var(--bg-overlay); flex-shrink: 0; }
+  .crumbs-ed { display: flex; align-items: center; gap: 4px; font-size: 12px; color: var(--text-muted); min-width: 0; }
+  .crumbs-ed b { color: var(--text-primary); font-weight: 500; }
+  .sync-pill { display: inline-flex; align-items: center; gap: 5px; padding: 3px 8px; border-radius: 6px; font-size: 11px; font-weight: 500; color: var(--success); background: var(--brand-subtle); border: 1px solid var(--border); }
+  .stack-panels { display: flex; flex-direction: column; gap: 16px; }
+  .bottom-card { display: flex; flex-direction: column; background: var(--bg-overlay); border: 1px solid var(--border-strong); border-radius: 10px; overflow: hidden; }
+  .orion-empty-box { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; padding: 18px 16px; text-align: center; }
+  .prompt-list { display: flex; flex-direction: column; gap: 6px; width: 100%; max-width: 310px; }
+  .prompt-btn { width: 100%; text-align: left; padding: 7px 12px; border: 1px solid var(--border); border-radius: 6px; font-size: 12px; line-height: 1.4; color: var(--text-secondary); background: var(--bg-surface); }
+  .prompt-btn:hover { background: var(--card-hover); border-color: var(--border-strong); }
+  .file-menu-pop { border: 1px solid var(--border-strong); border-radius: 10px; background: var(--bg-overlay); padding: 4px; box-shadow: var(--shadow-pop); margin: 0 12px 6px; }
+  .attach-row { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 6px; }
+  .attach-chip { display: inline-flex; align-items: center; gap: 5px; padding: 2px 6px; border-radius: 6px; background: var(--card-hover); font-size: 11px; color: var(--text-secondary); }
+  .msg-acts { display: flex; align-items: center; gap: 2px; margin-top: 2px; }
+  .msg-acts.end { justify-content: flex-end; }
+  .msg-acts .icon-btn { width: 22px; height: 22px; }
+  .think-box { font-size: 12px; color: var(--text-muted); }
+  .think-head { display: flex; align-items: center; gap: 6px; font-weight: 500; padding: 2px 0; }
+  .think-body { margin-top: 4px; padding-left: 12px; border-left: 2px solid var(--border); display: flex; flex-direction: column; gap: 6px; line-height: 1.55; }
+  .phase-ol { list-style: none; display: flex; flex-direction: column; gap: 3px; font-size: 12px; }
+  .phase-row { display: flex; align-items: flex-start; gap: 8px; line-height: 1.5; color: var(--text-muted); }
+  .phase-row.done { color: var(--text-secondary); }
+  .phase-row.run { color: var(--text-primary); }
+  .tool-tree { margin-top: 4px; border-left: 2px solid var(--border); }
+  .plan-box { margin: 0 12px 10px; padding: 12px; border: 1px solid var(--border-strong); border-radius: 10px; background: var(--bg-overlay); display: flex; flex-direction: column; gap: 8px; }
+  .plan-step-det { padding: 4px 8px 8px 26px; display: flex; flex-direction: column; gap: 6px; font-size: 11.5px; color: var(--text-muted); line-height: 1.5; }
+  .plan-file-chip { display: inline-block; padding: 1px 6px; border-radius: 4px; background: var(--card-hover); font-family: var(--font-mono); font-size: 11px; color: var(--text-secondary); }
+  .ch-wrap { position: relative; height: 500px; display: flex; flex-direction: column; background: var(--bg-sidebar); overflow: hidden; }
+  .ch-scrim { position: absolute; inset: 0; z-index: 10; display: flex; background: rgba(0, 0, 0, 0.35); }
+  .ch-drawer { width: min(280px, 88%); height: 100%; padding: 8px; background: var(--bg-sidebar); border-right: 1px solid var(--border); display: flex; flex-direction: column; gap: 8px; box-shadow: var(--shadow-pop); }
+  .ch-group-t { padding: 0 8px; margin: 4px 0; font-size: 11px; font-weight: 500; color: var(--text-muted); }
+  .ch-item { display: flex; align-items: center; gap: 6px; padding: 5px 8px; border-radius: 6px; font-size: 12px; color: var(--text-secondary); }
+  .ch-item.on { background: var(--card-hover); color: var(--text-primary); font-weight: 500; }
+  .ch-item.confirm { flex-wrap: wrap; background: var(--card-hover); gap: 6px; }
+  .clio-float { position: absolute; right: 20px; top: 20px; width: 370px; max-width: calc(100% - 24px); z-index: 15; border: 1px solid var(--border-strong); border-radius: 12px; background: var(--bg-overlay); box-shadow: var(--shadow-pop); display: flex; flex-direction: column; overflow: hidden; }
+  .clio-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 14px; border-bottom: 1px solid var(--border); background: var(--bg-surface); }
+  .clio-ctx { display: flex; align-items: center; gap: 6px; padding: 5px 12px; background: var(--accent-subtle); border-bottom: 1px solid var(--border); font-size: 11.5px; color: var(--text-secondary); }
+  .clio-msgs { padding: 12px; display: flex; flex-direction: column; gap: 10px; font-size: 12.5px; }
+  .clio-u { align-self: flex-end; max-width: 85%; padding: 8px 12px; border-radius: 10px 10px 2px 10px; background: linear-gradient(135deg, var(--brand-primary), var(--accent-primary)); color: var(--text-primary); font-size: 12.5px; line-height: 1.5; }
+  .clio-a { align-self: flex-start; max-width: 92%; padding: 9px 12px; border-radius: 10px 10px 10px 2px; border: 1px solid var(--border); background: var(--bg-surface); color: var(--text-secondary); display: flex; flex-direction: column; gap: 8px; }
+  .clio-foot { display: flex; align-items: center; gap: 8px; padding: 9px 12px; border-top: 1px solid var(--border); background: var(--bg-surface); }
+  .mcp-scope-box { padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; display: flex; flex-direction: column; gap: 8px; }
+  .mcp-tok-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; }
+  .mcp-tok-row .mono { overflow-wrap: anywhere; }
+  .fault-banner { width: 100%; max-width: 520px; background: var(--bg-surface); border-radius: 10px; padding: 12px 16px; display: flex; align-items: flex-start; gap: 12px; font-size: 13px; line-height: 1.45; box-shadow: var(--shadow-pop); }
+  .fault-banner.warn { border: 1px solid var(--warning); }
+  .fault-banner.brand { border: 1px solid var(--brand-primary); }
+  .fault-banner.err { border: 1px solid var(--error); }
+  .btn-amber { display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; border-radius: 6px; background: var(--warning); color: var(--bg-canvas); font-size: 12px; font-weight: 700; margin-top: 8px; }
+  .fault-stage { position: relative; padding: 24px 16px; display: flex; flex-direction: column; align-items: center; gap: 14px; background: var(--bg-canvas); }
+  .pv-url { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .status-bar { overflow: hidden; }
+  .screen-cap { flex-wrap: wrap; }
+  .screen-cap .where { overflow-wrap: anywhere; min-width: 0; }
+  .notes li, .notes code { overflow-wrap: anywhere; }
+</style>
+</head>
+<body>
+<main class="board">
+  <header class="board-head">
+    <div>
+      <h1>IDE screens</h1>
+      <p>Built screens for the Taksha CodeSpace IDE (CI-01 to CI-11), documented from <code>Frontend/src/</code> as of 2026-11-25. Every label, button, tab, and state matches the shipped React components and SCSS tokens. Inventory: <a href="../INVENTORY.md">INVENTORY.md</a>. Spec for each screen: <a href="screens.md">screens.md</a>.</p>
+    </div>
+    <button type="button" class="theme-toggle" data-theme-toggle><svg class="i"><use href="#i-sun"/></svg> Light theme</button>
+  </header>
+  <nav class="board-nav">
+    <a href="#ci01">CI-01 Workspace</a><a href="#ci02">CI-02 Boot and offline</a><a href="#ci03">CI-03 Code tab</a><a href="#ci04">CI-04 Bottom panel</a><a href="#ci05">CI-05 Orion empty</a><a href="#ci06">CI-06 Orion run</a><a href="#ci07">CI-07 Plan review</a><a href="#ci08">CI-08 Chat history</a><a href="#ci09">CI-09 Clio float</a><a href="#ci10">CI-10 Connect agent</a><a href="#ci11">CI-11 Fault alert</a><a href="#ide-states">States</a>
+  </nav>
+
+  <!-- CI-01 ───────────────────────────────────────────────────────────── -->
+  <section class="screen" id="ci01">
+    <div class="screen-cap"><span class="id">CI-01</span><h2>Workspace with live preview</h2><span class="where">Frontend/src/App.jsx · SandboxHeader.jsx · Layout.jsx</span></div>
+    <div class="frame-scroll"><div class="frame">
+      <div class="ide">
+        <div class="sbx-header">
+          <div class="left">
+            <button type="button" class="btn-secondary btn-sm">← Back to start</button>
+            <div class="toggles">
+              <button type="button" class="icon-btn brand" title="Toggle AI Chat (Cmd+Shift+B)" aria-label="Toggle AI Chat"><svg class="i"><use href="#i-sparkles"/></svg></button>
+              <button type="button" class="icon-btn brand" title="Toggle Explorer (Cmd+B)" aria-label="Toggle Explorer"><svg class="i"><use href="#i-folder-tree"/></svg></button>
+              <button type="button" class="icon-btn brand" title="Toggle Terminal (Cmd+J)" aria-label="Toggle Terminal"><svg class="i"><use href="#i-terminal"/></svg></button>
+            </div>
+            <span class="pin" style="position:static;flex-shrink:0">1</span>
+          </div>
+          <h1>quiz-arena</h1>
+          <div class="right">
+            <button type="button" class="btn-danger btn-sm"><svg class="i s"><use href="#i-square"/></svg>Stop Sandbox</button>
+            <button type="button" class="sbx-live"><span class="dot ok"></span>Sandbox Live<svg class="i s muted"><use href="#i-chev-d"/></svg></button>
+            <button type="button" class="btn-ghost btn-sm" style="border:none">Remix</button>
+            <button type="button" class="btn-ghost btn-sm" style="border:none"><svg class="i s"><use href="#i-external"/></svg>Share</button>
+            <button type="button" class="btn-solid btn-sm">Publish</button>
+            <button type="button" class="icon-btn" title="Connect your own agent (Claude Code, Cursor)" aria-label="Connect your own agent"><svg class="i"><use href="#i-plug"/></svg></button>
+            <button type="button" class="icon-btn" title="Settings" aria-label="Settings"><svg class="i"><use href="#i-settings"/></svg></button>
+          </div>
+        </div>
+        <div class="ide-body">
+          <div class="panel chat-panel" style="position:relative">
+            <span class="pin" style="left:12px;top:56px">2</span>
+            <div class="orion-header">
+              <button type="button" class="icon-btn" aria-label="Chat history"><svg class="i"><use href="#i-history"/></svg></button>
+              <h1><span class="brand">Orion</span><span class="chat">Quiz scoring and timer</span></h1>
+              <span class="orion-state"><span class="dot ok"></span>Ready</span>
+              <button type="button" class="icon-btn" aria-label="New chat"><svg class="i"><use href="#i-plus"/></svg></button>
+              <button type="button" class="icon-btn" aria-label="Select chats to delete"><svg class="i"><use href="#i-check-circle"/></svg></button>
+              <button type="button" class="icon-btn" aria-label="Close Orion"><svg class="i"><use href="#i-x"/></svg></button>
+            </div>
+            <div class="chat-scroll">
+              <div class="u-msg">Add a 60 second timer and highlight the selected option in QuestionCard.</div>
+              <div class="a-turn">
+                <div class="think-box">
+                  <div class="think-head"><span class="muted">Thought process</span><span class="dim">Checking QuestionCard props and…</span><svg class="i s" style="margin-left:auto"><use href="#i-chev-d"/></svg></div>
+                </div>
+                <div class="steps">
+                  <div class="step"><svg class="i s"><use href="#i-chev-d"/></svg><span>3 steps</span></div>
+                </div>
+                <p>Added a 60 s countdown in <code>QuizTimer.jsx</code> and wired the active option state into <code>QuestionCard.jsx</code>.</p>
+                <div class="card">
+                  <div class="card-title">2 files changed</div>
+                  <ul class="steps" style="padding:2px">
+                    <li class="step link"><svg class="i s"><use href="#i-file"/></svg><span class="target" style="flex:1">src/components/QuizTimer.jsx</span><span class="pill ok">New</span></li>
+                    <li class="step link"><svg class="i s"><use href="#i-file"/></svg><span class="target" style="flex:1">src/components/QuestionCard.jsx</span><span class="pill">Edited</span></li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+            <div class="composer">
+              <div class="ph">Ask Orion to build or fix something</div>
+              <div class="bar">
+                <div style="display:flex;align-items:center;gap:6px"><button type="button" class="icon-btn" aria-label="Attach a file"><svg class="i"><use href="#i-plus"/></svg></button><span class="muted" style="font-size:11px">@ to attach</span></div>
+                <button type="button" class="icon-btn" aria-label="Send" style="opacity:.45"><svg class="i"><use href="#i-arrow-up"/></svg></button>
+              </div>
+            </div>
+          </div>
+          <div class="center">
+            <div class="tab-bar">
+              <button type="button" class="tab-btn active"><svg class="i"><use href="#i-eye"/></svg>Preview</button>
+              <button type="button" class="tab-btn"><svg class="i"><use href="#i-code"/></svg>Code</button>
+            </div>
+            <div class="pv">
+              <div class="pv-bar">
+                <span class="dot ok"></span>
+                <div class="pv-url">http://sbx-5c0e-q1.preview.localhost</div>
+                <span class="pin" style="position:static;flex-shrink:0">3</span>
+                <button type="button" class="icon-btn" aria-label="Reload preview"><svg class="i s"><use href="#i-refresh"/></svg></button>
+                <button type="button" class="icon-btn" aria-label="Open in new tab"><svg class="i s"><use href="#i-external"/></svg></button>
+              </div>
+              <div class="ide-preview-app" aria-label="Live preview of quiz-arena application">
+                <div class="ide-preview-nav">
+                  <b style="color:var(--text-primary);font-size:13px">Quiz Arena</b>
+                  <span class="pill brand">00:48</span>
+                  <span class="muted" style="font-size:11.5px">Score: 840</span>
+                </div>
+                <div class="ide-preview-body">
+                  <div style="font-size:11px;color:var(--text-muted)">Question 3 of 10 · Distributed Systems</div>
+                  <div style="font-size:15px;font-weight:600;color:var(--text-primary)">Which protocol ensures total order across replicated state machines?</div>
+                  <div class="ide-quiz-opts">
+                    <div class="ide-quiz-opt">A. Gossip broadcast</div>
+                    <div class="ide-quiz-opt sel">B. Raft consensus</div>
+                    <div class="ide-quiz-opt">C. Consistent hashing</div>
+                    <div class="ide-quiz-opt">D. Token bucket</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="bottom">
+              <div class="tab-bar" style="justify-content:space-between;padding-right:10px">
+                <div style="display:flex;height:100%;gap:2px">
+                  <button type="button" class="tab-btn"><svg class="i"><use href="#i-info"/></svg>Problems</button>
+                  <button type="button" class="tab-btn"><svg class="i"><use href="#i-alert"/></svg>Output</button>
+                  <button type="button" class="tab-btn active"><svg class="i"><use href="#i-terminal"/></svg>Terminal</button>
+                  <button type="button" class="tab-btn"><svg class="i"><use href="#i-plug"/></svg>Ports</button>
+                </div>
+                <div style="display:flex;align-items:center;gap:6px"><span class="pin" style="position:static;flex-shrink:0">4</span><button type="button" class="icon-btn" aria-label="Collapse Terminal"><svg class="i"><use href="#i-x"/></svg></button></div>
+              </div>
+              <div class="term-toolbar">
+                <div style="display:flex;align-items:center;gap:8px;color:var(--text-primary);font-weight:500"><svg class="i t-brand"><use href="#i-terminal"/></svg><span>sh (Interactive Terminal)</span></div>
+                <div style="display:flex;align-items:center;gap:10px">
+                  <button type="button" class="icon-btn" aria-label="Reconnect Terminal"><svg class="i s"><use href="#i-refresh"/></svg></button>
+                  <span class="pill ok"><span class="dot ok"></span>ONLINE</span>
+                </div>
+              </div>
+              <div class="term-body">
+                <div><span class="t-brand">⚡ CodeSpace Interactive Shell</span></div>
+                <div><span class="t-ok">✓ Connected to sandbox terminal</span></div>
+                <div><span class="t-brand">~/workspace $</span> npm run dev</div>
+                <div class="muted">VITE v6.1.0 ready in 248 ms · http://localhost:5173/</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="status-bar">
+          <div class="sec">
+            <span class="status-item"><svg class="i s"><use href="#i-git-branch"/></svg>main*</span>
+            <span class="status-item"><span class="dot ok"></span><span class="t-ok">Sandbox Active</span></span>
+          </div>
+          <div class="sec">
+            <span class="status-item">Port: 5173</span>
+            <span class="status-item">JavaScript JSX</span>
+            <span class="status-item brand">CodeSpace IDE v1.0</span>
+          </div>
+        </div>
+      </div>
+    </div></div>
+    <ol class="notes">
+      <li><b>SandboxHeader</b> (<code>SandboxHeader.jsx</code>): toggles Orion (<code>Cmd+Shift+B</code>), Explorer (<code>Cmd+B</code>), and Terminal (<code>Cmd+J</code>), and surfaces <code>Stop Sandbox</code> and the <code>Sandbox Live</code> menu backed by <code>useSandbox</code> (<code>/api/sandbox/project/:id</code>).</li>
+      <li><b>Orion left panel</b> (<code>Layout.jsx</code>, <code>AIChat.jsx</code>): defaults to <code>380 px</code> wide and snaps shut below <code>180 px</code>; streams turns over SSE from <code>/api/ai/code-agent/invoke</code>.</li>
+      <li><b>Preview viewport</b> (<code>App.jsx</code>): checks readiness via <code>pingPreviewURL</code> (<code>/api/preview-ping</code>), then renders <code>previewUrl</code> in an iframe; Reload increments <code>iframeKey</code>.</li>
+      <li><b>Bottom panel and status bar</b> (<code>App.jsx</code>, <code>TerminalShell.jsx</code>): bottom area defaults to <code>250 px</code> tall (<code>Cmd+J</code>) and connects over Socket.IO at <code>/api/terminal-proxy/socket.io</code>; status bar displays <code>main*</code>, sandbox state, <code>Port: 5173</code>, and <code>JavaScript JSX</code>.</li>
+    </ol>
+  </section>
+
+  <!-- CI-02 ───────────────────────────────────────────────────────────── -->
+  <section class="screen" id="ci02">
+    <div class="screen-cap"><span class="id">CI-02</span><h2>Preview while booting and when offline</h2><span class="where">Frontend/src/App.jsx · PreviewWarmingScreen and offline block</span></div>
+    <div class="row-frames">
+      <div class="frame">
+        <div class="ide short" style="height:440px">
+          <div class="center">
+            <div class="tab-bar">
+              <button type="button" class="tab-btn active"><svg class="i"><use href="#i-eye"/></svg>Preview</button>
+              <button type="button" class="tab-btn"><svg class="i"><use href="#i-code"/></svg>Code</button>
+            </div>
+            <div class="pv">
+              <div class="pv-bar">
+                <span class="dot warn"></span>
+                <div class="pv-url">http://sbx-5c0e-q1.preview.localhost</div>
+                <svg class="i s spin t-warn"><use href="#i-refresh"/></svg>
+              </div>
+              <div class="warm-wrap" style="position:relative">
+                <div>
+                  <h3 style="font-size:18px;font-weight:700;color:var(--text-primary);margin-bottom:4px">Generating application</h3>
+                  <p class="muted" style="font-size:12.5px">Enjoy these tips while you wait</p>
+                </div>
+                <div class="warm-card" style="position:relative">
+                  <span class="pin" style="right:14px;top:14px">1</span>
+                  <div style="display:flex;align-items:center;justify-content:space-between">
+                    <span class="icon-btn brand" style="pointer-events:none"><svg class="i"><use href="#i-zap"/></svg></span>
+                    <div class="warm-dots"><i></i><i></i><i></i><i></i></div>
+                  </div>
+                  <div style="font-size:13.5px;font-weight:700;color:var(--text-primary)">Real-time Hot Reload</div>
+                  <p class="muted" style="font-size:12px;line-height:1.5">Watch your application update in real time. Any React component or style changes are immediately compiled and reflected in the preview.</p>
+                </div>
+                <div style="display:flex;align-items:center;gap:8px;position:relative">
+                  <span class="pin" style="left:-24px;top:0">2</span>
+                  <svg class="i s spin muted"><use href="#i-refresh"/></svg>
+                  <span class="mono muted">Starting Vite dev server…</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="status-bar">
+            <div class="sec"><span class="status-item"><svg class="i s"><use href="#i-git-branch"/></svg>main*</span><span class="status-item"><span class="dot warn"></span><span>Booting Container...</span></span></div>
+            <div class="sec"><span class="status-item brand">CodeSpace IDE v1.0</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="frame">
+        <div class="ide short" style="height:440px">
+          <div class="center">
+            <div class="tab-bar">
+              <button type="button" class="tab-btn active"><svg class="i"><use href="#i-eye"/></svg>Preview</button>
+              <button type="button" class="tab-btn"><svg class="i"><use href="#i-code"/></svg>Code</button>
+            </div>
+            <div class="pv">
+              <div class="pv-bar">
+                <span class="dot"></span>
+                <div class="pv-url">about:blank</div>
+              </div>
+              <div class="warm-wrap" style="gap:16px;position:relative">
+                <span class="pin" style="right:16px;top:16px">3</span>
+                <div class="offline-ring"><svg class="i l"><use href="#i-play"/></svg></div>
+                <p class="muted" style="font-size:14px">Launch a sandbox to see your app here</p>
+                <button type="button" class="btn-solid"><svg class="i s"><use href="#i-play"/></svg>Start Sandbox</button>
+              </div>
+            </div>
+          </div>
+          <div class="status-bar">
+            <div class="sec"><span class="status-item"><svg class="i s"><use href="#i-git-branch"/></svg>main*</span><span class="status-item"><span class="dot"></span><span>Sandbox Offline</span></span></div>
+            <div class="sec"><span class="status-item brand">CodeSpace IDE v1.0</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <ol class="notes">
+      <li><b>Tip carousel</b> (<code>PreviewWarmingScreen</code> in <code>App.jsx</code>): rotates through four IDE tips every <code>4.5 s</code> while <code>status === 'warming'</code>.</li>
+      <li><b>Warming progress</b> (<code>useSandbox.js</code>): steps <code>warmingMessage</code> from <code>Provisioning sandbox container…</code> through <code>Starting Vite dev server…</code> while polling <code>/api/preview-ping</code> every <code>2 s</code> up to <code>90 s</code>.</li>
+      <li><b>Offline preview</b> (<code>App.jsx</code>): shows <code>about:blank</code> in the address bar and triggers <code>POST /api/sandbox/start/:projectId</code> on <code>Start Sandbox</code>, transitioning through <code>Allocating sandbox container…</code> before warming.</li>
+    </ol>
+  </section>
+
+  <!-- CI-03 ───────────────────────────────────────────────────────────── -->
+  <section class="screen" id="ci03">
+    <div class="screen-cap"><span class="id">CI-03</span><h2>Code tab: Explorer and editor</h2><span class="where">Frontend/src/features/editor/components/FileExplorer.jsx · CodeEditor.jsx</span></div>
+    <div class="frame-scroll"><div class="frame">
+      <div class="ide" style="height:600px">
+        <div class="ide-body">
+          <div class="center">
+            <div class="tab-bar">
+              <button type="button" class="tab-btn"><svg class="i"><use href="#i-eye"/></svg>Preview</button>
+              <button type="button" class="tab-btn active"><svg class="i"><use href="#i-code"/></svg>Code</button>
+            </div>
+            <div class="workspace">
+              <div class="explorer">
+                <div class="panel-header">
+                  <div class="panel-title"><svg class="i"><use href="#i-folder-tree"/></svg><span>Explorer</span></div>
+                  <div style="display:flex;align-items:center;gap:6px"><span class="pin" style="position:static;flex-shrink:0">1</span><button type="button" class="icon-btn" title="Collapse Explorer" aria-label="Collapse Explorer"><svg class="i"><use href="#i-x"/></svg></button></div>
+                </div>
+                <div class="exp-sub">
+                  <span>Workspace Files</span>
+                  <div style="display:flex;gap:4px">
+                    <button type="button" class="icon-btn" title="Refresh Files" aria-label="Refresh Files"><svg class="i s"><use href="#i-refresh"/></svg></button>
+                    <button type="button" class="icon-btn" title="Create File" aria-label="Create File"><svg class="i s"><use href="#i-plus"/></svg></button>
+                  </div>
+                </div>
+                <div class="tree">
+                  <div class="tree-row"><svg class="i s muted"><use href="#i-chev-d"/></svg><svg class="i s t-brand"><use href="#i-folder-tree"/></svg><span class="name">src</span></div>
+                  <div class="tree-row" style="padding-left:20px"><svg class="i s muted"><use href="#i-chev-d"/></svg><svg class="i s t-brand"><use href="#i-folder-tree"/></svg><span class="name">components</span></div>
+                  <div class="tree-row" style="padding-left:36px"><svg class="i s t-accent"><use href="#i-code"/></svg><span class="name">QuestionCard.jsx</span></div>
+                  <div class="tree-row" style="padding-left:36px"><svg class="i s t-accent"><use href="#i-code"/></svg><span class="name">QuizTimer.jsx</span></div>
+                  <div class="tree-row" style="padding-left:36px"><svg class="i s t-accent"><use href="#i-code"/></svg><span class="name">ScoreBadge.jsx</span></div>
+                  <div class="tree-row" style="padding-left:20px"><svg class="i s muted"><use href="#i-chev-d"/></svg><svg class="i s t-brand"><use href="#i-folder-tree"/></svg><span class="name">features</span></div>
+                  <div class="tree-row" style="padding-left:36px"><svg class="i s t-warn"><use href="#i-file"/></svg><span class="name">scoresSlice.js</span></div>
+                  <div class="tree-row" style="padding-left:36px"><svg class="i s t-warn"><use href="#i-file"/></svg><span class="name">scoresApi.js</span></div>
+                  <div class="tree-row" style="padding-left:20px"><svg class="i s muted"><use href="#i-chev-r"/></svg><svg class="i s t-brand"><use href="#i-folder-tree"/></svg><span class="name">styles</span></div>
+                  <div class="tree-row sel" style="padding-left:24px"><svg class="i s t-brand"><use href="#i-code"/></svg><span class="name">App.jsx</span></div>
+                  <div class="tree-row" style="padding-left:24px"><svg class="i s t-accent"><use href="#i-file"/></svg><span class="name">App.scss</span></div>
+                  <div class="tree-row" style="padding-left:24px"><svg class="i s t-accent"><use href="#i-code"/></svg><span class="name">main.jsx</span></div>
+                  <div class="tree-row" style="padding-left:14px"><svg class="i s t-brand"><use href="#i-globe"/></svg><span class="name">index.html</span></div>
+                  <div class="tree-row" style="padding-left:14px"><svg class="i s t-ok"><use href="#i-file"/></svg><span class="name">package.json</span></div>
+                  <div class="tree-row" style="padding-left:14px"><svg class="i s t-warn"><use href="#i-file"/></svg><span class="name">vite.config.js</span></div>
+                  <div class="tree-row" style="padding-left:14px"><svg class="i s t-accent"><use href="#i-file"/></svg><span class="name">README.md</span></div>
+                </div>
+              </div>
+              <div class="editor" style="position:relative">
+                <span class="pin" style="right:14px;top:8px">2</span>
+                <div class="editor-tabs">
+                  <div class="editor-tab active"><svg class="i s t-accent"><use href="#i-code"/></svg><span>App.jsx</span><span class="dot warn" title="Unsaved changes"></span><button type="button" class="icon-btn" style="width:18px;height:18px;margin-left:auto" aria-label="Close App.jsx"><svg class="i s"><use href="#i-x"/></svg></button></div>
+                  <div class="editor-tab"><svg class="i s t-accent"><use href="#i-code"/></svg><span>QuestionCard.jsx</span><button type="button" class="icon-btn" style="width:18px;height:18px;margin-left:auto" aria-label="Close QuestionCard.jsx"><svg class="i s"><use href="#i-x"/></svg></button></div>
+                  <div class="editor-tab"><svg class="i s t-ok"><use href="#i-file"/></svg><span>package.json</span><button type="button" class="icon-btn" style="width:18px;height:18px;margin-left:auto" aria-label="Close package.json"><svg class="i s"><use href="#i-x"/></svg></button></div>
+                </div>
+                <div class="ed-bar" style="position:relative">
+                  <span class="pin" style="left:132px;top:12px">3</span>
+                  <div class="crumbs-ed"><span>src</span><svg class="i s"><use href="#i-chev-r"/></svg><b>App.jsx</b><span class="dot warn" style="margin-left:6px"></span></div>
+                  <div style="display:flex;align-items:center;gap:6px">
+                    <span class="sync-pill"><svg class="i s"><use href="#i-upload"/></svg>Synced just now</span>
+                    <span class="muted" style="font-size:11px">Autosave on</span>
+                    <button type="button" class="icon-btn" title="Format Code" aria-label="Format Code"><svg class="i"><use href="#i-list"/></svg></button>
+                    <button type="button" class="icon-btn" title="Ask App Agent (Clio)" aria-label="Ask App Agent (Clio)"><svg class="i"><use href="#i-sparkles"/></svg></button>
+                    <button type="button" class="icon-btn" title="Reload from sandbox" aria-label="Reload from sandbox"><svg class="i"><use href="#i-refresh"/></svg></button>
+                    <button type="button" class="btn-solid btn-sm"><svg class="i s"><use href="#i-download"/></svg>Save</button>
+                    <button type="button" class="icon-btn" title="Editor Settings" aria-label="Editor Settings"><svg class="i"><use href="#i-settings"/></svg></button>
+                  </div>
+                </div>
+                <div class="code" style="position:relative">
+                  <span class="pin" style="right:16px;top:16px">4</span>
+                  <div class="ln"><i>1</i><span class="k">import</span> { useState } <span class="k">from</span> <span class="s">&#39;react&#39;</span>;</div>
+                  <div class="ln"><i>2</i><span class="k">import</span> QuestionCard <span class="k">from</span> <span class="s">&#39;./components/QuestionCard&#39;</span>;</div>
+                  <div class="ln"><i>3</i><span class="k">import</span> QuizTimer <span class="k">from</span> <span class="s">&#39;./components/QuizTimer&#39;</span>;</div>
+                  <div class="ln"><i>4</i><span class="k">import</span> <span class="s">&#39;./App.scss&#39;</span>;</div>
+                  <div class="ln"><i>5</i></div>
+                  <div class="ln"><i>6</i><span class="k">export default function</span> <span class="f">App</span>({ questions }) {</div>
+                  <div class="ln"><i>7</i>  <span class="k">const</span> [index, setIndex] = <span class="f">useState</span>(<span class="n">0</span>);</div>
+                  <div class="ln"><i>8</i>  <span class="k">const</span> [score, setScore] = <span class="f">useState</span>(<span class="n">0</span>);</div>
+                  <div class="ln"><i>9</i>  <span class="k">const</span> current = questions[index];</div>
+                  <div class="ln"><i>10</i></div>
+                  <div class="ln"><i>11</i>  <span class="k">function</span> <span class="f">handleSelect</span>(choice) {</div>
+                  <div class="ln"><i>12</i>    <span class="k">if</span> (choice === current.answer) <span class="f">setScore</span>((s) =&gt; s + <span class="n">100</span>);</div>
+                  <div class="ln"><i>13</i>    <span class="f">setIndex</span>((i) =&gt; Math.<span class="f">min</span>(i + <span class="n">1</span>, questions.length - <span class="n">1</span>));</div>
+                  <div class="ln"><i>14</i>  }</div>
+                  <div class="ln"><i>15</i></div>
+                  <div class="ln"><i>16</i>  <span class="k">return</span> (</div>
+                  <div class="ln"><i>17</i>    &lt;<span class="tg">main</span> className=<span class="s">"quiz-shell"</span>&gt;</div>
+                  <div class="ln"><i>18</i>      &lt;<span class="tg">QuizTimer</span> seconds={<span class="n">60</span>} score={score} /&gt;</div>
+                  <div class="ln"><i>19</i>      &lt;<span class="tg">QuestionCard</span> question={current} onSelect={handleSelect} /&gt;</div>
+                  <div class="ln"><i>20</i>    &lt;/<span class="tg">main</span>&gt;</div>
+                  <div class="ln"><i>21</i>  );</div>
+                  <div class="ln"><i>22</i>}</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="status-bar">
+          <div class="sec"><span class="status-item"><svg class="i s"><use href="#i-git-branch"/></svg>main*</span><span class="status-item"><span class="dot ok"></span><span class="t-ok">Sandbox Active</span></span></div>
+          <div class="sec"><span class="status-item">Port: 5173</span><span class="status-item">JavaScript JSX</span><span class="status-item brand">CodeSpace IDE v1.0</span></div>
+        </div>
+      </div>
+    </div></div>
+    <ol class="notes">
+      <li><b>FileExplorer</b> (<code>FileExplorer.jsx</code>): builds a sorted tree from <code>useEditor().files</code> via sandbox MCP tool <code>list_files</code> (<code>POST /mcp</code>). Auto-expands parents of <code>activeFile</code> and supports inline new-file creation and folder/file delete.</li>
+      <li><b>Editor tabs</b> (<code>CodeEditor.jsx</code>, <code>FileIcon.jsx</code>): renders <code>openTabs</code> with extension-colored icons and an amber dot for unsaved buffers in <code>tabContents</code>.</li>
+      <li><b>Editor toolbar</b> (<code>CodeEditor.jsx</code>): displays cache sync status from <code>useWorkspaceSync</code>, autosave state (<code>2 s</code> debounce via <code>update_file</code>), <code>Format Code</code>, <code>Ask App Agent (Clio)</code>, <code>Reload from sandbox</code>, <code>Save</code> (<code>Cmd+S</code>), and the <code>Editor Settings</code> popover.</li>
+      <li><b>Monaco editor</b> (<code>@monaco-editor/react</code>): reads cached file content from IndexedDB (<code>dbService.js</code>) or MCP <code>read_file</code> and switches between <code>vs-dark</code> and <code>codespace-light</code> when <code>.light-theme</code> toggles.</li>
+    </ol>
+  </section>
+
+  <!-- CI-04 ───────────────────────────────────────────────────────────── -->
+  <section class="screen" id="ci04">
+    <div class="screen-cap"><span class="id">CI-04</span><h2>Bottom panel tabs: Terminal, Output, Problems, Ports</h2><span class="where">Frontend/src/features/editor/components/TerminalShell.jsx · logs/components/RuntimeLogs.jsx · App.jsx</span></div>
+    <div class="frame-scroll"><div class="stack-panels" style="min-width:1100px">
+      <div class="bottom-card" style="height:200px">
+        <div class="tab-bar" style="justify-content:space-between;padding-right:10px">
+          <div style="display:flex;height:100%;gap:2px"><button type="button" class="tab-btn"><svg class="i"><use href="#i-info"/></svg>Problems</button><button type="button" class="tab-btn"><svg class="i"><use href="#i-alert"/></svg>Output</button><button type="button" class="tab-btn active"><svg class="i"><use href="#i-terminal"/></svg>Terminal</button><button type="button" class="tab-btn"><svg class="i"><use href="#i-plug"/></svg>Ports</button></div>
+          <button type="button" class="icon-btn" aria-label="Collapse Terminal"><svg class="i"><use href="#i-x"/></svg></button>
+        </div>
+        <div class="term-toolbar">
+          <div style="display:flex;align-items:center;gap:8px;color:var(--text-primary);font-weight:500"><svg class="i t-brand"><use href="#i-terminal"/></svg><span>sh (Interactive Terminal)</span></div>
+          <div style="display:flex;align-items:center;gap:10px"><span class="pin" style="position:static;flex-shrink:0">1</span><button type="button" class="icon-btn" aria-label="Reconnect Terminal"><svg class="i s"><use href="#i-refresh"/></svg></button><span class="pill ok"><span class="dot ok"></span>ONLINE</span></div>
+        </div>
+        <div class="term-body">
+          <div><span class="t-brand">⚡ CodeSpace Interactive Shell</span></div>
+          <div><span class="t-ok">✓ Connected to sandbox terminal</span></div>
+          <div><span class="t-brand">~/workspace $</span> npm test -- --run</div>
+          <div class="t-ok">PASS src/components/QuestionCard.test.jsx (4 tests)</div>
+        </div>
+      </div>
+
+      <div class="bottom-card" style="height:240px">
+        <div class="tab-bar" style="justify-content:space-between;padding-right:10px">
+          <div style="display:flex;height:100%;gap:2px"><button type="button" class="tab-btn"><svg class="i"><use href="#i-info"/></svg>Problems</button><button type="button" class="tab-btn active"><svg class="i"><use href="#i-alert"/></svg>Output</button><button type="button" class="tab-btn"><svg class="i"><use href="#i-terminal"/></svg>Terminal</button><button type="button" class="tab-btn"><svg class="i"><use href="#i-plug"/></svg>Ports</button></div>
+          <button type="button" class="icon-btn" aria-label="Collapse Terminal"><svg class="i"><use href="#i-x"/></svg></button>
+        </div>
+        <div class="term-toolbar">
+          <div style="display:flex;align-items:center;gap:8px;color:var(--text-primary);font-weight:500"><svg class="i t-warn"><use href="#i-alert"/></svg><span>Vite Runtime Logs &amp; Errors</span></div>
+          <div style="display:flex;align-items:center;gap:12px">
+            <span class="pin" style="position:static;flex-shrink:0">2</span>
+            <label class="check" style="font-size:11px;color:var(--text-muted)"><span class="box on"><svg class="i s"><use href="#i-check"/></svg></span>Auto-poll (5s)</label>
+            <button type="button" class="icon-btn" aria-label="Refresh logs"><svg class="i s"><use href="#i-refresh"/></svg></button>
+          </div>
+        </div>
+        <div style="padding:6px 12px;border-bottom:1px solid var(--border);background:var(--bg-canvas)">
+          <div class="input" style="height:26px;font-size:12px"><span class="dim">Filter logs (e.g. error, warn, success)...</span></div>
+        </div>
+        <div class="term-body" style="padding:10px 12px;font-size:12px">
+          <div>[vite] connecting...</div>
+          <div>[vite] connected.</div>
+          <div>[vite] hmr update /src/components/QuestionCard.jsx</div>
+          <div class="t-warn">[plugin:vite:react-babel] Warning: unused import ScoreSummary in App.jsx</div>
+          <div class="t-err">[vite] Internal server error: Failed to resolve import "./utils/formatTime" from "src/components/QuizTimer.jsx"</div>
+        </div>
+      </div>
+
+      <div class="bottom-card" style="height:135px">
+        <div class="tab-bar" style="justify-content:space-between;padding-right:10px">
+          <div style="display:flex;height:100%;gap:2px"><button type="button" class="tab-btn active"><svg class="i"><use href="#i-info"/></svg>Problems</button><button type="button" class="tab-btn"><svg class="i"><use href="#i-alert"/></svg>Output</button><button type="button" class="tab-btn"><svg class="i"><use href="#i-terminal"/></svg>Terminal</button><button type="button" class="tab-btn"><svg class="i"><use href="#i-plug"/></svg>Ports</button></div>
+          <div style="display:flex;align-items:center;gap:6px"><span class="pin" style="position:static;flex-shrink:0">3</span><button type="button" class="icon-btn" aria-label="Collapse Terminal"><svg class="i"><use href="#i-x"/></svg></button></div>
+        </div>
+        <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;color:var(--text-muted)">
+          <svg class="i l t-ok"><use href="#i-check"/></svg>
+          <span style="font-size:12px">No problems have been detected in the workspace.</span>
+        </div>
+      </div>
+
+      <div class="bottom-card" style="height:172px">
+        <div class="tab-bar" style="justify-content:space-between;padding-right:10px">
+          <div style="display:flex;height:100%;gap:2px"><button type="button" class="tab-btn"><svg class="i"><use href="#i-info"/></svg>Problems</button><button type="button" class="tab-btn"><svg class="i"><use href="#i-alert"/></svg>Output</button><button type="button" class="tab-btn"><svg class="i"><use href="#i-terminal"/></svg>Terminal</button><button type="button" class="tab-btn active"><svg class="i"><use href="#i-plug"/></svg>Ports</button></div>
+          <div style="display:flex;align-items:center;gap:6px"><span class="pin" style="position:static;flex-shrink:0">4</span><button type="button" class="icon-btn" aria-label="Collapse Terminal"><svg class="i"><use href="#i-x"/></svg></button></div>
+        </div>
+        <div style="padding:12px 16px;font-family:var(--font-mono);font-size:12px">
+          <table class="tbl">
+            <thead><tr><th>PORT</th><th>PROTOCOL</th><th>ADDRESS</th><th>SERVICE</th></tr></thead>
+            <tbody>
+              <tr><td class="t-brand">5173</td><td>HTTP / WS</td><td>localhost:5173</td><td class="t-ok">Vite Frontend dev server</td></tr>
+              <tr><td class="t-brand">3000</td><td>HTTP</td><td>localhost:3000</td><td class="t-ok">Agent File API Server</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div></div>
+    <ol class="notes">
+      <li><b>Terminal</b> (<code>TerminalShell.jsx</code>): renders <code>@xterm/xterm</code> with <code>FitAddon</code> bound to <code>/api/terminal-proxy/socket.io</code>; sends <code>terminal-input</code> and <code>terminal-resize</code> events and includes manual reconnect.</li>
+      <li><b>Output</b> (<code>RuntimeLogs.jsx</code>): loads Vite dev logs through MCP tool <code>get_vite_runtime_errors</code> (<code>useLogs</code>), with client-side line filtering and optional <code>5 s</code> polling.</li>
+      <li><b>Problems</b> (<code>App.jsx</code>): static placeholder displaying <code>No problems have been detected in the workspace.</code> without querying browser or build diagnostics yet.</li>
+      <li><b>Ports</b> (<code>App.jsx</code>): static two-row table listing ports <code>5173</code> and <code>3000</code>, not wired to live container port inspection.</li>
+    </ol>
+  </section>
+
+  <!-- CI-05 ───────────────────────────────────────────────────────────── -->
+  <section class="screen" id="ci05">
+    <div class="screen-cap"><span class="id">CI-05</span><h2>Orion panel: empty state and composer</h2><span class="where">Frontend/src/features/coding-agent/components/panel/ · composer/</span></div>
+    <div class="row-frames">
+      <div class="frame">
+        <div class="panel" style="height:450px;position:relative">
+          <span class="pin" style="right:14px;top:56px">1</span>
+          <div class="orion-header">
+            <button type="button" class="icon-btn" aria-label="Chat history"><svg class="i"><use href="#i-history"/></svg></button>
+            <h1><span class="brand">Orion</span><span class="chat">New chat</span></h1>
+            <span class="orion-state"><span class="dot ok"></span>Ready</span>
+            <button type="button" class="icon-btn" aria-label="New chat" disabled style="opacity:.4"><svg class="i"><use href="#i-plus"/></svg></button>
+            <button type="button" class="icon-btn" aria-label="Close Orion"><svg class="i"><use href="#i-x"/></svg></button>
+          </div>
+          <div class="orion-empty-box">
+            <span class="icon-btn brand" style="width:36px;height:36px;pointer-events:none"><svg class="i l"><use href="#i-sparkles"/></svg></span>
+            <p class="muted" style="max-width:280px;font-size:13px;line-height:1.5">Tell Orion what to build. It plans, writes the code and checks it.</p>
+            <div class="prompt-list">
+              <button type="button" class="prompt-btn">Add a dark mode toggle to my app</button>
+              <button type="button" class="prompt-btn">Build a responsive landing page with hero and pricing sections</button>
+              <button type="button" class="prompt-btn">Find and fix any errors in my app</button>
+            </div>
+          </div>
+          <div class="composer">
+            <div class="ph">Ask Orion to build or fix something</div>
+            <div class="bar">
+              <div style="display:flex;align-items:center;gap:6px"><button type="button" class="icon-btn" aria-label="Attach a file"><svg class="i"><use href="#i-plus"/></svg></button><span class="muted" style="font-size:11px">@ to attach</span></div>
+              <button type="button" class="icon-btn" aria-label="Send" disabled style="opacity:.4"><svg class="i"><use href="#i-arrow-up"/></svg></button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="frame">
+        <div class="panel" style="height:450px;position:relative">
+          <div class="orion-header">
+            <button type="button" class="icon-btn" aria-label="Chat history"><svg class="i"><use href="#i-history"/></svg></button>
+            <h1><span class="brand">Orion</span><span class="chat">New chat</span></h1>
+            <span class="orion-state"><span class="dot ok"></span>Ready</span>
+            <button type="button" class="icon-btn" aria-label="New chat" disabled style="opacity:.4"><svg class="i"><use href="#i-plus"/></svg></button>
+            <button type="button" class="icon-btn" aria-label="Close Orion"><svg class="i"><use href="#i-x"/></svg></button>
+          </div>
+          <div class="orion-empty-box" style="padding:14px 16px;gap:6px">
+            <span class="icon-btn brand" style="width:28px;height:28px;pointer-events:none"><svg class="i"><use href="#i-sparkles"/></svg></span>
+            <p class="muted" style="max-width:280px;font-size:12px">Tell Orion what to build. It plans, writes the code and checks it.</p>
+          </div>
+          <div class="file-menu-pop">
+            <div class="tree-row sel"><svg class="i s t-accent"><use href="#i-code"/></svg><span class="name mono">src/components/QuestionCard.jsx</span><span class="pin" style="position:static;margin-left:auto;flex-shrink:0">2</span></div>
+            <div class="tree-row"><svg class="i s t-accent"><use href="#i-code"/></svg><span class="name mono">src/components/QuizTimer.jsx</span></div>
+            <div class="tree-row"><svg class="i s t-accent"><use href="#i-code"/></svg><span class="name mono">src/components/ScoreBadge.jsx</span></div>
+            <div class="tree-row"><svg class="i s t-brand"><use href="#i-code"/></svg><span class="name mono">src/App.jsx</span></div>
+            <div class="tree-row"><svg class="i s t-ok"><use href="#i-file"/></svg><span class="name mono">package.json</span></div>
+          </div>
+          <div class="composer" style="position:relative">
+            <span class="pin" style="right:10px;top:10px">3</span>
+            <div class="attach-row">
+              <span class="attach-chip"><svg class="i s t-accent"><use href="#i-code"/></svg><span>App.jsx</span><button type="button" aria-label="Remove App.jsx"><svg class="i s"><use href="#i-x"/></svg></button></span>
+              <span class="attach-chip"><svg class="i s t-accent"><use href="#i-code"/></svg><span>QuizTimer.jsx</span><button type="button" aria-label="Remove QuizTimer.jsx"><svg class="i s"><use href="#i-x"/></svg></button></span>
+            </div>
+            <div style="font-size:13px;color:var(--text-primary);line-height:1.5;min-height:42px">Sync the countdown bar with @src/components/</div>
+            <div class="bar">
+              <div style="display:flex;align-items:center;gap:6px"><button type="button" class="icon-btn on" aria-label="Attach a file" aria-expanded="true"><svg class="i"><use href="#i-plus"/></svg></button><span class="muted" style="font-size:11px">@ to attach</span></div>
+              <button type="button" class="icon-btn brand" aria-label="Send" style="background:var(--brand-primary);color:var(--text-primary)"><svg class="i"><use href="#i-arrow-up"/></svg></button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <ol class="notes">
+      <li><b>EmptyState and ChatHeader</b> (<code>EmptyState.jsx</code>, <code>ChatHeader.jsx</code>): shows the Taksha mark, description, and three starter prompts when no runs exist and the sandbox is running. Clicking a prompt calls <code>setDraft</code> on the composer without sending.</li>
+      <li><b>FileSuggestions</b> (<code>FileSuggestions.jsx</code>, <code>useComposer.js</code>): opens above the composer on <code>@</code> input (up to <code>8</code> matches from <code>useEditor().files</code>) or via the attach button. Selecting a row strips the <code>@query</code> token and attaches the file.</li>
+      <li><b>AttachmentChips and Composer</b> (<code>AttachmentChips.jsx</code>, <code>Composer.jsx</code>): loads attached file contents via <code>read_file</code> MCP tool before sending to <code>POST /api/ai/code-agent/invoke</code>; locks input with an offline notice if the sandbox is stopped.</li>
+    </ol>
+  </section>
+
+  <!-- CI-06 ───────────────────────────────────────────────────────────── -->
+  <section class="screen" id="ci06">
+    <div class="screen-cap"><span class="id">CI-06</span><h2>Orion run: phases, thinking, tool steps and reply</h2><span class="where">Frontend/src/features/coding-agent/components/conversation/ · activity/ · chat-history/components/MessageActions.jsx</span></div>
+    <div class="row-frames">
+      <div class="frame">
+        <div class="panel" style="height:680px;position:relative">
+          <div class="orion-header">
+            <button type="button" class="icon-btn" aria-label="Chat history"><svg class="i"><use href="#i-history"/></svg></button>
+            <h1><span class="brand">Orion</span><span class="chat">Persist high score in localStorage</span></h1>
+            <span class="orion-state"><span class="dot ok"></span>Ready</span>
+            <button type="button" class="icon-btn" aria-label="New chat"><svg class="i"><use href="#i-plus"/></svg></button>
+            <button type="button" class="icon-btn" aria-label="Select chats to delete"><svg class="i"><use href="#i-check-circle"/></svg></button>
+          </div>
+          <div class="chat-scroll">
+            <div style="position:relative;display:flex;flex-direction:column;align-items:flex-end">
+              <span class="pin" style="left:6px;top:6px">1</span>
+              <div class="u-msg">Save the player best score to localStorage and display it in QuizTimer.</div>
+              <div class="muted" style="font-size:10px;margin-top:2px">18:38</div>
+              <div class="msg-acts end">
+                <button type="button" class="icon-btn" aria-label="Copy"><svg class="i s"><use href="#i-copy"/></svg></button>
+                <button type="button" class="icon-btn" aria-label="Edit"><svg class="i s"><use href="#i-list"/></svg></button>
+                <button type="button" class="icon-btn t-err" aria-label="Delete"><svg class="i s"><use href="#i-trash"/></svg></button>
+              </div>
+            </div>
+            <div class="a-turn">
+              <div class="think-box">
+                <div class="think-head"><span>Thought process</span><span class="pin" style="position:static;margin-left:auto;flex-shrink:0">2</span><svg class="i s"><use href="#i-chev-d"/></svg></div>
+                <div class="think-body">
+                  <p>Reading <code>App.jsx</code> and <code>QuizTimer.jsx</code> to see how score updates flow after each answer.</p>
+                  <div style="display:flex;align-items:center;gap:6px;color:var(--text-secondary)"><svg class="i s t-ok"><use href="#i-check"/></svg><span>Updated score persistence and timer badge</span></div>
+                </div>
+              </div>
+              <ol class="phase-ol">
+                <li class="phase-row done"><svg class="i s t-ok" style="margin-top:2px"><use href="#i-check"/></svg><span>Add bestScore state with localStorage</span></li>
+                <li class="phase-row done"><svg class="i s t-ok" style="margin-top:2px"><use href="#i-check"/></svg><span>Show best score pill in QuizTimer</span></li>
+                <li class="phase-row done"><svg class="i s t-ok" style="margin-top:2px"><use href="#i-check"/></svg><span>Check Vite build for errors</span></li>
+              </ol>
+              <div>
+                <div class="think-head" style="color:var(--text-secondary)"><span>5 steps</span><svg class="i s"><use href="#i-chev-d"/></svg><span class="pin" style="position:static;flex-shrink:0">3</span></div>
+                <ul class="steps tool-tree">
+                  <li class="step"><svg class="i s t-ok"><use href="#i-check"/></svg><span class="verb">Scanned</span><span class="target">project files</span></li>
+                  <li class="step link"><svg class="i s t-ok"><use href="#i-check"/></svg><span class="verb">Read</span><span class="target">src/App.jsx</span></li>
+                  <li class="step link"><svg class="i s t-ok"><use href="#i-check"/></svg><span class="verb">Edited</span><span class="target">src/App.jsx</span></li>
+                  <li class="step link"><svg class="i s t-ok"><use href="#i-check"/></svg><span class="verb">Updated</span><span class="target">src/components/QuizTimer.jsx</span></li>
+                  <li class="step"><svg class="i s t-ok"><use href="#i-check"/></svg><span class="verb">Ran</span><span class="target">npm run build</span></li>
+                </ul>
+              </div>
+              <p>Best scores now persist under <code>quiz_arena_best</code> and update whenever <code>score</code> exceeds the stored value.</p>
+              <div class="card">
+                <div class="card-title">2 files changed</div>
+                <ul class="steps" style="padding:2px">
+                  <li class="step link"><svg class="i s t-brand"><use href="#i-code"/></svg><span class="target" style="flex:1">src/App.jsx</span><span class="pill">Edited</span></li>
+                  <li class="step link"><svg class="i s t-accent"><use href="#i-code"/></svg><span class="target" style="flex:1">src/components/QuizTimer.jsx</span><span class="pill">Edited</span></li>
+                </ul>
+              </div>
+              <div class="msg-acts">
+                <button type="button" class="icon-btn" aria-label="Copy"><svg class="i s"><use href="#i-copy"/></svg></button>
+                <button type="button" class="icon-btn" aria-label="Retry"><svg class="i s"><use href="#i-rotate"/></svg></button>
+                <button type="button" class="icon-btn t-err" aria-label="Delete"><svg class="i s"><use href="#i-trash"/></svg></button>
+              </div>
+            </div>
+          </div>
+          <div class="composer">
+            <div class="ph">Ask Orion to build or fix something</div>
+            <div class="bar"><span class="muted" style="font-size:11px">@ to attach</span><button type="button" class="icon-btn" aria-label="Send" disabled style="opacity:.4"><svg class="i"><use href="#i-arrow-up"/></svg></button></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="frame">
+        <div class="panel" style="height:680px;position:relative">
+          <div class="orion-header">
+            <button type="button" class="icon-btn" aria-label="Chat history"><svg class="i"><use href="#i-history"/></svg></button>
+            <h1><span class="brand">Orion</span><span class="chat">Add keyboard shortcuts</span></h1>
+            <span class="orion-state working"><span class="dot brand"></span>Working</span>
+            <button type="button" class="icon-btn" aria-label="Close Orion"><svg class="i"><use href="#i-x"/></svg></button>
+          </div>
+          <div class="chat-scroll">
+            <div class="u-msg" style="opacity:.8">Show a subtle badge for keys 1 to 4 on each answer button.</div>
+            <div class="a-turn" style="opacity:.8">
+              <div class="steps"><div class="step"><svg class="i s"><use href="#i-chev-r"/></svg><span>2 steps</span></div></div>
+              <p>Added numeric keycap badges to <code>QuestionCard.jsx</code>.</p>
+            </div>
+            <div class="u-msg">Let players press keys 1 to 4 to select an answer option and ignore typing inside inputs.</div>
+            <div class="a-turn">
+              <div class="think-box">
+                <div class="think-head"><span>Thinking</span><span class="pin" style="position:static;margin-left:auto;flex-shrink:0">4</span><svg class="i s"><use href="#i-chev-d"/></svg></div>
+                <div class="think-body"><p>Wiring a keydown listener in QuestionCard while ignoring modifier keys and editable targets…</p></div>
+              </div>
+              <ol class="phase-ol">
+                <li class="phase-row done"><svg class="i s t-ok" style="margin-top:2px"><use href="#i-check"/></svg><span>Inspect option button bindings</span></li>
+                <li class="phase-row run"><svg class="i s spin t-brand" style="margin-top:2px"><use href="#i-refresh"/></svg><div><div>Bind 1–4 key handler in QuestionCard</div><div class="muted" style="font-size:11px">Updating src/components/QuestionCard.jsx</div></div></li>
+                <li class="phase-row"><span class="dot" style="margin:5px 3px 0"></span><span>Check Vite runtime errors</span></li>
+              </ol>
+              <div class="think-head" style="color:var(--text-secondary)"><span>4 steps</span><svg class="i s"><use href="#i-chev-d"/></svg></div>
+              <ul class="steps tool-tree">
+                <li class="step link"><svg class="i s t-ok"><use href="#i-check"/></svg><span class="verb">Read</span><span class="target">src/components/QuestionCard.jsx</span></li>
+                <li class="step"><svg class="i s t-ok"><use href="#i-check"/></svg><span class="verb">Searched</span><span class="target">onSelect</span></li>
+                <li class="step link"><svg class="i s spin t-brand"><use href="#i-refresh"/></svg><span class="verb">Editing</span><span class="target">src/components/QuestionCard.jsx</span></li>
+                <li class="step"><svg class="i s t-err"><use href="#i-alert"/></svg><span class="verb">Failed</span><span class="target">src/App.jsx</span></li>
+              </ul>
+              <div class="run-line"><svg class="i s spin t-brand"><use href="#i-refresh"/></svg><span style="font-weight:500;color:var(--text-secondary)">Editing</span><span>src/components/QuestionCard.jsx</span></div>
+            </div>
+          </div>
+          <div class="composer">
+            <div class="ph">Orion is working…</div>
+            <div class="bar">
+              <span class="muted" style="font-size:11px">@ to attach</span>
+              <button type="button" class="icon-btn" aria-label="Stop Orion"><svg class="i s"><use href="#i-square"/></svg></button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <ol class="notes">
+      <li><b>UserMessage and MessageActions</b> (<code>UserMessage.jsx</code>, <code>MessageActions.jsx</code>): renders prompt and timestamp; hovering reveals <code>Copy</code>, <code>Edit</code>, and two-step <code>Delete</code> calling <code>POST /api/ai/chats/message/batch-delete</code>.</li>
+      <li><b>ThinkingBlock and PhaseList</b> (<code>ThinkingBlock.jsx</code>, <code>PhaseList.jsx</code>): <code>ThinkingBlock</code> streams <code>agent:thinking</code> and parses <code>STATUS: done|blocked</code> lines; <code>PhaseList</code> maps <code>agent:steps</code> and hides step details once done.</li>
+      <li><b>ToolStepList and ChangedFiles</b> (<code>ToolStepList.jsx</code>, <code>ChangedFiles.jsx</code>): pairs start/result log lines via <code>toolSteps.utils.js</code>; single-file steps and <code>ChangedFiles</code> rows open files in <code>CodeEditor</code>.</li>
+      <li><b>RunStatusLine and live controls</b> (<code>RunStatusLine.jsx</code>, <code>liveStatus.utils.js</code>): shows the active tool verb while streaming and outcome lines (<code>Partly done</code>, <code>Stopped</code>, <code>Could not complete</code>) when finished; composer switches Send to Stop (<code>POST /api/ai/code-agent/stop</code>).</li>
+    </ol>
+  </section>
+
+  <!-- CI-07 ───────────────────────────────────────────────────────────── -->
+  <section class="screen" id="ci07">
+    <div class="screen-cap"><span class="id">CI-07</span><h2>Plan review card</h2><span class="where">Frontend/src/features/coding-agent/components/plan/PlanReviewCard.jsx · PlanStepItem.jsx</span></div>
+    <div class="row-frames">
+      <div class="frame">
+        <div class="panel" style="height:560px;position:relative">
+          <div class="orion-header">
+            <button type="button" class="icon-btn" aria-label="Chat history"><svg class="i"><use href="#i-history"/></svg></button>
+            <h1><span class="brand">Orion</span><span class="chat">Add leaderboard and quiz timer</span></h1>
+            <span class="pin" style="position:static">1</span>
+            <span class="orion-state waiting"><span class="dot warn"></span>Waiting for you</span>
+            <button type="button" class="icon-btn" aria-label="Close Orion"><svg class="i"><use href="#i-x"/></svg></button>
+          </div>
+          <div class="chat-scroll">
+            <div class="u-msg">Add a 60 second quiz timer and save the top 10 scores to a leaderboard.</div>
+            <div class="a-turn">
+              <div class="run-line"><svg class="i s muted"><use href="#i-pause"/></svg><span style="font-weight:500;color:var(--text-secondary)">Waiting for your approval</span><span>Review the plan below</span></div>
+            </div>
+          </div>
+          <div class="plan-box" style="position:relative">
+            <span class="pin" style="right:12px;top:12px">2</span>
+            <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">
+              <b style="font-size:13px;color:var(--text-primary)">Review plan</b>
+              <span class="muted" style="font-size:11px">3 steps · feature addition</span>
+            </div>
+            <p style="font-size:12px;line-height:1.5;color:var(--text-secondary)">Add timed round state, render a countdown bar, and persist the top 10 quiz scores locally.</p>
+            <div class="notice warn"><svg class="i s"><use href="#i-alert"/></svg><span>Edits shared quiz state in App.jsx; verify existing timer tests.</span></div>
+            <ol class="steps">
+              <li>
+                <div class="step link" style="color:var(--text-secondary)"><span class="muted" style="width:14px;text-align:right">1</span><span style="flex:1">Create Leaderboard and score storage</span><span class="pill">create</span><span class="dot warn"></span><svg class="i s muted"><use href="#i-chev-d"/></svg></div>
+                <div class="plan-step-det">
+                  <p>Persist top 10 entries in localStorage sorted descending by score and remaining time.</p>
+                  <div style="display:flex;gap:4px;flex-wrap:wrap"><span class="plan-file-chip">src/features/scores/leaderboard.js</span><span class="plan-file-chip">src/components/Leaderboard.jsx</span></div>
+                  <ul style="padding-left:16px"><li>Top 10 entries stay sorted across reloads</li><li>Empty state renders cleanly before first round</li></ul>
+                </div>
+              </li>
+              <li class="step link" style="color:var(--text-secondary)"><span class="muted" style="width:14px;text-align:right">2</span><span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Wire CountdownBar into QuizPage</span><span class="pill">modify</span><span class="dot"></span><svg class="i s muted"><use href="#i-chev-r"/></svg></li>
+              <li class="step link" style="color:var(--text-secondary)"><span class="muted" style="width:14px;text-align:right">3</span><span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Run Vite build and verify preview</span><span class="pill">modify</span><span class="dot err"></span><svg class="i s muted"><use href="#i-chev-r"/></svg></li>
+            </ol>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+              <button type="button" class="btn-solid btn-sm"><svg class="i s"><use href="#i-check"/></svg>Approve <span class="kbd-k" style="border-color:rgba(var(--color-rgb-text),.3);color:inherit">⌘↵</span></button>
+              <button type="button" class="btn-ghost btn-sm">Request changes</button>
+              <span class="pin" style="position:static;margin-left:auto">3</span>
+            </div>
+          </div>
+          <div class="composer">
+            <div class="ph" style="height:26px">Review the plan above to continue</div>
+            <div class="bar"><span class="muted" style="font-size:11px">@ to attach</span><button type="button" class="icon-btn" aria-label="Stop Orion"><svg class="i s"><use href="#i-square"/></svg></button></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="frame">
+        <div class="panel" style="height:560px">
+          <div class="orion-header">
+            <button type="button" class="icon-btn" aria-label="Chat history"><svg class="i"><use href="#i-history"/></svg></button>
+            <h1><span class="brand">Orion</span><span class="chat">Add leaderboard and quiz timer</span></h1>
+            <span class="orion-state waiting"><span class="dot warn"></span>Waiting for you</span>
+          </div>
+          <div class="chat-scroll">
+            <div class="u-msg">Add a 60 second quiz timer and save the top 10 scores to a leaderboard.</div>
+            <div class="a-turn"><div class="run-line"><svg class="i s muted"><use href="#i-pause"/></svg><span style="font-weight:500;color:var(--text-secondary)">Waiting for your approval</span><span>Review the plan below</span></div></div>
+          </div>
+          <div class="plan-box">
+            <div style="display:flex;align-items:baseline;gap:8px">
+              <b style="font-size:13px;color:var(--text-primary)">Review plan</b>
+              <span class="muted" style="font-size:11px">3 steps · feature addition</span>
+            </div>
+            <ol class="steps">
+              <li class="step link" style="color:var(--text-secondary)"><span class="muted" style="width:14px;text-align:right">1</span><span style="flex:1">Create Leaderboard and score storage</span><span class="pill">create</span><span class="dot warn"></span><svg class="i s muted"><use href="#i-chev-r"/></svg></li>
+              <li class="step link" style="color:var(--text-secondary)"><span class="muted" style="width:14px;text-align:right">2</span><span style="flex:1">Wire CountdownBar into QuizPage</span><span class="pill">modify</span><span class="dot"></span><svg class="i s muted"><use href="#i-chev-r"/></svg></li>
+              <li class="step link" style="color:var(--text-secondary)"><span class="muted" style="width:14px;text-align:right">3</span><span style="flex:1">Run Vite build and verify preview</span><span class="pill">modify</span><span class="dot err"></span><svg class="i s muted"><use href="#i-chev-r"/></svg></li>
+            </ol>
+            <div class="textarea" style="min-height:56px;font-size:12px">Keep the timer at 45 seconds instead of 60, and skip localStorage for guest rounds.</div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <button type="button" class="btn-solid btn-sm"><svg class="i s"><use href="#i-rotate"/></svg>Send feedback <span class="kbd-k" style="border-color:rgba(var(--color-rgb-text),.3);color:inherit">⌘↵</span></button>
+              <button type="button" class="btn-ghost btn-sm">Cancel</button>
+            </div>
+          </div>
+          <div class="composer">
+            <div class="ph" style="height:26px">Review the plan above to continue</div>
+            <div class="bar"><span class="muted" style="font-size:11px">@ to attach</span><button type="button" class="icon-btn" aria-label="Stop Orion"><svg class="i s"><use href="#i-square"/></svg></button></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <ol class="notes">
+      <li><b>Waiting header and paused turn</b> (<code>ChatHeader.jsx</code>, <code>RunStatusLine.jsx</code>): <code>agent:plan_review</code> sets the header badge to amber <code>Waiting for you</code> and renders <code>Waiting for your approval</code> with <code>Review the plan below</code>.</li>
+      <li><b>PlanStepItem rows</b> (<code>PlanStepItem.jsx</code>): displays step number, title, action pill (<code>create</code>, <code>modify</code>), and risk dot (muted low, amber medium, red high). Expanding reveals description, clickable file chips, and acceptance criteria.</li>
+      <li><b>Approve and Request changes</b> (<code>PlanReviewCard.jsx</code>, <code>usePlanReview.js</code>): <code>Approve</code> (<code>⌘↵</code> when focused in panel) posts to <code>/api/ai/code-agent/plan-approve</code>; <code>Request changes</code> opens the feedback textarea and posts to <code>plan-reject</code> while the composer stays locked.</li>
+    </ol>
+  </section>
+
+  <!-- CI-08 ───────────────────────────────────────────────────────────── -->
+  <section class="screen" id="ci08">
+    <div class="screen-cap"><span class="id">CI-08</span><h2>Chat history sidebar</h2><span class="where">Frontend/src/features/chat-history/components/ChatHistorySidebar.jsx</span></div>
+    <div class="frame" style="max-width:400px">
+      <div class="ch-wrap">
+        <div class="orion-header">
+          <button type="button" class="icon-btn brand" aria-label="Chat history"><svg class="i"><use href="#i-history"/></svg></button>
+          <h1><span class="brand">Orion</span><span class="chat">Quiz scoring and timer</span></h1>
+          <span class="orion-state working"><span class="dot brand"></span>Working</span>
+          <button type="button" class="icon-btn" aria-label="Close Orion"><svg class="i"><use href="#i-x"/></svg></button>
+        </div>
+        <div class="chat-scroll" style="opacity:.45">
+          <div class="u-msg">Add a 60 second timer and highlight the selected option in QuestionCard.</div>
+          <div class="a-turn">
+            <div class="steps"><div class="step"><svg class="i s"><use href="#i-chev-r"/></svg><span>3 steps</span></div></div>
+            <p>Added a 60 s countdown in <code>QuizTimer.jsx</code> and wired the active state into <code>QuestionCard.jsx</code>.</p>
+            <div class="card">
+              <div class="card-title">2 files changed</div>
+              <ul class="steps" style="padding:2px">
+                <li class="step link"><svg class="i s"><use href="#i-file"/></svg><span class="target" style="flex:1">src/components/QuizTimer.jsx</span><span class="pill ok">New</span></li>
+                <li class="step link"><svg class="i s"><use href="#i-file"/></svg><span class="target" style="flex:1">src/components/QuestionCard.jsx</span><span class="pill">Edited</span></li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div class="composer" style="opacity:.45">
+          <div class="ph" style="height:26px">Orion is working…</div>
+          <div class="bar"><span class="muted" style="font-size:11px">@ to attach</span><button type="button" class="icon-btn" aria-label="Stop Orion"><svg class="i s"><use href="#i-square"/></svg></button></div>
+        </div>
+        <div class="ch-scrim">
+          <nav class="ch-drawer" aria-label="Chat history">
+            <div style="display:flex;align-items:center;justify-content:space-between;padding-left:4px">
+              <h3 style="font-size:13px;font-weight:600;color:var(--text-primary)">Chats</h3>
+              <div style="display:flex;align-items:center;gap:6px"><span class="pin" style="position:static;flex-shrink:0">1</span><button type="button" class="icon-btn" aria-label="Close chat history"><svg class="i"><use href="#i-x"/></svg></button></div>
+            </div>
+            <button type="button" class="btn-ghost btn-sm" style="justify-content:flex-start;width:100%"><svg class="i s"><use href="#i-plus"/></svg>New chat</button>
+            <div class="search" style="width:100%;min-width:0;height:30px"><svg class="i s"><use href="#i-search"/></svg><span>Search chats</span></div>
+            <div style="flex:1;overflow:hidden;display:flex;flex-direction:column;gap:6px">
+              <div>
+                <div class="ch-group-t" style="display:flex;align-items:center;justify-content:space-between"><span>Today</span><span class="pin" style="position:static;flex-shrink:0">2</span></div>
+                <div class="ch-item on"><span class="dot brand" title="Orion is working here"></span><span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Quiz scoring and timer</span><span class="muted" style="font-size:11px">18:42</span></div>
+                <div class="ch-item"><span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Fix mobile navbar overflow</span><span class="muted" style="font-size:11px">14:15</span></div>
+              </div>
+              <div>
+                <div class="ch-group-t">Yesterday</div>
+                <div class="ch-item"><span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Add dark mode toggle</span><span class="muted" style="font-size:11px">24 Nov</span></div>
+                <div class="ch-item confirm">
+                  <span style="flex:1 1 100%;color:var(--text-primary)">Delete “Refactor score API”?</span>
+                  <button type="button" class="btn-danger btn-sm" style="padding:3px 8px;font-size:11px">Delete</button>
+                  <button type="button" class="btn-ghost btn-sm" style="padding:3px 8px;font-size:11px">Cancel</button>
+                  <span class="pin" style="position:static;margin-left:auto;flex-shrink:0">3</span>
+                </div>
+              </div>
+              <div>
+                <div class="ch-group-t">Previous 7 days</div>
+                <div class="ch-item"><span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Initial quiz-arena scaffold</span><span class="muted" style="font-size:11px">21 Nov</span></div>
+                <div class="ch-item"><span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Configure Vite proxy routes</span><span class="muted" style="font-size:11px">19 Nov</span></div>
+              </div>
+              <div>
+                <div class="ch-group-t">Older</div>
+                <div class="ch-item"><span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Setup Redux store</span><span class="muted" style="font-size:11px">10 Nov</span></div>
+              </div>
+              <button type="button" class="btn-ghost btn-sm" style="border:none;color:var(--text-muted);width:100%">Load older chats</button>
+            </div>
+          </nav>
+        </div>
+      </div>
+    </div>
+    <ol class="notes">
+      <li><b>Drawer overlay and search</b> (<code>ChatHistorySidebar.jsx</code>): renders inside both Orion and Clio panels with an auto-focused <code>Search chats</code> field filtering sessions from <code>GET /api/ai/chats/:agentType/sessions</code>; pressing <code>Esc</code> or clicking the backdrop closes it.</li>
+      <li><b>Day groups and live marker</b> (<code>ChatHistorySidebar.jsx</code>): groups sessions into <code>Today</code>, <code>Yesterday</code>, <code>Previous 7 days</code>, and <code>Older</code> from <code>lastMessageAt</code>. A pulsing ember dot marks <code>liveSessionId</code>, and <code>Load older chats</code> paginates with the <code>before</code> cursor.</li>
+      <li><b>Inline rename and delete confirm</b> (<code>SessionItem</code>): hovering swaps the timestamp for rename (<code>PATCH .../sessions/:id</code>) and delete (<code>DELETE .../sessions/:id</code>, disabled while live); delete expands an inline <code>Delete “…”?</code> confirmation.</li>
+    </ol>
+  </section>
+
+  <!-- CI-09 ───────────────────────────────────────────────────────────── -->
+  <section class="screen" id="ci09">
+    <div class="screen-cap"><span class="id">CI-09</span><h2>Clio copilot float over the editor</h2><span class="where">Frontend/src/features/copilot/components/AppAgentFloat.jsx</span></div>
+    <div class="frame-scroll"><div class="frame">
+      <div class="ide" style="height:630px;position:relative">
+        <div class="ide-body">
+          <div class="center">
+            <div class="tab-bar">
+              <button type="button" class="tab-btn"><svg class="i"><use href="#i-eye"/></svg>Preview</button>
+              <button type="button" class="tab-btn active"><svg class="i"><use href="#i-code"/></svg>Code</button>
+            </div>
+            <div class="workspace">
+              <div class="explorer" style="width:220px">
+                <div class="panel-header"><div class="panel-title"><svg class="i"><use href="#i-folder-tree"/></svg><span>Explorer</span></div></div>
+                <div class="tree">
+                  <div class="tree-row"><svg class="i s muted"><use href="#i-chev-d"/></svg><svg class="i s t-brand"><use href="#i-folder-tree"/></svg><span class="name">src</span></div>
+                  <div class="tree-row" style="padding-left:20px"><svg class="i s muted"><use href="#i-chev-d"/></svg><svg class="i s t-brand"><use href="#i-folder-tree"/></svg><span class="name">components</span></div>
+                  <div class="tree-row sel" style="padding-left:36px"><svg class="i s t-accent"><use href="#i-code"/></svg><span class="name">QuestionCard.jsx</span></div>
+                  <div class="tree-row" style="padding-left:36px"><svg class="i s t-accent"><use href="#i-code"/></svg><span class="name">QuizTimer.jsx</span></div>
+                  <div class="tree-row" style="padding-left:24px"><svg class="i s t-brand"><use href="#i-code"/></svg><span class="name">App.jsx</span></div>
+                </div>
+              </div>
+              <div class="editor" style="position:relative">
+                <div class="editor-tabs">
+                  <div class="editor-tab active"><svg class="i s t-accent"><use href="#i-code"/></svg><span>QuestionCard.jsx</span></div>
+                  <div class="editor-tab"><svg class="i s t-brand"><use href="#i-code"/></svg><span>App.jsx</span></div>
+                </div>
+                <div class="ed-bar">
+                  <div class="crumbs-ed"><span>src</span><svg class="i s"><use href="#i-chev-r"/></svg><span>components</span><svg class="i s"><use href="#i-chev-r"/></svg><b>QuestionCard.jsx</b></div>
+                  <div style="display:flex;align-items:center;gap:6px">
+                    <button type="button" class="icon-btn on brand" title="Ask App Agent (Clio)" aria-label="Ask App Agent (Clio)"><svg class="i"><use href="#i-sparkles"/></svg></button>
+                    <button type="button" class="btn-secondary btn-sm">Save</button>
+                  </div>
+                </div>
+                <div class="code">
+                  <div class="ln"><i>1</i><span class="k">import</span> { useState, useEffect } <span class="k">from</span> <span class="s">&#39;react&#39;</span>;</div>
+                  <div class="ln"><i>2</i></div>
+                  <div class="ln"><i>3</i><span class="k">export default function</span> <span class="f">QuestionCard</span>({ question, onSelect }) {</div>
+                  <div class="ln"><i>4</i>  <span class="k">const</span> [picked, setPicked] = <span class="f">useState</span>(<span class="n">null</span>);</div>
+                  <div class="ln"><i>5</i>  <span class="f">useEffect</span>(() =&gt; { <span class="f">setPicked</span>(<span class="n">null</span>); }, [question.id]);</div>
+                  <div class="ln"><i>6</i>  <span class="k">return</span> (</div>
+                  <div class="ln"><i>7</i>    &lt;<span class="tg">section</span> className=<span class="s">"q-card"</span>&gt;</div>
+                  <div class="ln"><i>8</i>      &lt;<span class="tg">h2</span>&gt;{question.prompt}&lt;/<span class="tg">h2</span>&gt;</div>
+                  <div class="ln"><i>9</i>      {question.options.<span class="f">map</span>((opt, idx) =&gt; (</div>
+                  <div class="ln"><i>10</i>        &lt;<span class="tg">button</span> key={idx} onClick={() =&gt; { <span class="f">setPicked</span>(idx); <span class="f">onSelect</span>(idx); }}&gt;</div>
+                  <div class="ln"><i>11</i>          {opt}</div>
+                  <div class="ln"><i>12</i>        &lt;/<span class="tg">button</span>&gt;</div>
+                  <div class="ln"><i>13</i>      ))}</div>
+                  <div class="ln"><i>14</i>    &lt;/<span class="tg">section</span>&gt;</div>
+                  <div class="ln"><i>15</i>  );</div>
+                  <div class="ln"><i>16</i>}</div>
+                </div>
+
+                <span class="pin" style="right:398px;top:30px">1</span>
+                <div class="clio-float" role="dialog" aria-label="Clio copilot">
+                  <div class="clio-head">
+                    <div style="display:flex;align-items:center;gap:8px;min-width:0;flex:1"><svg class="i t-brand"><use href="#i-sparkles"/></svg><b style="color:var(--text-primary);font-size:13px">Clio</b><span class="muted" style="font-size:11.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Disable double clicks</span></div>
+                    <div style="display:flex;gap:4px;flex-shrink:0">
+                      <button type="button" class="icon-btn" aria-label="Chat history"><svg class="i s"><use href="#i-history"/></svg></button>
+                      <button type="button" class="icon-btn" aria-label="New chat"><svg class="i s"><use href="#i-plus"/></svg></button>
+                      <button type="button" class="icon-btn" aria-label="Minimize"><svg class="i s"><use href="#i-minus"/></svg></button>
+                      <button type="button" class="icon-btn" aria-label="Close Co-pilot"><svg class="i s"><use href="#i-x"/></svg></button>
+                    </div>
+                  </div>
+                  <div class="clio-ctx">
+                    <svg class="i s"><use href="#i-file"/></svg>
+                    <span>Active File: <b class="t-brand">QuestionCard.jsx</b></span>
+                    <span class="pin" style="position:static;margin-left:auto;flex-shrink:0">2</span>
+                  </div>
+                  <div class="clio-msgs">
+                    <div class="clio-u">Prevent users from clicking twice before the next question loads.</div>
+                    <div class="msg-acts end">
+                      <button type="button" class="icon-btn" aria-label="Copy"><svg class="i s"><use href="#i-copy"/></svg></button>
+                      <button type="button" class="icon-btn" aria-label="Edit"><svg class="i s"><use href="#i-list"/></svg></button>
+                      <button type="button" class="icon-btn t-err" aria-label="Delete"><svg class="i s"><use href="#i-trash"/></svg></button>
+                    </div>
+                    <div class="clio-a">
+                      <div class="think-box">
+                        <div class="think-head"><svg class="i s t-brand"><use href="#i-sparkles"/></svg><span>Thought process</span><span class="pin" style="position:static;margin-left:auto;flex-shrink:0">3</span><svg class="i s"><use href="#i-chev-d"/></svg></div>
+                        <div class="think-body" style="font-style:italic">picked state already tracks the chosen index; disable buttons when picked !== null.</div>
+                      </div>
+                      <p>Guard the click handler and disable each button once <code>picked !== null</code>:</p>
+                      <div class="card">
+                        <div class="card-title"><span class="mono">jsx</span><span class="r"><svg class="i s"><use href="#i-copy"/></svg> Copy</span></div>
+                        <div class="code" style="padding:6px 8px;font-size:11px;line-height:17px">
+                          <div>&lt;<span class="tg">button</span> disabled={picked !== <span class="n">null</span>}&gt;</div>
+                        </div>
+                      </div>
+                      <div class="step" style="padding:4px 6px;border:1px solid var(--border);border-radius:6px"><svg class="i s"><use href="#i-code"/></svg><span class="mono" style="font-size:10.5px">readFile: src/components/QuestionCard.jsx</span></div>
+                    </div>
+                    <div class="msg-acts">
+                      <button type="button" class="icon-btn" aria-label="Copy"><svg class="i s"><use href="#i-copy"/></svg></button>
+                      <button type="button" class="icon-btn" aria-label="Retry"><svg class="i s"><use href="#i-rotate"/></svg></button>
+                      <button type="button" class="icon-btn t-err" aria-label="Delete"><svg class="i s"><use href="#i-trash"/></svg></button>
+                    </div>
+                  </div>
+                  <div class="clio-foot">
+                    <div class="input" style="flex:1;height:32px;font-size:12px"><span class="dim">Ask about QuestionCard.jsx…</span></div>
+                    <span class="pin" style="position:static">4</span>
+                    <button type="button" class="btn-solid btn-sm" style="padding:6px 8px" aria-label="Send"><svg class="i s"><use href="#i-send"/></svg></button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="status-bar">
+          <div class="sec"><span class="status-item"><svg class="i s"><use href="#i-git-branch"/></svg>main*</span><span class="status-item"><span class="dot ok"></span><span class="t-ok">Sandbox Active</span></span></div>
+          <div class="sec"><span class="status-item">Port: 5173</span><span class="status-item">JavaScript JSX</span><span class="status-item brand">CodeSpace IDE v1.0</span></div>
+        </div>
+      </div>
+    </div></div>
+    <ol class="notes">
+      <li><b>Floating panel and header</b> (<code>AppAgentFloat.jsx</code>): draggable and 8-direction resizable (<code>300–900 px</code>) overlay opened from the <code>Sparkles</code> button in <code>CodeEditor.jsx</code> (returns <code>null</code> when closed). Header exposes <code>Chat history</code>, <code>New chat</code>, <code>Minimize</code>, and <code>Close Co-pilot</code>.</li>
+      <li><b>Context bar</b> (<code>AppAgentFloat.jsx</code>): binds to <code>useEditor().activeFile</code> and sends both path and <code>tabContents[activeFile]</code> to <code>POST /api/ai/app-agent/invoke</code>; warns <code>Open a file to context-sync</code> when empty.</li>
+      <li><b>Thinking accordion and tool logs</b> (<code>AppAgentFloat.jsx</code>): parses <code>&lt;think&gt;…&lt;/think&gt;</code> blocks into a toggleable <code>Thought process</code> section, renders Markdown with copyable code blocks, and lists <code>readFile:</code> / <code>updateFile:</code> tool logs.</li>
+      <li><b>Message actions and footer</b> (<code>MessageActions.jsx</code>, <code>copilot.hooks.js</code>): deleting any bubble deletes its user/assistant turn pair via <code>POST /api/ai/chats/message/batch-delete</code>; input placeholder dynamically names the active file.</li>
+    </ol>
+  </section>
+
+  <!-- CI-10 ───────────────────────────────────────────────────────────── -->
+  <section class="screen" id="ci10">
+    <div class="screen-cap"><span class="id">CI-10</span><h2>Connect your own agent modal</h2><span class="where">Frontend/src/features/sandbox/components/ConnectAgentModal.jsx · agentSetup.js</span></div>
+    <div class="row-frames">
+      <div class="frame" style="padding:20px;background:var(--bg-canvas);position:relative">
+        <div class="modal" style="max-width:100%;margin:0 auto">
+          <div style="display:flex;align-items:center;justify-content:space-between">
+            <div style="display:flex;align-items:center;gap:8px"><svg class="i l t-brand"><use href="#i-plug"/></svg><h3>Connect your own agent</h3></div>
+            <button type="button" class="icon-btn" aria-label="Close"><svg class="i"><use href="#i-x"/></svg></button>
+          </div>
+          <p>Use Claude Code, Cursor, Antigravity or any MCP client to work in this project's sandbox. Create a token, then paste one prompt into your agent. A stopped sandbox starts on the first call.</p>
+          <div class="field" style="position:relative">
+            <span class="pin" style="right:0;top:0">1</span>
+            <label>Name</label>
+            <div class="input">Claude Code</div>
+          </div>
+          <div class="mcp-scope-box">
+            <div class="muted" style="font-size:12px">Access</div>
+            <label class="check" style="opacity:.7"><span class="box on"><svg class="i s"><use href="#i-check"/></svg></span>Read files and logs</label>
+            <label class="check"><span class="box on"><svg class="i s"><use href="#i-check"/></svg></span>Create and edit files</label>
+            <label class="check"><span class="box on"><svg class="i s"><use href="#i-check"/></svg></span>Run commands (npm install, build)</label>
+            <div class="notice err"><svg class="i s"><use href="#i-alert"/></svg><span>Commands get a full shell in your sandbox. Anyone with this token can run anything there.</span></div>
+          </div>
+          <div class="field">
+            <label>Expires after</label>
+            <div class="input"><span>30 days</span><svg class="i s muted" style="margin-left:auto"><use href="#i-chev-d"/></svg></div>
+          </div>
+          <div><button type="button" class="btn-solid"><svg class="i s"><use href="#i-key"/></svg>Create token</button></div>
+
+          <div style="border-top:1px solid var(--border);padding-top:12px;display:flex;flex-direction:column;gap:8px;position:relative">
+            <span class="pin" style="right:0;top:12px">2</span>
+            <div class="panel-title">Active tokens</div>
+            <div class="mcp-tok-row">
+              <div style="min-width:0"><b style="color:var(--text-primary);font-size:12.5px">Claude Code on Mac</b><div class="muted mono" style="font-size:11px">tks_8f21… · Read, Write · expires 24 Dec 2026 · last used 25 Nov 2026</div></div>
+              <button type="button" class="btn-ghost btn-sm"><svg class="i s"><use href="#i-trash"/></svg>Revoke</button>
+            </div>
+            <div class="mcp-tok-row">
+              <div style="min-width:0"><b style="color:var(--text-primary);font-size:12.5px">Cursor desktop</b><div class="muted mono" style="font-size:11px">tks_3b9a… · Read, Write, Run commands · expires 23 Feb 2027 · last used 22 Nov 2026</div></div>
+              <button type="button" class="btn-ghost btn-sm"><svg class="i s"><use href="#i-trash"/></svg>Revoke</button>
+            </div>
+            <div class="mcp-tok-row">
+              <div style="min-width:0"><b style="color:var(--text-primary);font-size:12.5px">Antigravity local</b><div class="muted mono" style="font-size:11px">tks_1c04… · Read · expires 2 Dec 2026 · last used never</div></div>
+              <button type="button" class="btn-ghost btn-sm"><svg class="i s"><use href="#i-trash"/></svg>Revoke</button>
+            </div>
+            <div class="muted" style="font-size:11.5px;overflow-wrap:anywhere">MCP URL: <code>https://api.taksha.dev/mcp/proj_5c0e</code></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="frame" style="padding:20px;background:var(--bg-canvas);position:relative">
+        <div class="modal" style="max-width:100%;margin:0 auto">
+          <div style="display:flex;align-items:center;justify-content:space-between">
+            <div style="display:flex;align-items:center;gap:8px"><svg class="i l t-brand"><use href="#i-plug"/></svg><h3>Connect your own agent</h3></div>
+            <button type="button" class="icon-btn" aria-label="Close"><svg class="i"><use href="#i-x"/></svg></button>
+          </div>
+          <p>Use Claude Code, Cursor, Antigravity or any MCP client to work in this project's sandbox. Create a token, then paste one prompt into your agent. A stopped sandbox starts on the first call.</p>
+          <div class="notice warn"><svg class="i s"><use href="#i-alert"/></svg><span>Copy this token now. It will not be shown again.</span><span class="pin" style="position:static;margin-left:auto;flex-shrink:0">3</span></div>
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 10px;border:1px solid var(--border-strong);border-radius:8px;background:var(--bg-element)">
+            <code style="min-width:0;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">tks_live_9e4c7a12f80b4d11a3e8c02b77</code>
+            <button type="button" class="btn-ghost btn-sm"><svg class="i s"><use href="#i-copy"/></svg>Copy</button>
+          </div>
+          <div class="panel-title">Connect your agent</div>
+          <div class="card">
+            <div class="tab-bar" style="height:34px">
+              <button type="button" class="tab-btn active">Claude Code</button>
+              <button type="button" class="tab-btn">Cursor</button>
+              <button type="button" class="tab-btn">Antigravity</button>
+              <button type="button" class="tab-btn">Other</button>
+            </div>
+            <div class="card-body" style="display:flex;flex-direction:column;gap:10px">
+              <p class="muted" style="font-size:12px">Paste into Claude Code. It runs the setup command for you.</p>
+              <div style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="btn-solid btn-sm"><svg class="i s"><use href="#i-copy"/></svg>Copy setup prompt</button></div>
+              <div class="muted" style="font-size:12px">▸ Show prompt</div>
+            </div>
+          </div>
+          <div class="notice warn"><svg class="i s"><use href="#i-alert"/></svg><span>The prompt and the install link contain your token. Paste them only into your own agent.</span></div>
+          <div class="muted" style="font-size:12px">▸ Manual setup</div>
+          <div><button type="button" class="btn-solid btn-sm">Done</button></div>
+          <div style="border-top:1px solid var(--border);padding-top:10px;display:flex;flex-direction:column;gap:6px">
+            <div class="panel-title">Active tokens</div>
+            <div class="mcp-tok-row">
+              <div style="min-width:0"><b style="color:var(--text-primary);font-size:12.5px">Claude Code</b><div class="muted mono" style="font-size:11px">tks_live… · Read, Write · expires 25 Dec 2026 · last used never</div></div>
+              <button type="button" class="btn-ghost btn-sm"><svg class="i s"><use href="#i-trash"/></svg>Revoke</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <ol class="notes">
+      <li><b>Create token form</b> (<code>ConnectAgentModal.jsx</code>, <code>useMcpTokens.js</code>): posts <code>name</code>, <code>scopes</code> (<code>read</code> locked, <code>write</code> default on, optional <code>exec</code>), and <code>expiresInDays</code> (<code>7</code>, <code>30</code>, <code>90</code>) to <code>POST /api/sandbox/project/:projectId/mcp-tokens</code>. Checking <code>Run commands</code> reveals the red shell warning.</li>
+      <li><b>Active tokens list</b> (<code>useMcpTokens.js</code>): loads tokens from <code>GET /api/sandbox/project/:projectId/mcp-tokens</code>, shows prefix, scopes, expiry, and <code>lastUsedAt</code>, and revokes via <code>DELETE .../mcp-tokens/:tokenId</code>.</li>
+      <li><b>One-time token and agent setup</b> (<code>agentSetup.js</code>): displays the raw secret once with copy-to-clipboard, client tabs (<code>Claude Code</code>, <code>Cursor</code> with one-click install link, <code>Antigravity</code>, <code>Other</code>), and collapsible manual JSON snippets.</li>
+    </ol>
+  </section>
+
+  <!-- CI-11 ───────────────────────────────────────────────────────────── -->
+  <section class="screen" id="ci11">
+    <div class="screen-cap"><span class="id">CI-11</span><h2>Request error banner</h2><span class="where">Frontend/src/App.jsx · faultAlert · services/apiClient.js</span></div>
+    <div class="frame-scroll"><div class="frame">
+      <div class="sbx-header">
+        <div class="left"><button type="button" class="btn-secondary btn-sm">← Back to start</button></div>
+        <h1>quiz-arena</h1>
+        <div class="right"><span class="sbx-live"><span class="dot ok"></span>Sandbox Live</span></div>
+      </div>
+      <div class="fault-stage">
+        <div class="fault-banner warn" style="position:relative">
+          <span class="pin" style="left:-26px;top:12px">1</span>
+          <svg class="i l t-warn" style="margin-top:2px"><use href="#i-alert"/></svg>
+          <div style="flex:1;min-width:0">
+            <div style="font-weight:700;font-size:13.5px;color:var(--text-primary);margin-bottom:2px">Credit Limit Reached</div>
+            <div class="muted">You have used all available AI credits in the current window.</div>
+            <div class="dim" style="font-size:11px;margin-top:4px">Ref ID: <code>req_01j9f82k9c3a7d</code></div>
+            <button type="button" class="btn-amber">Upgrade to Pro Plan</button>
+          </div>
+          <button type="button" class="icon-btn" aria-label="Dismiss alert"><svg class="i"><use href="#i-x"/></svg></button>
+        </div>
+
+        <div class="fault-banner brand" style="position:relative">
+          <span class="pin" style="left:-26px;top:12px">2</span>
+          <svg class="i l t-brand" style="margin-top:2px"><use href="#i-alert"/></svg>
+          <div style="flex:1;min-width:0">
+            <div style="font-weight:700;font-size:13.5px;color:var(--text-primary);margin-bottom:2px">Rate Limit Exceeded</div>
+            <div class="muted">Too many requests in this window. Wait 30 seconds before retrying.</div>
+            <div class="dim" style="font-size:11px;margin-top:4px">Ref ID: <code>req_01j9f84m1e2b09</code></div>
+          </div>
+          <button type="button" class="icon-btn" aria-label="Dismiss alert"><svg class="i"><use href="#i-x"/></svg></button>
+        </div>
+
+        <div class="fault-banner err" style="position:relative">
+          <span class="pin" style="left:-26px;top:12px">3</span>
+          <svg class="i l t-err" style="margin-top:2px"><use href="#i-alert"/></svg>
+          <div style="flex:1;min-width:0">
+            <div style="font-weight:700;font-size:13.5px;color:var(--text-primary);margin-bottom:2px">Request Error</div>
+            <div class="muted">AI Orchestration service failed to start the stream. Try again.</div>
+            <div class="dim" style="font-size:11px;margin-top:4px">Ref ID: <code>req_01j9f89p4a81f2</code></div>
+          </div>
+          <button type="button" class="icon-btn" aria-label="Dismiss alert"><svg class="i"><use href="#i-x"/></svg></button>
+        </div>
+      </div>
+    </div></div>
+    <ol class="notes">
+      <li><b>Credit Limit Reached</b> (<code>App.jsx</code>, <code>parseFaultKitResponse</code> in <code>apiClient.js</code>): fired via <code>faultkit:error</code> on HTTP <code>402</code> (<code>INSUFFICIENT_CREDITS</code>). Stays sticky until dismissed and links <code>Upgrade to Pro Plan</code> to port <code>5174</code>.</li>
+      <li><b>Rate Limit Exceeded</b> (<code>App.jsx</code>): fired on HTTP <code>429</code> (<code>RATE_LIMIT_EXCEEDED</code>) with an ember border and remains sticky so the user sees the cooldown guidance and <code>Ref ID</code>.</li>
+      <li><b>Request Error</b> (<code>App.jsx</code>): fallback for any other FaultKit error code from Axios or Fetch responses, carrying <code>x-request-id</code> and auto-dismissing after <code>7000 ms</code>.</li>
+    </ol>
+  </section>
+
+  <!-- States ─────────────────────────────────────────────────────────── -->
+  <section class="screen" id="ide-states">
+    <div class="screen-cap"><span class="id">States</span><h2>Loading, empty, offline, error and done</h2><span class="where">LazyFallback.jsx · CodeEditor.jsx · App.jsx · codingAgent.hooks.js</span></div>
+    <div class="states">
+      <div class="state">
+        <span class="state-label">Loading</span>
+        <div class="frame" style="background:var(--bg-canvas)">
+          <div class="editor-tabs" style="height:36px"><div class="editor-tab active"><span class="sk" style="width:92px"></span></div></div>
+          <div style="padding:14px 16px;display:flex;flex-direction:column;gap:10px">
+            <div style="display:flex;align-items:center;gap:14px"><span class="mono dim" style="width:16px">1</span><span class="sk" style="width:32%"></span></div>
+            <div style="display:flex;align-items:center;gap:14px"><span class="mono dim" style="width:16px">2</span><span class="sk" style="width:52%"></span></div>
+            <div style="display:flex;align-items:center;gap:14px"><span class="mono dim" style="width:16px">3</span><span class="sk" style="width:68%"></span></div>
+            <div style="display:flex;align-items:center;gap:14px"><span class="mono dim" style="width:16px">4</span><span class="sk" style="width:42%"></span></div>
+            <div style="display:flex;align-items:center;gap:14px"><span class="mono dim" style="width:16px">5</span><span class="sk" style="width:58%"></span></div>
+          </div>
+        </div>
+      </div>
+      <div class="state">
+        <span class="state-label">Empty</span>
+        <div class="frame" style="background:var(--bg-overlay)">
+          <div class="empty">
+            <div class="em-ic"><svg class="i"><use href="#i-code"/></svg></div>
+            <h4>No File Open</h4>
+            <p>Select a file from the explorer, or ask the AI assistant to create and open one for you.</p>
+          </div>
+        </div>
+      </div>
+      <div class="state">
+        <span class="state-label">Sandbox offline</span>
+        <div class="frame" style="background:var(--bg-overlay)">
+          <div class="empty">
+            <div class="em-ic"><svg class="i"><use href="#i-play"/></svg></div>
+            <h4>Launch a sandbox to see your app here</h4>
+            <p>Start the sandbox to open the live preview, file tree, terminal, and Orion.</p>
+            <button type="button" class="btn-solid btn-sm"><svg class="i s"><use href="#i-play"/></svg>Start Sandbox</button>
+          </div>
+        </div>
+      </div>
+      <div class="state">
+        <span class="state-label">Error</span>
+        <div class="frame" style="padding:14px;display:flex;flex-direction:column;gap:10px">
+          <div class="notice err"><svg class="i s"><use href="#i-x-circle"/></svg><span><b>AI Orchestration service connection lost.</b> Reopen the chat to reconnect to the active run.</span></div>
+          <div class="notice warn"><svg class="i s"><use href="#i-ban"/></svg><span>Sandbox is offline. Start it to work with Orion.</span></div>
+        </div>
+      </div>
+      <div class="state">
+        <span class="state-label">Done</span>
+        <div class="frame" style="position:relative;display:flex;flex-direction:column;background:var(--bg-canvas)">
+          <div class="editor-tabs" style="height:36px"><div class="editor-tab active"><svg class="i s t-accent"><use href="#i-code"/></svg><span>App.jsx</span></div></div>
+          <div class="ed-bar" style="height:36px;padding:0 10px">
+            <div class="crumbs-ed" style="font-size:11px"><span>src</span><svg class="i s"><use href="#i-chev-r"/></svg><b>App.jsx</b></div>
+            <span class="sync-pill" style="font-size:10.5px"><svg class="i s"><use href="#i-upload"/></svg>Synced just now</span>
+          </div>
+          <div class="code" style="padding:8px 0;font-size:11.5px;line-height:19px">
+            <div class="ln"><i>1</i><span class="k">import</span> { useState } <span class="k">from</span> <span class="s">&#39;react&#39;</span>;</div>
+            <div class="ln"><i>2</i><span class="k">import</span> Card <span class="k">from</span> <span class="s">&#39;./QuestionCard&#39;</span>;</div>
+            <div class="ln"><i>3</i><span class="k">export default function</span> <span class="f">App</span>({ list }) {</div>
+            <div class="ln"><i>4</i>  <span class="k">const</span> [score, setScore] = <span class="f">useState</span>(<span class="n">0</span>);</div>
+            <div class="ln"><i>5</i>  <span class="k">return</span> &lt;<span class="tg">Card</span> score={score} items={list} /&gt;;</div>
+            <div class="ln"><i>6</i>}</div>
+          </div>
+          <div class="toast" style="position:absolute;left:50%;bottom:14px;transform:translateX(-50%);z-index:4;white-space:nowrap"><svg class="i s t-ok"><use href="#i-check"/></svg>Saved App.jsx</div>
+        </div>
+      </div>
+    </div>
+    <ol class="notes">
+      <li><b>Loading</b> (<code>EditorSkeleton</code> in <code>LazyFallback.jsx</code>): renders numbered skeleton lines while the lazy <code>CodeEditor</code> chunk or file loads.</li>
+      <li><b>Empty</b> (<code>CodeEditor.jsx</code>): shown when <code>activeFile</code> is empty; prompts the user to open a file or ask Orion.</li>
+      <li><b>Offline</b> (<code>App.jsx</code>, <code>FileExplorer.jsx</code>, <code>TerminalShell.jsx</code>): gated behind <code>status !== 'running'</code> with <code>Start Sandbox</code> as the primary recovery action.</li>
+      <li><b>Error and Done</b> (<code>codingAgent.hooks.js</code>, <code>Composer.jsx</code>, <code>CodeEditor.jsx</code>): connection failures surface in an error notice naming the service and next step; saving a file confirms with <code>Saved</code> matching the <code>Save</code> button verb.</li>
+    </ol>
+  </section>
+</main>
+<script src="../../_shared/kit.js"></script>
+</body>
+</html>

@@ -1,0 +1,330 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Admin portal operations screens</title>
+<link rel="stylesheet" href="../_shared/taksha-wireframe.css">
+<style>
+  .split2 { display: grid; grid-template-columns: 230px 1fr; gap: 0; flex: 1; min-height: 0; border: 1px solid var(--border); border-radius: 12px; overflow: hidden; background: var(--bg-surface); }
+  .dbtree { border-right: 1px solid var(--border); padding: 8px; overflow: hidden; background: var(--bg-sidebar); }
+  .dbtree .tree-row { font-size: 12px; }
+  .console { border-bottom: 1px solid var(--border); padding: 10px 12px; font-family: var(--font-mono); font-size: 12px; line-height: 19px; color: var(--text-secondary); background: var(--bg-canvas); }
+  .console .k { color: var(--accent-hover); }
+  .tl2 { display: flex; flex-direction: column; }
+  .tl2 .row { display: grid; grid-template-columns: 70px 110px 1fr; gap: 12px; padding: 8px 12px; border-bottom: 1px solid var(--border); font-size: 12px; align-items: start; }
+  .tl2 .row .src { font-size: 11px; }
+  .thread { display: flex; flex-direction: column; gap: 10px; }
+  .tmsg { padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; font-size: 12.5px; line-height: 1.5; background: var(--bg-canvas); }
+  .tmsg.staff { border-color: rgba(99, 102, 241, 0.35); background: var(--accent-subtle); }
+  .tmsg .h { font-size: 11px; color: var(--text-muted); margin-bottom: 4px; }
+  .edit-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .cell-edit { display: grid; grid-template-columns: 140px 1fr; gap: 8px; align-items: center; font-size: 12.5px; }
+  .cell-edit .k { color: var(--text-muted); font-family: var(--font-mono); font-size: 11.5px; }
+</style>
+</head>
+<body>
+<main class="board">
+  <header class="board-head">
+    <div>
+      <h1>Admin portal, part 4: operations, data explorer, support, payments</h1>
+      <p>Cluster and logs (P5), data explorer (P6), tickets, trace and user actions (P7), payments actions (P8, last). <code>Admin/PLAN.md</code> sections 5.3, 6, 7 and 11. Other parts: <a href="wireframes-1-access.html">1 access</a>, <a href="wireframes-2-organization.html">2 organization</a>, <a href="wireframes-3-data.html">3 data and analytics</a>. Spec: <a href="screens.md">screens.md</a>.</p>
+    </div>
+    <button class="theme-toggle" data-theme-toggle><svg class="i"><use href="#i-sun"/></svg> Light theme</button>
+  </header>
+  <nav class="board-nav"><a href="#ad30">AD-30 Cluster</a><a href="#ad31">AD-31 Live logs</a><a href="#ad32">AD-32 Log search</a><a href="#ad33">AD-33 Trace</a><a href="#ad40">AD-40 Explorer</a><a href="#ad41">AD-41 Query</a><a href="#ad42">AD-42 Edit and revert</a><a href="#ad50">AD-50 Tickets</a><a href="#ad51">AD-51 User actions</a><a href="#ad60">AD-60 Payments actions</a><a href="#ops-states">States</a></nav>
+
+  <section class="screen" id="ad30" data-rows-added>
+    <div class="screen-cap"><span class="id">AD-30</span><h2>Cluster</h2><span class="where">P5 · /cluster, cluster.view (limit: services)</span></div>
+    <div class="frame-scroll"><div class="frame">
+      <div class="shell">
+        <aside class="side" data-active="cluster"></aside>
+        <div class="main">
+          <div class="topbar"><div class="crumbs"><b>Cluster</b></div><div class="r"><span class="muted" style="font-size:12px">Updated 5 s ago</span><a class="btn-secondary" style="text-decoration:none"><svg class="i s"><use href="#i-external"/></svg>Open Grafana</a></div></div>
+          <div class="content">
+            <div class="kpis">
+              <div class="kpi"><div class="l">Pods ready</div><div class="v">58 / 60</div><div class="d">2 not ready</div></div>
+              <div class="kpi"><div class="l">Restarts, 1 h</div><div class="v t-err">3</div><div class="d">all in ai-service</div></div>
+              <div class="kpi"><div class="l">Node CPU</div><div class="v">46%</div><div class="meter" style="margin-top:8px"><span style="width:46%"></span></div></div>
+              <div class="kpi"><div class="l">Node memory</div><div class="v">71%</div><div class="meter warn" style="margin-top:8px"><span style="width:71%"></span></div></div>
+            </div>
+            <div class="grid-2-1">
+              <div class="pnl"><table class="tbl">
+                <tr><th>Service</th><th>Pods</th><th class="num">CPU</th><th class="num">Memory</th><th class="num">Restarts</th><th>Last event</th></tr>
+                <tr class="sel"><td style="color:var(--text-primary)">ai-service</td><td><span class="badge err">0 / 1 ready</span></td><td class="num">—</td><td class="num">—</td><td class="num t-err">3</td><td class="muted">OOMKilled 2 min ago</td></tr>
+                <tr><td style="color:var(--text-primary)">auth-service</td><td><span class="badge ok">1 / 1</span></td><td class="num">12m</td><td class="num">96 Mi</td><td class="num">0</td><td class="dim">—</td></tr>
+                <tr><td style="color:var(--text-primary)">payments-service</td><td><span class="badge ok">1 / 1</span></td><td class="num">9m</td><td class="num">110 Mi</td><td class="num">0</td><td class="dim">—</td></tr>
+                <tr><td style="color:var(--text-primary)">sandbox pods</td><td><span class="badge ok">37 running</span></td><td class="num">1.9</td><td class="num">23 Gi</td><td class="num">0</td><td class="muted">1 starting</td></tr>
+                <tr><td style="color:var(--text-primary)">kafka</td><td><span class="badge ok">1 / 1</span></td><td class="num">80m</td><td class="num">780 Mi</td><td class="num">0</td><td class="muted">after K1</td></tr>
+              <tr><td style="color:var(--text-primary)">notification-service</td><td><span class="badge ok">1 / 1</span></td><td class="num">6m</td><td class="num">88 Mi</td><td class="num">0</td><td class="muted">—</td></tr><tr><td style="color:var(--text-primary)">sandbox-service</td><td><span class="badge ok">2 / 2</span></td><td class="num">34m</td><td class="num">210 Mi</td><td class="num">0</td><td class="muted">scaled to 2, 09:12</td></tr><tr><td style="color:var(--text-primary)">redis</td><td><span class="badge ok">1 / 1</span></td><td class="num">4m</td><td class="num">52 Mi</td><td class="num">0</td><td class="muted">—</td></tr><tr><td style="color:var(--text-primary)">ingress-nginx</td><td><span class="badge ok">1 / 1</span></td><td class="num">11m</td><td class="num">120 Mi</td><td class="num">0</td><td class="muted">—</td></tr></table><div class="tbl-foot"><span>9 services in your limit</span></div></div>
+              <div class="pnl"><div class="pnl-h"><h3>Consumer lag</h3><span class="sub">after K7</span></div><div class="pnl-b barlist">
+                <div class="r"><span class="name">notification-email</span><div class="meter ok"><span style="width:4%"></span></div><span class="v">2</span></div>
+                <div class="r"><span class="name">payments-usage</span><div class="meter ok"><span style="width:8%"></span></div><span class="v">14</span></div>
+                <div class="r"><span class="name">notification-broadcast</span><div class="meter warn"><span style="width:62%"></span></div><span class="v">1,180</span></div>
+                <div class="notice warn" style="margin-top:4px"><svg class="i s"><use href="#i-alert"/></svg><span><b>notification-broadcast</b> is behind by 1,180 messages. It drains at about 40 a second.</span></div>
+              </div>
+              <div class="pnl-h" style="border-top:1px solid var(--border)"><h3>Recent events</h3><span class="sub">Kubernetes, last hour</span></div>
+              <div class="log" style="flex:none"><div class="log-row warn"><span class="ts">18:50</span><span class="lv">warn</span><span class="msg">ai-service OOMKilled, limit 512 Mi</span></div><div class="log-row"><span class="ts">18:50</span><span class="lv muted">info</span><span class="msg">ai-service back-off restarting container</span></div><div class="log-row warn"><span class="ts">18:31</span><span class="lv">warn</span><span class="msg">ai-service OOMKilled, limit 512 Mi</span></div><div class="log-row"><span class="ts">18:12</span><span class="lv muted">info</span><span class="msg">sbx-a4d0-q2 scheduled on node-2</span></div><div class="log-row"><span class="ts">09:12</span><span class="lv muted">info</span><span class="msg">sandbox-service scaled 1 → 2</span></div></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div></div>
+    <ol class="notes">
+      <li>Data from the K8s API and metrics-server through the <code>admin-reader</code> service account. Services outside the admin's <code>cluster.view</code> limit are not listed.</li>
+      <li>Row opens AD-31 for that pod. Grafana stays the deep view; the portal shows the numbers admins act on.</li>
+    </ol>
+  </section>
+
+  <section class="screen" id="ad31">
+    <div class="screen-cap"><span class="id">AD-31</span><h2>Pod detail with live logs</h2><span class="where">P5 · /cluster/:pod</span></div>
+    <div class="frame-scroll"><div class="frame">
+      <div class="shell short">
+        <aside class="side" data-active="cluster"></aside>
+        <div class="main">
+          <div class="topbar"><div class="crumbs">Cluster <svg class="i s"><use href="#i-chev-r"/></svg> <b class="mono" style="font-size:12.5px">ai-service-7d9f8-x2k4q</b></div><div class="r"><span class="badge err">CrashLoopBackOff</span></div></div>
+          <div class="content">
+            <div class="notice err"><svg class="i s"><use href="#i-alert"/></svg><span>Last crash: <b>OOMKilled</b> at 18:50 (limit 512 Mi). 3 restarts in the last hour.</span></div>
+            <div class="pnl" style="flex:1">
+              <div class="log-toolbar"><div class="seg"><button class="on">Live</button><button>Previous container</button><button>Events</button></div><div class="search"><svg class="i s"><use href="#i-search"/></svg>Filter text</div><div style="margin-left:auto" class="muted"><span class="dot ok" style="display:inline-block;margin-right:6px;animation:pulse 1.6s infinite"></span>following</div></div>
+              <div class="log" style="background:var(--bg-canvas)">
+<div class="log-row"><span class="ts">18:49:41</span><span class="lv muted">info</span><span class="msg">POST /api/ai/run 200 · req 7c02… · 41 ms</span></div><div class="log-row"><span class="ts">18:49:44</span><span class="lv muted">info</span><span class="msg">run orion:66a1 started · model codestral-latest · thread th_5c0e…</span></div><div class="log-row"><span class="ts">18:49:47</span><span class="lv muted">info</span><span class="msg">run orion:66a1 step 1/5 planner · 3.1k tokens</span></div><div class="log-row"><span class="ts">18:49:51</span><span class="lv muted">info</span><span class="msg">run orion:66a1 step 2/5 coder · tool read_file src/app/store.js</span></div><div class="log-row"><span class="ts">18:49:53</span><span class="lv muted">debug</span><span class="msg">tool patch_file STALE_WRITE src/app/store.js · retry with fresh hash</span></div><div class="log-row warn"><span class="ts">18:49:55</span><span class="lv">warn</span><span class="msg">heap 431 MB of 512 MB</span></div><div class="log-row"><span class="ts">18:49:57</span><span class="lv muted">info</span><span class="msg">GET /api/ai/healthz 200 · 2 ms</span></div>
+                <div class="log-row"><span class="ts">18:49:58</span><span class="lv muted">info</span><span class="msg">run orion:66a1 step 3/5 coder</span></div>
+                <div class="log-row warn"><span class="ts">18:50:01</span><span class="lv">warn</span><span class="msg">heap 488 MB of 512 MB</span></div>
+                <div class="log-row err"><span class="ts">18:50:02</span><span class="lv">error</span><span class="msg">FATAL ERROR: Reached heap limit Allocation failed - JavaScript heap out of memory</span></div><div class="log-row err"><span class="ts">18:50:02</span><span class="lv">error</span><span class="msg"> 1: 0xb7a940 node::Abort() [node]</span></div><div class="log-row err"><span class="ts">18:50:02</span><span class="lv">error</span><span class="msg"> 2: 0xa8e7d3 node::FatalError(char const*, char const*) [node]</span></div><div class="log-row"><span class="ts dim">—</span><span class="lv"></span><span class="msg muted">Container exited with code 137. Waiting for restart 3 of 5 (back-off 40 s).</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div></div>
+    <ol class="notes"><li>Live from <code>pods/log</code> with follow. "Previous container" shows the log of the crashed one. Same log row style as the IDE's Output tab.</li></ol>
+  </section>
+
+  <section class="screen" id="ad32">
+    <div class="screen-cap"><span class="id">AD-32</span><h2>Log history search</h2><span class="where">P5 · /logs, Loki, logs.view (limits: services, history days)</span></div>
+    <div class="frame-scroll"><div class="frame">
+      <div class="shell short">
+        <aside class="side" data-active="logs"></aside>
+        <div class="main">
+          <div class="topbar"><div class="crumbs"><b>Logs</b></div></div>
+          <div class="content">
+            <div class="scope"><svg class="i s"><use href="#i-clock"/></svg><span>Your access: services <b>ai, sandbox</b>, last <b>7 days</b>.</span></div>
+            <div class="filters"><span class="chip on">Service: ai <svg class="i s"><use href="#i-chev-d"/></svg></span><span class="chip">Level: error, warn</span><span class="chip">Pod: any, deleted too</span><div class="search" style="min-width:280px"><svg class="i s"><use href="#i-search"/></svg>"heap out of memory"</div><span class="chip">24 Nov 18:00 – 19:00</span><button class="btn-solid btn-sm">Search</button></div>
+            <div class="pnl"><div class="pnl-h"><div class="bars" style="height:44px;border:none;padding:0;flex:1;gap:3px"><span style="height:10%"></span><span style="height:8%"></span><span style="height:12%"></span><span style="height:9%"></span><span style="height:30%"></span><span style="height:85%"></span><span style="height:60%"></span><span style="height:22%"></span><span style="height:14%"></span><span style="height:11%"></span><span style="height:10%"></span><span style="height:9%"></span></div></div>
+              <div class="log">
+                <div class="log-row err"><span class="ts">18:50:02</span><span class="lv">error</span><span class="msg">ai-service-7d9f8-x2k4q · FATAL ERROR: Reached heap limit</span></div>
+                <div class="log-row err"><span class="ts">18:31:44</span><span class="lv">error</span><span class="msg">ai-service-7d9f8-p8m1z (deleted) · FATAL ERROR: Reached heap limit</span></div><div class="log-row warn"><span class="ts">18:31:40</span><span class="lv">warn</span><span class="msg">ai-service-7d9f8-p8m1z (deleted) · heap 497 MB of 512 MB</span></div><div class="log-row warn"><span class="ts">18:24:12</span><span class="lv">warn</span><span class="msg">ai-service-7d9f8-p8m1z (deleted) · run orion:51b0 context 182k tokens, trimming tool outputs</span></div><div class="log-row warn"><span class="ts">18:20:05</span><span class="lv">warn</span><span class="msg">sandbox-6c4f2 · dev server restarted by restart_dev_server</span></div><div class="log-row err"><span class="ts">18:12:47</span><span class="lv">error</span><span class="msg">ai-service-7d9f8-w1n0c (deleted) · FATAL ERROR: Reached heap limit</span></div><div class="log-row warn"><span class="ts">18:12:44</span><span class="lv">warn</span><span class="msg">ai-service-7d9f8-w1n0c (deleted) · heap 501 MB of 512 MB</span></div><div class="log-row warn"><span class="ts">18:05:02</span><span class="lv">warn</span><span class="msg">sandbox-91aa3 · npm WARN deprecated inflight@1.0.6</span></div></div>
+              <div class="tbl-foot"><span>8 lines matched · LogQL <code>{service=~"ai|sandbox"} |= "heap" | level=~"error|warn"</code></span><span class="muted">Newest first</span></div></div>
+          </div>
+        </div>
+      </div>
+    </div></div>
+    <ol class="notes"><li>LogQL is built from the filters; the raw query is shown on request but never typed by admins. Logs of deleted pods are labelled "(deleted)", which is the P5 gate.</li></ol>
+  </section>
+
+  <section class="screen" id="ad33">
+    <div class="screen-cap"><span class="id">AD-33</span><h2>Trace a user's problem</h2><span class="where">P7 · /trace, user + project + time window (v1)</span></div>
+    <div class="frame-scroll"><div class="frame">
+      <div class="shell">
+        <aside class="side" data-active="trace" data-role="support"></aside>
+        <div class="main">
+          <div class="topbar"><div class="crumbs"><b>Trace</b></div><div class="r"><button class="btn-secondary"><svg class="i s"><use href="#i-copy"/></svg>Copy to ticket</button></div></div>
+          <div class="content">
+            <div class="filters"><span class="chip on"><svg class="i s"><use href="#i-user"/></svg>s•••@g••••.com</span><span class="chip on"><svg class="i s"><use href="#i-layers"/></svg>quiz-arena</span><span class="chip on"><svg class="i s"><use href="#i-clock"/></svg>18:30 – 18:55</span><span class="chip">Sources: all 5</span></div>
+            <div class="pnl"><div class="tl2">
+              <div class="row"><span class="muted">18:34:02</span><span class="src"><span class="badge">chat</span></span><span>User: "The page goes white when I click the theme toggle."</span></div>
+              <div class="row"><span class="muted">18:34:05</span><span class="src"><span class="badge accent">ai run</span></span><span>orion:66a1 started, model codestral-latest</span></div>
+              <div class="row"><span class="muted">18:35:11</span><span class="src"><span class="badge accent">tool call</span></span><span><span class="t-err">patch_file STALE_WRITE</span> on src/app/store.js</span></div>
+              <div class="row"><span class="muted">18:36:40</span><span class="src"><span class="badge brand">usage</span></span><span>182k tokens, 61 credits</span></div>
+              <div class="row"><span class="muted">18:50:02</span><span class="src"><span class="badge err">pod log</span></span><span>ai-service OOMKilled</span></div>
+              <div class="row"><span class="muted">18:50:03</span><span class="src"><span class="badge">ingress</span></span><span class="mono">POST /api/ai/run 502 · req 9f1c…</span></div>
+              <div class="row"><span class="muted">18:50:41</span><span class="src"><span class="badge accent">ai run</span></span><span>orion:66a1 <span class="t-err">failed</span>, service restarted mid-run</span></div>
+              <div class="row"><span class="muted">18:51:10</span><span class="src"><span class="badge">notify</span></span><span>run.failed sent by WhatsApp to <span class="masked">+91 ••••• ••418</span></span></div>
+              <div class="row"><span class="muted">18:52:30</span><span class="src"><span class="badge">chat</span></span><span>User: "It stopped again, what happened?"</span></div>
+              <div class="row"><span class="muted">18:53:02</span><span class="src"><span class="badge warn">ticket</span></span><span>#112 opened by the user from Help</span></div>
+            </div><div class="tbl-foot"><span>10 events from 5 sources · 18:30 to 18:55</span><span class="muted">Payments: no events in this window</span></div></div>
+          </div>
+        </div>
+      </div>
+    </div></div>
+    <ol class="notes"><li>One timeline merged from chat messages, AI runs, tool calls (if the analytics plan is built), <code>usage_events</code>, pod logs and ingress access lines in the window. Sources the admin cannot read are left out and named in the Sources chip.</li></ol>
+  </section>
+
+  <section class="screen" id="ad40" data-rows-added>
+    <div class="screen-cap"><span class="id">AD-40</span><h2>Data explorer: browse</h2><span class="where">P6 · /explorer, maintainer, or db.query (read only)</span></div>
+    <div class="frame-scroll"><div class="frame">
+      <div class="shell">
+        <aside class="side" data-active="explorer"></aside>
+        <div class="main">
+          <div class="topbar"><div class="crumbs">Data explorer <svg class="i s"><use href="#i-chev-r"/></svg> <b class="mono" style="font-size:12.5px">payments.accounts</b></div><div class="r"><span class="badge ok"><svg class="i s"><use href="#i-lock"/></svg>Reading as admin_reader</span><div class="seg"><button class="on">Browse</button><button>Query</button></div></div></div>
+          <div class="content">
+            <div class="split2">
+              <div class="dbtree">
+                <div class="tree-row"><svg class="i s"><use href="#i-chev-d"/></svg><svg class="i s"><use href="#i-database"/></svg><span class="name">Mongo auth</span></div>
+                <div class="tree-row" style="padding-left:28px"><span class="name">users</span></div>
+                <div class="tree-row" style="padding-left:28px"><span class="name">refreshtokens</span></div>
+                <div class="tree-row"><svg class="i s"><use href="#i-chev-r"/></svg><svg class="i s"><use href="#i-database"/></svg><span class="name">Mongo ai</span></div>
+                <div class="tree-row"><svg class="i s"><use href="#i-chev-r"/></svg><svg class="i s"><use href="#i-database"/></svg><span class="name">Mongo sandbox</span></div>
+                <div class="tree-row"><svg class="i s"><use href="#i-chev-d"/></svg><svg class="i s"><use href="#i-database"/></svg><span class="name">Postgres payments</span></div>
+                <div class="tree-row sel" style="padding-left:28px"><span class="name">accounts</span><svg class="i s t-warn"><use href="#i-alert"/></svg></div>
+                <div class="tree-row" style="padding-left:28px"><span class="name">transactions</span></div>
+                <div class="tree-row" style="padding-left:28px"><span class="name">usage_events</span></div>
+                <div class="tree-row"><svg class="i s"><use href="#i-chev-r"/></svg><svg class="i s"><use href="#i-database"/></svg><span class="name">Redis</span></div>
+              </div>
+              <div style="display:flex;flex-direction:column;min-width:0">
+                <div class="notice warn" style="border-radius:0"><svg class="i s"><use href="#i-alert"/></svg><span>Editing credits here skips the transactions ledger. Use <b>Grant credits</b> in Payments instead.</span></div>
+                <table class="tbl"><tr><th>id</th><th>user_id</th><th>plan</th><th class="num">credits</th><th>updated_at</th><th></th></tr>
+                  <tr><td class="mono">9f2c…</td><td class="mono">5c0e…a91f</td><td>pro</td><td class="num">1,240</td><td class="muted">18:40</td><td><button class="btn-ghost btn-sm">Edit</button></td></tr>
+                  <tr><td class="mono">a011…</td><td class="mono">91aa…02bc</td><td>free</td><td class="num">40</td><td class="muted">17:12</td><td><button class="btn-ghost btn-sm">Edit</button></td></tr>
+                  <tr><td class="mono">b7e4…</td><td class="mono">7f20…c3d0</td><td>pro</td><td class="num">3,005</td><td class="muted">16:58</td><td><button class="btn-ghost btn-sm">Edit</button></td></tr>
+                <tr><td class="mono">c51a…</td><td class="mono">2c11…77ae</td><td>pro</td><td class="num">812</td><td class="muted">16:41</td><td><button class="btn-ghost btn-sm">Edit</button></td></tr><tr><td class="mono">d0f9…</td><td class="mono">a4d0…19c2</td><td>free</td><td class="num">0</td><td class="muted">15:20</td><td><button class="btn-ghost btn-sm">Edit</button></td></tr><tr><td class="mono">e7b2…</td><td class="mono">e91b…4f01</td><td>pro</td><td class="num">2,410</td><td class="muted">14:03</td><td><button class="btn-ghost btn-sm">Edit</button></td></tr><tr><td class="mono">f310…</td><td class="mono">6b3e…be90</td><td>free</td><td class="num">120</td><td class="muted">12:55</td><td><button class="btn-ghost btn-sm">Edit</button></td></tr><tr><td class="mono">0a8c…</td><td class="mono">d77c…0e13</td><td>pro</td><td class="num">5,000</td><td class="muted">Yesterday</td><td><button class="btn-ghost btn-sm">Edit</button></td></tr></table>
+                <div class="muted" style="padding:10px 16px;font-size:12px;border-top:1px solid var(--border)">Showing 50 rows max per page · query took 38 ms of 3,000 ms allowed</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div></div>
+    <ol class="notes">
+      <li>Tree of every database the account can read. Tables with side effects (plan section 7) carry an amber warning icon, and the warning shows above the grid.</li>
+      <li>The badge always states the database role in use. Edit buttons exist only for the maintainer.</li>
+    </ol>
+  </section>
+
+  <section class="screen" id="ad41">
+    <div class="screen-cap"><span class="id">AD-41</span><h2>Query console</h2><span class="where">P6 · SQL for Postgres, find and aggregate for Mongo</span></div>
+    <div class="frame-scroll"><div class="frame">
+      <div class="shell short">
+        <aside class="side" data-active="explorer"></aside>
+        <div class="main">
+          <div class="topbar"><div class="crumbs">Data explorer <svg class="i s"><use href="#i-chev-r"/></svg> <b>Query</b></div><div class="r"><span class="chip">Postgres payments <svg class="i s"><use href="#i-chev-d"/></svg></span><button class="btn-solid"><svg class="i s"><use href="#i-play"/></svg>Run</button></div></div>
+          <div class="content">
+            <div class="pnl"><div class="console"><span class="k">select</span> plan, <span class="k">count</span>(*) <span class="k">as</span> users, <span class="k">sum</span>(credits)<br><span class="k">from</span> accounts<br><span class="k">group by</span> plan;</div>
+              <table class="tbl"><tr><th>plan</th><th class="num">users</th><th class="num">sum</th></tr><tr><td>free</td><td class="num">4,392</td><td class="num">171,880</td></tr><tr><td>pro</td><td class="num">318</td><td class="num">902,114</td></tr></table></div>
+            <div class="notice err"><svg class="i s"><use href="#i-x-circle"/></svg><span>Example error: "update" is not allowed. This console is read only for everyone; edits use the row editor.</span></div>
+          </div>
+        </div>
+      </div>
+    </div></div>
+    <ol class="notes"><li>Monaco with SQL or JSON mode. Runs through the read-only role, 3 s timeout, row limit. Mongo: <code>$out</code> and <code>$merge</code> rejected with a clear error. Each query is audited.</li></ol>
+  </section>
+
+  <section class="screen" id="ad42">
+    <div class="screen-cap"><span class="id">AD-42</span><h2>Edit a row, check the diff, revert</h2><span class="where">P6 · maintainer only, step-up, before/after in audit</span></div>
+    <div class="frame-scroll"><div class="frame">
+      <div class="shell">
+        <aside class="side" data-active="explorer"></aside>
+        <div class="main" style="position:relative">
+          <div class="topbar"><div class="crumbs">Data explorer <svg class="i s"><use href="#i-chev-r"/></svg> payments.accounts <svg class="i s"><use href="#i-chev-r"/></svg> <b class="mono" style="font-size:12.5px">9f2c…</b></div></div>
+          <div class="content">
+            <div class="edit-grid">
+              <div class="pnl"><div class="pnl-h"><h3>Edit</h3><span class="badge warn">admin_writer</span></div><div class="pnl-b" style="display:flex;flex-direction:column;gap:10px">
+                <div class="cell-edit"><span class="k">plan</span><div class="input focus">free</div></div>
+                <div class="cell-edit"><span class="k">credits</span><div class="input">1,240</div></div>
+                <div class="cell-edit"><span class="k">updated_at</span><div class="input" style="opacity:.6">set on save</div></div>
+                <div class="field"><label>Reason</label><div class="input">Fix wrong plan after refund INV-2026-1174</div></div>
+              </div></div>
+              <div class="pnl"><div class="pnl-h"><h3>Change preview</h3></div><div class="pnl-b" style="display:flex;flex-direction:column;gap:10px">
+                <div class="diff" style="border:1px solid var(--border);border-radius:8px;overflow:hidden"><div class="d">- plan: "pro"</div><div class="a">+ plan: "free"</div></div>
+                <div class="notice warn"><svg class="i s"><use href="#i-alert"/></svg><span>The AI service caches the plan for up to 60 s.</span></div>
+                <div style="display:flex;justify-content:flex-end;gap:8px"><button class="btn-secondary">Cancel</button><button class="btn-primary"><svg class="i s"><use href="#i-fingerprint"/></svg>Save with passkey</button></div>
+              </div></div>
+            </div>
+            <div class="pnl"><div class="pnl-h"><h3>Edits to this row</h3></div><table class="tbl">
+              <tr><th>When</th><th>Change</th><th>Reason</th><th></th></tr>
+              <tr><td class="muted">18:52</td><td class="mono">plan pro → free</td><td class="muted">Fix wrong plan after refund</td><td><button class="btn-ghost btn-sm"><svg class="i s"><use href="#i-undo"/></svg>Revert</button></td></tr>
+              <tr><td class="muted">12 Nov</td><td class="mono">credits 200 → 1,240</td><td class="muted">Manual grant before P8</td><td><span class="badge" title="The row changed since">Row changed since</span></td></tr>
+            </table></div>
+          </div>
+        </div>
+      </div>
+    </div></div>
+    <ol class="notes"><li>Form editor only (no raw SQL writes, decision 3). Diff preview with the side-effect warning for that table, reason required, step-up. Revert is one click when the row still matches the "after" snapshot, otherwise it says why it cannot.</li></ol>
+  </section>
+
+  <section class="screen" id="ad50">
+    <div class="screen-cap"><span class="id">AD-50</span><h2>Tickets</h2><span class="where">P7 · /tickets, tickets.view, reply, assign</span></div>
+    <div class="frame-scroll"><div class="frame">
+      <div class="shell">
+        <aside class="side" data-active="tickets" data-role="support"></aside>
+        <div class="main">
+          <div class="topbar"><div class="crumbs">Tickets <svg class="i s"><use href="#i-chev-r"/></svg> <b>#182 Page goes white after Orion edit</b></div><div class="r"><span class="chip">Assigned: Riya <svg class="i s"><use href="#i-chev-d"/></svg></span><button class="btn-secondary">Close ticket</button></div></div>
+          <div class="content" style="display:grid;grid-template-columns:1fr 280px;gap:16px;align-content:start">
+            <div class="thread">
+              <div class="tmsg"><div class="h">s•••@g••••.com · 18:52</div>Orion fixed the toggle but now the whole page errors with 502. Project quiz-arena.</div>
+              <div class="tmsg staff"><div class="h">Riya Kapoor · 19:05</div>Thanks. The AI service ran out of memory at 18:50 and your run stopped. It is back now. Please run the request again; your credits for the failed run were not used.</div>
+              <div class="textarea ph" style="min-height:80px;color:var(--text-disabled)">Write a reply. The user gets it by email.</div>
+              <div style="display:flex;justify-content:flex-end;gap:8px"><button class="btn-solid"><svg class="i s"><use href="#i-send"/></svg>Send reply</button></div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:12px">
+              <div class="pnl"><div class="pnl-h"><h3>User</h3><a href="#" class="t-accent" style="font-size:12px">User 360</a></div><div class="pnl-b"><dl class="kv" style="grid-template-columns:70px 1fr"><dt>Plan</dt><dd>Pro</dd><dt>Project</dt><dd>quiz-arena</dd></dl></div></div>
+              <div class="pnl"><div class="pnl-h"><h3>Quick look</h3></div><div class="pnl-b" style="display:flex;flex-direction:column;gap:8px"><button class="btn-secondary" style="justify-content:flex-start"><svg class="i s"><use href="#i-activity"/></svg>Trace 18:30 – 18:55</button><button class="btn-secondary" style="justify-content:flex-start"><svg class="i s"><use href="#i-message"/></svg>Open the chat (reason: #182)</button></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div></div>
+    <ol class="notes"><li>Thread with user messages in neutral, staff replies tinted indigo. Side panel links to Trace and Chats with the ticket number filled in as the reason.</li></ol>
+  </section>
+
+  <section class="screen" id="ad51">
+    <div class="screen-cap"><span class="id">AD-51</span><h2>User actions: force logout, suspend, stop sandbox, stop run</h2><span class="where">P7 · one confirm pattern for all four</span></div>
+    <div class="row-frames">
+      <div class="frame" style="height:380px"><div class="scrim" style="position:relative;height:100%"><div class="modal">
+        <h3>Suspend this user?</h3>
+        <p>They are signed out within 15 minutes and cannot sign in again until you reactivate them. Their projects and data stay.</p>
+        <div class="field"><label>Reason</label><div class="input">Card testing from 40 accounts</div><span class="hint">Shown in the audit log and the daily digest.</span></div>
+        <div class="acts"><button class="btn-secondary">Cancel</button><button class="btn-danger"><svg class="i s"><use href="#i-fingerprint"/></svg>Suspend with passkey</button></div>
+      </div></div></div>
+      <div class="frame" style="padding:16px;background:var(--bg-sidebar)">
+        <table class="tbl wrap" style="font-size:12px"><tr><th>Action</th><th>What the dialog says will happen</th></tr>
+          <tr><td>Force logout</td><td>Signed out on every device within 15 minutes. They can sign in again.</td></tr>
+          <tr><td>Suspend</td><td>Signed out within 15 minutes and blocked at sign in until reactivated.</td></tr>
+          <tr><td>Stop sandbox</td><td>Their editor shows Sandbox Offline. Files are saved.</td></tr>
+          <tr><td>Stop run</td><td>The run ends now. The user sees "Stopped by Taksha support".</td></tr>
+        </table>
+      </div>
+    </div>
+    <ol class="notes"><li>Same structure every time: what happens to the user, in one sentence, reason field, danger button with the passkey icon. After success: toast "User suspended", and the row in AD-14.</li></ol>
+  </section>
+
+  <section class="screen" id="ad60">
+    <div class="screen-cap"><span class="id">AD-60</span><h2>Payments actions (P8, last)</h2><span class="where">P8 · grant credits, refund, coupons, plan overrides</span></div>
+    <div class="frame-scroll"><div class="frame">
+      <div class="shell">
+        <aside class="side" data-active="payments"></aside>
+        <div class="main" style="position:relative">
+          <div class="topbar"><div class="crumbs"><b>Payments</b></div><div class="r"><div class="seg"><button>Transactions</button><button class="on">Coupons</button><button>Plan overrides</button></div><button class="btn-primary"><svg class="i s"><use href="#i-plus"/></svg>New coupon</button></div></div>
+          <div class="content">
+            <div class="pnl"><table class="tbl">
+              <tr><th>Code</th><th>Discount</th><th>Applies to</th><th class="num">Used</th><th>Ends</th><th>Status</th></tr>
+              <tr><td class="mono" style="color:var(--text-primary)">DIWALI20</td><td>20%</td><td>Pro monthly, first month</td><td class="num">41 / 200</td><td>30 Nov</td><td><span class="badge ok">Active</span></td></tr>
+              <tr><td class="mono" style="color:var(--text-primary)">STUDENT50</td><td>50%</td><td>Pro monthly</td><td class="num">12 / ∞</td><td>—</td><td><span class="badge">Paused</span></td></tr>
+            </table></div>
+          </div>
+          <div class="drawer"><div class="drawer-h"><h3>Grant credits</h3><span class="icon-btn"><svg class="i"><use href="#i-x"/></svg></span></div>
+            <div class="drawer-b">
+              <div class="field"><label>User</label><div class="input"><span class="masked">s•••@g••••.com</span></div></div>
+              <div class="field"><label>Credits</label><div class="input focus">500</div><span class="hint">Written to the transactions ledger as an admin grant.</span></div>
+              <div class="field"><label>Reason</label><div class="input">Failed run during outage, ticket #182</div></div>
+              <dl class="kv"><dt>Balance now</dt><dd>1,240</dd><dt>After grant</dt><dd style="color:var(--text-primary)">1,740</dd></dl>
+            </div>
+            <div class="drawer-f"><button class="btn-secondary">Cancel</button><button class="btn-primary"><svg class="i s"><use href="#i-fingerprint"/></svg>Grant 500 credits</button></div></div>
+        </div>
+      </div>
+    </div></div>
+    <ol class="notes"><li>Every payments action goes through Payments' own internal routes and the ledger, never the data explorer. Drawers show the before and after balance. Refund lives on a transaction row and states the amount and the Razorpay refund that will be created.</li></ol>
+  </section>
+
+  <!-- States ─────────────────────────────────────────────────────────── -->
+  <section class="screen" id="ops-states">
+    <div class="screen-cap"><span class="id">States</span><h2>Timeouts, refusals and no results</h2><span class="where">Logs, data explorer and cluster</span></div>
+    <div class="states"><div class="state"><span class="state-label">Query timeout</span><div class="frame" style="position:relative;"><div class="pnl" style="border:none;border-radius:0;height:100%"><div class="pnl-h"><h3>Query console</h3></div><div style="padding:16px;display:flex;flex-direction:column;gap:10px"><div class="notice err"><svg class="i s"><use href="#i-clock"/></svg><span><b>Stopped after 3 s.</b> Add a filter on an indexed field, for example <code>created_at</code>, or narrow the time range.</span></div></div></div></div></div><div class="state"><span class="state-label">Refused</span><div class="frame" style="position:relative;"><div class="pnl" style="border:none;border-radius:0;height:100%"><div class="pnl-h"><h3>Query console</h3></div><div style="padding:16px;display:flex;flex-direction:column;gap:10px"><div class="notice err"><svg class="i s"><use href="#i-ban"/></svg><span><b>$merge is not allowed.</b> The console runs read-only. Use Edit on a row to change data.</span></div></div></div></div></div><div class="state"><span class="state-label">Cluster down</span><div class="frame" style="position:relative;"><div class="pnl" style="border:none;border-radius:0;height:100%"><div class="pnl-h"><h3>Cluster</h3></div><div style="padding:16px"><div class="notice err"><svg class="i s"><use href="#i-server"/></svg><span><b>Could not reach the Kubernetes API</b> (connection refused). Pods may still be running. <a href="#">Open Grafana</a></span></div></div><div style="display:flex;gap:16px;align-items:center;padding:12px 16px;border-bottom:1px solid var(--border)"><span class="sk" style="width:30%"></span><span class="sk" style="width:27%"></span><span class="sk" style="width:19%"></span><span class="sk" style="width:18%"></span></div><div style="display:flex;gap:16px;align-items:center;padding:12px 16px;border-bottom:1px solid var(--border)"><span class="sk" style="width:37%"></span><span class="sk" style="width:25%"></span><span class="sk" style="width:26%"></span><span class="sk" style="width:16%"></span></div><div style="display:flex;gap:16px;align-items:center;padding:12px 16px;border-bottom:1px solid var(--border)"><span class="sk" style="width:35%"></span><span class="sk" style="width:23%"></span><span class="sk" style="width:24%"></span><span class="sk" style="width:14%"></span></div></div></div></div></div>
+    <ol class="notes"><li>Query errors say what stopped the query and how to change it.</li><li>Refusals name the rule and point to the allowed path.</li></ol>
+  </section>
+</main>
+<script src="../_shared/kit.js"></script>
+<script src="../_shared/admin-shell.js"></script>
+</body>
+</html>

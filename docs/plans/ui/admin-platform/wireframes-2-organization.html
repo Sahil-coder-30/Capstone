@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Admin portal organization screens</title>
+<link rel="stylesheet" href="../_shared/taksha-wireframe.css">
+<style>
+  .matrix { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  .matrix th, .matrix td { padding: 8px 12px; border-bottom: 1px solid var(--border); text-align: left; vertical-align: middle; }
+  .matrix th { font-size: 11.5px; font-weight: 500; color: var(--text-muted); background: rgba(var(--color-rgb-text), 0.015); }
+  .matrix td.mod { color: var(--text-primary); font-weight: 500; white-space: nowrap; }
+  .matrix .acts { display: flex; flex-wrap: wrap; gap: 6px; }
+  .tog { display: inline-flex; align-items: center; gap: 6px; height: 24px; padding: 0 8px; border: 1px solid var(--border); border-radius: 6px; font-size: 11.5px; color: var(--text-muted); }
+  .tog.on { border-color: rgba(234, 88, 12, 0.5); background: var(--brand-subtle); color: var(--brand-primary); }
+  .tog.never { border-style: dashed; color: var(--text-disabled); }
+  .lim { font-size: 12px; color: var(--text-secondary); display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+  .lim .chip { height: 24px; font-size: 11.5px; }
+  .diffjson { font-family: var(--font-mono); font-size: 11.5px; line-height: 18px; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+  .diffjson div { padding: 0 10px; white-space: pre; }
+  .diffjson .a { background: rgba(34,197,94,.08); color: var(--success); }
+  .diffjson .d { background: rgba(239,68,68,.08); color: var(--error); }
+  .diffjson .x { color: var(--text-muted); }
+</style>
+</head>
+<body>
+<main class="board">
+  <header class="board-head">
+    <div>
+      <h1>Admin portal, part 2: organization</h1>
+      <p>Applications, the approve screen with the grants matrix, admins, role templates and the audit log. <code>Admin/PLAN.md</code> sections 4 and 9, phase P2. The Organization menu exists only for the maintainer. Other parts: <a href="wireframes-1-access.html">1 access</a>, <a href="wireframes-3-data.html">3 data and analytics</a>, <a href="wireframes-4-ops.html">4 operations</a>. Spec: <a href="screens.md">screens.md</a>.</p>
+    </div>
+    <button class="theme-toggle" data-theme-toggle><svg class="i"><use href="#i-sun"/></svg> Light theme</button>
+  </header>
+  <nav class="board-nav"><a href="#ad10">AD-10 Applications</a><a href="#ad11">AD-11 Approve</a><a href="#ad12">AD-12 Admins</a><a href="#ad13">AD-13 Role templates</a><a href="#ad14">AD-14 Audit log</a><a href="#org-states">States</a></nav>
+
+  <section class="screen" id="ad10">
+    <div class="screen-cap"><span class="id">AD-10</span><h2>Applications</h2><span class="where">P2 · /org/applications</span></div>
+    <div class="frame-scroll"><div class="frame">
+      <div class="shell short">
+        <aside class="side" data-active="applications"></aside>
+        <div class="main">
+          <div class="topbar"><div class="crumbs">Organization <svg class="i s"><use href="#i-chev-r"/></svg> <b>Applications</b></div></div>
+          <div class="content">
+            <div class="filters"><span class="chip on">Pending 2</span><span class="chip">Approved</span><span class="chip">Rejected</span><span class="chip">Renewal requests 1</span></div>
+            <div class="pnl"><table class="tbl">
+              <tr><th>Applicant</th><th>Team</th><th>Role asked</th><th>Reason</th><th class="num">Days</th><th>Passkey</th><th>Applied</th><th></th></tr>
+              <tr><td><div style="color:var(--text-primary)">Riya Kapoor</div><div class="muted" style="font-size:11.5px">riya@…work.com</div></td><td>Support</td><td><span class="badge">Support Agent</span></td><td class="muted" style="max-width:220px;overflow:hidden;text-overflow:ellipsis">Answer user tickets about failed runs.</td><td class="num">90</td><td><span class="badge ok"><svg class="i s"><use href="#i-check"/></svg>Added</span></td><td class="muted">2 h ago</td><td><button class="btn-secondary btn-sm">Review</button></td></tr>
+              <tr><td><div style="color:var(--text-primary)">Dev Mehta</div><div class="muted" style="font-size:11.5px">dev@…work.com</div></td><td>Infra</td><td><span class="badge">DevOps</span></td><td class="muted">Watch pods and logs during the Kafka move.</td><td class="num">30</td><td><span class="badge ok"><svg class="i s"><use href="#i-check"/></svg>Added</span></td><td class="muted">Yesterday</td><td><button class="btn-secondary btn-sm">Review</button></td></tr>
+            </table></div>
+          </div>
+        </div>
+      </div>
+    </div></div>
+    <ol class="notes">
+      <li>Pending first, with a count in the sidebar. Renewal requests from expired admins are their own filter and open the same approve screen with the old grants filled in.</li>
+    </ol>
+  </section>
+
+  <section class="screen" id="ad11">
+    <div class="screen-cap"><span class="id">AD-11</span><h2>Approve an admin: template, grants, limits, expiry</h2><span class="where">P2 · /org/applications/:id</span></div>
+    <div class="frame-scroll"><div class="frame">
+      <div class="shell tall">
+        <aside class="side" data-active="applications"></aside>
+        <div class="main">
+          <div class="topbar"><div class="crumbs">Applications <svg class="i s"><use href="#i-chev-r"/></svg> <b>Riya Kapoor</b></div><div class="r"><button class="btn-danger">Reject</button><button class="btn-primary" style="position:relative"><svg class="i s"><use href="#i-fingerprint"/></svg>Approve with passkey<span class="pin" style="right:-8px;top:-8px">4</span></button></div></div>
+          <div class="content" style="display:grid;grid-template-columns:1fr 300px;gap:16px;align-content:start">
+            <div style="display:flex;flex-direction:column;gap:14px;min-width:0">
+              <div class="filters" style="position:relative"><span class="muted" style="font-size:12px;margin-right:4px">Start from</span><span class="chip">Viewer</span><span class="chip on">Support Agent</span><span class="chip">DevOps</span><span class="chip">Finance</span><span class="chip">AI Ops</span><span class="pin" style="position:static">1</span></div>
+              <div class="pnl" style="position:relative"><span class="pin" style="right:10px;top:10px">2</span>
+                <table class="matrix">
+                  <tr><th style="width:120px">Module</th><th>Actions</th><th>Limits</th></tr>
+                  <tr><td class="mod">Analytics</td><td><div class="acts"><span class="tog on">view</span></div></td><td><div class="lim">Dashboards <span class="chip on">product</span><span class="chip">ai</span><span class="chip">revenue</span></div></td></tr>
+                  <tr><td class="mod">Users</td><td><div class="acts"><span class="tog on">view</span><span class="tog on">force_logout</span><span class="tog">suspend</span></div></td><td><div class="lim">PII <span class="chip on">masked</span><span class="chip">visible</span></div></td></tr>
+                  <tr><td class="mod">Chats</td><td><div class="acts"><span class="tog on">view</span></div></td><td><div class="lim muted">Reason and passkey every time</div></td></tr>
+                  <tr><td class="mod">Projects</td><td><div class="acts"><span class="tog on">view</span><span class="tog">stop_sandbox</span></div></td><td></td></tr>
+                  <tr><td class="mod">AI</td><td><div class="acts"><span class="tog on">view_runs</span><span class="tog">stop_run</span><span class="tog">view_usage</span></div></td><td></td></tr>
+                  <tr><td class="mod">Logs</td><td><div class="acts"><span class="tog">view</span></div></td><td><div class="lim dim">Services, history days</div></td></tr>
+                  <tr><td class="mod">Payments</td><td><div class="acts"><span class="tog">view</span></div></td><td><div class="lim dim">History days</div></td></tr>
+                  <tr><td class="mod">Tickets</td><td><div class="acts"><span class="tog on">view</span><span class="tog on">reply</span><span class="tog">assign</span></div></td><td></td></tr>
+                  <tr><td class="mod">Audit</td><td><div class="acts"><span class="tog on">view</span></div></td><td><div class="lim"><span class="chip on">own</span><span class="chip">all</span></div></td></tr>
+                  <tr><td class="mod">Organization</td><td><div class="acts"><span class="tog never"><svg class="i s"><use href="#i-lock"/></svg>maintainer only</span></div></td><td></td></tr>
+                </table>
+              </div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:12px">
+              <div class="pnl"><div class="pnl-h"><h3>Application</h3></div><div class="pnl-b"><dl class="kv"><dt>Name</dt><dd>Riya Kapoor</dd><dt>Google</dt><dd>riya@…work.com</dd><dt>Team</dt><dd>Support</dd><dt>Asked for</dt><dd>Support Agent, 90 days</dd><dt>Passkey</dt><dd>MacBook, added 24 Nov</dd></dl><p class="muted" style="font-size:12.5px;margin-top:10px;line-height:1.5">"Answer user tickets about failed runs."</p></div></div>
+              <div class="pnl" style="position:relative"><span class="pin" style="right:10px;top:10px">3</span><div class="pnl-h"><h3>Access ends</h3></div><div class="pnl-b" style="display:flex;flex-direction:column;gap:8px"><div class="seg" style="align-self:flex-start"><button>30 d</button><button class="on">90 d</button><button>180 d</button><button>Date</button></div><span class="muted" style="font-size:12px">On 22 Feb 2027. A reminder goes out 7 days before.</span></div></div>
+              <div class="pnl"><div class="pnl-h"><h3>Note to the applicant</h3></div><div class="pnl-b"><div class="textarea ph" style="min-height:56px;color:var(--text-disabled)">Optional. Required when you reject.</div></div></div>
+              <div class="notice"><svg class="i s"><use href="#i-info"/></svg><span>Approving copies the template. Editing the template later never changes this admin.</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div></div>
+    <ol class="notes">
+      <li>Pick a template to fill the matrix. Changing any toggle turns the chip into "Support Agent (edited)".</li>
+      <li><b>Matrix</b>: one row per module, action toggles (ember when on), limits inline. Limit chips only enable when an action in that row is on. Maintainer-only modules show a locked dashed chip and can never be granted.</li>
+      <li>Expiry, default 90 days, with the exact date written out.</li>
+      <li>Approve needs the passkey step-up; the button says so. Reject asks for the note. Both send the email and land in the audit log.</li>
+    </ol>
+  </section>
+
+  <section class="screen" id="ad12">
+    <div class="screen-cap"><span class="id">AD-12</span><h2>Admins list and admin detail</h2><span class="where">P2 · /org/admins</span></div>
+    <div class="frame-scroll"><div class="frame">
+      <div class="shell">
+        <aside class="side" data-active="admins"></aside>
+        <div class="main" style="position:relative">
+          <div class="topbar"><div class="crumbs">Organization <svg class="i s"><use href="#i-chev-r"/></svg> <b>Admins</b></div></div>
+          <div class="content">
+            <div class="pnl"><table class="tbl">
+              <tr><th>Admin</th><th>Role</th><th>Status</th><th>Access ends</th><th>Last sign in</th><th class="num">Passkeys</th></tr>
+              <tr class="sel"><td style="color:var(--text-primary)">Riya Kapoor</td><td>Support Agent</td><td><span class="badge ok">Active</span></td><td>22 Feb</td><td class="muted">10 min ago</td><td class="num">1</td></tr>
+              <tr><td style="color:var(--text-primary)">Dev Mehta</td><td>DevOps (edited)</td><td><span class="badge warn">Ends in 5 days</span></td><td>29 Nov</td><td class="muted">Yesterday</td><td class="num">2</td></tr>
+              <tr><td style="color:var(--text-primary)">Ankit Rao</td><td>Finance</td><td><span class="badge err">Suspended</span></td><td>—</td><td class="muted">3 weeks ago</td><td class="num">1</td></tr>
+              <tr><td style="color:var(--text-primary)">Neha Joshi</td><td>Viewer</td><td><span class="badge">Expired</span></td><td>20 Nov</td><td class="muted">1 month ago</td><td class="num">1</td></tr>
+            </table></div>
+          </div>
+          <div class="drawer">
+            <div class="drawer-h"><h3>Riya Kapoor</h3><span class="icon-btn"><svg class="i"><use href="#i-x"/></svg></span></div>
+            <div class="drawer-b">
+              <dl class="kv"><dt>Role</dt><dd>Support Agent</dd><dt>Approved</dt><dd>24 Nov by maintainer</dd><dt>Access ends</dt><dd>22 Feb 2027</dd><dt>Passkeys</dt><dd>MacBook (synced)</dd></dl>
+              <div class="pnl"><div class="pnl-h"><h3>Grants</h3><button class="btn-ghost btn-sm">Edit</button></div><div class="pnl-b" style="display:flex;flex-wrap:wrap;gap:6px"><span class="badge brand">analytics.view · product</span><span class="badge brand">users.view · masked</span><span class="badge brand">users.force_logout</span><span class="badge brand">chats.view</span><span class="badge brand">projects.view</span><span class="badge brand">ai.view_runs</span><span class="badge brand">tickets.view</span><span class="badge brand">tickets.reply</span><span class="badge brand">audit.view · own</span></div></div>
+              <div class="pnl"><div class="pnl-h"><h3>Recent activity</h3><a href="#" class="muted" style="font-size:12px">Audit log</a></div><div class="pnl-b" style="font-size:12px;display:flex;flex-direction:column;gap:6px"><div class="muted">10:12 Read chat of s•••@g••••.com · Ticket #182</div><div class="muted">09:40 Replied to ticket #179</div></div></div>
+            </div>
+            <div class="drawer-f"><button class="btn-secondary">Extend access</button><button class="btn-danger">Suspend</button></div>
+          </div>
+        </div>
+      </div>
+    </div></div>
+    <ol class="notes">
+      <li>Status badges: Active, Ends in n days (amber within 7 days), Suspended, Expired. The drawer lists grants as ember badges with the limit after a dot.</li>
+      <li>Suspend and grant changes need step-up and apply within 30 s (the backend's account cache). Suspend asks for a reason.</li>
+    </ol>
+  </section>
+
+  <section class="screen" id="ad13">
+    <div class="screen-cap"><span class="id">AD-13</span><h2>Role templates</h2><span class="where">P2 · /org/templates</span></div>
+    <div class="frame-scroll"><div class="frame">
+      <div class="shell short">
+        <aside class="side" data-active="templates"></aside>
+        <div class="main">
+          <div class="topbar"><div class="crumbs">Organization <svg class="i s"><use href="#i-chev-r"/></svg> <b>Role templates</b></div><div class="r"><button class="btn-secondary"><svg class="i s"><use href="#i-plus"/></svg>New template</button></div></div>
+          <div class="content">
+            <div class="notice"><svg class="i s"><use href="#i-info"/></svg>Templates are starting points. Changing one never changes admins who were approved with it.</div>
+            <div class="pnl"><table class="tbl">
+              <tr><th>Template</th><th>What it can do</th><th class="num">Admins using a copy</th><th></th></tr>
+              <tr><td style="color:var(--text-primary)">Viewer</td><td class="muted">Analytics (product), users masked, projects</td><td class="num">1</td><td><button class="btn-ghost btn-sm">Edit</button></td></tr>
+              <tr><td style="color:var(--text-primary)">Support Agent</td><td class="muted">Users, chats with reason, tickets, AI runs, force logout</td><td class="num">1</td><td><button class="btn-ghost btn-sm">Edit</button></td></tr>
+              <tr><td style="color:var(--text-primary)">DevOps</td><td class="muted">Cluster, logs (all services, 7 days), stop sandbox</td><td class="num">1</td><td><button class="btn-ghost btn-sm">Edit</button></td></tr>
+              <tr><td style="color:var(--text-primary)">Finance</td><td class="muted">Payments (90 days), analytics (revenue)</td><td class="num">1</td><td><button class="btn-ghost btn-sm">Edit</button></td></tr>
+              <tr><td style="color:var(--text-primary)">AI Ops</td><td class="muted">AI runs, usage, stop run, analytics (ai)</td><td class="num">0</td><td><button class="btn-ghost btn-sm">Edit</button></td></tr>
+            </table></div>
+          </div>
+        </div>
+      </div>
+    </div></div>
+    <ol class="notes"><li>Editing a template opens the same matrix as AD-11 without the application side panel.</li></ol>
+  </section>
+
+  <section class="screen" id="ad14" data-rows-added>
+    <div class="screen-cap"><span class="id">AD-14</span><h2>Audit log</h2><span class="where">P2 · /audit, append only</span></div>
+    <div class="frame-scroll"><div class="frame">
+      <div class="shell">
+        <aside class="side" data-active="audit"></aside>
+        <div class="main" style="position:relative">
+          <div class="topbar"><div class="crumbs"><b>Audit log</b></div><div class="r"><button class="btn-secondary"><svg class="i s"><use href="#i-download"/></svg>Export CSV</button></div></div>
+          <div class="content">
+            <div class="filters"><div class="search" style="min-width:240px"><svg class="i s"><use href="#i-search"/></svg>Target id, user or admin</div><span class="chip">Actor: all <svg class="i s"><use href="#i-chev-d"/></svg></span><span class="chip">Action: all <svg class="i s"><use href="#i-chev-d"/></svg></span><span class="chip on">Sensitive only</span><span class="chip">Last 7 days <svg class="i s"><use href="#i-chev-d"/></svg></span></div>
+            <div class="pnl"><table class="tbl">
+              <tr><th>When</th><th>Actor</th><th>Action</th><th>Target</th><th>Reason</th><th>From</th></tr>
+              <tr><td class="muted">18:52</td><td>Maintainer</td><td><span class="badge warn">data.edit</span></td><td class="mono">payments.accounts / 9f2c…</td><td class="muted">Fix wrong plan after refund</td><td class="muted">Mac · 49.36.x.x</td></tr>
+              <tr class="sel"><td class="muted">18:40</td><td>Maintainer</td><td><span class="badge accent">admin.approve</span></td><td>Riya Kapoor</td><td class="muted">—</td><td class="muted">Mac · 49.36.x.x</td></tr>
+              <tr><td class="muted">10:12</td><td>Riya Kapoor</td><td><span class="badge">chats.view</span></td><td class="mono">chat 66a1…</td><td class="muted">Ticket #182</td><td class="muted">Mac · 103.21.x.x</td></tr>
+              <tr><td class="muted">09:05</td><td>Maintainer</td><td><span class="badge err">user.suspend</span></td><td class="mono">user 5c0e…</td><td class="muted">Card testing</td><td class="muted">Mac · 49.36.x.x</td></tr>
+              <tr><td class="muted">08:58</td><td>Auth</td><td><span class="badge err">maintainer.login_failed</span></td><td>—</td><td class="muted">3rd try</td><td class="muted">Unknown · 185.2.x.x</td></tr>
+            <tr><td class="muted">08:41</td><td>Maintainer</td><td><span class="badge">maintainer.login</span></td><td>—</td><td class="muted">—</td><td class="muted">Mac · 49.36.x.x</td></tr><tr><td class="muted">Yesterday</td><td>Riya K.</td><td><span class="badge warn">chat.view</span></td><td class="mono">chat_8f21…</td><td class="muted">Ticket #112</td><td class="muted">Mac · 103.21.x.x</td></tr></table><div class="tbl-foot"><span>7 of 2,318 events</span><div class="pg"><span>‹</span><span class="on">1</span><span>2</span><span>3</span><span>›</span></div></div></div>
+          </div>
+          <div class="drawer"><div class="drawer-h"><h3>admin.approve</h3><span class="icon-btn"><svg class="i"><use href="#i-x"/></svg></span></div>
+            <div class="drawer-b"><dl class="kv"><dt>When</dt><dd>24 Nov 2026, 18:40:12</dd><dt>Actor</dt><dd>Maintainer (passkey 2 min before)</dd><dt>Target</dt><dd>admin_accounts / Riya Kapoor</dd></dl>
+              <div class="muted" style="font-size:12px">Before and after</div>
+              <div class="diffjson"><div class="d">-  "status": "pending",</div><div class="a">+  "status": "active",</div><div class="a">+  "role_template_id": "support-agent",</div><div class="a">+  "expires_at": "2027-02-22",</div><div class="x">   "grants": { … 9 keys }</div></div>
+              <p class="dim" style="font-size:11.5px">Audit entries cannot be edited or deleted.</p></div></div>
+        </div>
+      </div>
+    </div></div>
+    <ol class="notes">
+      <li>Action badges by weight: grey reads, indigo organization changes, amber data edits, red blocks and security events. Admins with <code>audit.view · own</code> see only their own rows.</li>
+      <li>The drawer shows before and after as a JSON diff. Data edits that can still be reverted get a <code>Revert</code> button here too (AD-42).</li>
+    </ol>
+  </section>
+
+  <!-- States ─────────────────────────────────────────────────────────── -->
+  <section class="screen" id="org-states">
+    <div class="screen-cap"><span class="id">States</span><h2>Empty lists and results</h2><span class="where">Organization screens</span></div>
+    <div class="states"><div class="state"><span class="state-label">Empty</span><div class="frame" style="position:relative;"><div class="pnl" style="border:none;border-radius:0;height:100%"><div class="pnl-h"><h3>Applications</h3></div><div class="empty "><div class="em-ic"><svg class="i"><use href="#i-inbox"/></svg></div><h4>No pending applications</h4><p>New ones appear here and in your email.</p></div></div></div></div><div class="state"><span class="state-label">Done</span><div class="frame" style="position:relative;"><div style="min-height:240px;display:grid;place-items:end center;padding:20px"><div class="toast"><svg class="i s t-ok"><use href="#i-check"/></svg>Approved Riya Kapoor as Support Agent until 22 Feb<span class="act">View</span></div></div></div></div><div class="state"><span class="state-label">Error</span><div class="frame" style="position:relative;"><div class="pnl" style="border:none;border-radius:0;height:100%"><div class="pnl-h"><h3>Approve</h3></div><div style="padding:16px"><div class="notice err"><svg class="i s"><use href="#i-fingerprint"/></svg><span><b>Passkey check failed.</b> Nothing was approved. Try again with the same passkey or your backup key. <a href="#">Try again</a></span></div></div></div></div></div></div>
+    <ol class="notes"><li>Approve and Reject end with a toast that names the person, the template and the end date.</li><li>If step-up fails, the action did not happen, and the notice says so first.</li></ol>
+  </section>
+</main>
+<script src="../_shared/kit.js"></script>
+<script src="../_shared/admin-shell.js"></script>
+</body>
+</html>

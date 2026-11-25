@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Agent tools analytics screens</title>
+<link rel="stylesheet" href="../_shared/taksha-wireframe.css">
+<style>
+  .rate { display: inline-flex; align-items: center; gap: 8px; min-width: 110px; }
+  .rate .meter { width: 56px; }
+  .codes { display: flex; flex-direction: column; gap: 6px; }
+  .run-tl .step { padding: 4px 8px; border-bottom: 1px solid var(--border); border-radius: 0; }
+  .run-tl .step .meta { min-width: 50px; text-align: right; }
+</style>
+</head>
+<body>
+<main class="board">
+  <header class="board-head">
+    <div>
+      <h1>Agent tools analytics screens</h1>
+      <p>Screens for <a href="../../taksha-tool-call-analytics-plan.md">taksha-tool-call-analytics-plan.md</a> section 7. Version 1 of that plan uses <code>npm run tools:report</code> and Atlas Charts. These pages are its home in the admin portal, built in admin phase P4 as the "Agent tools" tab of AI runs (the plan says the page belongs to <code>Admin/PLAN.md</code> P4). Data: <code>toolstatshourly</code> for charts, <code>toolcalls</code> for runs. Spec: <a href="screens.md">screens.md</a>.</p>
+    </div>
+    <button class="theme-toggle" data-theme-toggle><svg class="i"><use href="#i-sun"/></svg> Light theme</button>
+  </header>
+  <nav class="board-nav"><a href="#ta1">TA-1 Tools overview</a><a href="#ta2">TA-2 One tool</a><a href="#ta3">TA-3 Stuck runs and run timeline</a><a href="#ta-states">States</a></nav>
+
+  <section class="screen" id="ta1" data-rows-added>
+    <div class="screen-cap"><span class="id">TA-1</span><h2>Agent tools overview</h2><span class="where">Admin P4 · /ai/tools, ai.view_runs</span></div>
+    <div class="frame-scroll"><div class="frame">
+      <div class="shell tall">
+        <aside class="side" data-active="ai"></aside>
+        <div class="main">
+          <div class="topbar"><div class="crumbs">AI runs <svg class="i s"><use href="#i-chev-r"/></svg> <b>Agent tools</b></div><div class="r"><div class="seg"><button>Runs</button><button>Usage</button><button class="on">Agent tools</button><button>Quality and cost</button></div></div></div>
+          <div class="content">
+            <div class="page-h"><div><h2>Agent tools</h2><p>Every tool call from Orion and Clio, test runs left out. Updated every 5 minutes.</p></div><div class="r"><span class="chip">Agent: all <svg class="i s"><use href="#i-chev-d"/></svg></span><span class="chip">Tools version: all <svg class="i s"><use href="#i-chev-d"/></svg></span><div class="seg"><button>24 h</button><button class="on">7 d</button><button>14 d</button></div></div></div>
+            <div style="display:flex;flex-direction:column;gap:8px;position:relative"><span class="pin" style="right:-6px;top:-6px">1</span>
+              <div class="notice err"><svg class="i s"><use href="#i-alert"/></svg><span><b>patch_file</b> error rate 27% in the last hour (41 calls). Most common: <code>TOOL_ERROR</code> "oldStr not found".</span></div>
+              <div class="notice warn"><svg class="i s"><use href="#i-clock"/></svg><span><b>search_code</b> p95 is 6.8 s, double its 7 day average.</span></div>
+            </div>
+            <div class="kpis">
+              <div class="kpi"><div class="l">Tool calls</div><div class="v">64,210</div><div class="d"><span class="up">↑ 11%</span> vs prior 7 d</div></div>
+              <div class="kpi"><div class="l">Error rate</div><div class="v">6.3%</div><div class="d"><span class="up">↓ 1.2</span> pts</div></div>
+              <div class="kpi"><div class="l">Blocked by guards</div><div class="v">1.1%</div><div class="d">mostly execute_command</div></div>
+              <div class="kpi"><div class="l">Writer health</div><div class="v t-ok">0 dropped</div><div class="d">queue 12, logging overhead 0.6 ms</div></div>
+            </div>
+            <div class="pnl" style="position:relative"><span class="pin" style="right:10px;top:10px">2</span>
+              <div class="pnl-h"><h3>By tool</h3><span class="sub">Sorted by error rate. Grey rows: no calls in 14 days</span></div>
+              <table class="tbl">
+                <tr><th>Tool</th><th class="num">Calls</th><th>Error rate</th><th class="num">Blocked</th><th class="num">p50</th><th class="num">p95</th><th class="num">Truncated</th><th>Top error</th></tr>
+                <tr class="sel"><td class="mono" style="color:var(--text-primary)">patch_file</td><td class="num">8,104</td><td><span class="rate"><span class="meter err"><span style="width:62%"></span></span><span class="t-err">14.2%</span></span></td><td class="num">0.2%</td><td class="num">90 ms</td><td class="num">410 ms</td><td class="num">0%</td><td class="mono muted">TOOL_ERROR</td></tr><tr><td class="mono" style="color:var(--text-primary)">execute_command</td><td class="num">6,520</td><td><span class="rate"><span class="meter warn"><span style="width:40%"></span></span>9.1%</span></td><td class="num t-warn">6.4%</td><td class="num">2.1 s</td><td class="num">31 s</td><td class="num">4%</td><td class="mono muted">GUARD_BLOCKED</td></tr><tr><td class="mono" style="color:var(--text-primary)">search_code</td><td class="num">9,330</td><td><span class="rate"><span class="meter"><span style="width:18%"></span></span>4.0%</span></td><td class="num">0%</td><td class="num">380 ms</td><td class="num t-warn">6.8 s</td><td class="num t-warn">22%</td><td class="mono muted">TIMEOUT</td></tr><tr><td class="mono" style="color:var(--text-primary)">run_tests</td><td class="num">1,840</td><td><span class="rate"><span class="meter warn"><span style="width:16%"></span></span>3.1%</span></td><td class="num">0%</td><td class="num">6.4 s</td><td class="num t-warn">22 s</td><td class="num t-warn">14%</td><td class="mono" style="color:var(--text-muted)">TIMEOUT</td></tr><tr><td class="mono" style="color:var(--text-primary)">read_file</td><td class="num">21,870</td><td><span class="rate"><span class="meter ok"><span style="width:6%"></span></span>1.3%</span></td><td class="num">0%</td><td class="num">40 ms</td><td class="num">160 ms</td><td class="num">3%</td><td class="mono muted">NOT_FOUND</td></tr><tr><td class="mono" style="color:var(--text-primary)">screenshot</td><td class="num">902</td><td><span class="rate"><span class="meter ok"><span style="width:5%"></span></span>1.0%</span></td><td class="num">0%</td><td class="num">1.2 s</td><td class="num">2.8 s</td><td class="num">0%</td><td class="mono" style="color:var(--text-muted)">NAV_FAILED</td></tr><tr><td class="mono" style="color:var(--text-primary)">list_files</td><td class="num">11,002</td><td><span class="rate"><span class="meter ok"><span style="width:2%"></span></span>0.4%</span></td><td class="num">0%</td><td class="num">55 ms</td><td class="num">120 ms</td><td class="num">1%</td><td class="dim">—</td></tr><tr><td class="mono" style="color:var(--text-primary)">get_browser_errors</td><td class="num">3,210</td><td><span class="rate"><span class="meter ok"><span style="width:1%"></span></span>0.2%</span></td><td class="num">0%</td><td class="num">30 ms</td><td class="num">90 ms</td><td class="num">8%</td><td class="dim">—</td></tr><tr style="opacity:.55"><td class="mono">get_vite_runtime_errors</td><td class="num">0</td><td class="dim">no calls</td><td class="num">—</td><td class="num">—</td><td class="num">—</td><td class="num">—</td><td class="muted">Fix description or remove</td></tr>
+              </table><div class="tbl-foot"><span>9 of 24 tools · test runs left out</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div></div>
+    <ol class="notes">
+      <li>The four warning conditions from plan section 7 show at the top, worst first, the same lines <code>tools:report</code> prints. Nothing to warn: the strip is hidden.</li>
+      <li>One table answers the plan's questions: used most (calls), fail most (error rate, over 10% in red), why (top error code), slow (p95 over 5 s in amber), too big (truncated rate), never used (greyed rows). Row opens TA-2.</li>
+    </ol>
+  </section>
+
+  <section class="screen" id="ta2">
+    <div class="screen-cap"><span class="id">TA-2</span><h2>One tool: errors, latency, release comparison</h2><span class="where">Admin P4 · /ai/tools/:tool</span></div>
+    <div class="frame-scroll"><div class="frame">
+      <div class="shell">
+        <aside class="side" data-active="ai"></aside>
+        <div class="main">
+          <div class="topbar"><div class="crumbs">Agent tools <svg class="i s"><use href="#i-chev-r"/></svg> <b class="mono" style="font-size:13px">patch_file</b></div><div class="r"><div class="seg"><button>24 h</button><button class="on">7 d</button><button>14 d</button></div></div></div>
+          <div class="content">
+            <div class="grid2">
+              <div class="pnl"><div class="pnl-h"><div><h3>Calls and errors per day</h3></div><div class="legend"><span><i></i>OK</span><span><i class="b"></i>Error</span></div></div><div class="pnl-b"><div class="chart"><div class="y"><span>600</span><span>450</span><span>300</span><span>150</span><span>0</span></div><div class="bars stack"><span><i style="height:60%"></i><i style="height:8%"></i></span><span><i style="height:64%"></i><i style="height:9%"></i></span><span><i style="height:58%"></i><i style="height:10%"></i></span><span><i style="height:70%"></i><i style="height:12%"></i></span><span><i style="height:66%"></i><i style="height:14%"></i></span><span><i style="height:52%"></i><i style="height:16%"></i></span><span><i style="height:72%"></i><i style="height:20%"></i></span></div><div class="axis"><span>18 Nov</span><span>24 Nov</span></div></div></div></div>
+              <div class="pnl" style="position:relative"><span class="pin" style="right:10px;top:10px">1</span><div class="pnl-h"><h3>Why it fails</h3><span class="sub">errorCode share</span></div><div class="pnl-b barlist">
+                <div class="r"><span class="name">TOOL_ERROR</span><div class="meter err"><span style="width:58%"></span></div><span class="v">58%</span></div>
+                <div class="r"><span class="name">STALE_WRITE</span><div class="meter warn"><span style="width:24%"></span></div><span class="v">24%</span></div>
+                <div class="r"><span class="name">REPEAT_CALL</span><div class="meter"><span style="width:11%"></span></div><span class="v">11%</span></div>
+                <div class="r"><span class="name">TIMEOUT</span><div class="meter"><span style="width:7%"></span></div><span class="v">7%</span></div>
+                <p class="muted" style="font-size:12px;margin-top:4px">High TOOL_ERROR on patch_file usually means the hint should tell the model to re-read the file.</p>
+              </div></div>
+            </div>
+            <div class="pnl" style="position:relative"><span class="pin" style="right:10px;top:10px">2</span><div class="pnl-h"><h3>Did a release help?</h3><span class="sub">Error rate by toolsVersion, 7 days before and after</span></div>
+              <table class="tbl"><tr><th>toolsVersion</th><th>Shipped</th><th class="num">Calls</th><th class="num">Error rate</th><th class="num">p95</th><th>Change</th></tr>
+                <tr><td class="mono">3</td><td class="muted">20 Nov · multi-edit + expectedHash</td><td class="num">4,210</td><td class="num">11.0%</td><td class="num">380 ms</td><td><span class="badge ok">↓ 7.4 pts</span></td></tr>
+                <tr><td class="mono">2</td><td class="muted">10 Nov</td><td class="num">3,894</td><td class="num">18.4%</td><td class="num">440 ms</td><td class="dim">baseline</td></tr></table></div>
+          </div>
+        </div>
+      </div>
+    </div></div>
+    <ol class="notes"><li>Error code split with one line of guidance taken from the plan's table.</li><li>Release comparison uses <code>toolsVersion</code>, raised per agent tools phase. Shows "Not enough calls yet" under 200 calls per side.</li></ol>
+  </section>
+
+  <section class="screen" id="ta3">
+    <div class="screen-cap"><span class="id">TA-3</span><h2>Stuck runs and one run in order</h2><span class="where">Admin P4 · /ai/tools/stuck, /ai/runs/:runId/tools</span></div>
+    <div class="row-frames">
+      <div class="frame"><div class="pnl" style="border:none;border-radius:0;height:100%">
+        <div class="pnl-h"><div><h3>Stuck runs, last 24 h</h3><div class="sub">3 or more failures on the same tool and input</div></div></div>
+        <table class="tbl"><tr><th>Run</th><th>Tool</th><th class="num">Fails</th><th>Last error</th></tr>
+          <tr class="sel"><td class="mono">orion:66a1…</td><td class="mono">patch_file</td><td class="num t-err">5</td><td class="muted">oldStr not found</td></tr>
+          <tr><td class="mono">orion:12bd…</td><td class="mono">execute_command</td><td class="num t-err">4</td><td class="muted">GUARD_BLOCKED</td></tr>
+          <tr><td class="mono">clio:8e01…</td><td class="mono">search_internet</td><td class="num t-err">3</td><td class="muted">TIMEOUT</td></tr></table>
+      </div></div>
+      <div class="frame"><div class="pnl" style="border:none;border-radius:0;height:100%">
+        <div class="pnl-h"><div><h3 class="mono" style="font-size:13px">orion:66a1…</h3><div class="sub">quiz-arena · 41 tool calls · toolsVersion 3</div></div><button class="btn-ghost btn-sm">Open trace</button></div>
+        <ul class="steps run-tl">
+          <li class="step"><svg class="i s t-ok"><use href="#i-check"/></svg><span class="verb mono">read_file</span><span class="target">src/app/store.js</span><span class="meta">41 ms</span></li>
+          <li class="step"><svg class="i s t-err"><use href="#i-x"/></svg><span class="verb mono">patch_file</span><span class="target">TOOL_ERROR oldStr not found</span><span class="meta">88 ms</span></li>
+          <li class="step"><svg class="i s t-err"><use href="#i-x"/></svg><span class="verb mono">patch_file</span><span class="target">TOOL_ERROR oldStr not found</span><span class="meta">84 ms</span></li>
+          <li class="step"><svg class="i s t-err"><use href="#i-x"/></svg><span class="verb mono">patch_file</span><span class="target">REPEAT_CALL stopped</span><span class="meta">0 ms</span></li>
+          <li class="step"><svg class="i s t-ok"><use href="#i-check"/></svg><span class="verb mono">read_file</span><span class="target">src/app/store.js</span><span class="meta">39 ms</span></li>
+          <li class="step"><svg class="i s t-ok"><use href="#i-check"/></svg><span class="verb mono">patch_file</span><span class="target">+2 −0</span><span class="meta">92 ms</span></li>
+        </ul>
+        <p class="muted" style="font-size:12px;padding:10px 16px">Inputs are shown redacted, as stored. No file contents.</p>
+      </div></div>
+    </div>
+    <ol class="notes"><li>Stuck list is the plan's aggregate query. Clicking a run shows its calls in order with status, error code and duration, the same row style as the IDE's tool steps.</li></ol>
+  </section>
+
+  <!-- States ─────────────────────────────────────────────────────────── -->
+  <section class="screen" id="ta-states">
+    <div class="screen-cap"><span class="id">States</span><h2>First day, too few calls and writer problems</h2><span class="where">Agent tools tab</span></div>
+    <div class="states"><div class="state"><span class="state-label">No data yet</span><div class="frame" style="position:relative;"><div class="pnl" style="border:none;border-radius:0;height:100%"><div class="pnl-h"><h3>Agent tools</h3></div><div class="empty "><div class="em-ic"><svg class="i"><use href="#i-chart"/></svg></div><h4>No tool calls recorded yet</h4><p>Records appear about 5 minutes after the first agent run. Test runs are left out.</p></div></div></div></div><div class="state"><span class="state-label">Too few calls</span><div class="frame" style="position:relative;"><div class="pnl" style="border:none;border-radius:0;height:100%"><div class="pnl-h"><h3>Release comparison</h3></div><div style="padding:16px"><div class="notice"><svg class="i s"><use href="#i-info"/></svg><span><b>Not enough calls yet.</b> Version 4 has 86 calls; comparisons need 200 on each side.</span></div></div></div></div></div><div class="state"><span class="state-label">Writer stopped</span><div class="frame" style="position:relative;"><div class="pnl" style="border:none;border-radius:0;height:100%"><div class="pnl-h"><h3>Writer health</h3></div><div style="padding:16px"><div class="notice err"><svg class="i s"><use href="#i-alert"/></svg><span><b>No records for 15 minutes</b> while 6 runs are active. Check <code>/api/ai/healthz</code> and the ai-service logs. <a href="#">Logs</a></span></div></div></div></div></div></div>
+    <ol class="notes"><li>Comparisons never show a percentage from too few calls.</li><li>The writer warning repeats the plan's alert condition word for word.</li></ol>
+  </section>
+</main>
+<script src="../_shared/kit.js"></script>
+<script src="../_shared/admin-shell.js"></script>
+</body>
+</html>

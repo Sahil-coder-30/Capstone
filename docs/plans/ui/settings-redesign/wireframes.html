@@ -1,0 +1,1677 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Settings redesign wireframes</title>
+<link rel="stylesheet" href="../_shared/taksha-wireframe.css">
+<style>
+  .board-head code, .screen-cap .where, ol.notes code { overflow-wrap: anywhere; }
+
+  /* Redesigned Settings shell */
+  .s-shell { display: flex; min-height: 640px; background: var(--bg-canvas); }
+  .s-side { width: 240px; flex-shrink: 0; padding: 24px 14px; border-right: 1px solid var(--border); background: var(--bg-sidebar); display: flex; flex-direction: column; gap: 4px; }
+  .s-back { display: inline-flex; align-items: center; gap: 8px; padding: 6px 10px; border-radius: 6px; font-size: 12.5px; font-weight: 500; color: var(--text-muted); text-decoration: none; margin-bottom: 20px; }
+  .s-back:hover { color: var(--text-primary); background: var(--bg-element); }
+  .s-group-label { margin: 14px 10px 4px; font-size: 11.5px; font-weight: 600; color: var(--text-muted); text-transform: none; letter-spacing: normal; }
+  .s-group-label:first-of-type { margin-top: 0; }
+  .s-nav-item { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 8px; font-size: 13px; font-weight: 500; color: var(--text-secondary); text-decoration: none; position: relative; }
+  .s-nav-item:hover { background: var(--card-hover); color: var(--text-primary); }
+  .s-nav-item.active { background: var(--bg-element); color: var(--text-primary); }
+  .s-nav-item.active::before { content: ''; position: absolute; left: 0; top: 7px; bottom: 7px; width: 2px; border-radius: 1px; background: var(--brand-primary); }
+  .s-nav-item.active svg { color: var(--brand-primary); }
+  .s-nav-item .s-badge { margin-left: auto; font-size: 10.5px; padding: 1px 7px; border-radius: 999px; background: var(--bg-active); color: var(--text-muted); }
+  .s-nav-item .s-badge.soon { background: var(--accent-subtle); color: var(--accent-hover); }
+  :root.light-theme .s-nav-item .s-badge.soon { color: var(--accent-primary); }
+  .s-user-foot { margin-top: auto; padding: 14px 10px 0; border-top: 1px solid var(--border); display: flex; align-items: center; gap: 10px; }
+  .s-user-avatar { width: 32px; height: 32px; border-radius: 50%; background: var(--bg-element); border: 1px solid var(--border); display: grid; place-items: center; font-size: 12px; font-weight: 600; color: var(--text-primary); flex-shrink: 0; }
+
+  /* Redesigned content area */
+  .s-content { flex: 1; min-width: 0; padding: 40px 56px; }
+  .s-container { max-width: 720px; display: flex; flex-direction: column; gap: 24px; position: relative; }
+  .s-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; margin-bottom: 4px; }
+  .s-header h2 { font-size: 22px; font-weight: 600; color: var(--text-primary); letter-spacing: -0.01em; }
+  .s-header .lead { margin-top: 4px; font-size: 13px; color: var(--text-muted); line-height: 1.5; }
+  .s-header .save-status { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; color: var(--success); font-weight: 500; }
+  .s-header .save-status.saving { color: var(--warning); }
+
+  /* Two-column rows */
+  .s-section { display: flex; flex-direction: column; }
+  .s-section-title { font-size: 14px; font-weight: 600; color: var(--text-primary); margin-bottom: 10px; }
+  .s-row { display: grid; grid-template-columns: 240px 1fr; gap: 24px; align-items: start; padding: 14px 0; border-top: 1px solid var(--border); }
+  .s-row .info .lbl { font-size: 13px; font-weight: 500; color: var(--text-secondary); }
+  .s-row .info .hint { font-size: 12px; color: var(--text-muted); margin-top: 3px; line-height: 1.45; }
+  .s-row .ctrl { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+
+  /* Sticky unsaved changes bar */
+  .unsaved-bar { position: sticky; bottom: 0; z-index: 10; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 12px 18px; border: 1px solid var(--warning); border-radius: 10px; background: var(--bg-overlay); box-shadow: var(--shadow-pop); margin-top: 16px; }
+  .unsaved-bar .left { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--text-primary); font-weight: 500; }
+  .unsaved-bar .acts { display: flex; gap: 8px; }
+
+  /* Skills tag input */
+  .tag-box { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding: 6px 10px; border: 1px solid var(--border); border-radius: 7px; background: var(--bg-element); min-height: 38px; }
+  .tag-chip { display: inline-flex; align-items: center; gap: 5px; padding: 2px 8px; border-radius: 5px; background: var(--bg-surface); border: 1px solid var(--border); font-size: 11.5px; color: var(--text-secondary); }
+  .tag-chip button { display: grid; place-items: center; color: var(--text-muted); cursor: pointer; padding: 0; }
+  .tag-chip button:hover { color: var(--text-primary); }
+  .tag-input-field { border: none; background: transparent; font-size: 12px; color: var(--text-primary); outline: none; flex: 1; min-width: 90px; }
+
+  /* Theme cards */
+  .theme-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+  .theme-thumb-card { border: 1px solid var(--border); border-radius: 10px; padding: 12px; background: var(--bg-surface); text-align: left; cursor: pointer; display: flex; flex-direction: column; gap: 10px; }
+  .theme-thumb-card.selected { border: 2px solid var(--brand-primary); }
+  .theme-thumb-header { display: flex; justify-content: space-between; align-items: center; font-size: 12.5px; font-weight: 600; color: var(--text-primary); }
+  .theme-mini-ide { height: 62px; border-radius: 6px; border: 1px solid var(--border); display: flex; overflow: hidden; }
+  .theme-mini-act { width: 14px; flex-shrink: 0; }
+  .theme-mini-exp { width: 30px; flex-shrink: 0; border-right: 1px solid var(--border); padding: 5px 3px; display: flex; flex-direction: column; gap: 3px; }
+  .theme-mini-exp i { height: 3px; border-radius: 2px; }
+  .theme-mini-edit { flex: 1; padding: 6px 8px; display: flex; flex-direction: column; gap: 4px; }
+  .theme-mini-edit i { height: 3px; border-radius: 2px; }
+
+  /* Fixed thumbnail scopes from Frontend/src/styles/index.scss: Dark thumbnail always dark, Light thumbnail always light */
+  .thumb-dark {
+    --bg-canvas: #0A0A0C;
+    --bg-surface: #111114;
+    --bg-sidebar: #111114;
+    --bg-element: #232329;
+    --border: #2A2A31;
+    --border-strong: #3B3B45;
+    --text-primary: #FFFFFF;
+    --text-secondary: #E4E4E7;
+    --text-muted: #A1A1AA;
+    --brand-primary: #EA580C;
+    --accent-primary: #6366F1;
+  }
+  .thumb-light {
+    --bg-canvas: #ffffff;
+    --bg-surface: #ffffff;
+    --bg-sidebar: #f4f4f6;
+    --bg-element: #f1f5f9;
+    --border: #d0d7de;
+    --border-strong: #8c8c94;
+    --text-primary: #1a1a1e;
+    --text-secondary: #57606a;
+    --text-muted: #6e7781;
+    --brand-primary: #C2410C;
+    --accent-primary: #4f46e5;
+  }
+
+  /* Editor live preview panel */
+  .editor-preview-pnl { border: 1px solid var(--border); border-radius: 12px; overflow: hidden; background: var(--bg-canvas); margin-bottom: 8px; }
+  .editor-preview-bar { display: flex; align-items: center; justify-content: space-between; height: 34px; padding: 0 12px; background: var(--bg-surface); border-bottom: 1px solid var(--border); font-size: 11.5px; color: var(--text-muted); }
+  .editor-preview-body { display: flex; min-height: 220px; position: relative; }
+  .editor-preview-lines { flex: 1; overflow-x: auto; padding: 10px 0; font-family: var(--font-mono); font-size: 14px; line-height: 20px; color: var(--text-secondary); }
+  .editor-preview-lines .ln { display: flex; }
+  .editor-preview-lines .ln > i { width: 36px; padding-right: 12px; text-align: right; color: var(--text-disabled); font-style: normal; flex-shrink: 0; user-select: none; }
+  .editor-preview-lines .ln-code { flex: 1; white-space: pre-wrap; }
+  .editor-preview-minimap { width: 68px; flex-shrink: 0; border-left: 1px solid var(--border); background: var(--bg-surface); padding: 6px 4px; display: flex; flex-direction: column; gap: 3px; opacity: 0.6; }
+  .editor-preview-minimap i { height: 2px; border-radius: 1px; background: var(--text-muted); }
+  .indent-unit { display: inline-block; width: 2ch; }
+
+  /* Compact segmented buttons */
+  .seg.compact button { min-width: 32px; padding: 3px 10px; }
+
+  /* Responsive 390px */
+  .s-phone-tabs { display: flex; gap: 6px; overflow-x: auto; padding: 10px 16px; border-bottom: 1px solid var(--border); background: var(--bg-surface); }
+  .s-phone-tabs button { font-size: 12px; white-space: nowrap; padding: 4px 10px; border-radius: 999px; border: 1px solid var(--border); color: var(--text-muted); background: var(--bg-canvas); }
+  .s-phone-tabs button.active { background: var(--brand-primary); color: var(--text-primary); border-color: var(--brand-primary); }
+  .s-phone-content { padding: 20px 16px; display: flex; flex-direction: column; gap: 18px; }
+  .s-phone-row { display: flex; flex-direction: column; gap: 8px; padding: 12px 0; border-top: 1px solid var(--border); }
+  .s-phone-row .lbl { font-size: 13px; font-weight: 500; color: var(--text-secondary); }
+  .s-phone-row .hint { font-size: 12px; color: var(--text-muted); }
+  #settings-redesign-states .state > .frame[style*="height"] { flex: none; }
+</style>
+</head>
+<body>
+<main class="board">
+  <header class="board-head">
+    <div>
+      <h1>Settings redesign</h1>
+      <p>Redesigned Settings module for Taksha CodeSpace. Replaces stacked cards with quiet two-column rows, adds URL sub-tab routing, autosave confirmation, and a live Monaco editor preview. Specification: <a href="screens.md">screens.md</a>.</p>
+    </div>
+    <button class="theme-toggle" type="button" data-theme-toggle><svg class="i"><use href="#i-sun"/></svg> Light theme</button>
+  </header>
+
+  <nav class="board-nav">
+    <a href="#sr1">SR-01 Profile</a>
+    <a href="#sr2">SR-02 Sign-in &amp; alerts</a>
+    <a href="#sr3">SR-03 Appearance</a>
+    <a href="#sr4">SR-04 Editor</a>
+    <a href="#sr5">SR-05 Orion &amp; Clio</a>
+    <a href="#sr6">SR-06 Plan &amp; usage</a>
+    <a href="#sr7">SR-07 Trash</a>
+    <a href="#sr8">SR-08 API keys</a>
+    <a href="#sr9">SR-09 Phone (390 px)</a>
+    <a href="#settings-redesign-states">States</a>
+  </nav>
+
+  <!-- SR-01 ─────────────────────────────────────────────────────────────── -->
+  <section class="screen" id="sr1">
+    <div class="screen-cap">
+      <span class="id">SR-01</span>
+      <h2>Profile</h2>
+      <span class="where">?route=settings&amp;tab=profile, SettingsProfilePage.jsx</span>
+    </div>
+    <div class="frame-scroll"><div class="frame">
+      <div class="s-shell">
+        <aside class="s-side">
+          <a href="#" class="s-back"><svg class="i"><use href="#i-chev-l"/></svg>Dashboard</a>
+          <div class="s-group-label">Account</div>
+          <a href="#sr1" class="s-nav-item active"><svg class="i"><use href="#i-user"/></svg>Profile</a>
+          <a href="#sr2" class="s-nav-item"><svg class="i"><use href="#i-shield"/></svg>Sign-in &amp; alerts</a>
+          <div class="s-group-label">Workspace</div>
+          <a href="#sr3" class="s-nav-item"><svg class="i"><use href="#i-sun"/></svg>Appearance</a>
+          <a href="#sr4" class="s-nav-item"><svg class="i"><use href="#i-code"/></svg>Editor</a>
+          <a href="#sr5" class="s-nav-item"><svg class="i"><use href="#i-sparkles"/></svg>Orion &amp; Clio</a>
+          <div class="s-group-label">Plan &amp; billing</div>
+          <a href="#sr6" class="s-nav-item"><svg class="i"><use href="#i-card"/></svg>Plan &amp; usage</a>
+          <div class="s-group-label">Data</div>
+          <a href="#sr7" class="s-nav-item"><svg class="i"><use href="#i-trash"/></svg>Trash<span class="s-badge">7</span></a>
+          <a href="#sr8" class="s-nav-item"><svg class="i"><use href="#i-key"/></svg>API keys<span class="s-badge soon">Soon</span></a>
+          <div class="s-user-foot">
+            <div class="s-user-avatar">AM</div>
+            <div style="flex:1;min-width:0">
+              <div style="font-size:12.5px;font-weight:600;color:var(--text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Aarav Mehta</div>
+              <span class="pill brand" style="margin-top:2px">Free plan</span>
+            </div>
+          </div>
+        </aside>
+
+        <div class="s-content">
+          <div class="s-container">
+            <div class="s-header">
+              <div>
+                <h2>Profile</h2>
+                <p class="lead">Manage your public identity and developer profile across Taksha.</p>
+              </div>
+            </div>
+
+            <!-- Identity row (read only from Google) -->
+            <div style="display:flex;align-items:center;gap:16px;padding:16px 20px;border-radius:12px;border:1px solid var(--border);background:var(--bg-surface);position:relative">
+              <div style="width:48px;height:48px;border-radius:50%;background:var(--bg-element);border:1px solid var(--border);display:grid;place-items:center;font-size:16px;font-weight:600;color:var(--text-primary);flex-shrink:0">AM</div>
+              <div style="flex:1;min-width:0">
+                <div style="display:flex;align-items:center;gap:8px">
+                  <span style="font-size:15px;font-weight:600;color:var(--text-primary)">Aarav Mehta</span>
+                  <span class="pill brand">Free plan</span>
+                </div>
+                <div class="muted" style="font-size:12.5px;margin-top:2px">aarav.mehta@gmail.com</div>
+                <div class="dim" style="font-size:11.5px;margin-top:4px">Managed by your Google account</div>
+              </div>
+              <span class="pin" style="position:static">1</span>
+            </div>
+
+            <!-- About you -->
+            <div class="s-section">
+              <div class="s-section-title">About you</div>
+              <div class="s-row">
+                <div class="info">
+                  <div class="lbl">Job title</div>
+                  <div class="hint">Your engineering role or specialization.</div>
+                </div>
+                <div class="ctrl">
+                  <div class="input"><input type="text" value="Senior Frontend Engineer" style="border:none;background:transparent;width:100%;font:inherit;color:inherit;outline:none"></div>
+                </div>
+              </div>
+              <div class="s-row">
+                <div class="info">
+                  <div class="lbl">Company</div>
+                  <div class="hint">Where you work or your organization.</div>
+                </div>
+                <div class="ctrl">
+                  <div class="input"><input type="text" value="Taksha Labs" style="border:none;background:transparent;width:100%;font:inherit;color:inherit;outline:none"></div>
+                </div>
+              </div>
+              <div class="s-row">
+                <div class="info">
+                  <div class="lbl">Location</div>
+                  <div class="hint">City and country you are based in.</div>
+                </div>
+                <div class="ctrl">
+                  <div class="input"><input type="text" value="Bengaluru, India" style="border:none;background:transparent;width:100%;font:inherit;color:inherit;outline:none"></div>
+                </div>
+              </div>
+              <div class="s-row">
+                <div class="info">
+                  <div class="lbl">Years of experience</div>
+                  <div class="hint">Total software development experience.</div>
+                </div>
+                <div class="ctrl">
+                  <div class="input" style="max-width:120px"><input type="text" value="6" style="border:none;background:transparent;width:100%;font:inherit;color:inherit;outline:none"></div>
+                </div>
+              </div>
+              <div class="s-row">
+                <div class="info">
+                  <div class="lbl">Short bio</div>
+                  <div class="hint">Brief summary shown to teammates.</div>
+                </div>
+                <div class="ctrl">
+                  <div class="textarea" style="min-height:68px">Building cloud developer sandboxes, React workspaces, and AI coding agents.</div>
+                  <span class="dim" style="font-size:11px;align-self:flex-end">79 / 240</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Skills -->
+            <div class="s-section">
+              <div class="s-section-title">Skills</div>
+              <div class="s-row">
+                <div class="info">
+                  <div class="lbl">Technologies</div>
+                  <div class="hint">Core frameworks and tools in your stack.</div>
+                </div>
+                <div class="ctrl" style="position:relative">
+                  <div class="tag-box">
+                    <span class="tag-chip">React <button type="button" aria-label="Remove skill"><svg class="i s"><use href="#i-x"/></svg></button></span>
+                    <span class="tag-chip">Node.js <button type="button" aria-label="Remove skill"><svg class="i s"><use href="#i-x"/></svg></button></span>
+                    <span class="tag-chip">TypeScript <button type="button" aria-label="Remove skill"><svg class="i s"><use href="#i-x"/></svg></button></span>
+                    <span class="tag-chip">Kubernetes <button type="button" aria-label="Remove skill"><svg class="i s"><use href="#i-x"/></svg></button></span>
+                    <span class="tag-chip">Redis <button type="button" aria-label="Remove skill"><svg class="i s"><use href="#i-x"/></svg></button></span>
+                    <input type="text" class="tag-input-field" placeholder="+ Add skill">
+                  </div>
+                  <span class="pin" style="position:static;align-self:flex-start">2</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Links -->
+            <div class="s-section">
+              <div class="s-section-title">Links</div>
+              <div class="s-row">
+                <div class="info">
+                  <div class="lbl">GitHub</div>
+                  <div class="hint">Your public code repository profile.</div>
+                </div>
+                <div class="ctrl">
+                  <div class="input"><svg class="i s muted"><use href="#i-github"/></svg><input type="text" value="https://github.com/aaravmehta" style="border:none;background:transparent;width:100%;font:inherit;color:inherit;outline:none"></div>
+                </div>
+              </div>
+              <div class="s-row">
+                <div class="info">
+                  <div class="lbl">LinkedIn</div>
+                  <div class="hint">Professional profile link.</div>
+                </div>
+                <div class="ctrl">
+                  <div class="input"><svg class="i s muted"><use href="#i-external"/></svg><input type="text" value="https://linkedin.com/in/aaravmehta" style="border:none;background:transparent;width:100%;font:inherit;color:inherit;outline:none"></div>
+                </div>
+              </div>
+              <div class="s-row">
+                <div class="info">
+                  <div class="lbl">X (Twitter)</div>
+                  <div class="hint">Your public developer social handle.</div>
+                </div>
+                <div class="ctrl">
+                  <div class="input"><svg class="i s muted"><use href="#i-external"/></svg><input type="text" value="https://x.com/aaravmehta_dev" style="border:none;background:transparent;width:100%;font:inherit;color:inherit;outline:none"></div>
+                </div>
+              </div>
+              <div class="s-row">
+                <div class="info">
+                  <div class="lbl">Website</div>
+                  <div class="hint">Personal site or developer portfolio.</div>
+                </div>
+                <div class="ctrl">
+                  <div class="input err"><svg class="i s muted"><use href="#i-globe"/></svg><input type="text" value="aaravmehta.dev" style="border:none;background:transparent;width:100%;font:inherit;color:inherit;outline:none"></div>
+                  <div class="t-err" style="font-size:11.5px;display:flex;align-items:center;gap:6px"><svg class="i s"><use href="#i-alert"/></svg>Enter a full URL starting with https://<span class="pin" style="position:static">3</span></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Sticky unsaved bar -->
+            <div class="unsaved-bar">
+              <div class="left"><span class="dot warn"></span><span>You have unsaved changes</span></div>
+              <div class="acts">
+                <button type="button" class="btn-ghost btn-sm">Discard</button>
+                <button type="button" class="btn-solid btn-sm">Save changes</button>
+                <span class="pin" style="position:static">4</span>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </div></div>
+    <ol class="notes">
+      <li><b>Identity row</b> displays Google account profile fields from <code>GET /api/auth/profile</code> and subscription plan badge from <code>credit.subscription</code>; sign-in is managed via Google OAuth.</li>
+      <li><b>Skills tag input</b> manages technology tags stored in <code>profile.skills</code>, adding new tags on enter or comma and removing them via the close icon.</li>
+      <li><b>Inline URL validation</b> checks the URL scheme against <code>https://</code> on field blur, displaying an inline error message when invalid.</li>
+      <li><b>Sticky unsaved changes bar</b> monitors form dirty state against loaded profile data, persisting edits to <code>PUT /api/auth/profile</code> on save.</li>
+    </ol>
+  </section>
+
+  <!-- SR-02 ─────────────────────────────────────────────────────────────── -->
+  <section class="screen" id="sr2">
+    <div class="screen-cap">
+      <span class="id">SR-02</span>
+      <h2>Sign-in &amp; alerts</h2>
+      <span class="where">?route=settings&amp;tab=signin, SettingsSecurityPage.jsx</span>
+    </div>
+    <div class="frame-scroll"><div class="frame">
+      <div class="s-shell">
+        <aside class="s-side">
+          <a href="#" class="s-back"><svg class="i"><use href="#i-chev-l"/></svg>Dashboard</a>
+          <div class="s-group-label">Account</div>
+          <a href="#sr1" class="s-nav-item"><svg class="i"><use href="#i-user"/></svg>Profile</a>
+          <a href="#sr2" class="s-nav-item active"><svg class="i"><use href="#i-shield"/></svg>Sign-in &amp; alerts</a>
+          <div class="s-group-label">Workspace</div>
+          <a href="#sr3" class="s-nav-item"><svg class="i"><use href="#i-sun"/></svg>Appearance</a>
+          <a href="#sr4" class="s-nav-item"><svg class="i"><use href="#i-code"/></svg>Editor</a>
+          <a href="#sr5" class="s-nav-item"><svg class="i"><use href="#i-sparkles"/></svg>Orion &amp; Clio</a>
+          <div class="s-group-label">Plan &amp; billing</div>
+          <a href="#sr6" class="s-nav-item"><svg class="i"><use href="#i-card"/></svg>Plan &amp; usage</a>
+          <div class="s-group-label">Data</div>
+          <a href="#sr7" class="s-nav-item"><svg class="i"><use href="#i-trash"/></svg>Trash<span class="s-badge">7</span></a>
+          <a href="#sr8" class="s-nav-item"><svg class="i"><use href="#i-key"/></svg>API keys<span class="s-badge soon">Soon</span></a>
+          <div class="s-user-foot">
+            <div class="s-user-avatar">AM</div>
+            <div style="flex:1;min-width:0">
+              <div style="font-size:12.5px;font-weight:600;color:var(--text-primary)">Aarav Mehta</div>
+              <span class="pill brand" style="margin-top:2px">Free plan</span>
+            </div>
+          </div>
+        </aside>
+
+        <div class="s-content">
+          <div class="s-container">
+            <div class="s-header">
+              <div>
+                <h2>Sign-in &amp; alerts</h2>
+                <p class="lead">Control how you access your account and when Taksha emails you.</p>
+              </div>
+              <span class="save-status"><svg class="i s"><use href="#i-check"/></svg> Saved</span>
+            </div>
+
+            <!-- Sign-in -->
+            <div class="s-section">
+              <div class="s-section-title">Sign-in</div>
+              <div class="s-row">
+                <div class="info">
+                  <div class="lbl">Google account</div>
+                  <div class="hint">Single sign-on provider used for this account.</div>
+                </div>
+                <div class="ctrl" style="flex-direction:row;justify-content:space-between;align-items:center">
+                  <div style="font-size:13px;color:var(--text-primary)">aarav.mehta@gmail.com</div>
+                  <div style="display:flex;align-items:center;gap:8px">
+                    <span class="pill ok"><svg class="i s"><use href="#i-check"/></svg> Connected</span>
+                    <span class="pin" style="position:static">1</span>
+                  </div>
+                </div>
+              </div>
+              <div class="s-row">
+                <div class="info">
+                  <div class="lbl">Log out</div>
+                  <div class="hint">End your active session on this device.</div>
+                </div>
+                <div class="ctrl" style="align-items:flex-start">
+                  <button type="button" class="btn-secondary btn-sm"><svg class="i s"><use href="#i-log-out"/></svg>Log out</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Email alerts (field names removed from UI, kept in pin notes) -->
+            <div class="s-section">
+              <div class="s-section-title">Email alerts</div>
+              <div class="s-row">
+                <div class="info">
+                  <div class="lbl">Login alerts</div>
+                  <div class="hint">Get an email each time someone signs in to your account.</div>
+                </div>
+                <div class="ctrl" style="flex-direction:row;justify-content:flex-end;align-items:center">
+                  <div style="display:flex;align-items:center;gap:8px">
+                    <button type="button" class="switch on" aria-label="Toggle login alerts"></button>
+                    <span class="pin" style="position:static">2</span>
+                  </div>
+                </div>
+              </div>
+              <div class="s-row">
+                <div class="info">
+                  <div class="lbl">Security alerts</div>
+                  <div class="hint">Get an email when a key is revoked or a security setting changes.</div>
+                </div>
+                <div class="ctrl" style="flex-direction:row;justify-content:flex-end;align-items:center">
+                  <button type="button" class="switch on" aria-label="Toggle security alerts"></button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Danger zone (normal surface with 1px border tinted with --error) -->
+            <div class="s-section">
+              <div class="s-section-title t-err" style="display:flex;align-items:center;gap:6px"><svg class="i s"><use href="#i-alert"/></svg>Danger zone</div>
+              <div style="padding:18px 20px;border-radius:12px;border:1px solid rgba(239, 68, 68, 0.35);background:var(--bg-surface);display:flex;justify-content:space-between;align-items:center;gap:20px">
+                <div>
+                  <div style="font-size:13.5px;font-weight:600;color:var(--text-primary)">Delete account</div>
+                  <div class="muted" style="font-size:12.5px;margin-top:4px;max-width:48ch;line-height:1.5">Permanently remove your account, all sandbox environments, and saved preferences. You cannot undo this.</div>
+                </div>
+                <div style="display:flex;align-items:center;gap:8px">
+                  <button type="button" class="btn-danger btn-sm"><svg class="i s"><use href="#i-trash"/></svg>Delete account</button>
+                  <span class="pin" style="position:static">3</span>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </div></div>
+    <ol class="notes">
+      <li><b>Google account row</b> displays the authenticated email from session context; the connected status badge confirms Google OAuth is active.</li>
+      <li><b>Notification switches</b> toggle security notification preferences (<code>notifications.emailLogins</code> and <code>notifications.securityAlerts</code>), persisting immediately via <code>PUT /api/auth/preferences</code>.</li>
+      <li><b>Delete account action</b> triggers the destructive confirmation dialog; account deletion requires backend implementation before activation.</li>
+    </ol>
+  </section>
+
+  <!-- SR-03 ─────────────────────────────────────────────────────────────── -->
+  <section class="screen" id="sr3">
+    <div class="screen-cap">
+      <span class="id">SR-03</span>
+      <h2>Appearance</h2>
+      <span class="where">?route=settings&amp;tab=appearance, SettingsAppearancePage.jsx</span>
+    </div>
+    <div class="frame-scroll"><div class="frame">
+      <div class="s-shell" style="min-height:auto">
+        <aside class="s-side" style="min-height:auto">
+          <a href="#" class="s-back"><svg class="i"><use href="#i-chev-l"/></svg>Dashboard</a>
+          <div class="s-group-label">Account</div>
+          <a href="#sr1" class="s-nav-item"><svg class="i"><use href="#i-user"/></svg>Profile</a>
+          <a href="#sr2" class="s-nav-item"><svg class="i"><use href="#i-shield"/></svg>Sign-in &amp; alerts</a>
+          <div class="s-group-label">Workspace</div>
+          <a href="#sr3" class="s-nav-item active"><svg class="i"><use href="#i-sun"/></svg>Appearance</a>
+          <a href="#sr4" class="s-nav-item"><svg class="i"><use href="#i-code"/></svg>Editor</a>
+          <a href="#sr5" class="s-nav-item"><svg class="i"><use href="#i-sparkles"/></svg>Orion &amp; Clio</a>
+          <div class="s-group-label">Plan &amp; billing</div>
+          <a href="#sr6" class="s-nav-item"><svg class="i"><use href="#i-card"/></svg>Plan &amp; usage</a>
+          <div class="s-group-label">Data</div>
+          <a href="#sr7" class="s-nav-item"><svg class="i"><use href="#i-trash"/></svg>Trash<span class="s-badge">7</span></a>
+          <a href="#sr8" class="s-nav-item"><svg class="i"><use href="#i-key"/></svg>API keys<span class="s-badge soon">Soon</span></a>
+          <div class="s-user-foot">
+            <div class="s-user-avatar">AM</div>
+            <div style="flex:1;min-width:0">
+              <div style="font-size:12.5px;font-weight:600;color:var(--text-primary)">Aarav Mehta</div>
+              <span class="pill brand" style="margin-top:2px">Free plan</span>
+            </div>
+          </div>
+        </aside>
+
+        <div class="s-content" style="padding-bottom:32px">
+          <div class="s-container">
+            <div class="s-header">
+              <div>
+                <h2>Appearance</h2>
+                <p class="lead">Customize the look and feel of your sandbox workspace.</p>
+              </div>
+              <span class="save-status"><svg class="i s"><use href="#i-check"/></svg> Saved</span>
+            </div>
+
+            <!-- Workspace theme (pins in free space beside cards) -->
+            <div class="s-section">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+                <div class="s-section-title" style="margin-bottom:0">Workspace theme</div>
+                <div style="display:flex;gap:16px;align-items:center">
+                  <span class="dim" style="font-size:11.5px">Tokens preview</span>
+                  <span class="pin" style="position:static">1</span>
+                </div>
+              </div>
+
+              <div class="theme-grid">
+                <!-- Dark Card (scoped to .thumb-dark, always looks dark) -->
+                <div style="display:flex;flex-direction:column;gap:8px">
+                  <button type="button" class="theme-thumb-card selected">
+                    <div class="theme-thumb-header">
+                      <span style="display:flex;align-items:center;gap:6px"><svg class="i s t-brand"><use href="#i-moon"/></svg>Dark</span>
+                      <span style="width:16px;height:16px;border-radius:50%;background:var(--brand-primary);color:var(--bg-canvas);display:grid;place-items:center"><svg class="i s"><use href="#i-check"/></svg></span>
+                    </div>
+                    <div class="theme-mini-ide thumb-dark" style="background:var(--bg-canvas)">
+                      <div class="theme-mini-act" style="background:var(--bg-sidebar);border-right:1px solid var(--border)"></div>
+                      <div class="theme-mini-exp" style="background:var(--bg-surface)">
+                        <i style="background:var(--border-strong);width:80%"></i>
+                        <i style="background:var(--border);width:60%"></i>
+                        <i style="background:var(--border);width:70%"></i>
+                      </div>
+                      <div class="theme-mini-edit">
+                        <i style="background:var(--brand-primary);width:40%"></i>
+                        <i style="background:var(--border-strong);width:70%"></i>
+                        <i style="background:var(--accent-primary);width:55%"></i>
+                        <i style="background:var(--border);width:85%"></i>
+                      </div>
+                    </div>
+                    <span class="muted" style="font-size:11.5px">Deep ink surfaces for low-light coding</span>
+                  </button>
+                  <div style="display:flex;justify-content:flex-end">
+                    <span class="pin" style="position:static">2</span>
+                  </div>
+                </div>
+
+                <!-- Light Card (scoped to .thumb-light, always looks light) -->
+                <div style="display:flex;flex-direction:column;gap:8px">
+                  <button type="button" class="theme-thumb-card">
+                    <div class="theme-thumb-header">
+                      <span style="display:flex;align-items:center;gap:6px"><svg class="i s t-warn"><use href="#i-sun"/></svg>Light</span>
+                    </div>
+                    <div class="theme-mini-ide thumb-light" style="background:var(--bg-canvas)">
+                      <div class="theme-mini-act" style="background:var(--bg-sidebar);border-right:1px solid var(--border)"></div>
+                      <div class="theme-mini-exp" style="background:var(--bg-surface)">
+                        <i style="background:var(--border-strong);width:80%"></i>
+                        <i style="background:var(--border);width:60%"></i>
+                        <i style="background:var(--border);width:70%"></i>
+                      </div>
+                      <div class="theme-mini-edit">
+                        <i style="background:var(--brand-primary);width:40%"></i>
+                        <i style="background:var(--border-strong);width:70%"></i>
+                        <i style="background:var(--accent-primary);width:55%"></i>
+                        <i style="background:var(--border);width:85%"></i>
+                      </div>
+                    </div>
+                    <span class="muted" style="font-size:11.5px">High contrast clean surfaces</span>
+                  </button>
+                </div>
+
+                <!-- System Card (split dark and light thumbnail) -->
+                <div style="display:flex;flex-direction:column;gap:8px">
+                  <button type="button" class="theme-thumb-card">
+                    <div class="theme-thumb-header">
+                      <span style="display:flex;align-items:center;gap:6px"><svg class="i s"><use href="#i-gauge"/></svg>System</span>
+                    </div>
+                    <div class="theme-mini-ide" style="display:flex">
+                      <!-- Dark side -->
+                      <div class="thumb-dark" style="flex:1;display:flex;background:var(--bg-canvas);border-right:1px solid var(--border)">
+                        <div class="theme-mini-act" style="background:var(--bg-sidebar);border-right:1px solid var(--border)"></div>
+                        <div class="theme-mini-edit" style="flex:1">
+                          <i style="background:var(--brand-primary);width:50%"></i>
+                          <i style="background:var(--border-strong);width:80%"></i>
+                        </div>
+                      </div>
+                      <!-- Light side -->
+                      <div class="thumb-light" style="flex:1;display:flex;background:var(--bg-canvas)">
+                        <div class="theme-mini-edit" style="flex:1">
+                          <i style="background:var(--brand-primary);width:50%"></i>
+                          <i style="background:var(--border-strong);width:80%"></i>
+                        </div>
+                      </div>
+                    </div>
+                    <span class="muted" style="font-size:11.5px">Follows your device. Right now: Dark.</span>
+                  </button>
+                  <div style="display:flex;justify-content:flex-end">
+                    <span class="pin" style="position:static">3</span>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </div></div>
+    <ol class="notes">
+      <li><b>Theme preview thumbnails</b> use token classes <code>.thumb-dark</code> and <code>.thumb-light</code> so Dark always looks dark and Light always looks light regardless of the active board theme.</li>
+      <li><b>Active theme selector</b> applies a 2 px ember border and check circle to the selected card, updating <code>preferences.theme</code> and setting the document class.</li>
+      <li><b>System default option</b> splits dark and light IDE views, querying the OS <code>prefers-color-scheme</code> media query at runtime.</li>
+    </ol>
+  </section>
+
+  <!-- SR-04 ─────────────────────────────────────────────────────────────── -->
+  <section class="screen" id="sr4">
+    <div class="screen-cap">
+      <span class="id">SR-04</span>
+      <h2>Editor</h2>
+      <span class="where">?route=settings&amp;tab=editor, SettingsAppearancePage.jsx</span>
+    </div>
+    <div class="frame-scroll"><div class="frame">
+      <div class="s-shell">
+        <aside class="s-side">
+          <a href="#" class="s-back"><svg class="i"><use href="#i-chev-l"/></svg>Dashboard</a>
+          <div class="s-group-label">Account</div>
+          <a href="#sr1" class="s-nav-item"><svg class="i"><use href="#i-user"/></svg>Profile</a>
+          <a href="#sr2" class="s-nav-item"><svg class="i"><use href="#i-shield"/></svg>Sign-in &amp; alerts</a>
+          <div class="s-group-label">Workspace</div>
+          <a href="#sr3" class="s-nav-item"><svg class="i"><use href="#i-sun"/></svg>Appearance</a>
+          <a href="#sr4" class="s-nav-item active"><svg class="i"><use href="#i-code"/></svg>Editor</a>
+          <a href="#sr5" class="s-nav-item"><svg class="i"><use href="#i-sparkles"/></svg>Orion &amp; Clio</a>
+          <div class="s-group-label">Plan &amp; billing</div>
+          <a href="#sr6" class="s-nav-item"><svg class="i"><use href="#i-card"/></svg>Plan &amp; usage</a>
+          <div class="s-group-label">Data</div>
+          <a href="#sr7" class="s-nav-item"><svg class="i"><use href="#i-trash"/></svg>Trash<span class="s-badge">7</span></a>
+          <a href="#sr8" class="s-nav-item"><svg class="i"><use href="#i-key"/></svg>API keys<span class="s-badge soon">Soon</span></a>
+          <div class="s-user-foot">
+            <div class="s-user-avatar">AM</div>
+            <div style="flex:1;min-width:0">
+              <div style="font-size:12.5px;font-weight:600;color:var(--text-primary)">Aarav Mehta</div>
+              <span class="pill brand" style="margin-top:2px">Free plan</span>
+            </div>
+          </div>
+        </aside>
+
+        <div class="s-content">
+          <div class="s-container">
+            <div class="s-header">
+              <div>
+                <h2>Editor</h2>
+                <p class="lead">How code looks and behaves in your sandboxes.</p>
+              </div>
+              <span class="save-status"><svg class="i s"><use href="#i-check"/></svg> Saved</span>
+            </div>
+
+            <!-- Live Preview Panel (pin moved off label to the right in free space) -->
+            <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:8px">
+              <div class="editor-preview-pnl" style="flex:1;margin-bottom:0">
+                <div class="editor-preview-bar">
+                  <span style="display:flex;align-items:center;gap:6px"><svg class="i s t-brand"><use href="#i-code"/></svg>quiz-arena/src/components/ScoreBoard.jsx</span>
+                  <span class="dim" style="font-size:11px">Live preview</span>
+                </div>
+                <div class="editor-preview-body">
+                  <div class="editor-preview-lines">
+                    <div class="ln"><i>1</i><span class="ln-code"><span class="k">import</span> React, { useState, useEffect } <span class="k">from</span> <span class="s">'react'</span>;</span></div>
+                    <div class="ln"><i>2</i><span class="ln-code"><span class="k">import</span> { Trophy, Flame, Zap } <span class="k">from</span> <span class="s">'lucide-react'</span>;</span></div>
+                    <div class="ln"><i>3</i><span class="ln-code"></span></div>
+                    <div class="ln"><i>4</i><span class="ln-code"><span class="k">export default function</span> <span class="f">ScoreBoard</span>({ score, streak, multiplier }) {</span></div>
+                    <div class="ln"><i>5</i><span class="ln-code"><span class="indent-unit"></span><span class="k">const</span> [animate, setAnimate] = <span class="f">useState</span>(<span class="n">false</span>);</span></div>
+                    <div class="ln"><i>6</i><span class="ln-code"></span></div>
+                    <div class="ln"><i>7</i><span class="ln-code"><span class="indent-unit"></span><span class="f">useEffect</span>(() =&gt; {</span></div>
+                    <div class="ln"><i>8</i><span class="ln-code"><span class="indent-unit"></span><span class="indent-unit"></span><span class="k">if</span> (streak &gt; <span class="n">3</span>) setAnimate(<span class="n">true</span>);</span></div>
+                    <div class="ln"><i>9</i><span class="ln-code"><span class="indent-unit"></span>}, [streak]);</span></div>
+                    <div class="ln"><i>10</i><span class="ln-code"></span></div>
+                    <div class="ln"><i>11</i><span class="ln-code"><span class="indent-unit"></span><span class="c">// Long wrapped line demonstrating editor typography, bracket matching, and word wrap behaviour across viewports:</span></span></div>
+                    <div class="ln"><i>12</i><span class="ln-code"><span class="indent-unit"></span><span class="k">return</span> &lt;<span class="tg">div</span> className=<span class="s">"scoreboard-card flex items-center justify-between p-4 bg-surface border border-subtle rounded-xl"</span>&gt;</span></div>
+                  </div>
+                  <div class="editor-preview-minimap" aria-hidden="true">
+                    <i style="width:70%"></i><i style="width:50%"></i><i style="width:20%"></i><i style="width:85%"></i>
+                    <i style="width:60%"></i><i style="width:40%"></i><i style="width:75%"></i><i style="width:90%"></i>
+                    <i style="width:65%"></i><i style="width:30%"></i><i style="width:95%"></i><i style="width:80%"></i>
+                  </div>
+                </div>
+              </div>
+              <span class="pin" style="position:static;margin-top:8px">1</span>
+            </div>
+
+            <!-- Controls (Tab size matching compact width of Font size) -->
+            <div class="s-section">
+              <div class="s-section-title">Text &amp; formatting</div>
+              <div class="s-row">
+                <div class="info">
+                  <div class="lbl">Font size</div>
+                  <div class="hint">Font size of code lines in the editor.</div>
+                </div>
+                <div class="ctrl" style="flex-direction:row;align-items:center;gap:12px">
+                  <div class="seg compact" id="seg-font-size">
+                    <button type="button" data-font-size="12px">12</button>
+                    <button type="button" class="on" data-font-size="14px">14</button>
+                    <button type="button" data-font-size="16px">16</button>
+                    <button type="button" data-font-size="18px">18</button>
+                  </div>
+                  <span class="pin" style="position:static">2</span>
+                </div>
+              </div>
+              <div class="s-row">
+                <div class="info">
+                  <div class="lbl">Tab size</div>
+                  <div class="hint">Number of spaces per indentation level.</div>
+                </div>
+                <div class="ctrl" style="flex-direction:row;align-items:center">
+                  <div class="seg compact" id="seg-tab-size">
+                    <button type="button" class="on" data-tab-size="2">2</button>
+                    <button type="button" data-tab-size="4">4</button>
+                    <button type="button" data-tab-size="8">8</button>
+                  </div>
+                </div>
+              </div>
+              <div class="s-row">
+                <div class="info">
+                  <div class="lbl">Word wrap</div>
+                  <div class="hint">Wrap long code lines to fit the viewport width.</div>
+                </div>
+                <div class="ctrl" style="flex-direction:row;align-items:center">
+                  <button type="button" class="switch on" data-toggle-wrap aria-label="Toggle word wrap"></button>
+                </div>
+              </div>
+            </div>
+
+            <div class="s-section">
+              <div class="s-section-title">Display &amp; saving</div>
+              <div class="s-row">
+                <div class="info">
+                  <div class="lbl">Code minimap</div>
+                  <div class="hint">Show an overview strip on the right side of the editor.</div>
+                </div>
+                <div class="ctrl" style="flex-direction:row;align-items:center">
+                  <button type="button" class="switch on" data-toggle-minimap aria-label="Toggle minimap"></button>
+                </div>
+              </div>
+              <div class="s-row">
+                <div class="info">
+                  <div class="lbl">Auto save</div>
+                  <div class="hint">Save files a moment after you stop typing.</div>
+                </div>
+                <div class="ctrl" style="flex-direction:row;align-items:center;gap:12px">
+                  <button type="button" class="switch on" data-toggle-autosave aria-label="Toggle auto save"></button>
+                  <span class="pin" style="position:static">3</span>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </div></div>
+    <ol class="notes">
+      <li><b>Interactive editor preview</b> renders lines from <code>ScoreBoard.jsx</code>, reacting to typography changes and indent size clicks in real time.</li>
+      <li><b>Compact segmented buttons</b> adjust font size (12 to 18 px) and tab indentation (2, 4, or 8 spaces), saving selections to <code>preferences.editor</code>.</li>
+      <li><b>Editor feature toggles</b> manage minimap visibility, word wrap line wrapping, and autosave intervals, confirming state updates via the header indicator.</li>
+    </ol>
+  </section>
+
+  <!-- SR-05 ─────────────────────────────────────────────────────────────── -->
+  <section class="screen" id="sr5">
+    <div class="screen-cap">
+      <span class="id">SR-05</span>
+      <h2>Orion &amp; Clio</h2>
+      <span class="where">?route=settings&amp;tab=copilot, SettingsAppearancePage.jsx</span>
+    </div>
+    <div class="frame-scroll"><div class="frame">
+      <div class="s-shell">
+        <aside class="s-side">
+          <a href="#" class="s-back"><svg class="i"><use href="#i-chev-l"/></svg>Dashboard</a>
+          <div class="s-group-label">Account</div>
+          <a href="#sr1" class="s-nav-item"><svg class="i"><use href="#i-user"/></svg>Profile</a>
+          <a href="#sr2" class="s-nav-item"><svg class="i"><use href="#i-shield"/></svg>Sign-in &amp; alerts</a>
+          <div class="s-group-label">Workspace</div>
+          <a href="#sr3" class="s-nav-item"><svg class="i"><use href="#i-sun"/></svg>Appearance</a>
+          <a href="#sr4" class="s-nav-item"><svg class="i"><use href="#i-code"/></svg>Editor</a>
+          <a href="#sr5" class="s-nav-item active"><svg class="i"><use href="#i-sparkles"/></svg>Orion &amp; Clio</a>
+          <div class="s-group-label">Plan &amp; billing</div>
+          <a href="#sr6" class="s-nav-item"><svg class="i"><use href="#i-card"/></svg>Plan &amp; usage</a>
+          <div class="s-group-label">Data</div>
+          <a href="#sr7" class="s-nav-item"><svg class="i"><use href="#i-trash"/></svg>Trash<span class="s-badge">7</span></a>
+          <a href="#sr8" class="s-nav-item"><svg class="i"><use href="#i-key"/></svg>API keys<span class="s-badge soon">Soon</span></a>
+          <div class="s-user-foot">
+            <div class="s-user-avatar">AM</div>
+            <div style="flex:1;min-width:0">
+              <div style="font-size:12.5px;font-weight:600;color:var(--text-primary)">Aarav Mehta</div>
+              <span class="pill brand" style="margin-top:2px">Free plan</span>
+            </div>
+          </div>
+        </aside>
+
+        <div class="s-content">
+          <div class="s-container">
+            <div class="s-header">
+              <div>
+                <h2>Orion &amp; Clio</h2>
+                <p class="lead">Configure how the coding agent and copilot assist you.</p>
+              </div>
+              <span class="save-status"><svg class="i s"><use href="#i-check"/></svg> Saved</span>
+            </div>
+
+            <!-- Clio group (visible field name removed from UI) -->
+            <div class="s-section">
+              <div class="s-section-title" style="display:flex;align-items:center;gap:8px">
+                <span style="width:20px;height:20px;border-radius:5px;background:var(--accent-subtle);color:var(--accent-hover);display:grid;place-items:center"><svg class="i s"><use href="#i-sparkles"/></svg></span>
+                <span>Clio</span>
+                <span class="muted" style="font-size:12px;font-weight:400">Inline suggestions in the editor</span>
+              </div>
+              <div class="s-row">
+                <div class="info">
+                  <div class="lbl">Inline suggestions</div>
+                  <div class="hint">Show ghost-text code completions while typing.</div>
+                </div>
+                <div class="ctrl" style="gap:12px">
+                  <div style="display:flex;align-items:center;justify-content:flex-end">
+                    <button type="button" class="switch on" aria-label="Toggle inline suggestions"></button>
+                  </div>
+                  <!-- Code ghost sample: clearly indigo in both themes -->
+                  <div style="padding:10px 14px;border-radius:8px;border:1px solid var(--border);background:var(--bg-canvas);font-family:var(--font-mono);font-size:12px;line-height:18px">
+                    <div><span class="k">const</span> calculateScore = (streak, multiplier) =&gt; {</div>
+                    <div>&nbsp;&nbsp;<span class="k">return</span> streak * multiplier;<span style="color:var(--accent-primary);opacity:0.75;font-weight:500"> + bonusPoints;</span></div>
+                    <div>};</div>
+                  </div>
+                  <span class="pin" style="position:static;align-self:flex-start">1</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Orion group -->
+            <div class="s-section">
+              <div class="s-section-title" style="display:flex;align-items:center;gap:8px">
+                <span style="width:20px;height:20px;border-radius:5px;background:var(--accent-subtle);color:var(--accent-hover);display:grid;place-items:center"><svg class="i s"><use href="#i-bot"/></svg></span>
+                <span>Orion</span>
+                <span class="muted" style="font-size:12px;font-weight:400">Autonomous coding agent in chat</span>
+              </div>
+              <div class="s-row">
+                <div class="info">
+                  <div class="lbl">Answer style</div>
+                  <div class="hint">Choose how detailed Orion should be in replies.</div>
+                </div>
+                <div class="ctrl" style="gap:14px">
+                  <div class="seg compact" style="align-self:flex-start">
+                    <button type="button" class="on">Detailed</button>
+                    <button type="button">Concise</button>
+                  </div>
+                  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+                    <div style="padding:12px;border-radius:8px;border:1px solid var(--border-strong);background:var(--bg-surface)">
+                      <div style="font-size:12px;font-weight:600;color:var(--text-primary);margin-bottom:4px">Detailed</div>
+                      <div class="muted" style="font-size:11.5px;line-height:1.45">Explains root cause, lists affected files, and guides through each edit step by step.</div>
+                    </div>
+                    <div style="padding:12px;border-radius:8px;border:1px solid var(--border);background:var(--bg-surface);opacity:0.75">
+                      <div style="font-size:12px;font-weight:600;color:var(--text-primary);margin-bottom:4px">Concise</div>
+                      <div class="muted" style="font-size:11.5px;line-height:1.45">Provides direct patch instructions with minimal commentary.</div>
+                    </div>
+                  </div>
+                  <span class="pin" style="position:static;align-self:flex-start">2</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Model spec (plain mono text, no input box) -->
+            <div class="s-section">
+              <div class="s-section-title">System</div>
+              <div class="s-row">
+                <div class="info">
+                  <div class="lbl">Model</div>
+                  <div class="hint">Chosen by Taksha for each task.</div>
+                </div>
+                <div class="ctrl" style="flex-direction:row;justify-content:space-between;align-items:center">
+                  <span class="mono" style="color:var(--text-secondary);font-size:12px">nvidia/nemotron-3-ultra-550b-a55b</span>
+                  <span class="pin" style="position:static">3</span>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </div></div>
+    <ol class="notes">
+      <li><b>Clio inline suggestions</b> toggles editor ghost text completions via <code>preferences.copilot.autoSuggest</code>, displaying suggestion text inline while typing.</li>
+      <li><b>Orion answer style selector</b> toggles verbosity mode between Detailed and Concise via <code>preferences.copilot.interactiveMode</code>.</li>
+      <li><b>Model specification</b> displays the active default model (<code>nvidia/nemotron-3-ultra-550b-a55b</code>) as plain read-only text without a dropdown.</li>
+    </ol>
+  </section>
+
+  <!-- SR-06 ─────────────────────────────────────────────────────────────── -->
+  <section class="screen" id="sr6">
+    <div class="screen-cap">
+      <span class="id">SR-06</span>
+      <h2>Plan &amp; usage</h2>
+      <span class="where">?route=settings&amp;tab=billing, SettingsBillingPage.jsx</span>
+    </div>
+    <div class="frame-scroll"><div class="frame">
+      <div class="s-shell">
+        <aside class="s-side">
+          <a href="#" class="s-back"><svg class="i"><use href="#i-chev-l"/></svg>Dashboard</a>
+          <div class="s-group-label">Account</div>
+          <a href="#sr1" class="s-nav-item"><svg class="i"><use href="#i-user"/></svg>Profile</a>
+          <a href="#sr2" class="s-nav-item"><svg class="i"><use href="#i-shield"/></svg>Sign-in &amp; alerts</a>
+          <div class="s-group-label">Workspace</div>
+          <a href="#sr3" class="s-nav-item"><svg class="i"><use href="#i-sun"/></svg>Appearance</a>
+          <a href="#sr4" class="s-nav-item"><svg class="i"><use href="#i-code"/></svg>Editor</a>
+          <a href="#sr5" class="s-nav-item"><svg class="i"><use href="#i-sparkles"/></svg>Orion &amp; Clio</a>
+          <div class="s-group-label">Plan &amp; billing</div>
+          <a href="#sr6" class="s-nav-item active"><svg class="i"><use href="#i-card"/></svg>Plan &amp; usage</a>
+          <div class="s-group-label">Data</div>
+          <a href="#sr7" class="s-nav-item"><svg class="i"><use href="#i-trash"/></svg>Trash<span class="s-badge">7</span></a>
+          <a href="#sr8" class="s-nav-item"><svg class="i"><use href="#i-key"/></svg>API keys<span class="s-badge soon">Soon</span></a>
+          <div class="s-user-foot">
+            <div class="s-user-avatar">AM</div>
+            <div style="flex:1;min-width:0">
+              <div style="font-size:12.5px;font-weight:600;color:var(--text-primary)">Aarav Mehta</div>
+              <span class="pill brand" style="margin-top:2px">Free plan</span>
+            </div>
+          </div>
+        </aside>
+
+        <div class="s-content">
+          <div class="s-container">
+            <div class="s-header">
+              <div>
+                <h2>Plan &amp; usage</h2>
+                <p class="lead">Monitor your AI credits, token consumption, and sandbox allocations.</p>
+              </div>
+            </div>
+
+            <!-- Top plan panel -->
+            <div style="padding:20px 24px;border-radius:12px;border:1px solid var(--border);background:linear-gradient(135deg, rgba(234, 88, 12, 0.08), rgba(99, 102, 241, 0.05));display:flex;justify-content:space-between;align-items:center;gap:20px;position:relative">
+              <div>
+                <span class="pill brand" style="font-weight:600">Free plan</span>
+                <div style="font-size:22px;font-weight:600;color:var(--text-primary);margin-top:6px">₹0 <span class="muted" style="font-size:13px;font-weight:400">/ month</span></div>
+                <div class="muted" style="font-size:12.5px;margin-top:4px">Upgrade to Pro (₹299 early access / ₹499) for unmetered AI credits and dedicated support.</div>
+              </div>
+              <div style="display:flex;align-items:center;gap:8px">
+                <button type="button" class="btn-primary"><svg class="i s"><use href="#i-zap"/></svg>Manage plan</button>
+                <span class="pin" style="position:static">1</span>
+              </div>
+            </div>
+
+            <!-- Credits -->
+            <div class="s-section">
+              <div class="s-section-title">AI credits</div>
+              <div class="s-row">
+                <div class="info">
+                  <div class="lbl">Credit balance</div>
+                  <div class="hint">Resets with your plan. Pro and Max have no credit cap.</div>
+                </div>
+                <div class="ctrl" style="gap:8px">
+                  <div style="display:flex;justify-content:space-between;align-items:center">
+                    <span style="font-size:14px;font-weight:600;color:var(--text-primary)">14.20 of 20 credits left</span>
+                    <span class="muted" style="font-size:11.5px">71%</span>
+                  </div>
+                  <div class="meter" style="height:6px"><span style="width:71%"></span></div>
+                  <span class="pin" style="position:static;align-self:flex-start">2</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- 30-day analytics (with Y axis, gridlines, slim bars) -->
+            <div class="s-section">
+              <div class="s-section-title">Usage, last 30 days</div>
+              <div style="border:1px solid var(--border);border-radius:12px;background:var(--bg-surface);padding:18px 20px;display:flex;flex-direction:column;gap:16px">
+                <div>
+                  <div style="font-size:13px;font-weight:600;color:var(--text-primary);margin-bottom:2px">Daily token consumption</div>
+                  <div class="muted" style="font-size:11.5px">Prompt and completion tokens across all sandboxes</div>
+                </div>
+
+                <!-- Polished chart with Y axis and gridlines -->
+                <div class="chart" style="margin-top:6px">
+                  <div class="y"><span>30k</span><span>20k</span><span>10k</span><span>0</span></div>
+                  <div class="bars" style="height:120px;gap:8px;background-image:linear-gradient(to top, var(--grid-line) 1px, transparent 1px);background-size:100% 33.3%;background-position:bottom">
+                    <span style="height:28%;max-width:12px;border-radius:3px 3px 0 0"></span>
+                    <span style="height:45%;max-width:12px;border-radius:3px 3px 0 0"></span>
+                    <span style="height:20%;max-width:12px;border-radius:3px 3px 0 0"></span>
+                    <span style="height:65%;max-width:12px;border-radius:3px 3px 0 0"></span>
+                    <span style="height:52%;max-width:12px;border-radius:3px 3px 0 0"></span>
+                    <span style="height:82%;max-width:12px;border-radius:3px 3px 0 0"></span>
+                    <span style="height:35%;max-width:12px;border-radius:3px 3px 0 0"></span>
+                    <span style="height:92%;max-width:12px;border-radius:3px 3px 0 0"></span>
+                    <span style="height:48%;max-width:12px;border-radius:3px 3px 0 0"></span>
+                    <span style="height:62%;max-width:12px;border-radius:3px 3px 0 0"></span>
+                    <span style="height:25%;max-width:12px;border-radius:3px 3px 0 0"></span>
+                    <span style="height:70%;max-width:12px;border-radius:3px 3px 0 0"></span>
+                    <span style="height:88%;max-width:12px;border-radius:3px 3px 0 0"></span>
+                    <span style="height:40%;max-width:12px;border-radius:3px 3px 0 0"></span>
+                    <span style="height:46%;max-width:12px;border-radius:3px 3px 0 0"></span>
+                    <span style="height:78%;max-width:12px;border-radius:3px 3px 0 0"></span>
+                  </div>
+                  <div class="axis"><span>26 Oct</span><span>10 Nov</span><span>25 Nov</span></div>
+                </div>
+                
+                <div style="border-top:1px solid var(--border);padding-top:14px">
+                  <div style="font-size:12.5px;font-weight:600;color:var(--text-primary);margin-bottom:10px">Breakdown by agent</div>
+                  <div class="barlist">
+                    <div class="r">
+                      <span class="name" style="font-family:var(--font-sans);color:var(--accent-hover)">Orion</span>
+                      <div class="bar"><span style="display:block;height:100%;width:60%;background:var(--accent-primary)"></span></div>
+                      <span class="v">64,200</span>
+                    </div>
+                    <div class="r">
+                      <span class="name" style="font-family:var(--font-sans);color:var(--accent-hover)">Clio</span>
+                      <div class="bar"><span style="display:block;height:100%;width:26%;background:var(--accent-hover)"></span></div>
+                      <span class="v">28,100</span>
+                    </div>
+                    <div class="r">
+                      <span class="name" style="font-family:var(--font-sans)">App agent</span>
+                      <div class="bar"><span style="display:block;height:100%;width:11%;background:var(--brand-primary)"></span></div>
+                      <span class="v">12,400</span>
+                    </div>
+                    <div class="r">
+                      <span class="name" style="font-family:var(--font-sans)">Titles</span>
+                      <div class="bar"><span style="display:block;height:100%;width:3%;background:var(--border-strong)"></span></div>
+                      <span class="v">1,800</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <span class="pin" style="position:static;margin-top:8px">3</span>
+            </div>
+
+            <!-- Recent activity (dates in Fira Sans, mono only for model ids) -->
+            <div class="s-section">
+              <div class="s-section-title">Recent activity</div>
+              <div style="border:1px solid var(--border);border-radius:12px;overflow:hidden;background:var(--bg-surface)">
+                <table class="tbl">
+                  <thead>
+                    <tr><th>When</th><th>Agent</th><th>Model</th><th class="num">Tokens</th><th class="num">Credits</th></tr>
+                  </thead>
+                  <tbody>
+                    <tr><td>24 Nov, 18:42</td><td><span class="badge accent">Orion</span></td><td class="mono">nvidia/nemotron-3-ultra-550b-a55b</td><td class="num">3,420</td><td class="num">0.85</td></tr>
+                    <tr><td>24 Nov, 17:15</td><td><span class="badge accent">Clio</span></td><td class="mono">nvidia/nemotron-3.5-lightning-30b-a3b</td><td class="num">210</td><td class="num">0.05</td></tr>
+                    <tr><td>24 Nov, 16:30</td><td><span class="badge accent">Orion</span></td><td class="mono">nvidia/nemotron-3-ultra-550b-a55b</td><td class="num">5,120</td><td class="num">1.28</td></tr>
+                    <tr><td>24 Nov, 14:02</td><td><span class="badge accent">Clio</span></td><td class="mono">nvidia/nemotron-3.5-lightning-30b-a3b</td><td class="num">440</td><td class="num">0.11</td></tr>
+                    <tr><td>23 Nov, 19:10</td><td><span class="badge accent">Orion</span></td><td class="mono">nvidia/nemotron-3-ultra-550b-a55b</td><td class="num">2,890</td><td class="num">0.72</td></tr>
+                    <tr><td>23 Nov, 11:45</td><td><span class="badge">App agent</span></td><td class="mono">nvidia/nemotron-3-ultra-550b-a55b</td><td class="num">1,600</td><td class="num">0.40</td></tr>
+                  </tbody>
+                </table>
+                <div class="tbl-foot">
+                  <span>Showing last 6 usage events</span>
+                  <a href="#" style="color:var(--accent-hover);font-weight:500;text-decoration:none">View all billing history ›</a>
+                </div>
+              </div>
+              <span class="pin" style="position:static;margin-top:8px">4</span>
+            </div>
+
+            <!-- Sandboxes -->
+            <div class="s-section">
+              <div class="s-section-title">Sandbox allocation</div>
+              <div class="s-row">
+                <div class="info">
+                  <div class="lbl">Active environments</div>
+                  <div class="hint">Containers allocated to your projects.</div>
+                </div>
+                <div class="ctrl" style="gap:8px">
+                  <div style="font-size:13px;font-weight:600;color:var(--text-primary)">2 of 5 projects provisioned</div>
+                  <div class="meter" style="height:6px"><span style="width:40%"></span></div>
+                </div>
+              </div>
+              <div class="s-row">
+                <div class="info">
+                  <div class="lbl">Compute resources</div>
+                  <div class="hint">Dedicated container CPU and memory limit.</div>
+                </div>
+                <div class="ctrl">
+                  <div style="font-size:13px;color:var(--text-secondary)">0.5 vCPU, 512 MB RAM per sandbox</div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </div></div>
+    <ol class="notes">
+      <li><b>Plan status panel</b> displays the active tier and INR price from <code>GET /api/payments/credit</code>, linking to the billing application for upgrades.</li>
+      <li><b>Credit balance meter</b> calculates remaining credits against the fixed 20-credit free tier allowance from <code>credit.credits</code>.</li>
+      <li><b>Token consumption chart</b> plots 30-day usage with a 4-level y-axis and slim rounded bars, broken down by agent using Fira Sans labels.</li>
+      <li><b>Usage activity table</b> records recent model calls with mono model IDs; sandbox limits are hard-coded in the UI today and require backend plan-based quotas.</li>
+    </ol>
+  </section>
+
+  <!-- SR-07 ─────────────────────────────────────────────────────────────── -->
+  <section class="screen" id="sr7">
+    <div class="screen-cap">
+      <span class="id">SR-07</span>
+      <h2>Trash</h2>
+      <span class="where">?route=settings&amp;tab=trash, SettingsTrashPage.jsx</span>
+    </div>
+    <div class="frame-scroll"><div class="frame">
+      <div class="s-shell" style="min-height:auto;position:relative;padding-bottom:32px">
+        <aside class="s-side" style="min-height:auto">
+          <a href="#" class="s-back"><svg class="i"><use href="#i-chev-l"/></svg>Dashboard</a>
+          <div class="s-group-label">Account</div>
+          <a href="#sr1" class="s-nav-item"><svg class="i"><use href="#i-user"/></svg>Profile</a>
+          <a href="#sr2" class="s-nav-item"><svg class="i"><use href="#i-shield"/></svg>Sign-in &amp; alerts</a>
+          <div class="s-group-label">Workspace</div>
+          <a href="#sr3" class="s-nav-item"><svg class="i"><use href="#i-sun"/></svg>Appearance</a>
+          <a href="#sr4" class="s-nav-item"><svg class="i"><use href="#i-code"/></svg>Editor</a>
+          <a href="#sr5" class="s-nav-item"><svg class="i"><use href="#i-sparkles"/></svg>Orion &amp; Clio</a>
+          <div class="s-group-label">Plan &amp; billing</div>
+          <a href="#sr6" class="s-nav-item"><svg class="i"><use href="#i-card"/></svg>Plan &amp; usage</a>
+          <div class="s-group-label">Data</div>
+          <a href="#sr7" class="s-nav-item active"><svg class="i"><use href="#i-trash"/></svg>Trash<span class="s-badge">7</span></a>
+          <a href="#sr8" class="s-nav-item"><svg class="i"><use href="#i-key"/></svg>API keys<span class="s-badge soon">Soon</span></a>
+          <div class="s-user-foot">
+            <div class="s-user-avatar">AM</div>
+            <div style="flex:1;min-width:0">
+              <div style="font-size:12.5px;font-weight:600;color:var(--text-primary)">Aarav Mehta</div>
+              <span class="pill brand" style="margin-top:2px">Free plan</span>
+            </div>
+          </div>
+        </aside>
+
+        <div class="s-content" style="padding-bottom:24px">
+          <div class="s-container">
+            <div class="s-header">
+              <div>
+                <h2>Trash</h2>
+                <p class="lead">Restore soft-deleted projects and AI chat sessions, or remove them forever.</p>
+              </div>
+            </div>
+
+            <!-- Filter tabs (matching 7 items: 3 projects, 4 chats) -->
+            <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--border);padding-bottom:12px">
+              <div class="seg">
+                <button type="button" class="on">All (7)</button>
+                <button type="button">Projects (3)</button>
+                <button type="button">Chats (4)</button>
+              </div>
+              <span class="pin" style="position:static">1</span>
+            </div>
+
+            <!-- Single bordered panel with hairline-separated rows (7 rows, newest first; portfolio removed) -->
+            <div style="border:1px solid var(--border);border-radius:12px;overflow:hidden;background:var(--bg-surface)">
+              <!-- Row 1: Project -->
+              <div style="padding:12px 18px;display:flex;justify-content:space-between;align-items:center;gap:16px">
+                <div style="display:flex;align-items:center;gap:12px;min-width:0">
+                  <span style="width:32px;height:32px;border-radius:6px;background:var(--bg-element);border:1px solid var(--border);display:grid;place-items:center;color:var(--brand-primary);flex-shrink:0"><svg class="i s"><use href="#i-folder-tree"/></svg></span>
+                  <div style="min-width:0">
+                    <div style="font-size:13px;font-weight:600;color:var(--text-primary)">quiz-arena</div>
+                    <div class="muted" style="font-size:11.5px;display:flex;gap:10px;margin-top:1px;flex-wrap:wrap">
+                      <span>Sandbox ID: <code class="mono">sbx_9f2a81b</code></span>
+                      <span>Deleted 24 Nov, 18:40</span>
+                    </div>
+                  </div>
+                </div>
+                <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
+                  <button type="button" class="btn-secondary btn-sm"><svg class="i s"><use href="#i-undo"/></svg>Restore</button>
+                  <button type="button" class="icon-btn" title="Delete forever"><svg class="i s"><use href="#i-trash"/></svg></button>
+                  <span class="pin" style="position:static">2</span>
+                </div>
+              </div>
+
+              <!-- Row 2: Chat -->
+              <div style="padding:12px 18px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;gap:16px">
+                <div style="display:flex;align-items:center;gap:12px;min-width:0">
+                  <span style="width:32px;height:32px;border-radius:6px;background:var(--bg-element);border:1px solid var(--border);display:grid;place-items:center;color:var(--accent-hover);flex-shrink:0"><svg class="i s"><use href="#i-message"/></svg></span>
+                  <div style="min-width:0">
+                    <div style="font-size:13px;font-weight:600;color:var(--text-primary)">Fix CSS grid layout in scoreboard</div>
+                    <div class="muted" style="font-size:11.5px;display:flex;gap:8px;margin-top:1px;align-items:center;flex-wrap:wrap">
+                      <span class="badge accent">Orion</span>
+                      <span>Project: quiz-arena</span>
+                      <span>Whole chat</span>
+                      <span>Deleted 24 Nov, 15:20</span>
+                    </div>
+                  </div>
+                </div>
+                <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
+                  <button type="button" class="btn-secondary btn-sm"><svg class="i s"><use href="#i-undo"/></svg>Restore</button>
+                  <button type="button" class="icon-btn" title="Delete forever"><svg class="i s"><use href="#i-trash"/></svg></button>
+                </div>
+              </div>
+
+              <!-- Row 3: Chat -->
+              <div style="padding:12px 18px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;gap:16px">
+                <div style="display:flex;align-items:center;gap:12px;min-width:0">
+                  <span style="width:32px;height:32px;border-radius:6px;background:var(--bg-element);border:1px solid var(--border);display:grid;place-items:center;color:var(--accent-hover);flex-shrink:0"><svg class="i s"><use href="#i-sparkles"/></svg></span>
+                  <div style="min-width:0">
+                    <div style="font-size:13px;font-weight:600;color:var(--text-primary)">ScoreBoard component test suite</div>
+                    <div class="muted" style="font-size:11.5px;display:gap;gap:8px;margin-top:1px;align-items:center;flex-wrap:wrap">
+                      <span class="badge accent">Clio</span>
+                      <span>Project: quiz-arena</span>
+                      <span>AI report</span>
+                      <span>Deleted 23 Nov, 11:05</span>
+                    </div>
+                  </div>
+                </div>
+                <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
+                  <button type="button" class="btn-secondary btn-sm"><svg class="i s"><use href="#i-undo"/></svg>Restore</button>
+                  <button type="button" class="icon-btn" title="Delete forever"><svg class="i s"><use href="#i-trash"/></svg></button>
+                </div>
+              </div>
+
+              <!-- Row 4: Project -->
+              <div style="padding:12px 18px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;gap:16px">
+                <div style="display:flex;align-items:center;gap:12px;min-width:0">
+                  <span style="width:32px;height:32px;border-radius:6px;background:var(--bg-element);border:1px solid var(--border);display:grid;place-items:center;color:var(--brand-primary);flex-shrink:0"><svg class="i s"><use href="#i-folder-tree"/></svg></span>
+                  <div style="min-width:0">
+                    <div style="font-size:13px;font-weight:600;color:var(--text-primary)">algo-visualizer</div>
+                    <div class="muted" style="font-size:11.5px;display:flex;gap:10px;margin-top:1px;flex-wrap:wrap">
+                      <span>Sandbox ID: <code class="mono">sbx_4c1e79a</code></span>
+                      <span>Deleted 22 Nov, 16:15</span>
+                    </div>
+                  </div>
+                </div>
+                <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
+                  <button type="button" class="btn-secondary btn-sm"><svg class="i s"><use href="#i-undo"/></svg>Restore</button>
+                  <button type="button" class="icon-btn" title="Delete forever"><svg class="i s"><use href="#i-trash"/></svg></button>
+                </div>
+              </div>
+
+              <!-- Row 5: Chat -->
+              <div style="padding:12px 18px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;gap:16px">
+                <div style="display:flex;align-items:center;gap:12px;min-width:0">
+                  <span style="width:32px;height:32px;border-radius:6px;background:var(--bg-element);border:1px solid var(--border);display:grid;place-items:center;color:var(--accent-hover);flex-shrink:0"><svg class="i s"><use href="#i-message"/></svg></span>
+                  <div style="min-width:0">
+                    <div style="font-size:13px;font-weight:600;color:var(--text-primary)">Optimize binary search tree rebalance</div>
+                    <div class="muted" style="font-size:11.5px;display:flex;gap:8px;margin-top:1px;align-items:center;flex-wrap:wrap">
+                      <span class="badge accent">Orion</span>
+                      <span>Project: algo-visualizer</span>
+                      <span>Whole chat</span>
+                      <span>Deleted 22 Nov, 14:30</span>
+                    </div>
+                  </div>
+                </div>
+                <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
+                  <button type="button" class="btn-secondary btn-sm"><svg class="i s"><use href="#i-undo"/></svg>Restore</button>
+                  <button type="button" class="icon-btn" title="Delete forever"><svg class="i s"><use href="#i-trash"/></svg></button>
+                </div>
+              </div>
+
+              <!-- Row 6: Chat -->
+              <div style="padding:12px 18px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;gap:16px">
+                <div style="display:flex;align-items:center;gap:12px;min-width:0">
+                  <span style="width:32px;height:32px;border-radius:6px;background:var(--bg-element);border:1px solid var(--border);display:grid;place-items:center;color:var(--accent-hover);flex-shrink:0"><svg class="i s"><use href="#i-message"/></svg></span>
+                  <div style="min-width:0">
+                    <div style="font-size:13px;font-weight:600;color:var(--text-primary)">Refactor auth hook session caching</div>
+                    <div class="muted" style="font-size:11.5px;display:flex;gap:8px;margin-top:1px;align-items:center;flex-wrap:wrap">
+                      <span class="badge accent">Clio</span>
+                      <span>Project: quiz-arena</span>
+                      <span>Whole chat</span>
+                      <span>Deleted 21 Nov, 19:00</span>
+                    </div>
+                  </div>
+                </div>
+                <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
+                  <button type="button" class="btn-secondary btn-sm"><svg class="i s"><use href="#i-undo"/></svg>Restore</button>
+                  <button type="button" class="icon-btn" title="Delete forever"><svg class="i s"><use href="#i-trash"/></svg></button>
+                </div>
+              </div>
+
+              <!-- Row 7: Project -->
+              <div style="padding:12px 18px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;gap:16px">
+                <div style="display:flex;align-items:center;gap:12px;min-width:0">
+                  <span style="width:32px;height:32px;border-radius:6px;background:var(--bg-element);border:1px solid var(--border);display:grid;place-items:center;color:var(--brand-primary);flex-shrink:0"><svg class="i s"><use href="#i-folder-tree"/></svg></span>
+                  <div style="min-width:0">
+                    <div style="font-size:13px;font-weight:600;color:var(--text-primary)">metrics-collector</div>
+                    <div class="muted" style="font-size:11.5px;display:flex;gap:10px;margin-top:1px;flex-wrap:wrap">
+                      <span>Sandbox ID: <code class="mono">sbx_8b3d22e</code></span>
+                      <span>Deleted 20 Nov, 10:45</span>
+                    </div>
+                  </div>
+                </div>
+                <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
+                  <button type="button" class="btn-secondary btn-sm"><svg class="i s"><use href="#i-undo"/></svg>Restore</button>
+                  <button type="button" class="icon-btn" title="Delete forever"><svg class="i s"><use href="#i-trash"/></svg></button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Restore toast sits over lower edge of frame (portfolio item is no longer in list) -->
+            <div style="display:flex;justify-content:center;margin-top:14px">
+              <div class="toast">
+                <span class="t-ok" style="display:flex;align-items:center"><svg class="i s"><use href="#i-check"/></svg></span>
+                <span>Restored portfolio</span>
+                <button type="button" class="btn-ghost btn-sm" style="padding:2px 8px;font-size:11.5px;margin-left:6px">Open</button>
+                <span class="pin" style="position:static">3</span>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </div></div>
+    <ol class="notes">
+      <li><b>Segmented filter</b> filters <code>Promise.allSettled</code> results from sandbox and chat trash endpoints, matching current category counts.</li>
+      <li><b>Single panel trash list</b> shows 7 newest items with type icons, project context, and deletion timestamps, separated by hairlines.</li>
+      <li><b>Restore toast notification</b> appears at the lower edge of the frame when an item (portfolio) is restored, removing it from the list.</li>
+    </ol>
+  </section>
+
+  <!-- SR-08 ─────────────────────────────────────────────────────────────── -->
+  <section class="screen" id="sr8">
+    <div class="screen-cap">
+      <span class="id">SR-08</span>
+      <h2>API keys</h2>
+      <span class="where">?route=settings&amp;tab=keys, SettingsSecurityPage.jsx</span>
+    </div>
+    <div class="frame-scroll"><div class="frame">
+      <div class="s-shell" style="min-height:auto">
+        <aside class="s-side" style="min-height:auto">
+          <a href="#" class="s-back"><svg class="i"><use href="#i-chev-l"/></svg>Dashboard</a>
+          <div class="s-group-label">Account</div>
+          <a href="#sr1" class="s-nav-item"><svg class="i"><use href="#i-user"/></svg>Profile</a>
+          <a href="#sr2" class="s-nav-item"><svg class="i"><use href="#i-shield"/></svg>Sign-in &amp; alerts</a>
+          <div class="s-group-label">Workspace</div>
+          <a href="#sr3" class="s-nav-item"><svg class="i"><use href="#i-sun"/></svg>Appearance</a>
+          <a href="#sr4" class="s-nav-item"><svg class="i"><use href="#i-code"/></svg>Editor</a>
+          <a href="#sr5" class="s-nav-item"><svg class="i"><use href="#i-sparkles"/></svg>Orion &amp; Clio</a>
+          <div class="s-group-label">Plan &amp; billing</div>
+          <a href="#sr6" class="s-nav-item"><svg class="i"><use href="#i-card"/></svg>Plan &amp; usage</a>
+          <div class="s-group-label">Data</div>
+          <a href="#sr7" class="s-nav-item"><svg class="i"><use href="#i-trash"/></svg>Trash<span class="s-badge">7</span></a>
+          <a href="#sr8" class="s-nav-item active"><svg class="i"><use href="#i-key"/></svg>API keys<span class="s-badge soon">Soon</span></a>
+          <div class="s-user-foot">
+            <div class="s-user-avatar">AM</div>
+            <div style="flex:1;min-width:0">
+              <div style="font-size:12.5px;font-weight:600;color:var(--text-primary)">Aarav Mehta</div>
+              <span class="pill brand" style="margin-top:2px">Free plan</span>
+            </div>
+          </div>
+        </aside>
+
+        <!-- Compact content cropped to content -->
+        <div class="s-content" style="padding:32px 56px">
+          <div class="s-container">
+            <div class="s-header">
+              <div>
+                <h2>API keys</h2>
+                <p class="lead">Manage API access tokens for the Taksha command-line tool and CI workflows.</p>
+              </div>
+            </div>
+
+            <!-- Honest Empty State cropped to content -->
+            <div class="empty" style="padding:36px 24px;border:1px dashed var(--border);border-radius:12px;background:var(--bg-surface);position:relative">
+              <div class="em-ic"><svg class="i"><use href="#i-key"/></svg></div>
+              <h4>API keys are coming soon</h4>
+              <p>Use a key to call Taksha from a script or CI job.</p>
+              <div style="display:flex;align-items:center;gap:8px;margin-top:4px">
+                <button type="button" class="btn-primary" disabled><svg class="i s"><use href="#i-plus"/></svg>Create key</button>
+                <span class="pin" style="position:static">1</span>
+              </div>
+              <div class="notice info" style="margin-top:16px;max-width:54ch;text-align:left">
+                <svg class="i s"><use href="#i-info"/></svg>
+                <span>API key generation requires the upcoming CLI service. The old prototype faked temporary keys in the browser that did not authenticate against backend endpoints.</span>
+              </div>
+              <span class="pin" style="position:absolute;right:14px;top:14px">2</span>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </div></div>
+    <ol class="notes">
+      <li><b>Coming soon placeholder</b> replaces browser-stored mock keys with an honest preview until backend key services are ready.</li>
+      <li><b>Informational banner</b> notes that key generation requires the upcoming CLI service; previous prototypes did not validate against real endpoints.</li>
+    </ol>
+  </section>
+
+  <!-- SR-09 ─────────────────────────────────────────────────────────────── -->
+  <section class="screen" id="sr9">
+    <div class="screen-cap">
+      <span class="id">SR-09</span>
+      <h2>Phone (390 px)</h2>
+      <span class="where">Viewport width 390 px, Mobile responsive layout</span>
+    </div>
+    <div class="frame-scroll"><div class="frame" style="padding:28px 0;background:var(--bg-surface);display:grid;place-items:center">
+      <div class="phone">
+        <div class="ph-bar"><span>9:41</span><span style="display:flex;gap:6px"><svg class="i s"><use href="#i-activity"/></svg><svg class="i s"><use href="#i-lock"/></svg></span></div>
+        
+        <!-- Mobile Header -->
+        <div style="padding:16px 16px 10px;border-bottom:1px solid var(--border);background:var(--bg-canvas)">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <h1 style="font-size:18px;font-weight:700;color:var(--text-primary)">Settings</h1>
+            <span class="pill brand">Free</span>
+          </div>
+        </div>
+
+        <!-- Horizontal Tabs -->
+        <div class="s-phone-tabs" style="position:relative">
+          <button type="button">Profile</button>
+          <button type="button">Sign-in</button>
+          <button type="button">Appearance</button>
+          <button type="button" class="active">Editor</button>
+          <button type="button">Orion &amp; Clio</button>
+          <button type="button">Plan &amp; usage</button>
+          <button type="button">Trash (7)</button>
+          <button type="button">API keys</button>
+          <span class="pin" style="position:absolute;right:8px;top:10px">1</span>
+        </div>
+
+        <!-- Stacked Editor Content -->
+        <div class="s-phone-content">
+          <!-- Stacked Preview -->
+          <div class="editor-preview-pnl">
+            <div class="editor-preview-bar">
+              <span style="font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">quiz-arena/ScoreBoard.jsx</span>
+            </div>
+            <div class="editor-preview-body">
+              <div class="editor-preview-lines" style="font-size:12px;padding:8px 0">
+                <div class="ln"><i>1</i><span class="ln-code"><span class="k">import</span> React <span class="k">from</span> <span class="s">'react'</span>;</span></div>
+                <div class="ln"><i>2</i><span class="ln-code"><span class="k">export default</span> <span class="f">ScoreBoard</span>() {</span></div>
+                <div class="ln"><i>3</i><span class="ln-code"><span class="indent-unit"></span><span class="k">return</span> &lt;<span class="tg">div</span>&gt;Live&lt;/<span class="tg">div</span>&gt;;</span></div>
+              </div>
+            </div>
+            <span class="pin" style="position:static;margin:6px">2</span>
+          </div>
+
+          <!-- Stacked Rows -->
+          <div class="s-phone-row">
+            <div class="lbl">Font size</div>
+            <div class="hint">Code line height in editor.</div>
+            <div class="seg compact" style="align-self:flex-start">
+              <button type="button">12</button>
+              <button type="button" class="on">14</button>
+              <button type="button">16</button>
+              <button type="button">18</button>
+            </div>
+          </div>
+
+          <div class="s-phone-row">
+            <div class="lbl">Tab size</div>
+            <div class="hint">Indentation spacing.</div>
+            <div class="seg compact" style="align-self:flex-start">
+              <button type="button" class="on">2</button>
+              <button type="button">4</button>
+              <button type="button">8</button>
+            </div>
+          </div>
+
+          <div class="s-phone-row" style="flex-direction:row;justify-content:space-between;align-items:center">
+            <div>
+              <div class="lbl">Code minimap</div>
+              <div class="hint">Overview scroll strip.</div>
+            </div>
+            <button type="button" class="switch on" aria-label="Toggle minimap"></button>
+          </div>
+
+          <div class="s-phone-row" style="flex-direction:row;justify-content:space-between;align-items:center">
+            <div>
+              <div class="lbl">Word wrap</div>
+              <div class="hint">Wrap lines to fit screen.</div>
+            </div>
+            <button type="button" class="switch on" aria-label="Toggle word wrap"></button>
+          </div>
+
+          <div class="s-phone-row" style="flex-direction:row;justify-content:space-between;align-items:center">
+            <div>
+              <div class="lbl">Auto save</div>
+              <div class="hint">Save while typing.</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px">
+              <button type="button" class="switch on" aria-label="Toggle auto save"></button>
+              <span class="pin" style="position:static">3</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div></div>
+    <ol class="notes">
+      <li><b>Horizontal tab strip</b> collapses desktop navigation into a scrollable bar beneath the mobile title, tracking the active tab query.</li>
+      <li><b>Mobile editor preview</b> adapts Monaco line numbering and syntax tokens to 390 px widths with horizontal scrolling.</li>
+      <li><b>Stacked form rows</b> align labels and hint copy above interactive controls to support touch interaction on narrow screens.</li>
+    </ol>
+  </section>
+
+  <!-- States ────────────────────────────────────────────────────────────── -->
+  <section class="screen" id="settings-redesign-states">
+    <div class="screen-cap">
+      <span class="id">States</span>
+      <h2>System states and overlays</h2>
+      <span class="where">Component error, loading, confirmation modals, and autosave proof</span>
+    </div>
+
+    <div class="frame-scroll"><div class="frame" style="padding:24px;background:var(--bg-canvas)">
+      <div class="states" style="display:grid;grid-template-columns:repeat(auto-fit, minmax(280px, 1fr));gap:20px">
+
+        <!-- 1. Loading Skeleton -->
+        <div class="state">
+          <div class="state-label">Loading skeleton</div>
+          <div class="frame" style="padding:20px;background:var(--bg-surface);display:flex;flex-direction:column;gap:18px">
+            <div class="sk h" style="width:40%"></div>
+            <div class="sk" style="width:65%"></div>
+            <div style="border-top:1px solid var(--border);padding-top:14px;display:flex;flex-direction:column;gap:10px">
+              <div style="display:flex;justify-content:space-between"><div class="sk" style="width:30%"></div><div class="sk" style="width:20%"></div></div>
+              <div style="display:flex;justify-content:space-between"><div class="sk" style="width:45%"></div><div class="sk" style="width:15%"></div></div>
+              <div style="display:flex;justify-content:space-between"><div class="sk" style="width:35%"></div><div class="sk" style="width:25%"></div></div>
+            </div>
+            <span class="pin" style="position:static">1</span>
+          </div>
+        </div>
+
+        <!-- 2. Empty Trash -->
+        <div class="state">
+          <div class="state-label">Empty trash</div>
+          <div class="frame" style="display:grid;place-items:center;background:var(--bg-surface)">
+            <div class="empty ok" style="padding:28px 16px">
+              <div class="em-ic"><svg class="i"><use href="#i-check"/></svg></div>
+              <h4>Trash is empty</h4>
+              <p>Deleted projects and chats stay here so you can restore them.</p>
+              <span class="pin" style="position:static;margin-top:8px">2</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 3. Error Notice -->
+        <div class="state">
+          <div class="state-label">Service error</div>
+          <div class="frame" style="padding:24px;background:var(--bg-surface);display:flex;flex-direction:column;gap:14px">
+            <div class="notice err" style="align-items:center">
+              <svg class="i s"><use href="#i-alert"/></svg>
+              <span style="flex:1">Couldn't load your trash. The sandbox service didn't respond.</span>
+              <button type="button" class="btn-ghost btn-sm" style="color:var(--text-primary)">Retry</button>
+            </div>
+            <div class="dim" style="font-size:11.5px">Inline retry lets the user recover without refreshing the entire page.</div>
+            <span class="pin" style="position:static">3</span>
+          </div>
+        </div>
+
+        <!-- 4. Autosave Done State Slice (toast reads exact copy "Saved") -->
+        <div class="state">
+          <div class="state-label">Autosave confirmed</div>
+          <div class="frame" style="height:220px;background:var(--bg-canvas);display:flex;flex-direction:column;position:relative;overflow:hidden">
+            <!-- Screen slice underneath -->
+            <div style="padding:16px 20px;border-bottom:1px solid var(--border);background:var(--bg-surface);display:flex;justify-content:space-between;align-items:center">
+              <div>
+                <div style="font-size:14px;font-weight:600;color:var(--text-primary)">Editor</div>
+                <div class="muted" style="font-size:11.5px">How code looks and behaves in your sandboxes.</div>
+              </div>
+              <span class="save-status"><svg class="i s"><use href="#i-check"/></svg> Saved</span>
+            </div>
+            <div style="padding:16px 20px;display:flex;flex-direction:column;gap:8px;opacity:0.5">
+              <div class="sk" style="width:80%"></div>
+              <div class="sk" style="width:60%"></div>
+            </div>
+            <!-- Toast over lower edge reads "Saved" -->
+            <div style="position:absolute;bottom:14px;left:50%;transform:translateX(-50%)">
+              <div class="toast">
+                <span class="t-ok" style="display:flex;align-items:center"><svg class="i s"><use href="#i-check"/></svg></span>
+                <span>Saved</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Overlays row (Both dialogs fully visible with real screen behind scrim) -->
+      <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(360px, 1fr));gap:24px;margin-top:24px">
+        
+        <!-- Permanent Delete Dialog over Trash Screen (height 380px, fully visible) -->
+        <div class="state">
+          <div class="state-label">Permanent delete modal</div>
+          <div class="frame" style="height:380px;position:relative;overflow:hidden">
+            <!-- Underlying Trash Screen strip -->
+            <div style="padding:20px;background:var(--bg-surface);display:flex;flex-direction:column;gap:12px;opacity:0.35;pointer-events:none">
+              <div style="font-size:16px;font-weight:600;color:var(--text-primary)">Trash</div>
+              <div style="padding:12px;border:1px solid var(--border);border-radius:8px">
+                <div style="font-size:13px;font-weight:600">quiz-arena</div>
+                <div class="muted" style="font-size:11.5px">Deleted 24 Nov, 18:40</div>
+              </div>
+            </div>
+            <!-- Scrim and Modal -->
+            <div class="scrim">
+              <div class="modal" style="position:relative">
+                <h3 style="color:var(--error);display:flex;align-items:center;gap:6px"><svg class="i"><use href="#i-alert"/></svg>Delete quiz-arena forever?</h3>
+                <p>This removes the project and its files. You cannot undo this.</p>
+                <div class="acts" style="margin-top:6px">
+                  <button type="button" class="btn-ghost btn-sm">Cancel</button>
+                  <button type="button" class="btn-danger btn-sm">Delete forever</button>
+                  <span class="pin" style="position:static">4</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Delete Account Dialog over Sign-in Screen (height 420px, fully visible input and buttons) -->
+        <div class="state">
+          <div class="state-label">Delete account modal</div>
+          <div class="frame" style="height:420px;position:relative;overflow:hidden">
+            <!-- Underlying Sign-in Screen strip -->
+            <div style="padding:20px;background:var(--bg-surface);display:flex;flex-direction:column;gap:12px;opacity:0.35;pointer-events:none">
+              <div style="font-size:16px;font-weight:600;color:var(--text-primary)">Sign-in &amp; alerts</div>
+              <div style="padding:12px;border:1px solid var(--border);border-radius:8px">
+                <div style="font-size:13px;color:var(--text-primary)">aarav.mehta@gmail.com</div>
+              </div>
+            </div>
+            <!-- Scrim and Modal -->
+            <div class="scrim">
+              <div class="modal">
+                <h3 style="color:var(--error);display:flex;align-items:center;gap:6px"><svg class="i"><use href="#i-alert"/></svg>Delete your account?</h3>
+                <p>This removes your account, 2 projects, and all AI chat history. Type your email <code class="mono" style="color:var(--text-primary)">aarav.mehta@gmail.com</code> to confirm.</p>
+                <div class="input" style="background:var(--bg-canvas)"><input type="text" placeholder="aarav.mehta@gmail.com" style="border:none;background:transparent;width:100%;font:inherit;color:inherit;outline:none"></div>
+                <div class="acts" style="margin-top:6px">
+                  <button type="button" class="btn-ghost btn-sm">Cancel</button>
+                  <button type="button" class="btn-danger btn-sm">Delete account</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+    </div></div>
+    <ol class="notes">
+      <li><b>Loading skeleton state</b> preserves layout alignment and column widths while preferences and credit data hydrate from Redux stores.</li>
+      <li><b>Empty state</b> provides explanatory text when no soft-deleted records remain in the trash collection.</li>
+      <li><b>Service error notice</b> renders inline with a direct retry button when backend microservices time out.</li>
+      <li><b>Destructive confirmation dialogs</b> require user confirmation over a darkened scrim, requiring email input before deleting the account.</li>
+    </ol>
+  </section>
+
+</main>
+
+<script src="../_shared/kit.js"></script>
+<script>
+// Interactive prototype behavior for SR-04 Editor Preview
+(function() {
+  const root = document.querySelector('#sr4');
+  if (!root) return;
+
+  const codeBox = root.querySelector('.editor-preview-lines');
+  const minimapBox = root.querySelector('.editor-preview-minimap');
+  const codeLines = root.querySelectorAll('.ln-code');
+
+  // Font size buttons
+  root.querySelectorAll('[data-font-size]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const sz = btn.getAttribute('data-font-size');
+      if (codeBox) codeBox.style.fontSize = sz;
+    });
+  });
+
+  // Tab size buttons
+  root.querySelectorAll('[data-tab-size]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const ts = btn.getAttribute('data-tab-size');
+      root.querySelectorAll('.indent-unit').forEach(el => {
+        el.style.width = ts + 'ch';
+      });
+    });
+  });
+
+  // Minimap switch
+  const mmSwitch = root.querySelector('[data-toggle-minimap]');
+  if (mmSwitch) {
+    mmSwitch.addEventListener('click', () => {
+      const on = mmSwitch.classList.toggle('on');
+      if (minimapBox) minimapBox.style.display = on ? 'flex' : 'none';
+    });
+  }
+
+  // Word wrap switch
+  const wrapSwitch = root.querySelector('[data-toggle-wrap]');
+  if (wrapSwitch) {
+    wrapSwitch.addEventListener('click', () => {
+      const on = wrapSwitch.classList.toggle('on');
+      codeLines.forEach(el => {
+        el.style.whiteSpace = on ? 'pre-wrap' : 'pre';
+      });
+    });
+  }
+
+  // Auto save switch
+  const autoSwitch = root.querySelector('[data-toggle-autosave]');
+  if (autoSwitch) {
+    autoSwitch.addEventListener('click', () => {
+      autoSwitch.classList.toggle('on');
+    });
+  }
+})();
+</script>
+</body>
+</html>

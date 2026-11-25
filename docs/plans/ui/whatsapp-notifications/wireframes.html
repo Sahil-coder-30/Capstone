@@ -1,0 +1,391 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WhatsApp and notifications screens</title>
+<link rel="stylesheet" href="../_shared/taksha-wireframe.css">
+<style>
+  .code6 { display: flex; gap: 8px; justify-content: center; }
+  .code6 span { width: 42px; height: 52px; display: grid; place-items: center; border: 1px solid var(--border-strong); border-radius: 8px; background: var(--bg-element); font-family: var(--font-mono); font-size: 22px; font-weight: 500; color: var(--text-primary); }
+  .send-line { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 12px; border: 1px dashed var(--border-strong); border-radius: 8px; font-family: var(--font-mono); font-size: 13px; color: var(--text-primary); }
+  .phone { width: 300px; height: 560px; margin: 20px auto; border: 1px solid var(--border-strong); border-radius: 28px; background: var(--bg-surface); padding: 12px; display: flex; flex-direction: column; }
+  .phone-h { display: flex; align-items: center; gap: 10px; padding: 6px 6px 10px; border-bottom: 1px solid var(--border); }
+  .phone-b { flex: 1; overflow: hidden; display: flex; flex-direction: column; gap: 8px; padding: 10px 4px; font-size: 12px; line-height: 1.45; }
+  .bub { max-width: 82%; padding: 7px 10px; border-radius: 10px; background: var(--bg-element); color: var(--text-secondary); white-space: pre-line; }
+  .bub.me { align-self: flex-end; background: var(--brand-subtle); color: var(--text-primary); border: 1px solid rgba(234, 88, 12, 0.3); }
+  .bub .tm { display: block; text-align: right; font-size: 9.5px; color: var(--text-disabled); margin-top: 2px; }
+  .cmds { display: grid; grid-template-columns: 150px 1fr; gap: 6px 12px; font-size: 12.5px; }
+  .cmds code { color: var(--text-primary); }
+  .src-pill { align-self: flex-end; margin-bottom: -6px; }
+  .preview-mail { border: 1px solid var(--border); border-radius: 10px; background: var(--bg-canvas); padding: 14px; font-size: 12.5px; line-height: 1.55; color: var(--text-secondary); }
+</style>
+</head>
+<body>
+<main class="board">
+  <header class="board-head">
+    <div>
+      <h1>WhatsApp and notifications screens</h1>
+      <p>Screens for <a href="../../kafka-whatsapp-architecture.md">kafka-whatsapp-architecture.md</a>. K1 to K4 have no screens: they move mail and usage onto Kafka without changing what users see. K5 adds the "link phone" screen and WhatsApp control of runs. K6 adds the admin portal's notify module (announcements, delivery log, failed deliveries). Spec: <a href="screens.md">screens.md</a>.</p>
+    </div>
+    <button class="theme-toggle" data-theme-toggle><svg class="i"><use href="#i-sun"/></svg> Light theme</button>
+  </header>
+  <nav class="board-nav">
+    <a href="#wa1">WA-1 Notifications settings</a><a href="#wa2">WA-2 Link phone</a><a href="#wa3">WA-3 Linked</a><a href="#wa4">WA-4 Runs from WhatsApp</a><a href="#wa5">WA-5 Message copy</a><a href="#nt1">NT-1 Announcements</a><a href="#nt2">NT-2 Compose</a><a href="#nt3">NT-3 Deliveries</a><a href="#nt4">NT-4 Failed and replay</a>
+  <a href="#wa-states">States</a></nav>
+
+  <!-- WA-1 -->
+  <section class="screen" id="wa1">
+    <div class="screen-cap"><span class="id">WA-1</span><h2>Settings, Notifications (WhatsApp not linked)</h2><span class="where">K5 · SettingsPage, new sub tab</span></div>
+    <div class="frame-scroll"><div class="frame">
+      <div class="settings">
+        <aside class="settings-side">
+          <div class="settings-back"><svg class="i"><use href="#i-chev-l"/></svg>Back to Dashboard</div>
+          <div class="settings-group">System Settings</div>
+          <div class="settings-nav"><svg class="i l"><use href="#i-user"/></svg>Profile Account</div>
+          <div class="settings-nav"><svg class="i l"><use href="#i-sliders"/></svg>Editor &amp; Copilot</div>
+          <div class="settings-nav"><svg class="i l"><use href="#i-card"/></svg>Billing &amp; Limits</div>
+          <div class="settings-nav"><svg class="i l"><use href="#i-shield"/></svg>API &amp; Security</div>
+          <div class="settings-nav"><svg class="i l"><use href="#i-github"/></svg>GitHub</div>
+          <div class="settings-nav on" style="position:relative"><svg class="i l"><use href="#i-bell"/></svg>Notifications<span class="pin" style="right:8px;top:12px">1</span></div>
+          <div class="settings-nav"><svg class="i l"><use href="#i-trash"/></svg>Trash &amp; Recovery</div>
+        </aside>
+        <div class="settings-main">
+          <h2>Notifications</h2>
+          <p class="lead">Choose where Taksha tells you about payments, sign-ins and agent runs.</p>
+          <div class="s-card" style="position:relative">
+            <span class="pin" style="right:14px;top:14px">2</span>
+            <h3>Email</h3><p class="sub">Sent to sahil@…mail.com. Payment receipts and security alerts always go by email.</p>
+            <div class="s-row" style="margin-top:6px"><div><div class="t">Offers and product news</div><div class="d">At most a few a month. Every email has an unsubscribe link.</div></div><span class="switch"></span></div>
+          </div>
+          <div class="s-card" style="position:relative">
+            <span class="pin" style="right:14px;top:14px">3</span>
+            <div style="display:flex;gap:14px;align-items:flex-start">
+              <div class="gh-avatar" style="width:36px;height:36px;border-radius:50%;background:var(--bg-element);display:grid;place-items:center;border:1px solid var(--border);flex-shrink:0"><svg class="i l"><use href="#i-message"/></svg></div>
+              <div style="flex:1"><h3>WhatsApp</h3><p class="sub">Link your phone to hear when a plan is ready or a run finishes, and to start, approve or stop runs by message.</p></div>
+              <button class="btn-primary"><svg class="i s"><use href="#i-phone"/></svg>Link WhatsApp</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div></div>
+    <ol class="notes">
+      <li>New sub tab <b>Notifications</b>, bell icon, after GitHub (or after API &amp; Security if GitHub is not built yet).</li>
+      <li><b>Email card</b>: service mail cannot be turned off. Only the marketing opt-in (<code>marketingOptIn</code>) is a switch.</li>
+      <li><b>WhatsApp card</b>, not linked: one sentence on what it does, one primary action that opens WA-2.</li>
+    </ol>
+  </section>
+
+  <!-- WA-2 -->
+  <section class="screen" id="wa2">
+    <div class="screen-cap"><span class="id">WA-2</span><h2>Link your phone</h2><span class="where">K5 · modal over Settings</span></div>
+    <div class="row-frames">
+      <div class="frame" style="height:560px;position:relative">
+        <div class="scrim">
+          <div class="modal" style="max-width:440px">
+            <div style="display:flex;justify-content:space-between;align-items:center"><h3>Link WhatsApp</h3><span class="icon-btn"><svg class="i"><use href="#i-x"/></svg></span></div>
+            <p>Send this message from the phone you want to link. Sending it first proves the number is yours.</p>
+            <div style="position:relative"><span class="pin" style="left:-6px;top:-6px">1</span><div class="code6"><span>4</span><span>8</span><span>2</span><span>9</span><span>1</span><span>7</span></div></div>
+            <div class="send-line"><span>LINK 482917</span><span class="muted" style="font-family:var(--font-sans);font-size:12px">to +1 555 010 2030</span><span class="icon-btn" title="Copy message"><svg class="i"><use href="#i-copy"/></svg></span></div>
+            <span class="pin" style="position:static">2</span>
+            <button class="btn-primary" style="width:100%"><svg class="i s"><use href="#i-external"/></svg>Open WhatsApp with the message</button>
+            <div class="notice" style="position:relative"><span class="pin" style="right:-6px;top:-6px">3</span><svg class="i s spin t-brand"><use href="#i-refresh"/></svg><span>Waiting for your message. The code works for 9:41 more.</span></div>
+            <p class="dim" style="font-size:11.5px">During the free trial, Taksha can only message up to 5 numbers it has approved. If linking fails, ask support to add yours.</p>
+          </div>
+        </div>
+      </div>
+      <div class="frame" style="height:560px;position:relative">
+        <div class="scrim">
+          <div class="modal" style="max-width:440px;text-align:center;align-items:center">
+            <span class="pin" style="position:static">4</span>
+            <div class="passkey-ring" style="border-color:rgba(34,197,94,.5);background:var(--success-glow);color:var(--success)"><svg class="i"><use href="#i-check"/></svg></div>
+            <h3>WhatsApp linked</h3>
+            <p>+91 ••••• ••418 can now get run updates. We also sent you a short guide to the commands.</p>
+            <div class="acts" style="justify-content:center"><button class="btn-primary">Done</button></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <ol class="notes">
+      <li>The 6 digit code, big and in mono. The exact message to send, with copy.</li>
+      <li><b>Open WhatsApp</b> uses a click-to-chat link with the text prefilled, so on a phone it is one tap. On desktop it opens WhatsApp Web or the app.</li>
+      <li>Polls the link status every 3 s. Countdown from 10 minutes. Expired: "This code expired." and <code>New code</code>.</li>
+      <li>Success replaces the body. The number is masked everywhere after linking.</li>
+    </ol>
+  </section>
+
+  <!-- WA-3 -->
+  <section class="screen" id="wa3">
+    <div class="screen-cap"><span class="id">WA-3</span><h2>WhatsApp linked</h2><span class="where">K5 · Settings, Notifications</span></div>
+    <div class="frame-scroll"><div class="frame">
+      <div class="settings">
+        <aside class="settings-side">
+          <div class="settings-back"><svg class="i"><use href="#i-chev-l"/></svg>Back to Dashboard</div>
+          <div class="settings-group">System Settings</div>
+          <div class="settings-nav"><svg class="i l"><use href="#i-user"/></svg>Profile Account</div>
+          <div class="settings-nav"><svg class="i l"><use href="#i-sliders"/></svg>Editor &amp; Copilot</div>
+          <div class="settings-nav"><svg class="i l"><use href="#i-card"/></svg>Billing &amp; Limits</div>
+          <div class="settings-nav"><svg class="i l"><use href="#i-shield"/></svg>API &amp; Security</div>
+          <div class="settings-nav"><svg class="i l"><use href="#i-github"/></svg>GitHub</div>
+          <div class="settings-nav on"><svg class="i l"><use href="#i-bell"/></svg>Notifications</div>
+          <div class="settings-nav"><svg class="i l"><use href="#i-trash"/></svg>Trash &amp; Recovery</div>
+        </aside>
+        <div class="settings-main">
+          <h2>Notifications</h2>
+          <div class="s-card" style="position:relative">
+            <span class="pin" style="right:14px;top:14px">1</span>
+            <div style="display:flex;gap:14px;align-items:center"><div style="width:36px;height:36px;border-radius:50%;background:var(--bg-element);display:grid;place-items:center;border:1px solid var(--border)"><svg class="i l"><use href="#i-message"/></svg></div><div style="flex:1"><h3>WhatsApp <span class="badge ok" style="margin-left:6px">Linked</span></h3><p class="sub">+91 ••••• ••418 · linked 20 Nov</p></div><button class="btn-danger">Unlink</button></div>
+            <div class="s-row" style="margin-top:10px"><div><div class="t">Run updates on WhatsApp</div><div class="d">Plan ready, run done, run failed.</div></div><span class="switch on"></span></div>
+            <div class="s-row"><div><div class="t">Offers on WhatsApp</div><div class="d">Off unless you turn it on.</div></div><span class="switch"></span></div>
+          </div>
+          <div class="s-card" style="position:relative">
+            <span class="pin" style="right:14px;top:14px">2</span>
+            <h3>Commands you can send</h3>
+            <p class="sub" style="margin-bottom:12px">Send these to +1 555 010 2030. A run started by message still waits for your plan approval.</p>
+            <div class="cmds">
+              <code>projects</code><span class="muted">List your projects with a number each</span>
+              <code>run 2 add dark mode</code><span class="muted">Start a run in project 2</span>
+              <code>status</code><span class="muted">What your latest run is doing</span>
+              <code>approve</code><span class="muted">Approve the plan that is waiting</span>
+              <code>reject use tabs</code><span class="muted">Reject the plan, with a reason</span>
+              <code>stop</code><span class="muted">Stop the running run</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div></div>
+    <ol class="notes">
+      <li>Linked card: masked number, date, Unlink (danger, confirm). Two switches map to <code>whatsappOptIn</code> and <code>marketingOptIn</code>.</li>
+      <li>Command help, the same text the bot sends after linking. Keeps the plan's first command set.</li>
+    </ol>
+  </section>
+
+  <!-- WA-4 -->
+  <section class="screen" id="wa4">
+    <div class="screen-cap"><span class="id">WA-4</span><h2>A run started from WhatsApp, seen in the IDE</h2><span class="where">K5 · Orion panel</span></div>
+    <div class="row-frames">
+      <div class="frame">
+        <div class="panel" style="height:460px">
+          <div class="orion-header"><span class="icon-btn"><svg class="i"><use href="#i-history"/></svg></span><h1><span class="brand">Orion</span><span class="chat">Add dark mode</span></h1><span class="orion-state waiting"><span class="dot warn"></span>Waiting for you</span></div>
+          <div class="chat-scroll">
+            <span class="pill src-pill" style="position:relative"><svg class="i s"><use href="#i-message"/></svg>From WhatsApp · 18:20<span class="pin" style="left:-22px;top:-2px">1</span></span>
+            <div class="u-msg">add dark mode</div>
+            <div class="a-turn">
+              <div class="card wait" style="position:relative"><span class="pin" style="right:-6px;top:-6px">2</span>
+                <div class="card-title" style="color:var(--warning)"><svg class="i s"><use href="#i-list"/></svg>Plan ready for review<span class="r muted" style="font-size:10.5px">also sent to WhatsApp</span></div>
+                <div class="card-body" style="display:flex;flex-direction:column;gap:6px">
+                  <div class="step"><span class="pill">1</span>Add a theme slice and toggle</div>
+                  <div class="step"><span class="pill">2</span>Move colours to CSS variables</div>
+                  <div class="step"><span class="pill">3</span>Save the choice in localStorage</div>
+                  <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:4px"><button class="btn-ghost">Reject</button><button class="btn-solid">Approve plan</button></div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="composer"><div class="ph">Orion is waiting for your answer above</div><div class="bar"><span class="muted" style="font-size:11px">Answer the card here or on WhatsApp</span><button class="btn-solid btn-sm" disabled>Send</button></div></div>
+        </div>
+      </div>
+      <div class="frame" style="padding:20px;background:var(--bg-sidebar);display:flex;flex-direction:column;gap:12px">
+        <h3 style="font-size:13px;color:var(--text-primary)">Rules shown in the UI</h3>
+        <div class="notice"><svg class="i s"><use href="#i-info"/></svg><span>Approving in either place approves once. The other place updates to "Approved on WhatsApp" or "Approved in Taksha".</span></div>
+        <div class="notice"><svg class="i s"><use href="#i-info"/></svg><span>A WhatsApp run picks the project by number from <code>projects</code>. If the sandbox is asleep, it wakes it and says so.</span></div>
+        <div class="notice warn"><svg class="i s"><use href="#i-alert"/></svg><span>Out of credits: the bot replies with the same message the IDE shows, plus a link to Billing.</span></div>
+      </div>
+    </div>
+    <ol class="notes">
+      <li>Small source pill above the user message: "From WhatsApp · time". Nothing else changes in the chat.</li>
+      <li>The plan review card is today's PlanReviewCard with a right-aligned hint "also sent to WhatsApp".</li>
+    </ol>
+  </section>
+
+  <!-- WA-5 -->
+  <section class="screen" id="wa5">
+    <div class="screen-cap"><span class="id">WA-5</span><h2>Message copy</h2><span class="where">K5 · text only, WhatsApp renders it</span></div>
+    <div class="row-frames">
+      <div class="frame" style="background:var(--bg-canvas)">
+        <div class="phone">
+          <div class="phone-h"><div class="side-brand" style="padding:0"><div class="mark">T</div></div><div><div style="font-size:13px;font-weight:600;color:var(--text-primary)">Taksha</div><div class="dim" style="font-size:10.5px">Sketch of the copy, not of WhatsApp</div></div></div>
+          <div class="phone-b">
+            <div class="bub me">LINK 482917<span class="tm">18:02</span></div>
+            <div class="bub">Linked. You will get run updates here.
+Send "projects" to see your projects, or "help" for all commands.<span class="tm">18:02</span></div>
+            <div class="bub me">run 2 add dark mode<span class="tm">18:20</span></div>
+            <div class="bub">Started in quiz-arena. I will send the plan for approval.<span class="tm">18:20</span></div>
+            <div class="bub">Plan ready for "add dark mode":
+1. Add a theme slice and toggle
+2. Move colours to CSS variables
+3. Save the choice in localStorage
+Reply "approve" or "reject" with a reason.<span class="tm">18:21</span></div>
+            <div class="bub me">approve<span class="tm">18:23</span></div>
+            <div class="bub">Done in 4 min. 5 files changed. Open: taksha.app/p/quiz-arena<span class="tm">18:27</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="frame" style="padding:20px;background:var(--bg-sidebar)">
+        <h3 style="font-size:13px;color:var(--text-primary);margin-bottom:10px">Copy rules</h3>
+        <table class="tbl wrap" style="font-size:12px">
+          <tr><th>Case</th><th>Reply</th></tr>
+          <tr><td>Unknown number</td><td>This number is not linked to Taksha. Link it in Settings, Notifications.</td></tr>
+          <tr><td>Unknown command</td><td>I did not get that. Send "help" for the commands.</td></tr>
+          <tr><td>Nothing to approve</td><td>No plan is waiting for approval.</td></tr>
+          <tr><td>Rate limited</td><td>Too many messages. Try again in 1 minute.</td></tr>
+          <tr><td>Run failed</td><td>The run in quiz-arena stopped: build failed. Open: link</td></tr>
+          <tr><td>Window closed</td><td>Approved utility template with the same facts. No free text.</td></tr>
+        </table>
+        <p class="muted" style="font-size:12px;margin-top:12px;line-height:1.5">Plain text, short lines, one link at most. No emoji in system replies. The project name is always in the message, because a user can have runs in several projects.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- NT-1 -->
+  <section class="screen" id="nt1">
+    <div class="screen-cap"><span class="id">NT-1</span><h2>Admin portal: announcements list</h2><span class="where">K6 · admin portal, notify module</span></div>
+    <div class="frame-scroll"><div class="frame">
+      <div class="shell short">
+        <aside class="side">
+          <div class="side-brand"><div class="mark">T</div><div><b>Taksha Admin</b><span>Maintainer</span></div></div>
+          <div class="side-link"><svg class="i"><use href="#i-dashboard"/></svg>Overview</div>
+          <div class="side-group">People</div>
+          <div class="side-link"><svg class="i"><use href="#i-users"/></svg>Users</div>
+          <div class="side-group">Notify</div>
+          <div class="side-link on"><svg class="i"><use href="#i-megaphone"/></svg>Announcements</div>
+          <div class="side-link"><svg class="i"><use href="#i-inbox"/></svg>Deliveries</div>
+          <div class="side-link"><svg class="i"><use href="#i-alert"/></svg>Failed<span class="n">14</span></div>
+          <div class="side-foot"><div class="avatar">M</div><div style="font-size:12px"><div style="color:var(--text-primary)">Maintainer</div><div class="muted">Passkey · 3 min ago</div></div></div>
+        </aside>
+        <div class="main">
+          <div class="topbar"><div class="crumbs">Notify <svg class="i s"><use href="#i-chev-r"/></svg> <b>Announcements</b></div><div class="r"><button class="btn-primary"><svg class="i s"><use href="#i-plus"/></svg>New announcement</button></div></div>
+          <div class="content">
+            <div class="pnl">
+              <table class="tbl">
+                <tr><th>Announcement</th><th>Audience</th><th>Channels</th><th class="num">Sent</th><th class="num">Failed</th><th class="num">Skipped</th><th>Status</th><th>When</th></tr>
+                <tr><td style="color:var(--text-primary)">Pro plan: 20% off this week</td><td>Free tier, opted in</td><td>Email, WhatsApp</td><td class="num">1,284</td><td class="num t-err">6</td><td class="num">3,102</td><td><span class="badge ok">Sent</span></td><td class="muted">22 Nov, 10:00</td></tr>
+                <tr><td style="color:var(--text-primary)">Scheduled maintenance Sunday</td><td>All users</td><td>Email</td><td class="num">2,940</td><td class="num">0</td><td class="num">0</td><td><span class="badge accent"><svg class="i s spin"><use href="#i-refresh"/></svg>Sending 64%</span></td><td class="muted">Today, 18:30</td></tr>
+                <tr><td style="color:var(--text-primary)">New: Source Control panel</td><td>Pro tier</td><td>Email</td><td class="num">—</td><td class="num">—</td><td class="num">—</td><td><span class="badge">Draft</span></td><td class="muted">—</td></tr>
+              <tr><td style="color:var(--text-primary)">Billing page moved to Settings</td><td>All users</td><td>Email</td><td class="num">5,880</td><td class="num">11</td><td class="num">0</td><td><span class="badge ok">Sent</span></td><td class="muted">18 Nov, 09:00</td></tr><tr><td style="color:var(--text-primary)">Diwali credits: 500 free</td><td>Pro tier, opted in</td><td>Email, WhatsApp</td><td class="num">402</td><td class="num">2</td><td class="num">188</td><td><span class="badge ok">Sent</span></td><td class="muted">31 Oct, 18:00</td></tr><tr><td style="color:var(--text-primary)">Sandbox start is faster</td><td>All users</td><td>Email</td><td class="num">—</td><td class="num">—</td><td class="num">—</td><td><span class="badge accent">Scheduled</span></td><td class="muted">26 Nov, 10:00</td></tr></table><div class="tbl-foot"><span>6 announcements</span><span class="muted">Sorted by date</span></div>
+            </div>
+            <p class="muted" style="font-size:12px">Skipped means the user has not opted in to that channel, or already got this announcement.</p>
+          </div>
+        </div>
+      </div>
+    </div></div>
+    <ol class="notes">
+      <li>Counts come from <code>deliveries</code> grouped by announcement id. "Sending" shows progress while the throttled broadcast runs.</li>
+      <li>Notify menu items appear only with the <code>notify.*</code> grants. The Failed count is unresolved DLQ items.</li>
+    </ol>
+  </section>
+
+  <!-- NT-2 -->
+  <section class="screen" id="nt2">
+    <div class="screen-cap"><span class="id">NT-2</span><h2>Admin portal: compose an announcement</h2><span class="where">K6 · needs notify.send and a passkey step-up</span></div>
+    <div class="frame-scroll"><div class="frame">
+      <div class="shell tall">
+        <aside class="side"><div class="side-brand"><div class="mark">T</div><div><b>Taksha Admin</b><span>Maintainer</span></div></div><div class="side-group">Notify</div><div class="side-link on"><svg class="i"><use href="#i-megaphone"/></svg>Announcements</div><div class="side-link"><svg class="i"><use href="#i-inbox"/></svg>Deliveries</div><div class="side-link"><svg class="i"><use href="#i-alert"/></svg>Failed<span class="n">14</span></div></aside>
+        <div class="main" style="position:relative">
+          <div class="topbar"><div class="crumbs">Announcements <svg class="i s"><use href="#i-chev-r"/></svg> <b>New</b></div><div class="r"><button class="btn-secondary">Save draft</button><button class="btn-primary" style="position:relative"><svg class="i s"><use href="#i-send"/></svg>Send to 1,502 people<span class="pin" style="right:-8px;top:-8px">4</span></button></div></div>
+          <div class="content" style="display:grid;grid-template-columns:1fr 380px;gap:16px;align-content:start">
+            <div style="display:flex;flex-direction:column;gap:14px">
+              <div class="field"><label>Type</label><div class="seg" style="align-self:flex-start;position:relative"><button>Service notice</button><button class="on">Offer</button><span class="pin" style="right:-24px;top:4px">1</span></div><span class="hint">Offers only go to users who opted in, and carry an unsubscribe link.</span></div>
+              <div class="field"><label>Title</label><div class="input">Pro plan: 20% off this week</div></div>
+              <div class="field"><label>Message</label><div class="textarea" style="min-height:110px">Upgrade to Pro before Sunday and get 20% off your first month. Pro gives you 5x more agent runs and faster sandboxes.</div><span class="hint">Plain text. 280 characters left. WhatsApp offers use the approved "pro_offer" template instead of this text.</span></div>
+              <div class="field" style="position:relative"><span class="pin" style="right:0;top:0">2</span><label>Audience</label>
+                <div class="filters"><span class="chip">All users</span><span class="chip on">By tier</span><span class="chip">User list</span></div>
+                <div class="filters" style="margin-top:4px"><span class="chip on"><svg class="i s"><use href="#i-check"/></svg>Free</span><span class="chip">Pro</span><span class="chip">Team</span></div>
+              </div>
+              <div class="field"><label>Channels</label><div class="check"><span class="box on"><svg class="i s"><use href="#i-check"/></svg></span>Email</div><div class="check"><span class="box on"><svg class="i s"><use href="#i-check"/></svg></span>WhatsApp (marketing template, costs per message)</div></div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:12px">
+              <div class="pnl" style="position:relative"><span class="pin" style="right:10px;top:10px">3</span><div class="pnl-h"><h3>Who gets it</h3></div><div class="pnl-b" style="display:flex;flex-direction:column;gap:8px;font-size:12.5px">
+                <div style="display:flex;justify-content:space-between"><span class="muted">Free tier users</span><b style="color:var(--text-primary)">4,392</b></div>
+                <div style="display:flex;justify-content:space-between"><span class="muted">Email, opted in</span><span>1,290</span></div>
+                <div style="display:flex;justify-content:space-between"><span class="muted">WhatsApp, opted in</span><span>212</span></div>
+                <div style="display:flex;justify-content:space-between"><span class="muted">Skipped, not opted in</span><span>3,102</span></div>
+                <div class="notice warn" style="margin-top:4px"><svg class="i s"><use href="#i-coins"/></svg><span>WhatsApp marketing messages are paid per message: 212 × the rate in Notification config. Check Meta's current price before sending.</span></div>
+                <div class="muted" style="font-size:11.5px">Your daily limit: 5,000 messages. Used today: 0.</div>
+              </div></div>
+              <div class="pnl"><div class="pnl-h"><h3>Email preview</h3></div><div class="pnl-b"><div class="preview-mail"><b style="color:var(--text-primary)">Pro plan: 20% off this week</b><br><br>Upgrade to Pro before Sunday and get 20% off your first month…<br><br><span class="dim" style="font-size:11px">Unsubscribe from offers</span></div></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div></div>
+    <ol class="notes">
+      <li>Type decides the rules: <b>Offer</b> = marketing (opt-in only, unsubscribe link, WhatsApp marketing template). <b>Service notice</b> = all chosen users.</li>
+      <li>Audience: all, by tier, or a pasted user list (ids or emails), resolved by the admin backend's readers.</li>
+      <li>Live count of who gets it, split by channel and skipped, the cost estimate for WhatsApp and the admin's <code>max per day</code> limit from the grant.</li>
+      <li>The send button names the count. Sending always needs the passkey step-up (<code>auth_time</code> under 5 min, else the step-up dialog AD-05 in the admin board), then shows the list with status "Sending".</li>
+    </ol>
+  </section>
+
+  <!-- NT-3 -->
+  <section class="screen" id="nt3" data-rows-added>
+    <div class="screen-cap"><span class="id">NT-3</span><h2>Admin portal: delivery log</h2><span class="where">K6 · notify.view_deliveries, also a tab in User 360</span></div>
+    <div class="frame-scroll"><div class="frame">
+      <div class="shell short">
+        <aside class="side"><div class="side-brand"><div class="mark">T</div><div><b>Taksha Admin</b><span>Support Agent</span></div></div><div class="side-group">Notify</div><div class="side-link"><svg class="i"><use href="#i-megaphone"/></svg>Announcements</div><div class="side-link on"><svg class="i"><use href="#i-inbox"/></svg>Deliveries</div><div class="side-link"><svg class="i"><use href="#i-alert"/></svg>Failed<span class="n">14</span></div></aside>
+        <div class="main">
+          <div class="topbar"><div class="crumbs">Notify <svg class="i s"><use href="#i-chev-r"/></svg> <b>Deliveries</b></div></div>
+          <div class="content">
+            <div class="scope"><svg class="i s"><use href="#i-eye-off"/></svg><span>Your access: <b>last 30 days</b>, emails and phone numbers <b>masked</b>.</span></div>
+            <div class="filters"><div class="search" style="min-width:260px"><svg class="i s"><use href="#i-search"/></svg>User id or email</div><span class="chip">Event: all <svg class="i s"><use href="#i-chev-d"/></svg></span><span class="chip">Channel: all <svg class="i s"><use href="#i-chev-d"/></svg></span><span class="chip">Status: all <svg class="i s"><use href="#i-chev-d"/></svg></span><span class="chip">Last 7 days <svg class="i s"><use href="#i-chev-d"/></svg></span></div>
+            <div class="pnl"><table class="tbl">
+              <tr><th>When</th><th>User</th><th>Event</th><th>Channel</th><th>Status</th><th class="num">Attempts</th><th>Last error</th></tr>
+              <tr><td class="muted">18:40:12</td><td><span class="masked">s•••@g••••.com</span></td><td class="mono">payment.succeeded</td><td>Email</td><td><span class="badge ok">Sent</span></td><td class="num">1</td><td class="dim">—</td></tr>
+              <tr><td class="muted">18:31:05</td><td><span class="masked">+91 ••••• ••418</span></td><td class="mono">run.plan_ready</td><td>WhatsApp</td><td><span class="badge warn">Retrying</span></td><td class="num">2</td><td class="muted">131047 window closed, using template</td></tr>
+              <tr><td class="muted">17:58:44</td><td><span class="masked">r•••@o••••.in</span></td><td class="mono">auth.login_alert</td><td>Email</td><td><span class="badge err">Failed</span></td><td class="num">3</td><td class="muted">550 mailbox unavailable</td></tr>
+              <tr><td class="muted">17:12:09</td><td><span class="masked">a•••@g••••.com</span></td><td class="mono">announcement</td><td>Email</td><td><span class="badge">Skipped</span></td><td class="num">0</td><td class="muted">not opted in</td></tr>
+            <tr><td class="muted">16:58:40</td><td><span class="masked">d•••@g••••.com</span></td><td class="mono">payment.succeeded</td><td>Email</td><td><span class="badge ok">Sent</span></td><td class="num">1</td><td class="dim">—</td></tr><tr><td class="muted">16:44:02</td><td><span class="masked">+91 ••••• ••207</span></td><td class="mono">run.done</td><td>WhatsApp</td><td><span class="badge ok">Sent</span></td><td class="num">1</td><td class="dim">—</td></tr><tr><td class="muted">16:30:19</td><td><span class="masked">m•••@h••••.com</span></td><td class="mono">auth.password_reset</td><td>Email</td><td><span class="badge ok">Sent</span></td><td class="num">1</td><td class="dim">—</td></tr><tr><td class="muted">15:12:51</td><td><span class="masked">+91 ••••• ••933</span></td><td class="mono">run.failed</td><td>WhatsApp</td><td><span class="badge err">Failed</span></td><td class="num">3</td><td class="muted">131026 not a WhatsApp number</td></tr><tr><td class="muted">14:05:37</td><td><span class="masked">k•••@y••••.com</span></td><td class="mono">credits.low</td><td>Email</td><td><span class="badge ok">Sent</span></td><td class="num">1</td><td class="dim">—</td></tr></table><div class="tbl-foot"><span>9 of 3,412 in the last 7 days</span><div class="pg"><span>‹</span><span class="on">1</span><span>2</span><span>3</span><span>›</span></div></div></div>
+          </div>
+        </div>
+      </div>
+    </div></div>
+    <ol class="notes">
+      <li>The scope strip states the limits the backend applied (history days, masking), from the response, so an admin never mistakes a filtered view for the whole data.</li>
+      <li>Read-only for admins with <code>notify.view_deliveries</code>. Row click opens a drawer with the event id, payload summary and every attempt.</li>
+    </ol>
+  </section>
+
+  <!-- NT-4 -->
+  <section class="screen" id="nt4">
+    <div class="screen-cap"><span class="id">NT-4</span><h2>Admin portal: failed deliveries and replay</h2><span class="where">K6 · DLQ, notify.replay</span></div>
+    <div class="frame-scroll"><div class="frame">
+      <div class="shell short">
+        <aside class="side"><div class="side-brand"><div class="mark">T</div><div><b>Taksha Admin</b><span>Maintainer</span></div></div><div class="side-group">Notify</div><div class="side-link"><svg class="i"><use href="#i-megaphone"/></svg>Announcements</div><div class="side-link"><svg class="i"><use href="#i-inbox"/></svg>Deliveries</div><div class="side-link on"><svg class="i"><use href="#i-alert"/></svg>Failed<span class="n">14</span></div></aside>
+        <div class="main" style="position:relative">
+          <div class="topbar"><div class="crumbs">Notify <svg class="i s"><use href="#i-chev-r"/></svg> <b>Failed deliveries</b></div><div class="r"><span class="muted" style="font-size:12px">2 selected</span><button class="btn-secondary"><svg class="i s"><use href="#i-replay"/></svg>Replay selected</button></div></div>
+          <div class="content">
+            <div class="kpis" style="grid-template-columns:repeat(3,1fr)">
+              <div class="kpi"><div class="l">In the dead letter queue</div><div class="v">14</div><div class="d">oldest 2 days ago</div></div>
+              <div class="kpi"><div class="l">Email failure rate, 24 h</div><div class="v">0.4%</div><div class="d"><span class="up">↓ 0.2</span> vs yesterday</div></div>
+              <div class="kpi"><div class="l">WhatsApp failure rate, 24 h</div><div class="v">3.1%</div><div class="d"><span class="down">↑ 1.8</span> vs yesterday</div></div>
+            </div>
+            <div class="pnl"><table class="tbl">
+              <tr><th style="width:30px"><span class="box"></span></th><th>Failed at</th><th>Event</th><th>Channel</th><th>Error</th><th class="num">Attempts</th><th></th></tr>
+              <tr class="sel"><td><span class="box on"><svg class="i s"><use href="#i-check"/></svg></span></td><td class="muted">17:58</td><td class="mono">auth.login_alert</td><td>Email</td><td class="muted">550 mailbox unavailable</td><td class="num">3</td><td><button class="btn-ghost btn-sm">Replay</button></td></tr>
+              <tr class="sel"><td><span class="box on"><svg class="i s"><use href="#i-check"/></svg></span></td><td class="muted">16:02</td><td class="mono">payment.succeeded</td><td>Email</td><td class="muted">ETIMEDOUT smtp</td><td class="num">3</td><td><button class="btn-ghost btn-sm">Replay</button></td></tr>
+              <tr><td><span class="box"></span></td><td class="muted">Yesterday</td><td class="mono">run.done</td><td>WhatsApp</td><td class="muted">131026 not a WhatsApp number</td><td class="num">3</td><td><span class="badge">Will fail again</span></td></tr>
+            </table></div>
+          </div>
+          <div class="drawer" style="width:380px"><div class="drawer-h"><h3>Replay 2 deliveries?</h3><span class="icon-btn"><svg class="i"><use href="#i-x"/></svg></span></div>
+            <div class="drawer-b"><p class="muted" style="font-size:12.5px;line-height:1.55">Each one is sent again once. A delivery already marked sent is skipped, so nobody gets a message twice.</p><div class="kv"><dt>Emails</dt><dd>2</dd><dt>WhatsApp</dt><dd>0</dd><dt>Logged as</dt><dd>maintainer, in the audit log</dd></div></div>
+            <div class="drawer-f"><button class="btn-secondary">Cancel</button><button class="btn-primary">Replay 2</button></div></div>
+        </div>
+      </div>
+    </div></div>
+    <ol class="notes">
+      <li>KPIs per channel from <code>deliveries</code> (Prometheus channel health comes after K7 and adds consumer lag).</li>
+      <li>Replay calls <code>POST /internal/deliveries/:id/replay</code> per row. Errors that cannot succeed (invalid number) say "Will fail again" and have no Replay.</li>
+      <li>Confirm in a drawer, wording from the dedupe rule. Every replay is audited.</li>
+    </ol>
+  </section>
+
+  <!-- States ─────────────────────────────────────────────────────────── -->
+  <section class="screen" id="wa-states">
+    <div class="screen-cap"><span class="id">States</span><h2>Expired code, not allowed, unlink and empty logs</h2><span class="where">User settings and the admin notify module</span></div>
+    <div class="states"><div class="state"><span class="state-label">Code expired</span><div class="frame" style="position:relative;"><div style="padding:24px;display:grid;place-items:center;min-height:240px"><div class="modal" style="max-width:340px"><h3>Link WhatsApp</h3><div class="notice warn"><svg class="i s"><use href="#i-clock"/></svg><span><b>This code expired.</b> Codes work for 10 minutes. Get a new one and send it again.</span></div><div class="acts"><button class="btn-secondary">Cancel</button><button class="btn-primary">New code</button></div></div></div></div></div><div class="state"><span class="state-label">Not allowed</span><div class="frame" style="position:relative;"><div style="padding:24px;display:grid;place-items:center;min-height:240px"><div class="modal" style="max-width:340px"><h3>Link WhatsApp</h3><div class="notice err"><svg class="i s"><use href="#i-x-circle"/></svg><span><b>This number cannot get messages yet.</b> During the free trial only approved numbers work. Ask support to add yours.</span></div><div class="acts"><button class="btn-secondary">Close</button><button class="btn-primary">Contact support</button></div></div></div></div></div><div class="state"><span class="state-label">Confirm</span><div class="frame" style="position:relative;"><div style="padding:24px;display:grid;place-items:center;min-height:240px"><div class="modal" style="max-width:340px"><h3>Unlink WhatsApp?</h3><p>You stop getting run updates on +91 ••••• ••418, and messages from it no longer start runs.</p><div class="acts"><button class="btn-secondary">Cancel</button><button class="btn-danger">Unlink</button></div></div></div></div></div><div class="state"><span class="state-label">Empty</span><div class="frame" style="position:relative;"><div class="pnl" style="border:none;border-radius:0;height:100%"><div class="pnl-h"><h3>Failed deliveries</h3></div><div class="empty ok"><div class="em-ic"><svg class="i"><use href="#i-check"/></svg></div><h4>No failed deliveries</h4><p>Messages that fail 3 times land here with their error, ready to replay.</p></div></div></div></div><div class="state"><span class="state-label">Error</span><div class="frame" style="position:relative;"><div class="pnl" style="border:none;border-radius:0;height:100%"><div class="pnl-h"><h3>Deliveries</h3></div><div style="padding:16px"><div class="notice err"><svg class="i s"><use href="#i-database"/></svg><span><b>Could not read Mongo notification</b> (timed out after 3 s). Other panels still work. <a href="#">Retry</a></span></div></div><div style="display:flex;gap:16px;align-items:center;padding:12px 16px;border-bottom:1px solid var(--border)"><span class="sk" style="width:30%"></span><span class="sk" style="width:27%"></span><span class="sk" style="width:19%"></span><span class="sk" style="width:18%"></span></div><div style="display:flex;gap:16px;align-items:center;padding:12px 16px;border-bottom:1px solid var(--border)"><span class="sk" style="width:37%"></span><span class="sk" style="width:25%"></span><span class="sk" style="width:26%"></span><span class="sk" style="width:16%"></span></div><div style="display:flex;gap:16px;align-items:center;padding:12px 16px;border-bottom:1px solid var(--border)"><span class="sk" style="width:35%"></span><span class="sk" style="width:23%"></span><span class="sk" style="width:24%"></span><span class="sk" style="width:14%"></span></div></div></div></div></div>
+    <ol class="notes"><li>Each failure says what happened and the next step. No apologies.</li><li>Unlink uses the danger button and says what changes for the user, in one sentence.</li><li>Admin lists use the portal's states: an empty list says what would appear there, and a reader error names the service.</li></ol>
+  </section>
+</main>
+<script src="../_shared/kit.js"></script>
+</body>
+</html>

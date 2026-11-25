@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Taksha UI plans</title>
+<link rel="stylesheet" href="_shared/taksha-wireframe.css">
+<style>
+  .plans { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px; }
+  .plan { display: flex; flex-direction: column; gap: 10px; padding: 18px; border: 1px solid var(--border); border-radius: 12px; background: var(--bg-surface); text-decoration: none; color: inherit; }
+  .plan:hover { border-color: var(--border-strong); background: var(--bg-overlay); }
+  .plan h2 { font-size: 15px; color: var(--text-primary); }
+  .plan p { font-size: 12.5px; line-height: 1.55; color: var(--text-muted); }
+  .plan .links { display: flex; flex-wrap: wrap; gap: 6px; margin-top: auto; }
+  .plan .links a { font-size: 12px; color: var(--accent-hover); text-decoration: none; padding: 3px 9px; border: 1px solid rgba(99,102,241,.35); border-radius: 999px; }
+  :root.light-theme .plan .links a { color: var(--accent-primary); }
+  .plan .shot { margin: -18px -18px 4px; aspect-ratio: 5 / 3; border-bottom: 1px solid var(--border); border-radius: 12px 12px 0 0; overflow: hidden; background: var(--bg-canvas); }
+  .plan .shot img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: top left; }
+  .plan .shot img.l { display: none; }
+  :root.light-theme .plan .shot img.d { display: none; }
+  :root.light-theme .plan .shot img.l { display: block; }
+  .plan { overflow: hidden; transition: border-color 120ms, transform 160ms cubic-bezier(.2,.7,.2,1); }
+  .plan:hover { transform: translateY(-2px); }
+  @media (prefers-reduced-motion: reduce) { .plan, .plan:hover { transition: none; transform: none; } }
+  .swatches { display: flex; flex-wrap: wrap; gap: 8px; margin: 6px 0 32px; }
+  .sw { display: flex; align-items: center; gap: 8px; padding: 6px 10px 6px 6px; border: 1px solid var(--border); border-radius: 8px; font-size: 11.5px; color: var(--text-muted); background: var(--bg-surface); }
+  .sw i { width: 22px; height: 22px; border-radius: 5px; border: 1px solid var(--border); }
+  h3.sec { font-size: 13px; color: var(--text-primary); margin: 0 0 8px; font-weight: 600; }
+  .none { margin-top: 28px; font-size: 12.5px; color: var(--text-muted); line-height: 1.6; max-width: 80ch; }
+</style>
+</head>
+<body>
+<main class="board">
+  <header class="board-head">
+    <div>
+      <h1>Taksha UI plans</h1>
+      <p>Every screen the plans in <code>docs/plans/</code> need, drawn with the app's own tokens and components, so building a phase starts from a ready screen. Each card opens the screens; each folder also has a <code>screens.md</code> with data, states and copy. Every board ends with a States section (loading, empty, error, no access, done), and <b>Hide notes</b> at the top right shows the screens without annotations. Read <a href="README.md">README.md</a> for the design rules.</p>
+    </div>
+    <button class="theme-toggle" data-theme-toggle><svg class="i"><use href="#i-sun"/></svg> Light theme</button>
+  </header>
+
+  <h3 class="sec">Palette in use</h3>
+  <div class="swatches">
+    <span class="sw"><i style="background:var(--bg-canvas)"></i>canvas</span>
+    <span class="sw"><i style="background:var(--bg-surface)"></i>surface</span>
+    <span class="sw"><i style="background:var(--bg-overlay)"></i>overlay</span>
+    <span class="sw"><i style="background:var(--bg-element)"></i>element</span>
+    <span class="sw"><i style="background:var(--brand-primary)"></i>ember, you and primary actions</span>
+    <span class="sw"><i style="background:var(--accent-primary)"></i>indigo, the agent and the system</span>
+    <span class="sw"><i style="background:var(--warning)"></i>amber, waiting for a human</span>
+    <span class="sw"><i style="background:var(--success)"></i>success</span>
+    <span class="sw"><i style="background:var(--error)"></i>error</span>
+  </div>
+
+  <div class="plans">
+    <div class="plan"><div class="shot"><img class="d" src="_shared/thumbs/agent-tools-dark.jpg" alt="Agent tools, first screen" loading="lazy"><img class="l" src="_shared/thumbs/agent-tools-light.jpg" alt="" loading="lazy"></div><h2>Agent tools</h2><p>Inside the IDE: Problems and Output tabs, new tool steps and result cards, ask-first approvals, checkpoints, the live editor with Orion's cursor, and the diff review. 7 screens and their states.</p><div class="links"><a href="agent-tools/wireframes.html">Wireframes</a><a href="agent-tools/screens.md">screens.md</a></div></div>
+    <div class="plan"><div class="shot"><img class="d" src="_shared/thumbs/source-control-dark.jpg" alt="Source Control and GitHub, first screen" loading="lazy"><img class="l" src="_shared/thumbs/source-control-light.jpg" alt="" loading="lazy"></div><h2>Source Control and GitHub</h2><p>Settings GitHub, new project with a repository, the Source Control panel with Monaco diffs, branches, sync, conflicts and history. 8 screens and their states. The plan is a draft.</p><div class="links"><a href="source-control/wireframes.html">Wireframes</a><a href="source-control/screens.md">screens.md</a></div></div>
+    <div class="plan"><div class="shot"><img class="d" src="_shared/thumbs/whatsapp-notifications-dark.jpg" alt="WhatsApp and notifications, first screen" loading="lazy"><img class="l" src="_shared/thumbs/whatsapp-notifications-light.jpg" alt="" loading="lazy"></div><h2>WhatsApp and notifications</h2><p>Notifications settings, linking a phone, runs started from WhatsApp, message copy, and the admin notify module: announcements, delivery log, failed deliveries. 9 screens and their states.</p><div class="links"><a href="whatsapp-notifications/wireframes.html">Wireframes</a><a href="whatsapp-notifications/screens.md">screens.md</a></div></div>
+    <div class="plan"><div class="shot"><img class="d" src="_shared/thumbs/admin-platform-dark.jpg" alt="Admin portal, first screen" loading="lazy"><img class="l" src="_shared/thumbs/admin-platform-light.jpg" alt="" loading="lazy"></div><h2>Admin portal</h2><p>A new app on the main app's tokens and the payments dashboard shell. Sign in with passkeys, approvals and grants, users 360, chats with reasons, cluster, logs, data explorer, tickets, payments. 31 screens and the page states every list uses.</p><div class="links"><a href="admin-platform/wireframes-1-access.html">1 Access</a><a href="admin-platform/wireframes-2-organization.html">2 Organization</a><a href="admin-platform/wireframes-3-data.html">3 Data</a><a href="admin-platform/wireframes-4-ops.html">4 Operations</a><a href="admin-platform/screens.md">screens.md</a></div></div>
+    <div class="plan"><div class="shot"><img class="d" src="_shared/thumbs/tool-call-analytics-dark.jpg" alt="Tool call analytics, first screen" loading="lazy"><img class="l" src="_shared/thumbs/tool-call-analytics-light.jpg" alt="" loading="lazy"></div><h2>Tool call analytics</h2><p>The Agent tools tab in the admin portal: warnings, per-tool error rates and latency, error codes, release comparison, stuck runs. 3 screens and their states.</p><div class="links"><a href="tool-call-analytics/wireframes.html">Wireframes</a><a href="tool-call-analytics/screens.md">screens.md</a></div></div>
+    <div class="plan"><div class="shot"><img class="d" src="_shared/thumbs/llmops-dark.jpg" alt="LLMOps (proposal), first screen" loading="lazy"><img class="l" src="_shared/thumbs/llmops-light.jpg" alt="" loading="lazy"></div><h2>LLMOps (proposal)</h2><p>No user UI. An optional Quality and cost tab that sums up evals, cost per request, token breakdown and routing next to the rest of the AI data. 2 screens and their states.</p><div class="links"><a href="llmops/wireframes.html">Wireframes</a><a href="llmops/screens.md">screens.md</a></div></div>
+    <div class="plan"><div class="shot"><img class="d" src="_shared/thumbs/preview-sharing-dark.jpg" alt="Preview access and share links, first screen" loading="lazy"><img class="l" src="_shared/thumbs/preview-sharing-light.jpg" alt="" loading="lazy"></div><h2>Preview access and share links</h2><p>The owner-only preview, opening it in a new tab, and 1 hour view-only share links from the editor and from WhatsApp, plus the pages a viewer sees when a link has expired, was turned off or the sandbox is asleep. 6 screens and their states.</p><div class="links"><a href="preview-sharing/wireframes.html">Wireframes</a><a href="preview-sharing/screens.md">screens.md</a></div></div>
+  </div>
+
+  <p class="none">No screens: the sandbox MCP server plan is already built (its "Connect your own agent" modal exists, see <a href="current/ide/wireframes.html#ci10">CI-10</a>), and Kafka stages K1 to K4 change delivery, not what users see.</p>
+
+  <h3 class="sec" style="margin-top:36px">Built today</h3>
+  <p class="none" style="margin:0 0 14px">Every screen that already exists in the code, drawn the same way, so the whole app, built and planned, sits in one place. <a href="current/INVENTORY.md">INVENTORY.md</a> lists each screen with its component file and states.</p>
+  <div class="plans">
+    <div class="plan"><h2>Public and sign in</h2><p>The landing page from hero to footer, sign in with Google, and the session check. 7 screens and their states.</p><div class="links"><a href="current/public-auth/wireframes.html">Wireframes</a><a href="current/public-auth/screens.md">screens.md</a></div></div>
+    <div class="plan"><h2>Dashboard</h2><p>Playground prompt, sandbox provisioning, Recents, My Apps, create and delete a project, and the account menu. 7 screens and their states.</p><div class="links"><a href="current/dashboard/wireframes.html">Wireframes</a><a href="current/dashboard/screens.md">screens.md</a></div></div>
+    <div class="plan"><h2>IDE</h2><p>The workspace with preview, editor and bottom panel, Orion runs and plan review, chat history, the Clio copilot, connecting your own agent, and request errors. 11 screens and their states.</p><div class="links"><a href="current/ide/wireframes.html">Wireframes</a><a href="current/ide/screens.md">screens.md</a></div></div>
+    <div class="plan"><h2>Settings</h2><p>Profile Account, Editor &amp; Copilot, Billing &amp; Limits, API &amp; Security, and Trash &amp; Recovery. 5 screens and their states.</p><div class="links"><a href="current/settings/wireframes.html">Wireframes</a><a href="current/settings/screens.md">screens.md</a></div></div>
+    <div class="plan"><h2>Settings redesign</h2><p>Proposed redesign of Settings: grouped sidebar, two-column rows, autosave status, live editor preview, plan and usage with real analytics. 9 screens plus states.</p><div class="links"><a href="settings-redesign/wireframes.html">Wireframes</a><a href="settings-redesign/screens.md">screens.md</a></div></div>
+    <div class="plan"><h2>Payments in the main app</h2><p>Plans, feature comparison, plan detail, checkout and invoices inside the main app. Today its route redirects to the billing app. 5 screens and their states.</p><div class="links"><a href="current/payments/wireframes.html">Wireframes</a><a href="current/payments/screens.md">screens.md</a></div></div>
+    <div class="plan"><h2>Billing app</h2><p>The separate payments app: dashboard, usage analytics, AI requests, plans, checkout, invoices and their drawers. 11 screens and their states.</p><div class="links"><a href="current/payments-frontend/wireframes.html">Wireframes</a><a href="current/payments-frontend/screens.md">screens.md</a></div></div>
+  </div>
+</main>
+<script src="_shared/kit.js"></script>
+</body>
+</html>

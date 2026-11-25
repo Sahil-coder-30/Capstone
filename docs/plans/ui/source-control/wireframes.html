@@ -1,0 +1,394 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Source Control screens</title>
+<link rel="stylesheet" href="../_shared/taksha-wireframe.css">
+<style>
+  .scm { width: 290px; flex-shrink: 0; border-right: 1px solid var(--border); background: var(--bg-sidebar); display: flex; flex-direction: column; position: relative; }
+  .scm-body { flex: 1; overflow: hidden; padding: 8px; display: flex; flex-direction: column; gap: 8px; }
+  .msg-box { position: relative; min-height: 58px; padding: 8px 32px 8px 10px; border: 1px solid var(--border); border-radius: 7px; background: var(--bg-element); font-size: 12.5px; line-height: 1.45; color: var(--text-primary); }
+  .msg-box.ph { color: var(--text-disabled); }
+  .msg-box .ai { position: absolute; right: 6px; top: 6px; }
+  .split { display: flex; }
+  .split .btn-solid { flex: 1; border-radius: 6px 0 0 6px; justify-content: center; }
+  .split .caret { padding: 6px 8px; border-radius: 0 6px 6px 0; background: var(--brand-primary); color: #fff; border-left: 1px solid rgba(255,255,255,.25); display: grid; place-items: center; }
+  .grp { display: flex; align-items: center; gap: 6px; height: 24px; padding: 0 4px; font-size: 11px; font-weight: 600; color: var(--text-muted); }
+  .grp .acts { margin-left: auto; display: none; gap: 2px; }
+  .grp.hov .acts, .chg.hov .acts { display: flex; }
+  .grp .pill { margin-left: 2px; }
+  .chg { display: flex; align-items: center; gap: 6px; height: 24px; padding: 0 6px 0 20px; border-radius: 6px; font-size: 12.5px; color: var(--text-secondary); }
+  .chg.sel { background: var(--bg-active); color: var(--text-primary); }
+  .chg.hov { background: var(--card-hover); }
+  .chg .nm { white-space: nowrap; }
+  .chg .dir { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; color: var(--text-disabled); }
+  .chg .acts { display: none; gap: 1px; }
+  .chg .acts .icon-btn, .grp .acts .icon-btn { width: 20px; height: 20px; }
+  .L { font-family: var(--font-mono); font-size: 11px; font-weight: 500; width: 12px; text-align: center; flex-shrink: 0; }
+  .L.M { color: var(--git-modified); } .L.A { color: var(--git-added); } .L.D { color: var(--git-deleted); } .L.U { color: var(--git-untracked); } .L.C { color: var(--git-conflict); } .L.R { color: var(--accent-hover); }
+  .chg.del .nm { text-decoration: line-through; color: var(--text-muted); }
+  .empty-scm { padding: 20px 14px; display: flex; flex-direction: column; gap: 12px; font-size: 12.5px; color: var(--text-muted); line-height: 1.55; }
+  .empty-scm .btn-solid, .empty-scm .btn-ghost { justify-content: center; width: 100%; }
+  .conflict { margin: 2px 0; }
+  .cf-actions { display: flex; gap: 10px; padding: 0 0 0 64px; font-family: var(--font-sans); font-size: 11px; color: var(--text-muted); }
+  .cf-actions a { color: var(--accent-hover); text-decoration: none; }
+  .ln.cur { background: rgba(34, 197, 94, 0.10); }
+  .ln.inc { background: rgba(99, 102, 241, 0.13); }
+  .ln.mark { color: var(--text-muted); }
+  .hist { display: flex; flex-direction: column; }
+  .commit { display: grid; grid-template-columns: 16px 1fr auto; gap: 8px; padding: 6px 8px; border-radius: 6px; font-size: 12px; }
+  .commit.sel { background: var(--bg-active); }
+  .commit .g { position: relative; }
+  .commit .g::before { content: ''; position: absolute; left: 7px; top: -8px; bottom: -8px; width: 2px; background: var(--border-strong); }
+  .commit .g::after { content: ''; position: absolute; left: 3px; top: 4px; width: 10px; height: 10px; border-radius: 50%; background: var(--bg-sidebar); border: 2px solid var(--brand-primary); }
+  .commit .m { color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .commit .a { font-size: 11px; color: var(--text-muted); margin-top: 1px; }
+  .commit .t { font-size: 11px; color: var(--text-disabled); }
+  .repo-card { display: flex; align-items: center; gap: 12px; padding: 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg-canvas); }
+  .gh-avatar { width: 36px; height: 36px; border-radius: 50%; background: var(--bg-element); display: grid; place-items: center; border: 1px solid var(--border); color: var(--text-secondary); }
+</style>
+</head>
+<body>
+<main class="board">
+  <header class="board-head">
+    <div>
+      <h1>Source Control and GitHub screens</h1>
+      <p>Screens for <a href="../../github-source-control-plan.md">github-source-control-plan.md</a>, phases G1 to G6. The plan is still a draft: if decisions D1 to D6 change, update SC-1, SC-2 and SC-4 first. The panel works like VS Code's, drawn with Taksha's own chrome and colours. Spec: <a href="screens.md">screens.md</a>.</p>
+    </div>
+    <button class="theme-toggle" data-theme-toggle><svg class="i"><use href="#i-sun"/></svg> Light theme</button>
+  </header>
+  <nav class="board-nav">
+    <a href="#sc1">SC-1 Settings GitHub</a><a href="#sc2">SC-2 New project</a><a href="#sc3">SC-3 Panel</a><a href="#sc4">SC-4 No repo</a><a href="#sc5">SC-5 Commit, branch, sync</a><a href="#sc6">SC-6 Confirm and errors</a><a href="#sc7">SC-7 Conflicts</a><a href="#sc8">SC-8 History and badges</a>
+  <a href="#sc-states">States</a></nav>
+
+  <!-- SC-1 -->
+  <section class="screen" id="sc1">
+    <div class="screen-cap"><span class="id">SC-1</span><h2>Settings, GitHub</h2><span class="where">G1 · SettingsPage, new sub tab</span></div>
+    <div class="frame-scroll"><div class="frame">
+      <div class="settings">
+        <aside class="settings-side">
+          <div class="settings-back"><svg class="i"><use href="#i-chev-l"/></svg>Back to Dashboard</div>
+          <div class="settings-group">System Settings</div>
+          <div class="settings-nav"><svg class="i l"><use href="#i-user"/></svg>Profile Account</div>
+          <div class="settings-nav"><svg class="i l"><use href="#i-sliders"/></svg>Editor &amp; Copilot</div>
+          <div class="settings-nav"><svg class="i l"><use href="#i-card"/></svg>Billing &amp; Limits</div>
+          <div class="settings-nav"><svg class="i l"><use href="#i-shield"/></svg>API &amp; Security</div>
+          <div class="settings-nav on" style="position:relative"><svg class="i l"><use href="#i-github"/></svg>GitHub<span class="pin" style="right:8px;top:12px">1</span></div>
+          <div class="settings-nav"><svg class="i l"><use href="#i-bell"/></svg>Notifications</div>
+          <div class="settings-nav"><svg class="i l"><use href="#i-trash"/></svg>Trash &amp; Recovery</div>
+        </aside>
+        <div class="settings-main">
+          <h2>GitHub</h2>
+          <p class="lead">Connect your GitHub account to save each project to a repository on your account. Taksha only sees the repositories you pick, and never deletes anything on GitHub.</p>
+          <div class="s-card" style="position:relative">
+            <span class="pin" style="right:14px;top:14px">2</span>
+            <div class="repo-card"><div class="gh-avatar"><svg class="i l"><use href="#i-github"/></svg></div><div style="flex:1"><div style="color:var(--text-primary);font-weight:600">sahil-dev</div><div class="muted" style="font-size:12px">Connected 12 Nov · Access to 4 selected repositories</div></div><span class="badge ok"><svg class="i s"><use href="#i-check"/></svg>Connected</span></div>
+            <div class="s-row" style="margin-top:8px"><div><div class="t">Create a repository for new projects</div><div class="d">On by default. You can untick it when you create a project.</div></div><span class="switch on"></span></div>
+            <div class="s-row"><div><div class="t">New repositories are private</div><div class="d">You can change this on GitHub at any time.</div></div><span class="switch on"></span></div>
+            <div class="s-row"><div><div class="t">Repository access</div><div class="d">Pick which repositories Taksha can use. Opens GitHub.</div></div><button class="btn-secondary"><svg class="i s"><use href="#i-external"/></svg>Manage on GitHub</button></div>
+            <div class="s-row"><div><div class="t">Disconnect GitHub</div><div class="d">Projects keep their files and local history. Push and pull stop until you connect again.</div></div><button class="btn-danger">Disconnect</button></div>
+          </div>
+          <div class="row-frames" style="margin-top:20px;grid-template-columns:1fr 1fr">
+            <div class="s-card" style="margin:0;position:relative"><span class="pin" style="right:14px;top:14px">3</span><h3>Not connected</h3><p class="sub">Connect GitHub to push your projects and pull changes made elsewhere.</p><div style="margin-top:14px"><button class="btn-primary"><svg class="i s"><use href="#i-github"/></svg>Connect GitHub</button></div></div>
+            <div class="s-card" style="margin:0;position:relative;border-color:rgba(245,158,11,.45)"><span class="pin" style="right:14px;top:14px">4</span><h3>Sign-in expired</h3><p class="sub">GitHub asked Taksha to sign in again. Push and pull are paused for all projects.</p><div style="margin-top:14px"><button class="btn-primary"><svg class="i s"><use href="#i-refresh"/></svg>Reconnect GitHub</button></div></div>
+          </div>
+        </div>
+      </div>
+    </div></div>
+    <ol class="notes">
+      <li>New sub tab <b>GitHub</b> in the settings sidebar, after API &amp; Security. The connect callback lands on <code>/settings?tab=github&amp;connected=1</code> and shows a toast "GitHub connected".</li>
+      <li><b>Connected</b>: login and avatar from <code>GET /user</code>, D3 defaults as switches, repository access opens the GitHub App page, Disconnect with the app's danger button.</li>
+      <li><b>Not connected</b>: one card, one primary action.</li>
+      <li><b>needs_reconnect</b>: amber border, one sentence, Reconnect. The same message appears in the Source Control panel.</li>
+    </ol>
+  </section>
+
+  <!-- SC-2 -->
+  <section class="screen" id="sc2">
+    <div class="screen-cap"><span class="id">SC-2</span><h2>New project with a GitHub repository</h2><span class="where">G4 · Dashboard create-project flow</span></div>
+    <div class="frame" style="height:640px;background:var(--bg-canvas);position:relative">
+      <div class="scrim">
+        <div class="modal" style="max-width:520px">
+          <h3>New project</h3>
+          <div class="field"><label>Project name</label><div class="input focus">Quiz Arena</div></div>
+          <div class="field"><label>Template</label><div class="input">Vite + React 19 <svg class="i s" style="margin-left:auto"><use href="#i-chev-d"/></svg></div></div>
+          <div style="border:1px solid var(--border);border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:10px;position:relative">
+            <span class="pin" style="right:10px;top:10px">1</span>
+            <div class="check"><span class="box on"><svg class="i s"><use href="#i-check"/></svg></span><div><b style="color:var(--text-primary);font-weight:600">Create a GitHub repository</b><div class="muted" style="font-size:12px">On sahil-dev, private. The first commit is pushed when the sandbox starts.</div></div></div>
+            <div class="field" style="padding-left:23px"><label>Repository name</label><div class="input"><span class="muted">sahil-dev /</span> taksha-quiz-arena</div><span class="hint t-ok"><svg class="i s" style="vertical-align:-2px"><use href="#i-check"/></svg> Name is free</span></div>
+            <div class="check" style="padding-left:23px"><span class="box on"><svg class="i s"><use href="#i-check"/></svg></span>Private</div>
+          </div>
+          <span class="pin" style="position:static">2</span>
+          <div class="notice"><svg class="i s"><use href="#i-info"/></svg>Not connected to GitHub? The project is still created. You can publish it later from Source Control.</div>
+          <div class="acts"><button class="btn-secondary">Cancel</button><button class="btn-primary">Create project</button></div>
+        </div>
+      </div>
+    </div>
+    <ol class="notes">
+      <li>Shown only when GitHub is connected (D3, opt-out). Name defaults to <code>taksha-&lt;slug&gt;</code>, checked live: "Name is free" or "You already have a repository with this name".</li>
+      <li>When GitHub is not connected, the block is replaced by this notice with a "Connect GitHub" link. Project creation never waits for GitHub.</li>
+    </ol>
+  </section>
+
+  <!-- SC-3 -->
+  <section class="screen" id="sc3">
+    <div class="screen-cap"><span class="id">SC-3</span><h2>Source Control panel with a diff open</h2><span class="where">G3 · Code tab, new activity bar and panel</span></div>
+    <div class="frame-scroll"><div class="frame">
+      <div class="ide">
+        <div class="sbx-header">
+          <div class="left"><button class="icon-btn"><svg class="i"><use href="#i-chev-l"/></svg></button><div class="toggles"><span class="icon-btn"><svg class="i"><use href="#i-sparkles"/></svg></span><span class="icon-btn brand"><svg class="i"><use href="#i-folder-tree"/></svg></span><span class="icon-btn"><svg class="i"><use href="#i-terminal"/></svg></span></div></div>
+          <h1>quiz-arena</h1>
+          <div class="right"><span class="sbx-live"><span class="dot ok"></span>Sandbox Live</span><button class="btn-secondary btn-sm">Share</button><span class="icon-btn"><svg class="i"><use href="#i-settings"/></svg></span></div>
+        </div>
+        <div class="ide-body">
+          <div class="center">
+            <div class="tab-bar"><button class="tab-btn"><svg class="i"><use href="#i-eye"/></svg>Preview</button><button class="tab-btn active"><svg class="i"><use href="#i-code"/></svg>Code</button></div>
+            <div class="workspace">
+              <div class="activity-bar" style="position:relative">
+                <span class="pin" style="left:30px;top:4px">1</span>
+                <div class="ab-item"><svg><use href="#i-folder-tree"/></svg></div>
+                <div class="ab-item active"><svg><use href="#i-git-branch"/></svg><span class="ab-badge">6</span></div>
+              </div>
+              <div class="scm">
+                <div class="panel-header"><div class="panel-title"><svg class="i"><use href="#i-git-branch"/></svg>Source Control</div><div style="display:flex;gap:2px"><span class="icon-btn" title="Commit"><svg class="i"><use href="#i-check"/></svg></span><span class="icon-btn" title="Refresh"><svg class="i"><use href="#i-refresh"/></svg></span><span class="icon-btn" title="View as tree"><svg class="i"><use href="#i-list"/></svg></span><span class="icon-btn" title="More actions"><svg class="i"><use href="#i-more"/></svg></span></div></div>
+                <div class="scm-body">
+                  <div class="msg-box" style="position:relative"><span class="pin" style="left:-6px;top:-6px">2</span>Add leaderboard medals<br><span class="dim">Message (Ctrl+Enter to commit on "main")</span><span class="ai icon-btn brand" title="Write a commit message"><svg class="i"><use href="#i-sparkles"/></svg></span></div>
+                  <div class="split"><button class="btn-solid"><svg class="i s"><use href="#i-check"/></svg>Commit</button><span class="caret"><svg class="i s"><use href="#i-chev-d"/></svg></span></div>
+                  <div style="position:relative">
+                    <span class="pin" style="right:0;top:2px">3</span>
+                    <div class="grp"><svg class="i s"><use href="#i-chev-d"/></svg>Staged Changes<span class="pill">2</span></div>
+                    <div class="chg"><span class="nm">Leaderboard.jsx</span><span class="dir">src/pages</span><span class="L M">M</span></div>
+                    <div class="chg"><span class="nm">Medal.jsx</span><span class="dir">src/components</span><span class="L A">A</span></div>
+                    <div class="grp hov"><svg class="i s"><use href="#i-chev-d"/></svg>Changes<span class="pill">4</span><span class="acts"><span class="icon-btn" title="Discard all changes"><svg class="i s"><use href="#i-undo"/></svg></span><span class="icon-btn" title="Stage all changes"><svg class="i s"><use href="#i-plus"/></svg></span></span></div>
+                    <div class="chg sel hov" style="position:relative"><span class="nm">store.js</span><span class="dir">src/app</span><span class="acts"><span class="icon-btn" title="Open file"><svg class="i s"><use href="#i-file"/></svg></span><span class="icon-btn" title="Discard changes"><svg class="i s"><use href="#i-undo"/></svg></span><span class="icon-btn" title="Stage changes"><svg class="i s"><use href="#i-plus"/></svg></span></span><span class="L M">M</span><span class="pin" style="right:-8px;top:4px">4</span></div>
+                    <div class="chg"><span class="nm">package.json</span><span class="dir"></span><span class="L M">M</span></div>
+                    <div class="chg"><span class="nm">notes.md</span><span class="dir"></span><span class="L U">U</span></div>
+                    <div class="chg del"><span class="nm">old.css</span><span class="dir">src</span><span class="L D">D</span></div>
+                  </div>
+                </div>
+              </div>
+              <div class="editor">
+                <div class="editor-tabs"><div class="editor-tab active" style="position:relative"><svg class="i s t-accent"><use href="#i-git-compare"/></svg>store.js (Working Tree)<span class="pin" style="right:-10px;top:10px">5</span></div><div style="margin-left:auto;display:flex;align-items:center;gap:4px;padding-right:8px"><div class="seg"><button class="on">Side by side</button><button>Inline</button></div><span class="icon-btn" title="Open file"><svg class="i"><use href="#i-file"/></svg></span></div></div>
+                <div class="diffcols" style="flex:1;display:grid;grid-template-columns:1fr 1fr;min-height:0">
+                  <div class="code" style="border-right:1px solid var(--border)">
+                    <div class="ln"><i>1</i><span class="k">import</span> { configureStore } <span class="k">from</span> <span class="s">'@reduxjs/toolkit'</span>;</div>
+                    <div class="ln"><i>2</i><span class="k">import</span> scoresReducer <span class="k">from</span> <span class="s">'../features/scores/scoresSlice'</span>;</div>
+                    <div class="ln"><i></i></div>
+                    <div class="ln"><i>3</i></div>
+                    <div class="ln"><i>4</i><span class="k">export const</span> store = <span class="f">configureStore</span>({</div>
+                    <div class="ln"><i>5</i>  reducer: {</div>
+                    <div class="ln del"><i>6</i>    scores: scoresReducer</div>
+                    <div class="ln"><i></i></div>
+                    <div class="ln"><i>7</i>  },</div>
+                    <div class="ln"><i>8</i>});</div>
+                  </div>
+                  <div class="code">
+                    <div class="ln"><i>1</i><span class="k">import</span> { configureStore } <span class="k">from</span> <span class="s">'@reduxjs/toolkit'</span>;</div>
+                    <div class="ln"><i>2</i><span class="k">import</span> scoresReducer <span class="k">from</span> <span class="s">'../features/scores/scoresSlice'</span>;</div>
+                    <div class="ln add"><i>3</i><span class="k">import</span> uiReducer <span class="k">from</span> <span class="s">'../features/ui/uiSlice'</span>;</div>
+                    <div class="ln"><i>4</i></div>
+                    <div class="ln"><i>5</i><span class="k">export const</span> store = <span class="f">configureStore</span>({</div>
+                    <div class="ln"><i>6</i>  reducer: {</div>
+                    <div class="ln add"><i>7</i>    scores: scoresReducer,</div>
+                    <div class="ln add"><i>8</i>    ui: uiReducer,</div>
+                    <div class="ln"><i>9</i>  },</div>
+                    <div class="ln"><i>10</i>});</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="status-bar" style="position:relative">
+          <div class="sec"><span class="pin" style="position:static;margin:0 4px">6</span><span class="status-item"><svg class="i s"><use href="#i-git-branch"/></svg>main*</span><span class="status-item"><svg class="i s"><use href="#i-arrow-down"/></svg>0 <svg class="i s"><use href="#i-arrow-up"/></svg>2</span><span class="status-item"><svg class="i s"><use href="#i-refresh"/></svg>Sync</span><span class="status-item"><span class="dot ok"></span><span class="t-ok">Sandbox Active</span></span></div>
+          <div class="sec"><span class="status-item"><svg class="i s"><use href="#i-github"/></svg>sahil-dev/taksha-quiz-arena</span><span class="status-item brand">CodeSpace IDE v1.0</span></div>
+        </div>
+      </div>
+    </div></div>
+    <ol class="notes">
+      <li><b>Activity bar</b> (48 px, App.scss <code>.activity-bar</code>) at the left of the Code workspace: Explorer and Source Control. Ember indicator on the active item, ember badge with the change count. <span class="kbd-k">Ctrl</span>+<span class="kbd-k">Shift</span>+<span class="kbd-k">G</span> opens it.</li>
+      <li><b>Commit box</b>: multi-line, placeholder names the branch, ✨ (G6) writes a message from the staged diff. Split button: Commit, caret opens SC-5 menu.</li>
+      <li><b>Groups</b>: Merge Changes (only when merging), Staged Changes, Changes. Row: file name, folder in disabled text, status letter in VS Code colours. Deleted files struck through.</li>
+      <li><b>Row actions on hover</b>: open file, discard, stage (or unstage in Staged). Click the row opens the diff. Same on the group header for all files.</li>
+      <li><b>Diff tab</b> named "store.js (Working Tree)" or "(Index)" for staged. Monaco DiffEditor, right side editable, side by side or inline.</li>
+      <li><b>Status bar</b>: branch (asterisk when dirty) opens the branch picker, behind and ahead, Sync, linked repo on the right (opens GitHub).</li>
+    </ol>
+  </section>
+
+  <!-- SC-4 -->
+  <section class="screen" id="sc4">
+    <div class="screen-cap"><span class="id">SC-4</span><h2>Panel before there is a repository</h2><span class="where">G3 and G4 · empty states</span></div>
+    <div class="row-frames" style="grid-template-columns:repeat(3,1fr)">
+      <div class="frame"><div class="scm" style="width:100%;height:330px"><div class="panel-header"><div class="panel-title"><svg class="i"><use href="#i-git-branch"/></svg>Source Control</div></div>
+        <div class="empty-scm"><b style="color:var(--text-primary)">No repository yet</b><span>This project has no Git history. Start one to track changes and commit.</span><button class="btn-solid">Initialize repository</button><button class="btn-ghost"><svg class="i s"><use href="#i-upload"/></svg>Publish to GitHub</button><span class="dim" style="font-size:11.5px">Publish creates a repository on your GitHub account and pushes this project.</span></div></div></div>
+      <div class="frame"><div class="scm" style="width:100%;height:330px"><div class="panel-header"><div class="panel-title"><svg class="i"><use href="#i-git-branch"/></svg>Source Control</div></div>
+        <div class="empty-scm"><b style="color:var(--text-primary)">Local only</b><span>Commits stay in this project. Connect GitHub to push them and pull changes made elsewhere.</span><button class="btn-solid"><svg class="i s"><use href="#i-github"/></svg>Connect GitHub</button><div class="grp" style="padding:0;margin-top:6px"><svg class="i s"><use href="#i-chev-d"/></svg>Changes<span class="pill">2</span></div><div class="chg" style="padding-left:14px"><span class="nm">App.jsx</span><span class="dir">src</span><span class="L M">M</span></div></div></div></div>
+      <div class="frame"><div class="scm" style="width:100%;height:330px"><div class="panel-header"><div class="panel-title"><svg class="i"><use href="#i-git-branch"/></svg>Source Control</div></div>
+        <div class="empty-scm"><div class="notice warn"><svg class="i s"><use href="#i-alert"/></svg><span>The repository <b>taksha-quiz-arena</b> was deleted or renamed on GitHub.</span></div><button class="btn-solid">Create a new repository</button><button class="btn-ghost">Link another repository</button><button class="btn-ghost" style="color:var(--error)">Unlink</button></div></div></div>
+    </div>
+    <ol class="notes">
+      <li><b>No repo</b> (old projects): Initialize uses <code>git_init</code>; Publish runs the publish flow from plan 4.3 and shows a progress row "Publishing to GitHub…".</li>
+      <li><b>Local only</b>: the panel still works for commits. The Connect button goes to the GitHub App install page.</li>
+      <li><b>Repo gone</b> (webhook G7 or a 404 on push): one warning, three ways out. Unlink only removes the link, never touches GitHub (D6).</li>
+    </ol>
+  </section>
+
+  <!-- SC-5 -->
+  <section class="screen" id="sc5">
+    <div class="screen-cap"><span class="id">SC-5</span><h2>Commit menu, branch picker and sync</h2><span class="where">G3 and G4</span></div>
+    <div class="row-frames">
+      <div class="frame" style="height:330px;position:relative;background:var(--bg-sidebar)">
+        <div style="padding:12px;width:290px"><div class="msg-box">Add leaderboard medals</div><div class="split" style="margin-top:8px"><button class="btn-solid"><svg class="i s"><use href="#i-check"/></svg>Commit</button><span class="caret"><svg class="i s"><use href="#i-chev-d"/></svg></span></div></div>
+        <div class="menu" style="left:70px;top:118px;width:232px"><span class="pin" style="right:-8px;top:-8px">1</span>
+          <div class="menu-item on"><svg class="i"><use href="#i-check"/></svg>Commit<span class="kbd">Ctrl+Enter</span></div>
+          <div class="menu-item"><svg class="i"><use href="#i-upload"/></svg>Commit and Push</div>
+          <div class="menu-sep"></div>
+          <div class="menu-item"><svg class="i"><use href="#i-undo"/></svg>Commit (Amend)</div>
+          <div class="menu-sep"></div>
+          <div class="menu-item"><svg class="i"><use href="#i-sparkles"/></svg>Write message with AI</div>
+        </div>
+      </div>
+      <div class="frame" style="height:330px;position:relative;background:var(--bg-canvas)">
+        <div class="menu" style="left:16px;right:16px;top:16px;min-width:0"><span class="pin" style="right:-8px;top:-8px">2</span>
+          <div class="input focus" style="margin:2px 2px 6px;height:30px;font-size:12px"><svg class="i s"><use href="#i-search"/></svg>Select a branch or type a new name</div>
+          <div class="menu-item"><svg class="i"><use href="#i-plus"/></svg>Create new branch…</div>
+          <div class="menu-item"><svg class="i"><use href="#i-plus"/></svg>Create new branch from…</div>
+          <div class="menu-sep"></div>
+          <div class="side-group" style="margin:4px 10px">Local</div>
+          <div class="menu-item on"><svg class="i"><use href="#i-git-branch"/></svg>main<span class="kbd">current</span></div>
+          <div class="menu-item"><svg class="i"><use href="#i-git-branch"/></svg>feature/medals<span class="kbd">↑1</span></div>
+          <div class="side-group" style="margin:4px 10px">Remote</div>
+          <div class="menu-item"><svg class="i"><use href="#i-globe"/></svg>origin/dark-mode</div>
+        </div>
+        <div class="status-bar" style="position:absolute;left:0;right:0;bottom:0"><div class="sec"><span class="pin" style="position:static;margin:0 4px">3</span><span class="status-item"><svg class="i s"><use href="#i-git-branch"/></svg>main</span><span class="status-item t-brand"><svg class="i s spin"><use href="#i-refresh"/></svg>Pulling…</span></div><div class="sec"><span class="status-item"><svg class="i s"><use href="#i-github"/></svg>sahil-dev/taksha-quiz-arena</span></div></div>
+      </div>
+    </div>
+    <ol class="notes">
+      <li><b>Commit menu</b> uses the app's <code>.dropdown-menu</code>. Nothing staged: a modal asks "Stage all changes and commit?" with a "Always" checkbox (saved in Editor settings).</li>
+      <li><b>Branch picker</b> opens from the status bar branch, anchored above it. Dirty tree on switch: "Stash and switch" or "Cancel".</li>
+      <li><b>Sync</b> = pull then push. During a remote op the status item spins and names the op. Result toast: "Pushed 2 commits to main" or "Already up to date".</li>
+    </ol>
+  </section>
+
+  <!-- SC-6 -->
+  <section class="screen" id="sc6">
+    <div class="screen-cap"><span class="id">SC-6</span><h2>Confirmations and errors</h2><span class="where">G3 to G5</span></div>
+    <div class="row-frames" style="grid-template-columns:repeat(3,1fr)">
+      <div class="frame" style="height:290px"><div class="scrim" style="position:relative;height:100%"><div class="modal"><span class="pin" style="position:static">1</span><h3>Discard changes in store.js?</h3><p>Your edits since the last commit are lost. This cannot be undone.</p><div class="acts"><button class="btn-secondary">Cancel</button><button class="btn-danger">Discard changes</button></div></div></div></div>
+      <div class="frame" style="height:290px"><div class="scrim" style="position:relative;height:100%"><div class="modal"><span class="pin" style="position:static">2</span><h3>A secret file is staged</h3><p><code>.env.local</code> looks like it holds secrets. Pushing it puts them on GitHub.</p><div class="acts"><button class="btn-secondary">Push anyway</button><button class="btn-solid">Unstage and push</button></div></div></div></div>
+      <div class="frame" style="height:290px;background:var(--bg-sidebar);padding:12px;display:flex;flex-direction:column;gap:8px"><span class="pin" style="position:static">3</span>
+        <div class="notice warn"><svg class="i s"><use href="#i-alert"/></svg><span>The remote has new commits. Pull first, then push. <a href="#" style="color:inherit;font-weight:600">Pull</a></span></div>
+        <div class="notice err"><svg class="i s"><use href="#i-x-circle"/></svg><span>GitHub sign-in expired. <a href="#" style="color:inherit;font-weight:600">Reconnect GitHub</a></span></div>
+        <div class="notice warn"><svg class="i s"><use href="#i-alert"/></svg><span>History is larger than 200 MB, so it is not saved when the sandbox stops. Push to keep it.</span></div>
+        <div class="notice"><svg class="i s"><use href="#i-terminal"/></svg><span>Typed <code>git push</code> in the terminal? Use Sync in Source Control instead.</span></div>
+      </div>
+    </div>
+    <ol class="notes">
+      <li><b>Discard</b> names the file, uses the danger button. Untracked files go to <code>.taksha/trash/</code>, so their copy says "Move notes.md to trash?" instead.</li>
+      <li><b>SECRET_FILE_STAGED</b>: the safe choice is the solid button.</li>
+      <li><b>Errors</b> sit at the top of the panel body as notices, each with the next step as a link. They clear on the next successful op.</li>
+    </ol>
+  </section>
+
+  <!-- SC-7 -->
+  <section class="screen" id="sc7">
+    <div class="screen-cap"><span class="id">SC-7</span><h2>Merge conflicts</h2><span class="where">G4 · Merge Changes group and Monaco decorations</span></div>
+    <div class="frame-scroll"><div class="frame">
+      <div class="ide short">
+        <div class="ide-body"><div class="center"><div class="workspace">
+          <div class="activity-bar"><div class="ab-item"><svg><use href="#i-folder-tree"/></svg></div><div class="ab-item active"><svg><use href="#i-git-branch"/></svg><span class="ab-badge">3</span></div></div>
+          <div class="scm">
+            <div class="panel-header"><div class="panel-title"><svg class="i"><use href="#i-git-branch"/></svg>Source Control</div></div>
+            <div class="scm-body">
+              <div class="notice warn" style="position:relative"><span class="pin" style="right:-6px;top:-6px">1</span><svg class="i s"><use href="#i-git-merge"/></svg><span>Merging origin/main. Fix 1 conflict, stage it, then commit.</span></div>
+              <div class="msg-box">Merge branch 'main' of github.com/sahil-dev/taksha-quiz-arena</div>
+              <div class="split"><button class="btn-solid" style="opacity:.5"><svg class="i s"><use href="#i-check"/></svg>Commit</button><span class="caret" style="opacity:.5"><svg class="i s"><use href="#i-chev-d"/></svg></span></div>
+              <div class="grp"><svg class="i s"><use href="#i-chev-d"/></svg>Merge Changes<span class="pill err">1</span></div>
+              <div class="chg sel"><span class="nm">vite.config.js</span><span class="dir"></span><span class="L C">C</span></div>
+              <div class="grp"><svg class="i s"><use href="#i-chev-d"/></svg>Staged Changes<span class="pill">2</span></div>
+              <div class="chg"><span class="nm">App.jsx</span><span class="dir">src</span><span class="L M">M</span></div>
+              <div class="chg"><span class="nm">theme.css</span><span class="dir">src</span><span class="L A">A</span></div>
+              <button class="btn-ghost btn-sm" style="justify-content:center">Abort merge</button>
+            </div>
+          </div>
+          <div class="editor">
+            <div class="editor-tabs"><div class="editor-tab active"><span class="L C">C</span>vite.config.js</div></div>
+            <div class="code">
+              <div class="ln"><i>4</i><span class="k">export default</span> <span class="f">defineConfig</span>({</div>
+              <div class="ln"><i>5</i>  plugins: [<span class="f">react</span>()],</div>
+              <div class="cf-actions" style="position:relative"><span class="pin" style="left:30px;top:-1px">2</span><a href="#">Accept Current Change</a>|<a href="#">Accept Incoming Change</a>|<a href="#">Accept Both Changes</a>|<a href="#">Compare Changes</a></div>
+              <div class="ln cur mark"><i>6</i>&lt;&lt;&lt;&lt;&lt;&lt;&lt; HEAD (Current Change)</div>
+              <div class="ln cur"><i>7</i>  server: { port: <span class="n">5173</span>, host: <span class="k">true</span> },</div>
+              <div class="ln mark"><i>8</i>=======</div>
+              <div class="ln inc"><i>9</i>  server: { port: <span class="n">5173</span>, hmr: { overlay: <span class="k">false</span> } },</div>
+              <div class="ln inc mark"><i>10</i>&gt;&gt;&gt;&gt;&gt;&gt;&gt; origin/main (Incoming Change)</div>
+              <div class="ln"><i>11</i>});</div>
+            </div>
+          </div>
+        </div></div></div>
+        <div class="status-bar"><div class="sec"><span class="status-item"><svg class="i s"><use href="#i-git-merge"/></svg>main (merging)</span><span class="status-item"><svg class="i s"><use href="#i-arrow-down"/></svg>3 <svg class="i s"><use href="#i-arrow-up"/></svg>2</span></div><div class="sec"><span class="status-item t-err"><svg class="i s"><use href="#i-x-circle"/></svg>1 conflict</span></div></div>
+      </div>
+    </div></div>
+    <ol class="notes">
+      <li>A merge notice tops the panel. Commit is disabled while any file is in Merge Changes. <b>Abort merge</b> asks first.</li>
+      <li>Monaco decorations above each conflict block: current in green tint, incoming in indigo tint (app tokens, not VS Code's blue). Staging the file marks it resolved.</li>
+    </ol>
+  </section>
+
+  <!-- SC-8 -->
+  <section class="screen" id="sc8">
+    <div class="screen-cap"><span class="id">SC-8</span><h2>History, explorer badges and gutter</h2><span class="where">G5 · polish</span></div>
+    <div class="row-frames" style="grid-template-columns:290px 250px 1fr">
+      <div class="frame"><div class="scm" style="width:100%;height:400px">
+        <div class="panel-header"><div class="panel-title"><svg class="i"><use href="#i-history"/></svg>History</div><span class="pin" style="position:static">1</span></div>
+        <div class="scm-body hist">
+          <div class="commit sel"><span class="g"></span><div><div class="m">Add leaderboard medals</div><div class="a">sahil-dev · <span class="mono">a1f9c2e</span></div></div><span class="t">2 min</span></div>
+          <div class="commit"><span class="g"></span><div><div class="m">Fix theme toggle crash</div><div class="a">sahil-dev · <span class="mono">7be01d4</span></div></div><span class="t">1 h</span></div>
+          <div class="commit"><span class="g"></span><div><div class="m">Merge branch 'main'</div><div class="a">sahil-dev · <span class="mono">33c8a90</span></div></div><span class="t">Yesterday</span></div>
+          <div class="commit"><span class="g"></span><div><div class="m">Initial commit from Taksha</div><div class="a">Taksha · <span class="mono">0d2e117</span></div></div><span class="t">12 Nov</span></div>
+          <div style="padding:6px 8px;border-top:1px solid var(--border);margin-top:6px">
+            <div class="muted" style="font-size:11px;margin-bottom:4px">Files in a1f9c2e</div>
+            <div class="chg" style="padding-left:6px"><span class="nm">Leaderboard.jsx</span><span class="dir">src/pages</span><span class="L M">M</span></div>
+            <div class="chg" style="padding-left:6px"><span class="nm">Medal.jsx</span><span class="dir">src/components</span><span class="L A">A</span></div>
+          </div>
+        </div></div></div>
+      <div class="frame"><div class="explorer" style="width:100%;height:400px">
+        <div class="panel-header"><div class="panel-title"><svg class="i"><use href="#i-folder-tree"/></svg>Explorer</div><span class="pin" style="position:static">2</span></div>
+        <div class="tree">
+          <div class="tree-row"><svg class="i s"><use href="#i-chev-d"/></svg><span class="name">src</span><span class="dot" style="background:var(--git-modified)"></span></div>
+          <div class="tree-row" style="padding-left:24px"><svg class="i s"><use href="#i-file"/></svg><span class="name" style="color:var(--git-modified)">App.jsx</span><span class="gl L M">M</span></div>
+          <div class="tree-row sel" style="padding-left:24px"><svg class="i s"><use href="#i-file"/></svg><span class="name" style="color:var(--git-untracked)">Medal.jsx</span><span class="gl L U">U</span></div>
+          <div class="tree-row" style="padding-left:24px"><svg class="i s"><use href="#i-file"/></svg><span class="name">main.jsx</span></div>
+          <div class="tree-row"><svg class="i s"><use href="#i-file"/></svg><span class="name">index.html</span></div>
+          <div class="tree-row"><svg class="i s"><use href="#i-file"/></svg><span class="name" style="color:var(--git-modified)">package.json</span><span class="gl L M">M</span></div>
+        </div></div></div>
+      <div class="frame"><div class="editor" style="height:400px">
+        <div class="editor-tabs"><div class="editor-tab active">App.jsx<span class="pin" style="position:static">3</span></div></div>
+        <div class="code">
+          <div class="ln"><i>8</i><span class="k">export default function</span> <span class="f">App</span>() {</div>
+          <div class="ln"><span class="gutter" style="background:var(--accent-primary)"></span><i>9</i>  <span class="k">const</span> [theme, setTheme] = <span class="f">useState</span>(<span class="s">'dark'</span>);</div>
+          <div class="ln"><span class="gutter" style="background:var(--success)"></span><i>10</i>  <span class="k">const</span> scores = <span class="f">useSelector</span>(s =&gt; s.scores);</div>
+          <div class="ln"><span class="gutter" style="background:var(--success)"></span><i>11</i>  <span class="f">useTitle</span>(<span class="s">'Quiz Arena'</span>);</div>
+          <div class="ln"><i>12</i>  <span class="k">return</span> (</div>
+          <div class="ln" style="position:relative"><span style="position:absolute;left:34px;top:16px;border:5px solid transparent;border-left-color:var(--error)"></span><i>13</i>    &lt;<span class="tg">Layout</span> theme={theme}&gt;</div>
+          <div class="ln"><i>14</i>      &lt;<span class="tg">Leaderboard</span> scores={scores} /&gt;</div>
+        </div></div></div>
+    </div>
+    <ol class="notes">
+      <li><b>History</b>: a third view in the activity bar (or a collapsed "History" section at the bottom of the panel, like the plan's sketch). Graph rail in ember. Clicking a commit lists its files, clicking a file opens that commit's diff.</li>
+      <li><b>Explorer badges</b>: modified and untracked names take the status colour and letter. Folders get a dot when a child changed.</li>
+      <li><b>Gutter</b>: green added, indigo changed (the app's accent replaces VS Code blue), red triangle for removed lines. Click a bar to peek the old lines.</li>
+    </ol>
+  </section>
+
+  <!-- States ─────────────────────────────────────────────────────────── -->
+  <section class="screen" id="sc-states">
+    <div class="screen-cap"><span class="id">States</span><h2>Loading, offline, pushing and done</h2><span class="where">Source Control panel and status bar</span></div>
+    <div class="states"><div class="state"><span class="state-label">Loading</span><div class="frame" style="position:relative;background:var(--bg-sidebar)"><div class="panel-header"><span class="panel-title"><svg class="i"><use href="#i-git-branch"/></svg>Source control</span></div><div style="padding:12px;display:flex;flex-direction:column;gap:10px"><span class="sk h" style="width:100%;height:56px"></span><span class="sk h"></span><span class="sk" style="width:40%"></span><span class="sk" style="width:64%"></span><span class="sk" style="width:52%"></span><span class="sk" style="width:70%"></span></div></div></div><div class="state"><span class="state-label">Offline</span><div class="frame" style="position:relative;background:var(--bg-sidebar)"><div class="panel-header"><span class="panel-title"><svg class="i"><use href="#i-git-branch"/></svg>Source control</span></div><div style="padding:12px"><div class="notice warn"><svg class="i s"><use href="#i-alert"/></svg><span><b>Cannot reach GitHub.</b> Your commits are saved in this project. Push again when you are back online. <a href="#">Try again</a></span></div></div></div></div><div class="state"><span class="state-label">Pushing</span><div class="frame" style="position:relative;"><div style="min-height:240px;display:flex;flex-direction:column;justify-content:flex-end"><div class="status-bar"><div class="sec"><span class="status-item"><svg class="i s"><use href="#i-git-branch"/></svg>main</span><span class="status-item brand"><svg class="i s spin"><use href="#i-refresh"/></svg>Pushing 2 commits…</span></div><div class="sec"><span class="status-item">sahil-dev/taksha-quiz-arena</span></div></div></div></div></div><div class="state"><span class="state-label">Done</span><div class="frame" style="position:relative;"><div style="min-height:240px;display:grid;place-items:end center;padding:20px"><div class="toast"><svg class="i s t-ok"><use href="#i-check"/></svg>Pushed 2 commits to main<span class="act">Open on GitHub</span></div></div></div></div></div>
+    <ol class="notes"><li>First open reads <code>git status</code>; the panel shows skeleton rows until it answers, not an empty list.</li><li>Network errors never lose work: the notice says commits are safe locally and offers the retry.</li><li>Push, pull and sync spin in the status bar item and name the operation, so the panel stays usable.</li><li>Result toasts reuse the verb and name the count and branch.</li></ol>
+  </section>
+</main>
+<script src="../_shared/kit.js"></script>
+</body>
+</html>

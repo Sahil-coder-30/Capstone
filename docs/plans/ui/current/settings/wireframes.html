@@ -1,0 +1,734 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Current Settings screens</title>
+<link rel="stylesheet" href="../../_shared/taksha-wireframe.css">
+</head>
+<body>
+<main class="board">
+  <header class="board-head">
+    <div>
+      <h1>Settings screens (built)</h1>
+      <p style="overflow-wrap:anywhere">High-fidelity wireframes of the built settings module in <code>Frontend/src/features/settings/components/</code>, mounted from <code>Frontend/src/App.jsx</code> on <code>?route=settings</code>. Five sub-tabs share one 260 px sidebar shell. Spec: <a href="screens.md">screens.md</a>.</p>
+    </div>
+    <button class="theme-toggle" type="button" data-theme-toggle><svg class="i"><use href="#i-sun"/></svg> Light theme</button>
+  </header>
+
+  <nav class="board-nav">
+    <a href="#cs1">CS-01 Profile Account</a>
+    <a href="#cs2">CS-02 Editor &amp; Copilot</a>
+    <a href="#cs3">CS-03 Billing &amp; Limits</a>
+    <a href="#cs4">CS-04 API &amp; Security</a>
+    <a href="#cs5">CS-05 Trash &amp; Recovery</a>
+    <a href="#settings-states">States</a>
+  </nav>
+
+  <!-- CS-01 ─────────────────────────────────────────────────────────────── -->
+  <section class="screen" id="cs1">
+    <div class="screen-cap" style="flex-wrap:wrap"><span class="id">CS-01</span><h2>Profile Account</h2><span class="where" style="overflow-wrap:anywhere">Frontend/src/features/settings/components/SettingsProfilePage.jsx</span></div>
+    <div class="frame-scroll"><div class="frame">
+      <div class="settings">
+        <aside class="settings-side" style="position:relative">
+          <button type="button" class="settings-back" style="width:100%;text-align:left"><svg class="i"><use href="#i-chev-l"/></svg>Back to Dashboard</button>
+          <div class="settings-group">System Settings</div>
+          <button type="button" class="settings-nav on" style="width:100%;text-align:left;position:relative"><svg class="i l"><use href="#i-user"/></svg>Profile Account<span class="pin" style="right:10px;top:11px">1</span></button>
+          <button type="button" class="settings-nav" style="width:100%;text-align:left"><svg class="i l"><use href="#i-sliders"/></svg>Editor &amp; Copilot</button>
+          <button type="button" class="settings-nav" style="width:100%;text-align:left"><svg class="i l"><use href="#i-card"/></svg>Billing &amp; Limits</button>
+          <button type="button" class="settings-nav" style="width:100%;text-align:left"><svg class="i l"><use href="#i-shield"/></svg>API &amp; Security</button>
+          <button type="button" class="settings-nav" style="width:100%;text-align:left"><svg class="i l"><use href="#i-trash"/></svg>Trash &amp; Recovery</button>
+          <div style="margin-top:auto;display:flex;flex-direction:column;gap:4px;border-top:1px solid var(--border);padding-top:16px">
+            <button type="button" class="settings-nav" style="width:100%;text-align:left"><svg class="i"><use href="#i-terminal"/></svg>Playground</button>
+            <button type="button" class="settings-nav" style="width:100%;text-align:left"><svg class="i"><use href="#i-layers"/></svg>My Apps</button>
+          </div>
+        </aside>
+        <div class="settings-main" style="padding:36px 48px">
+          <div style="max-width:800px;margin:0 auto;display:flex;flex-direction:column;gap:24px">
+            <div class="s-card" style="margin-top:0;padding:24px;display:flex;align-items:center;gap:20px;position:relative">
+              <span class="pin" style="right:14px;top:14px">2</span>
+              <div style="width:76px;height:76px;border-radius:50%;background:var(--bg-element);border:2px solid var(--brand-primary);display:grid;place-items:center;font-size:26px;font-weight:800;color:var(--brand-primary);flex-shrink:0">AM</div>
+              <div style="flex:1;min-width:0">
+                <div style="font-size:20px;font-weight:800;color:var(--text-primary);letter-spacing:-0.02em">Aarav Mehta</div>
+                <div class="muted" style="font-size:13.5px;margin-top:4px">aarav.mehta@taksha.dev</div>
+                <div style="margin-top:10px"><span class="pill brand" style="padding:3px 10px;font-weight:800;letter-spacing:0.05em">FREE DEV PLAN</span></div>
+              </div>
+            </div>
+
+            <div class="s-card" style="margin-top:0;padding:24px;display:flex;flex-direction:column;gap:18px;position:relative">
+              <span class="pin" style="right:14px;top:14px">3</span>
+              <h3 style="display:flex;align-items:center;gap:8px;padding-bottom:12px;border-bottom:1px solid var(--border)"><svg class="i t-brand"><use href="#i-user"/></svg>Professional Profile</h3>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+                <div class="field"><label>Job Title</label><div class="input" style="background:var(--bg-canvas)"><svg class="i s muted"><use href="#i-layers"/></svg>Senior Full-Stack Engineer</div></div>
+                <div class="field"><label>Company / Organization</label><div class="input" style="background:var(--bg-canvas)"><svg class="i s muted"><use href="#i-layers"/></svg>Taksha Labs</div></div>
+                <div class="field"><label>Location</label><div class="input" style="background:var(--bg-canvas)"><svg class="i s muted"><use href="#i-globe"/></svg>Bengaluru, IN</div></div>
+                <div class="field"><label>Years of Experience</label><div class="input" style="background:var(--bg-canvas);font-variant-numeric:tabular-nums"><svg class="i s muted"><use href="#i-clock"/></svg>6</div></div>
+              </div>
+              <div class="field"><label>Short Bio</label><div class="textarea" style="background:var(--bg-canvas);min-height:66px">Building distributed TypeScript services, React workspaces, and cloud developer sandboxes.</div></div>
+              <div class="field">
+                <label>Core Skills (comma separated)</label>
+                <div class="input" style="background:var(--bg-canvas)"><svg class="i s muted"><use href="#i-sparkles"/></svg>React, Node.js, TypeScript, Kubernetes, Redis, MongoDB</div>
+                <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px">
+                  <span style="font-size:11px;background:var(--bg-canvas);color:var(--text-muted);padding:3px 8px;border-radius:4px;border:1px solid var(--border)">React</span>
+                  <span style="font-size:11px;background:var(--bg-canvas);color:var(--text-muted);padding:3px 8px;border-radius:4px;border:1px solid var(--border)">Node.js</span>
+                  <span style="font-size:11px;background:var(--bg-canvas);color:var(--text-muted);padding:3px 8px;border-radius:4px;border:1px solid var(--border)">TypeScript</span>
+                  <span style="font-size:11px;background:var(--bg-canvas);color:var(--text-muted);padding:3px 8px;border-radius:4px;border:1px solid var(--border)">Kubernetes</span>
+                  <span style="font-size:11px;background:var(--bg-canvas);color:var(--text-muted);padding:3px 8px;border-radius:4px;border:1px solid var(--border)">Redis</span>
+                  <span style="font-size:11px;background:var(--bg-canvas);color:var(--text-muted);padding:3px 8px;border-radius:4px;border:1px solid var(--border)">MongoDB</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="s-card" style="margin-top:0;padding:24px;display:flex;flex-direction:column;gap:18px">
+              <h3 style="display:flex;align-items:center;gap:8px;padding-bottom:12px;border-bottom:1px solid var(--border)"><svg class="i t-brand"><use href="#i-globe"/></svg>Social Integrations &amp; Links</h3>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+                <div class="field"><label>GitHub Profile</label><div class="input" style="background:var(--bg-canvas)"><svg class="i s muted"><use href="#i-code"/></svg>https://github.com/aarav-mehta</div></div>
+                <div class="field"><label>LinkedIn Profile</label><div class="input" style="background:var(--bg-canvas)"><svg class="i s muted"><use href="#i-external"/></svg>https://linkedin.com/in/aarav-mehta</div></div>
+                <div class="field"><label>Twitter / X Profile</label><div class="input" style="background:var(--bg-canvas)"><svg class="i s muted"><use href="#i-external"/></svg>https://twitter.com/aaravmehta_dev</div></div>
+                <div class="field"><label>Website / Portfolio</label><div class="input" style="background:var(--bg-canvas)"><svg class="i s muted"><use href="#i-globe"/></svg>https://aaravmehta.dev</div></div>
+              </div>
+            </div>
+
+            <div style="display:flex;align-items:center;gap:10px">
+              <button type="button" class="btn-primary" style="padding:10px 20px;font-size:13px"><svg class="i s"><use href="#i-check"/></svg>Save Profile Changes</button>
+              <span class="pin" style="position:static">4</span>
+            </div>
+
+            <div class="s-card" style="margin-top:0;padding:24px;display:flex;flex-direction:column;gap:14px;border-color:rgba(239,68,68,0.25)">
+              <h3 style="display:flex;align-items:center;gap:8px;color:var(--error)"><svg class="i"><use href="#i-alert"/></svg>Danger Zone</h3>
+              <p class="sub" style="margin-top:0">Permanently delete your developer account and remove all active containers, API secrets, and cloud configurations. This process is irreversible.</p>
+              <div style="display:flex;gap:12px;flex-wrap:wrap">
+                <button type="button" class="btn-danger" style="padding:9px 16px"><svg class="i s"><use href="#i-trash"/></svg>Delete Developer Account</button>
+                <button type="button" class="btn-secondary" style="padding:9px 16px"><svg class="i s"><use href="#i-log-out"/></svg>Log Out Session</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div></div>
+    <ol class="notes">
+      <li><b>Settings sidebar</b> (260 px, <code>SettingsPage.jsx</code>) switches all five sub-tabs in local state and links back to Dashboard via <code>onBackToDashboard</code> (<code>playground</code> or <code>my-apps</code>). Active item uses <code>--bg-element</code> and an ember icon.</li>
+      <li><b>Profile header card</b> renders user name, email and avatar from auth props in <code>App.jsx</code>; the <code>FREE DEV PLAN</code> pill is hardcoded in <code>SettingsProfilePage.jsx</code>.</li>
+      <li><b>Professional Profile &amp; Social links</b> hydrate from Redux via <code>GET /api/auth/profile</code> (<code>fetchSettingsAPI</code>); comma-separated skills render tag pills below the input when saved.</li>
+      <li><b>Save Profile Changes</b> calls <code>PUT /api/auth/profile</code> (<code>updateProfileSettingsAPI</code>) and currently notifies via browser <code>alert()</code>. <code>Delete Developer Account</code> shows a confirm dialog and simulates deletion; <code>Log Out Session</code> runs <code>authLogout()</code>.</li>
+    </ol>
+  </section>
+
+  <!-- CS-02 ─────────────────────────────────────────────────────────────── -->
+  <section class="screen" id="cs2">
+    <div class="screen-cap" style="flex-wrap:wrap"><span class="id">CS-02</span><h2>Editor &amp; Copilot</h2><span class="where" style="overflow-wrap:anywhere">Frontend/src/features/settings/components/SettingsAppearancePage.jsx</span></div>
+    <div class="frame-scroll"><div class="frame">
+      <div class="settings">
+        <aside class="settings-side">
+          <button type="button" class="settings-back" style="width:100%;text-align:left"><svg class="i"><use href="#i-chev-l"/></svg>Back to Dashboard</button>
+          <div class="settings-group">System Settings</div>
+          <button type="button" class="settings-nav" style="width:100%;text-align:left"><svg class="i l"><use href="#i-user"/></svg>Profile Account</button>
+          <button type="button" class="settings-nav on" style="width:100%;text-align:left"><svg class="i l"><use href="#i-sliders"/></svg>Editor &amp; Copilot</button>
+          <button type="button" class="settings-nav" style="width:100%;text-align:left"><svg class="i l"><use href="#i-card"/></svg>Billing &amp; Limits</button>
+          <button type="button" class="settings-nav" style="width:100%;text-align:left"><svg class="i l"><use href="#i-shield"/></svg>API &amp; Security</button>
+          <button type="button" class="settings-nav" style="width:100%;text-align:left"><svg class="i l"><use href="#i-trash"/></svg>Trash &amp; Recovery</button>
+          <div style="margin-top:auto;display:flex;flex-direction:column;gap:4px;border-top:1px solid var(--border);padding-top:16px">
+            <button type="button" class="settings-nav" style="width:100%;text-align:left"><svg class="i"><use href="#i-terminal"/></svg>Playground</button>
+            <button type="button" class="settings-nav" style="width:100%;text-align:left"><svg class="i"><use href="#i-layers"/></svg>My Apps</button>
+          </div>
+        </aside>
+        <div class="settings-main" style="padding:36px 48px">
+          <div style="max-width:800px;margin:0 auto;display:flex;flex-direction:column;gap:24px">
+            <div class="s-card" style="margin-top:0;padding:24px;display:flex;flex-direction:column;gap:18px;position:relative">
+              <span class="pin" style="right:14px;top:14px">1</span>
+              <h3 style="padding-bottom:12px;border-bottom:1px solid var(--border)">Workspace Theme</h3>
+              <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px">
+                <button type="button" style="padding:18px;border-radius:12px;border:2px solid var(--brand-primary);background:var(--bg-canvas);display:flex;flex-direction:column;gap:12px;text-align:left;box-shadow:0 0 12px var(--brand-subtle)">
+                  <div style="display:flex;justify-content:space-between;align-items:center;width:100%">
+                    <span style="font-size:13.5px;font-weight:700;color:var(--text-primary);display:flex;align-items:center;gap:6px"><svg class="i s t-brand"><use href="#i-moon"/></svg>Dark Mode</span>
+                    <span style="width:16px;height:16px;border-radius:50%;background:var(--brand-primary);color:var(--bg-canvas);display:grid;place-items:center"><svg class="i s"><use href="#i-check"/></svg></span>
+                  </div>
+                  <div style="height:40px;width:100%;background:var(--bg-surface);border-radius:6px;border:1px solid var(--border);padding:6px;display:flex;gap:4px">
+                    <div style="width:20px;background:var(--bg-element);border-radius:3px"></div>
+                    <div style="flex:1;background:var(--bg-overlay);border-radius:3px"></div>
+                  </div>
+                </button>
+                <button type="button" style="padding:18px;border-radius:12px;border:2px solid var(--border);background:var(--card-hover);display:flex;flex-direction:column;gap:12px;text-align:left">
+                  <div style="display:flex;justify-content:space-between;align-items:center;width:100%">
+                    <span style="font-size:13.5px;font-weight:700;color:var(--text-primary);display:flex;align-items:center;gap:6px"><svg class="i s t-warn"><use href="#i-sun"/></svg>Light Mode</span>
+                  </div>
+                  <div style="height:40px;width:100%;background:var(--bg-element);border-radius:6px;border:1px solid var(--border);padding:6px;display:flex;gap:4px">
+                    <div style="width:20px;background:var(--bg-surface);border-radius:3px;border:1px solid var(--border)"></div>
+                    <div style="flex:1;background:var(--card);border-radius:3px"></div>
+                  </div>
+                </button>
+                <button type="button" style="padding:18px;border-radius:12px;border:2px solid var(--border);background:linear-gradient(135deg,var(--bg-canvas) 50%,var(--bg-element) 50%);display:flex;flex-direction:column;gap:12px;text-align:left">
+                  <div style="display:flex;justify-content:space-between;align-items:center;width:100%;background:var(--bg-overlay);padding:4px 8px;border-radius:6px">
+                    <span style="font-size:13.5px;font-weight:700;color:var(--text-primary);display:flex;align-items:center;gap:6px"><svg class="i s t-accent"><use href="#i-columns"/></svg>System Default</span>
+                  </div>
+                  <div style="height:40px;width:100%;background:var(--card);border-radius:6px;border:1px solid var(--border)"></div>
+                </button>
+              </div>
+            </div>
+
+            <div class="s-card" style="margin-top:0;padding:24px;display:flex;flex-direction:column;gap:4px;position:relative">
+              <span class="pin" style="right:14px;top:14px">2</span>
+              <h3 style="display:flex;align-items:center;gap:8px;padding-bottom:12px;border-bottom:1px solid var(--border)"><svg class="i t-brand"><use href="#i-sliders"/></svg>Editor Configurations</h3>
+              <div class="s-row">
+                <div><div class="t" style="font-weight:700;color:var(--text-primary)">Font Size</div><div class="d">Font size of the active codespace editor and terminal.</div></div>
+                <button type="button" class="input" style="width:auto;min-width:110px;justify-content:space-between;background:var(--bg-canvas)">14px<svg class="i s muted"><use href="#i-chev-d"/></svg></button>
+              </div>
+              <div class="s-row">
+                <div><div class="t" style="font-weight:700;color:var(--text-primary)">Tab Spacing</div><div class="d">Number of spaces inserted when pressing TAB.</div></div>
+                <button type="button" class="input" style="width:auto;min-width:110px;justify-content:space-between;background:var(--bg-canvas)">2 spaces<svg class="i s muted"><use href="#i-chev-d"/></svg></button>
+              </div>
+              <div class="s-row">
+                <div><div class="t" style="font-weight:700;color:var(--text-primary)">Code Minimap</div><div class="d">Show mini layout scroll view on the right side of Monaco editor.</div></div>
+                <button type="button" class="switch on" aria-label="Toggle Code Minimap"></button>
+              </div>
+              <div class="s-row">
+                <div><div class="t" style="font-weight:700;color:var(--text-primary)">Word Wrap</div><div class="d">Force long code lines to wrap inside the editor viewport.</div></div>
+                <button type="button" class="switch on" aria-label="Toggle Word Wrap"></button>
+              </div>
+              <div class="s-row">
+                <div><div class="t" style="font-weight:700;color:var(--text-primary)">Auto-save Changes</div><div class="d">Automatically compile and save changes every 5 seconds.</div></div>
+                <button type="button" class="switch on" aria-label="Toggle Auto-save Changes"></button>
+              </div>
+            </div>
+
+            <div class="s-card" style="margin-top:0;padding:24px;display:flex;flex-direction:column;gap:4px;position:relative">
+              <span class="pin" style="right:14px;top:14px">3</span>
+              <h3 style="display:flex;align-items:center;gap:8px;padding-bottom:12px;border-bottom:1px solid var(--border)"><svg class="i t-brand"><use href="#i-sparkles"/></svg>AI Copilot Preferences</h3>
+              <div class="s-row">
+                <div><div class="t" style="font-weight:700;color:var(--text-primary)">Inline Code Suggestions</div><div class="d">Show ghost-text code completions while typing.</div></div>
+                <button type="button" class="switch on" aria-label="Toggle Inline Code Suggestions"></button>
+              </div>
+              <div class="s-row">
+                <div><div class="t" style="font-weight:700;color:var(--text-primary)">AI Explanation Style</div><div class="d">Verbosity preference of the coding agent response chats.</div></div>
+                <button type="button" class="input" style="width:auto;min-width:190px;justify-content:space-between;background:var(--bg-canvas)">Detailed &amp; Educational<svg class="i s muted"><use href="#i-chev-d"/></svg></button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div></div>
+    <ol class="notes">
+      <li><b>Workspace Theme</b> sends <code>PUT /api/auth/preferences</code>, toggles <code>light-theme</code> on <code>document.documentElement</code>, and writes <code>localStorage.theme</code>. No save button is shown.</li>
+      <li><b>Editor Configurations</b> persists Monaco options (<code>fontSize</code>, <code>tabSize</code>, <code>minimap</code>, <code>wordWrap</code>, <code>autoSave</code>) to <code>PUT /api/auth/preferences</code> and IndexedDB cache via <code>setCachedPreferences</code>.</li>
+      <li><b>AI Copilot Preferences</b> saves <code>autoSuggest</code> and <code>interactiveMode</code> (<code>Detailed &amp; Educational</code> or <code>Concise &amp; Direct</code>) immediately on change; model selection is stored in defaults but has no UI control here.</li>
+    </ol>
+  </section>
+
+  <!-- CS-03 ─────────────────────────────────────────────────────────────── -->
+  <section class="screen" id="cs3">
+    <div class="screen-cap" style="flex-wrap:wrap"><span class="id">CS-03</span><h2>Billing &amp; Limits</h2><span class="where" style="overflow-wrap:anywhere">Frontend/src/features/settings/components/SettingsBillingPage.jsx</span></div>
+    <div class="frame-scroll"><div class="frame">
+      <div class="settings">
+        <aside class="settings-side">
+          <button type="button" class="settings-back" style="width:100%;text-align:left"><svg class="i"><use href="#i-chev-l"/></svg>Back to Dashboard</button>
+          <div class="settings-group">System Settings</div>
+          <button type="button" class="settings-nav" style="width:100%;text-align:left"><svg class="i l"><use href="#i-user"/></svg>Profile Account</button>
+          <button type="button" class="settings-nav" style="width:100%;text-align:left"><svg class="i l"><use href="#i-sliders"/></svg>Editor &amp; Copilot</button>
+          <button type="button" class="settings-nav on" style="width:100%;text-align:left"><svg class="i l"><use href="#i-card"/></svg>Billing &amp; Limits</button>
+          <button type="button" class="settings-nav" style="width:100%;text-align:left"><svg class="i l"><use href="#i-shield"/></svg>API &amp; Security</button>
+          <button type="button" class="settings-nav" style="width:100%;text-align:left"><svg class="i l"><use href="#i-trash"/></svg>Trash &amp; Recovery</button>
+          <div style="margin-top:auto;display:flex;flex-direction:column;gap:4px;border-top:1px solid var(--border);padding-top:16px">
+            <button type="button" class="settings-nav" style="width:100%;text-align:left"><svg class="i"><use href="#i-terminal"/></svg>Playground</button>
+            <button type="button" class="settings-nav" style="width:100%;text-align:left"><svg class="i"><use href="#i-layers"/></svg>My Apps</button>
+          </div>
+        </aside>
+        <div class="settings-main" style="padding:36px 48px">
+          <div style="max-width:800px;margin:0 auto;display:flex;flex-direction:column;gap:24px">
+            <div class="s-card" style="margin-top:0;padding:24px;border-color:var(--border-strong);background:linear-gradient(135deg,var(--brand-subtle) 0%,var(--accent-subtle) 100%);display:flex;justify-content:space-between;align-items:center;gap:20px;flex-wrap:wrap">
+              <div style="max-width:440px">
+                <span class="pill brand" style="padding:3px 10px;font-weight:800;letter-spacing:0.06em;text-transform:uppercase">Current Plan: Free Tier</span>
+                <h2 style="margin-top:10px;font-size:21px;font-weight:900">Account Subscription &amp; Usage Limits</h2>
+                <p class="sub" style="margin-top:4px">You are currently on the <b>Free</b> subscription. Upgrade your tier to unlock higher vCPU sandboxes, multi-agent AI orchestration, and priority execution.</p>
+              </div>
+              <div style="display:flex;align-items:center;gap:8px">
+                <span class="pin" style="position:static">1</span>
+                <button type="button" class="btn-solid" style="padding:11px 20px;font-size:13px;border-radius:10px"><svg class="i s"><use href="#i-zap"/></svg>Manage Subscription &amp; Plans<svg class="i s"><use href="#i-chev-r"/></svg></button>
+              </div>
+            </div>
+
+            <div class="s-card" style="margin-top:0;padding:24px;display:flex;flex-direction:column;gap:18px;position:relative">
+              <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--border);padding-bottom:12px">
+                <h3 style="display:flex;align-items:center;gap:8px"><svg class="i t-brand"><use href="#i-coins"/></svg>AI Credits &amp; Provider Quotas</h3>
+                <div style="display:flex;align-items:center;gap:8px">
+                  <span class="pin" style="position:static">2</span>
+                  <button type="button" class="btn-secondary btn-sm"><svg class="i s"><use href="#i-refresh"/></svg>Refresh Credits</button>
+                </div>
+              </div>
+
+              <div style="display:flex;gap:24px;align-items:center;flex-wrap:wrap">
+                <div style="flex:1 1 260px">
+                  <div style="display:flex;justify-content:space-between;font-size:12px;font-weight:700;margin-bottom:8px">
+                    <span class="muted">REMAINING FREE CREDITS</span>
+                    <span class="t-brand" style="font-variant-numeric:tabular-nums">14.60 / 20.00 Credits</span>
+                  </div>
+                  <div class="meter" style="height:10px;border:1px solid var(--border);background:var(--bg-canvas)"><span style="width:73%"></span></div>
+                  <p class="sub" style="margin-top:10px;font-size:11.5px">Free tier accounts receive 20 credits per model provider. Pro &amp; Max plans feature un-capped metered AI processing.</p>
+                </div>
+                <div style="background:var(--bg-canvas);border:1px solid var(--border);border-radius:10px;padding:16px 20px;display:flex;flex-direction:column;align-items:center;justify-content:center;min-width:160px;height:90px">
+                  <span class="muted" style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:0.04em">Your Balance</span>
+                  <div class="t-brand" style="font-size:26px;font-weight:900;font-variant-numeric:tabular-nums;line-height:1.1;margin-top:4px">14.60</div>
+                  <span class="muted" style="font-size:10.5px;margin-top:2px">Credits Left</span>
+                </div>
+              </div>
+
+              <div style="display:grid;grid-template-columns:1fr;gap:10px">
+                <div style="background:var(--bg-canvas);border:1px solid var(--border);border-radius:8px;padding:12px">
+                  <div style="display:flex;justify-content:space-between;font-size:10px;margin-bottom:8px"><span style="font-weight:800;color:var(--text-primary)">NVIDIA</span><span class="muted" style="font-variant-numeric:tabular-nums">14.60 / 20</span></div>
+                  <div class="meter"><span style="width:73%"></span></div>
+                </div>
+              </div>
+
+              <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px">
+                <div style="background:var(--bg-canvas);padding:14px 16px;border-radius:8px;border:1px solid var(--border)">
+                  <div class="muted" style="font-size:10px;font-weight:800;text-transform:uppercase">Prompt Tokens</div>
+                  <div style="font-size:16px;font-weight:800;color:var(--text-primary);margin-top:4px;font-variant-numeric:tabular-nums">142,840</div>
+                </div>
+                <div style="background:var(--bg-canvas);padding:14px 16px;border-radius:8px;border:1px solid var(--border)">
+                  <div class="muted" style="font-size:10px;font-weight:800;text-transform:uppercase">Completion Tokens</div>
+                  <div style="font-size:16px;font-weight:800;color:var(--text-primary);margin-top:4px;font-variant-numeric:tabular-nums">38,410</div>
+                </div>
+                <div style="background:var(--bg-canvas);padding:14px 16px;border-radius:8px;border:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
+                  <div>
+                    <div class="muted" style="font-size:10px;font-weight:800;text-transform:uppercase">Total Tokens</div>
+                    <div class="t-brand" style="font-size:16px;font-weight:800;margin-top:4px;font-variant-numeric:tabular-nums">181,250</div>
+                  </div>
+                  <svg class="i muted"><use href="#i-external"/></svg>
+                </div>
+              </div>
+            </div>
+
+            <div class="s-card" style="margin-top:0;padding:24px;display:flex;flex-direction:column;gap:18px;position:relative">
+              <span class="pin" style="right:14px;top:14px">3</span>
+              <h3 style="display:flex;align-items:center;gap:8px;padding-bottom:12px;border-bottom:1px solid var(--border)"><svg class="i t-brand"><use href="#i-cpu"/></svg>Active Sandbox Containers</h3>
+              <div>
+                <div style="display:flex;justify-content:space-between;font-size:12.5px;font-weight:700;margin-bottom:8px">
+                  <span class="muted">CONTAINERS PROVISIONED</span>
+                  <span class="t-brand" style="font-variant-numeric:tabular-nums">2 / 5 Active Environments</span>
+                </div>
+                <div class="meter" style="height:10px;border:1px solid var(--border);background:var(--bg-canvas)"><span style="width:40%;background:linear-gradient(90deg,var(--brand-primary),var(--accent-primary))"></span></div>
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+                <div style="background:var(--bg-canvas);padding:16px;border-radius:10px;border:1px solid var(--border);display:flex;align-items:center;gap:14px">
+                  <svg class="i l t-brand"><use href="#i-cpu"/></svg>
+                  <div><div class="muted" style="font-size:10.5px;font-weight:800;text-transform:uppercase">CPU Allocation</div><div style="font-size:17px;font-weight:800;color:var(--text-primary);margin-top:2px;font-variant-numeric:tabular-nums">0.5 / 2.0 vCPU</div></div>
+                </div>
+                <div style="background:var(--bg-canvas);padding:16px;border-radius:10px;border:1px solid var(--border);display:flex;align-items:center;gap:14px">
+                  <svg class="i l t-accent"><use href="#i-database"/></svg>
+                  <div><div class="muted" style="font-size:10.5px;font-weight:800;text-transform:uppercase">Memory Allocated</div><div style="font-size:17px;font-weight:800;color:var(--text-primary);margin-top:2px;font-variant-numeric:tabular-nums">512 MB / 2 GB</div></div>
+                </div>
+              </div>
+              <button type="button" class="btn-secondary" style="align-self:flex-start"><svg class="i s"><use href="#i-refresh"/></svg>Sync Container Quotas</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div></div>
+    <ol class="notes">
+      <li><b>Manage Subscription &amp; Plans</b> leaves the main app by replacing port <code>5173</code> with <code>:5174</code> (<code>payments_frontend</code>, where Pro plans are ₹299/₹499 and Max plans are ₹999/₹1,499 in <code>fetchPackagesAPI</code>).</li>
+      <li><b>AI Credits &amp; Provider Quotas</b> reads <code>GET /api/payments/credit</code> (<code>fetchCreditAPI</code>); <code>Refresh Credits</code> re-fetches balances, per-provider buckets (<code>providerCredits</code> excluding <code>unknown</code>), and token totals.</li>
+      <li><b>Active Sandbox Containers</b> displays <code>projectsCount</code> (passed hardcoded as <code>2</code> from <code>App.jsx</code>), hardcoded vCPU/RAM caps, and <code>Sync Container Quotas</code> which triggers an alert stub.</li>
+    </ol>
+  </section>
+
+  <!-- CS-04 ─────────────────────────────────────────────────────────────── -->
+  <section class="screen" id="cs4">
+    <div class="screen-cap" style="flex-wrap:wrap"><span class="id">CS-04</span><h2>API &amp; Security</h2><span class="where" style="overflow-wrap:anywhere">Frontend/src/features/settings/components/SettingsSecurityPage.jsx</span></div>
+    <div class="frame-scroll"><div class="frame">
+      <div class="settings">
+        <aside class="settings-side">
+          <button type="button" class="settings-back" style="width:100%;text-align:left"><svg class="i"><use href="#i-chev-l"/></svg>Back to Dashboard</button>
+          <div class="settings-group">System Settings</div>
+          <button type="button" class="settings-nav" style="width:100%;text-align:left"><svg class="i l"><use href="#i-user"/></svg>Profile Account</button>
+          <button type="button" class="settings-nav" style="width:100%;text-align:left"><svg class="i l"><use href="#i-sliders"/></svg>Editor &amp; Copilot</button>
+          <button type="button" class="settings-nav" style="width:100%;text-align:left"><svg class="i l"><use href="#i-card"/></svg>Billing &amp; Limits</button>
+          <button type="button" class="settings-nav on" style="width:100%;text-align:left"><svg class="i l"><use href="#i-shield"/></svg>API &amp; Security</button>
+          <button type="button" class="settings-nav" style="width:100%;text-align:left"><svg class="i l"><use href="#i-trash"/></svg>Trash &amp; Recovery</button>
+          <div style="margin-top:auto;display:flex;flex-direction:column;gap:4px;border-top:1px solid var(--border);padding-top:16px">
+            <button type="button" class="settings-nav" style="width:100%;text-align:left"><svg class="i"><use href="#i-terminal"/></svg>Playground</button>
+            <button type="button" class="settings-nav" style="width:100%;text-align:left"><svg class="i"><use href="#i-layers"/></svg>My Apps</button>
+          </div>
+        </aside>
+        <div class="settings-main" style="padding:36px 48px">
+          <div style="max-width:800px;margin:0 auto;display:flex;flex-direction:column;gap:24px">
+            <div class="s-card" style="margin-top:0;padding:24px;display:flex;flex-direction:column;gap:16px;position:relative">
+              <span class="pin" style="right:14px;top:14px">1</span>
+              <h3 style="padding-bottom:12px;border-bottom:1px solid var(--border)">Workspace API Access Keys</h3>
+              <p class="sub" style="margin-top:0">Use these API keys to authenticate command integrations and programmatically sync codespace sandbox containers with CLI engines.</p>
+              <div style="display:flex;flex-direction:column;gap:10px">
+                <div style="display:flex;align-items:center;justify-content:space-between;background:var(--bg-canvas);padding:14px 18px;border-radius:10px;border:1px solid var(--border);gap:16px">
+                  <div>
+                    <div style="font-size:13.5px;font-weight:700;color:var(--text-primary)">CI Pipeline Deploy</div>
+                    <div class="muted" style="font-size:11px;margin-top:2px">Created: 2026-11-12</div>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:10px">
+                    <code style="color:var(--brand-primary);background:var(--brand-subtle);padding:6px 10px;border-radius:6px;border:1px solid var(--border)">sk_live_••••••••a94f</code>
+                    <button type="button" class="icon-btn" aria-label="Copy Key" title="Copy Key"><svg class="i"><use href="#i-copy"/></svg></button>
+                    <button type="button" class="icon-btn t-err" aria-label="Delete Key" title="Delete Key"><svg class="i"><use href="#i-trash"/></svg></button>
+                  </div>
+                </div>
+                <div style="display:flex;align-items:center;justify-content:space-between;background:var(--bg-canvas);padding:14px 18px;border-radius:10px;border:1px solid var(--border);gap:16px">
+                  <div>
+                    <div style="font-size:13.5px;font-weight:700;color:var(--text-primary)">Local CLI Sync</div>
+                    <div class="muted" style="font-size:11px;margin-top:2px">Created: 2026-11-18</div>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:10px">
+                    <code style="color:var(--brand-primary);background:var(--brand-subtle);padding:6px 10px;border-radius:6px;border:1px solid var(--border)">sk_test_••••••••3c81</code>
+                    <button type="button" class="icon-btn" aria-label="Copy Key" title="Copy Key"><svg class="i"><use href="#i-copy"/></svg></button>
+                    <button type="button" class="icon-btn t-err" aria-label="Delete Key" title="Delete Key"><svg class="i"><use href="#i-trash"/></svg></button>
+                  </div>
+                </div>
+                <div style="display:flex;align-items:center;justify-content:space-between;background:var(--bg-canvas);padding:14px 18px;border-radius:10px;border:1px solid var(--border);gap:16px">
+                  <div>
+                    <div style="font-size:13.5px;font-weight:700;color:var(--text-primary)">Staging Sandbox Runner</div>
+                    <div class="muted" style="font-size:11px;margin-top:2px">Created: 2026-11-24</div>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:10px">
+                    <code style="color:var(--brand-primary);background:var(--brand-subtle);padding:6px 10px;border-radius:6px;border:1px solid var(--border)">sk_live_••••••••7e2d</code>
+                    <button type="button" class="icon-btn" aria-label="Copy Key" title="Copy Key"><svg class="i"><use href="#i-copy"/></svg></button>
+                    <button type="button" class="icon-btn t-err" aria-label="Delete Key" title="Delete Key"><svg class="i"><use href="#i-trash"/></svg></button>
+                  </div>
+                </div>
+              </div>
+
+              <div style="display:flex;gap:12px;align-items:center;border-top:1px solid var(--border);padding-top:18px;margin-top:4px;position:relative">
+                <div class="input ph" style="flex:1;background:var(--bg-canvas)">API Key Name (e.g. CI pipeline secret)</div>
+                <button type="button" class="btn-primary" style="padding:9px 18px;font-size:13px"><svg class="i s"><use href="#i-plus"/></svg>Generate API Key</button>
+                <span class="pin" style="position:static">2</span>
+              </div>
+            </div>
+
+            <div class="s-card" style="margin-top:0;padding:24px;display:flex;flex-direction:column;gap:4px;position:relative">
+              <span class="pin" style="right:14px;top:14px">3</span>
+              <h3 style="display:flex;align-items:center;gap:8px;padding-bottom:12px;border-bottom:1px solid var(--border)"><svg class="i t-brand"><use href="#i-mail"/></svg>Security Notification Settings</h3>
+              <div class="s-row">
+                <div><div class="t" style="font-weight:700;color:var(--text-primary)">Email Login Alerts</div><div class="d">Receive email logs on successful login activities.</div></div>
+                <button type="button" class="switch on" aria-label="Toggle Email Login Alerts"></button>
+              </div>
+              <div class="s-row">
+                <div><div class="t" style="font-weight:700;color:var(--text-primary)">Critical Security Alerts</div><div class="d">Receive alerts on password updates, key revocation, and system changes.</div></div>
+                <button type="button" class="switch on" aria-label="Toggle Critical Security Alerts"></button>
+              </div>
+            </div>
+
+            <div class="s-card" style="margin-top:0;padding:24px;display:flex;flex-direction:column;gap:14px;position:relative">
+              <span class="pin" style="right:14px;top:14px">4</span>
+              <h3 style="display:flex;align-items:center;gap:8px"><svg class="i t-brand"><use href="#i-key"/></svg>System Environment Secrets</h3>
+              <p class="sub" style="margin-top:0">Environment variables configured here are automatically injected into all running sandbox terminals when provisioned.</p>
+              <div style="background:var(--bg-canvas);border:1px dashed var(--border);padding:24px;border-radius:10px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:12px">
+                <p class="muted" style="font-size:12.5px">System environment variable updates are configured through the terminal command bar.</p>
+                <button type="button" class="btn-secondary">Configure System Variables</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div></div>
+    <ol class="notes">
+      <li><b>Workspace API Access Keys</b> shows masked prefixes from Redux <code>settings.apiKeys</code>. Copy writes the prefix string to clipboard and swaps to a green check for 2 s; Delete asks confirmation then calls <code>DELETE /api/settings/keys/:id</code>.</li>
+      <li><b>Generate API Key</b> posts <code>{ name }</code> to <code>POST /api/settings/keys</code> (<code>generateApiKeyAPI</code>) and appends the returned key to state; initial page load does not fetch existing keys from the server.</li>
+      <li><b>Security Notification Settings</b> updates <code>preferences.notifications</code> (<code>emailLogins</code>, <code>securityAlerts</code>) via <code>PUT /api/auth/preferences</code>.</li>
+      <li><b>System Environment Secrets</b> is currently a placeholder card; clicking <code>Configure System Variables</code> triggers a coming-soon alert.</li>
+    </ol>
+  </section>
+
+  <!-- CS-05 ─────────────────────────────────────────────────────────────── -->
+  <section class="screen" id="cs5">
+    <div class="screen-cap" style="flex-wrap:wrap"><span class="id">CS-05</span><h2>Trash &amp; Recovery</h2><span class="where" style="overflow-wrap:anywhere">Frontend/src/features/settings/components/SettingsTrashPage.jsx</span></div>
+
+    <div class="frame-scroll"><div class="frame">
+      <div class="settings">
+        <aside class="settings-side">
+          <button type="button" class="settings-back" style="width:100%;text-align:left"><svg class="i"><use href="#i-chev-l"/></svg>Back to Dashboard</button>
+          <div class="settings-group">System Settings</div>
+          <button type="button" class="settings-nav" style="width:100%;text-align:left"><svg class="i l"><use href="#i-user"/></svg>Profile Account</button>
+          <button type="button" class="settings-nav" style="width:100%;text-align:left"><svg class="i l"><use href="#i-sliders"/></svg>Editor &amp; Copilot</button>
+          <button type="button" class="settings-nav" style="width:100%;text-align:left"><svg class="i l"><use href="#i-card"/></svg>Billing &amp; Limits</button>
+          <button type="button" class="settings-nav" style="width:100%;text-align:left"><svg class="i l"><use href="#i-shield"/></svg>API &amp; Security</button>
+          <button type="button" class="settings-nav on" style="width:100%;text-align:left"><svg class="i l"><use href="#i-trash"/></svg>Trash &amp; Recovery</button>
+          <div style="margin-top:auto;display:flex;flex-direction:column;gap:4px;border-top:1px solid var(--border);padding-top:16px">
+            <button type="button" class="settings-nav" style="width:100%;text-align:left"><svg class="i"><use href="#i-terminal"/></svg>Playground</button>
+            <button type="button" class="settings-nav" style="width:100%;text-align:left"><svg class="i"><use href="#i-layers"/></svg>My Apps</button>
+          </div>
+        </aside>
+        <div class="settings-main" style="padding:36px 48px">
+          <div style="max-width:800px;margin:0 auto;display:flex;flex-direction:column;gap:20px">
+            <div>
+              <h2 style="font-size:24px;font-weight:800;display:flex;align-items:center;gap:10px"><svg class="i l t-brand"><use href="#i-trash"/></svg>Trash &amp; Recovery</h2>
+              <p class="lead">Manage soft-deleted projects and AI chat reports. Items can be restored back to active state or permanently deleted.</p>
+            </div>
+
+            <div style="display:flex;gap:8px;align-items:center;border-bottom:1px solid var(--border);padding-bottom:12px">
+              <button type="button" style="display:flex;align-items:center;gap:8px;padding:8px 16px;border-radius:8px;background:var(--bg-element);color:var(--text-primary);font-weight:700;font-size:13px"><svg class="i s t-brand"><use href="#i-folder-tree"/></svg>Deleted Projects (6)</button>
+              <button type="button" style="display:flex;align-items:center;gap:8px;padding:8px 16px;border-radius:8px;color:var(--text-muted);font-weight:700;font-size:13px"><svg class="i s"><use href="#i-message"/></svg>Deleted Chats &amp; Reports (6)</button>
+              <span class="pin" style="position:static">1</span>
+            </div>
+
+            <div style="display:flex;flex-direction:column;gap:12px;position:relative">
+              <div class="s-card" style="margin-top:0;padding:16px 20px;display:flex;align-items:center;justify-content:space-between;gap:16px">
+                <div style="display:flex;align-items:center;gap:14px">
+                  <div style="width:40px;height:40px;border-radius:10px;background:var(--bg-element);display:grid;place-items:center;color:var(--brand-primary)"><svg class="i l"><use href="#i-code"/></svg></div>
+                  <div>
+                    <div style="font-size:15px;font-weight:700;color:var(--text-primary)">quiz-arena</div>
+                    <div class="muted" style="display:flex;align-items:center;gap:10px;font-size:12px;margin-top:3px"><span class="mono">Sandbox ID: sbx-5c0e…</span><span>•</span><span style="display:flex;align-items:center;gap:4px"><svg class="i s"><use href="#i-clock"/></svg>Deleted 24 Nov, 18:40</span></div>
+                  </div>
+                </div>
+                <div style="display:flex;align-items:center;gap:8px">
+                  <span class="pin" style="position:static">2</span>
+                  <button type="button" class="btn-ghost" style="border-color:var(--brand-primary);background:var(--accent-subtle);color:var(--brand-primary);font-weight:700"><svg class="i s"><use href="#i-rotate"/></svg>Restore</button>
+                  <button type="button" class="btn-ghost" style="color:var(--error);font-weight:700"><svg class="i s"><use href="#i-trash"/></svg>Delete Permanently</button>
+                </div>
+              </div>
+              <div class="s-card" style="margin-top:0;padding:16px 20px;display:flex;align-items:center;justify-content:space-between;gap:16px">
+                <div style="display:flex;align-items:center;gap:14px">
+                  <div style="width:40px;height:40px;border-radius:10px;background:var(--bg-element);display:grid;place-items:center;color:var(--brand-primary)"><svg class="i l"><use href="#i-code"/></svg></div>
+                  <div>
+                    <div style="font-size:15px;font-weight:700;color:var(--text-primary)">portfolio</div>
+                    <div class="muted" style="display:flex;align-items:center;gap:10px;font-size:12px;margin-top:3px"><span class="mono">Sandbox ID: sbx-91aa…</span><span>•</span><span style="display:flex;align-items:center;gap:4px"><svg class="i s"><use href="#i-clock"/></svg>Deleted 22 Nov, 14:15</span></div>
+                  </div>
+                </div>
+                <div style="display:flex;align-items:center;gap:8px">
+                  <button type="button" class="btn-ghost" style="border-color:var(--brand-primary);background:var(--accent-subtle);color:var(--brand-primary);font-weight:700"><svg class="i s"><use href="#i-rotate"/></svg>Restore</button>
+                  <button type="button" class="btn-ghost" style="color:var(--error);font-weight:700"><svg class="i s"><use href="#i-trash"/></svg>Delete Permanently</button>
+                </div>
+              </div>
+              <div class="s-card" style="margin-top:0;padding:16px 20px;display:flex;align-items:center;justify-content:space-between;gap:16px">
+                <div style="display:flex;align-items:center;gap:14px">
+                  <div style="width:40px;height:40px;border-radius:10px;background:var(--bg-element);display:grid;place-items:center;color:var(--brand-primary)"><svg class="i l"><use href="#i-code"/></svg></div>
+                  <div>
+                    <div style="font-size:15px;font-weight:700;color:var(--text-primary)">chat-widget</div>
+                    <div class="muted" style="display:flex;align-items:center;gap:10px;font-size:12px;margin-top:3px"><span class="mono">Sandbox ID: sbx-2c11…</span><span>•</span><span style="display:flex;align-items:center;gap:4px"><svg class="i s"><use href="#i-clock"/></svg>Deleted 21 Nov, 09:30</span></div>
+                  </div>
+                </div>
+                <div style="display:flex;align-items:center;gap:8px">
+                  <button type="button" class="btn-ghost" style="border-color:var(--brand-primary);background:var(--accent-subtle);color:var(--brand-primary);font-weight:700"><svg class="i s"><use href="#i-rotate"/></svg>Restore</button>
+                  <button type="button" class="btn-ghost" style="color:var(--error);font-weight:700"><svg class="i s"><use href="#i-trash"/></svg>Delete Permanently</button>
+                </div>
+              </div>
+              <div class="s-card" style="margin-top:0;padding:16px 20px;display:flex;align-items:center;justify-content:space-between;gap:16px">
+                <div style="display:flex;align-items:center;gap:14px">
+                  <div style="width:40px;height:40px;border-radius:10px;background:var(--bg-element);display:grid;place-items:center;color:var(--brand-primary)"><svg class="i l"><use href="#i-code"/></svg></div>
+                  <div>
+                    <div style="font-size:15px;font-weight:700;color:var(--text-primary)">expense-tracker</div>
+                    <div class="muted" style="display:flex;align-items:center;gap:10px;font-size:12px;margin-top:3px"><span class="mono">Sandbox ID: sbx-e91b…</span><span>•</span><span style="display:flex;align-items:center;gap:4px"><svg class="i s"><use href="#i-clock"/></svg>Deleted 19 Nov, 20:05</span></div>
+                  </div>
+                </div>
+                <div style="display:flex;align-items:center;gap:8px">
+                  <button type="button" class="btn-ghost" style="border-color:var(--brand-primary);background:var(--accent-subtle);color:var(--brand-primary);font-weight:700"><svg class="i s"><use href="#i-rotate"/></svg>Restore</button>
+                  <button type="button" class="btn-ghost" style="color:var(--error);font-weight:700"><svg class="i s"><use href="#i-trash"/></svg>Delete Permanently</button>
+                </div>
+              </div>
+              <div class="s-card" style="margin-top:0;padding:16px 20px;display:flex;align-items:center;justify-content:space-between;gap:16px">
+                <div style="display:flex;align-items:center;gap:14px">
+                  <div style="width:40px;height:40px;border-radius:10px;background:var(--bg-element);display:grid;place-items:center;color:var(--brand-primary)"><svg class="i l"><use href="#i-code"/></svg></div>
+                  <div>
+                    <div style="font-size:15px;font-weight:700;color:var(--text-primary)">blog-engine</div>
+                    <div class="muted" style="display:flex;align-items:center;gap:10px;font-size:12px;margin-top:3px"><span class="mono">Sandbox ID: sbx-6b3e…</span><span>•</span><span style="display:flex;align-items:center;gap:4px"><svg class="i s"><use href="#i-clock"/></svg>Deleted 16 Nov, 11:22</span></div>
+                  </div>
+                </div>
+                <div style="display:flex;align-items:center;gap:8px">
+                  <button type="button" class="btn-ghost" style="border-color:var(--brand-primary);background:var(--accent-subtle);color:var(--brand-primary);font-weight:700"><svg class="i s"><use href="#i-rotate"/></svg>Restore</button>
+                  <button type="button" class="btn-ghost" style="color:var(--error);font-weight:700"><svg class="i s"><use href="#i-trash"/></svg>Delete Permanently</button>
+                </div>
+              </div>
+              <div class="s-card" style="margin-top:0;padding:16px 20px;display:flex;align-items:center;justify-content:space-between;gap:16px">
+                <div style="display:flex;align-items:center;gap:14px">
+                  <div style="width:40px;height:40px;border-radius:10px;background:var(--bg-element);display:grid;place-items:center;color:var(--brand-primary)"><svg class="i l"><use href="#i-code"/></svg></div>
+                  <div>
+                    <div style="font-size:15px;font-weight:700;color:var(--text-primary)">ml-notes</div>
+                    <div class="muted" style="display:flex;align-items:center;gap:10px;font-size:12px;margin-top:3px"><span class="mono">Sandbox ID: sbx-7f20…</span><span>•</span><span style="display:flex;align-items:center;gap:4px"><svg class="i s"><use href="#i-clock"/></svg>Deleted 14 Nov, 17:48</span></div>
+                  </div>
+                </div>
+                <div style="display:flex;align-items:center;gap:8px">
+                  <button type="button" class="btn-ghost" style="border-color:var(--brand-primary);background:var(--accent-subtle);color:var(--brand-primary);font-weight:700"><svg class="i s"><use href="#i-rotate"/></svg>Restore</button>
+                  <button type="button" class="btn-ghost" style="color:var(--error);font-weight:700"><svg class="i s"><use href="#i-trash"/></svg>Delete Permanently</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div></div>
+
+    <div class="frame-scroll" style="margin-top:16px"><div class="frame">
+      <div class="settings">
+        <aside class="settings-side">
+          <button type="button" class="settings-back" style="width:100%;text-align:left"><svg class="i"><use href="#i-chev-l"/></svg>Back to Dashboard</button>
+          <div class="settings-group">System Settings</div>
+          <button type="button" class="settings-nav" style="width:100%;text-align:left"><svg class="i l"><use href="#i-user"/></svg>Profile Account</button>
+          <button type="button" class="settings-nav" style="width:100%;text-align:left"><svg class="i l"><use href="#i-sliders"/></svg>Editor &amp; Copilot</button>
+          <button type="button" class="settings-nav" style="width:100%;text-align:left"><svg class="i l"><use href="#i-card"/></svg>Billing &amp; Limits</button>
+          <button type="button" class="settings-nav" style="width:100%;text-align:left"><svg class="i l"><use href="#i-shield"/></svg>API &amp; Security</button>
+          <button type="button" class="settings-nav on" style="width:100%;text-align:left"><svg class="i l"><use href="#i-trash"/></svg>Trash &amp; Recovery</button>
+          <div style="margin-top:auto;display:flex;flex-direction:column;gap:4px;border-top:1px solid var(--border);padding-top:16px">
+            <button type="button" class="settings-nav" style="width:100%;text-align:left"><svg class="i"><use href="#i-terminal"/></svg>Playground</button>
+            <button type="button" class="settings-nav" style="width:100%;text-align:left"><svg class="i"><use href="#i-layers"/></svg>My Apps</button>
+          </div>
+        </aside>
+        <div class="settings-main" style="padding:36px 48px">
+          <div style="max-width:800px;margin:0 auto;display:flex;flex-direction:column;gap:20px">
+            <div>
+              <h2 style="font-size:24px;font-weight:800;display:flex;align-items:center;gap:10px"><svg class="i l t-brand"><use href="#i-trash"/></svg>Trash &amp; Recovery</h2>
+              <p class="lead">Manage soft-deleted projects and AI chat reports. Items can be restored back to active state or permanently deleted.</p>
+            </div>
+
+            <div style="display:flex;gap:8px;align-items:center;border-bottom:1px solid var(--border);padding-bottom:12px">
+              <button type="button" style="display:flex;align-items:center;gap:8px;padding:8px 16px;border-radius:8px;color:var(--text-muted);font-weight:700;font-size:13px"><svg class="i s"><use href="#i-folder-tree"/></svg>Deleted Projects (6)</button>
+              <button type="button" style="display:flex;align-items:center;gap:8px;padding:8px 16px;border-radius:8px;background:var(--bg-element);color:var(--text-primary);font-weight:700;font-size:13px"><svg class="i s t-brand"><use href="#i-message"/></svg>Deleted Chats &amp; Reports (6)</button>
+              <span class="pin" style="position:static">3</span>
+            </div>
+
+            <div style="display:flex;flex-direction:column;gap:12px">
+              <div class="s-card" style="margin-top:0;padding:16px 20px;display:flex;flex-direction:column;gap:12px">
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+                  <div style="display:flex;align-items:center;gap:8px;font-size:12px"><span style="font-size:11px;font-weight:800;padding:3px 8px;border-radius:4px;background:var(--bg-element);color:var(--brand-primary)">ORION</span><span class="muted">•</span><span class="muted">Project: quiz-arena</span></div>
+                  <div style="display:flex;align-items:center;gap:8px">
+                    <button type="button" class="btn-ghost btn-sm" style="border-color:var(--brand-primary);background:var(--accent-subtle);color:var(--brand-primary);font-weight:700"><svg class="i s"><use href="#i-rotate"/></svg>Restore chat</button>
+                    <button type="button" class="btn-ghost btn-sm" style="color:var(--error);font-weight:700"><svg class="i s"><use href="#i-trash"/></svg>Delete</button>
+                  </div>
+                </div>
+                <div style="background:var(--bg-canvas);padding:12px 14px;border-radius:8px;border:1px solid var(--border);font-size:13px;color:var(--text-primary)"><b class="t-brand" style="margin-right:6px">Whole chat:</b>Add Redis leaderboard caching and WebSocket score updates</div>
+              </div>
+
+              <div class="s-card" style="margin-top:0;padding:16px 20px;display:flex;flex-direction:column;gap:12px">
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+                  <div style="display:flex;align-items:center;gap:8px;font-size:12px"><span style="font-size:11px;font-weight:800;padding:3px 8px;border-radius:4px;background:var(--bg-element);color:var(--brand-primary)">CLIO</span><span class="muted">•</span><span class="muted">Project: portfolio</span></div>
+                  <div style="display:flex;align-items:center;gap:8px">
+                    <button type="button" class="btn-ghost btn-sm" style="border-color:var(--brand-primary);background:var(--accent-subtle);color:var(--brand-primary);font-weight:700"><svg class="i s"><use href="#i-rotate"/></svg>Restore message</button>
+                    <button type="button" class="btn-ghost btn-sm" style="color:var(--error);font-weight:700"><svg class="i s"><use href="#i-trash"/></svg>Delete</button>
+                  </div>
+                </div>
+                <div style="background:var(--bg-canvas);padding:12px 14px;border-radius:8px;border:1px solid var(--border);font-size:13px;color:var(--text-primary)"><b class="t-brand" style="margin-right:6px">AI Report:</b>Audited ResponsiveGrid.jsx breakpoints and fixed hero overflow at 390 px width.</div>
+              </div>
+
+              <div class="s-card" style="margin-top:0;padding:16px 20px;display:flex;flex-direction:column;gap:12px">
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+                  <div style="display:flex;align-items:center;gap:8px;font-size:12px"><span style="font-size:11px;font-weight:800;padding:3px 8px;border-radius:4px;background:var(--bg-element);color:var(--brand-primary)">ORION</span><span class="muted">•</span><span class="muted">Project: chat-widget</span></div>
+                  <div style="display:flex;align-items:center;gap:8px">
+                    <button type="button" class="btn-ghost btn-sm" style="border-color:var(--brand-primary);background:var(--accent-subtle);color:var(--brand-primary);font-weight:700"><svg class="i s"><use href="#i-rotate"/></svg>Restore message</button>
+                    <button type="button" class="btn-ghost btn-sm" style="color:var(--error);font-weight:700"><svg class="i s"><use href="#i-trash"/></svg>Delete</button>
+                  </div>
+                </div>
+                <div style="background:var(--bg-canvas);padding:12px 14px;border-radius:8px;border:1px solid var(--border);font-size:13px;color:var(--text-primary)"><b class="muted" style="margin-right:6px">User Prompt:</b>Refactor socket reconnect backoff to cap at 30 seconds with jitter.</div>
+              </div>
+
+              <div class="s-card" style="margin-top:0;padding:16px 20px;display:flex;flex-direction:column;gap:12px">
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+                  <div style="display:flex;align-items:center;gap:8px;font-size:12px"><span style="font-size:11px;font-weight:800;padding:3px 8px;border-radius:4px;background:var(--bg-element);color:var(--brand-primary)">ORION</span><span class="muted">•</span><span class="muted">Project: expense-tracker</span></div>
+                  <div style="display:flex;align-items:center;gap:8px">
+                    <button type="button" class="btn-ghost btn-sm" style="border-color:var(--brand-primary);background:var(--accent-subtle);color:var(--brand-primary);font-weight:700"><svg class="i s"><use href="#i-rotate"/></svg>Restore chat</button>
+                    <button type="button" class="btn-ghost btn-sm" style="color:var(--error);font-weight:700"><svg class="i s"><use href="#i-trash"/></svg>Delete</button>
+                  </div>
+                </div>
+                <div style="background:var(--bg-canvas);padding:12px 14px;border-radius:8px;border:1px solid var(--border);font-size:13px;color:var(--text-primary)"><b class="t-brand" style="margin-right:6px">Whole chat:</b>CSV export route and monthly category summary chart</div>
+              </div>
+
+              <div class="s-card" style="margin-top:0;padding:16px 20px;display:flex;flex-direction:column;gap:12px">
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+                  <div style="display:flex;align-items:center;gap:8px;font-size:12px"><span style="font-size:11px;font-weight:800;padding:3px 8px;border-radius:4px;background:var(--bg-element);color:var(--brand-primary)">CLIO</span><span class="muted">•</span><span class="muted">Project: blog-engine</span></div>
+                  <div style="display:flex;align-items:center;gap:8px">
+                    <button type="button" class="btn-ghost btn-sm" style="border-color:var(--brand-primary);background:var(--accent-subtle);color:var(--brand-primary);font-weight:700"><svg class="i s"><use href="#i-rotate"/></svg>Restore message</button>
+                    <button type="button" class="btn-ghost btn-sm" style="color:var(--error);font-weight:700"><svg class="i s"><use href="#i-trash"/></svg>Delete</button>
+                  </div>
+                </div>
+                <div style="background:var(--bg-canvas);padding:12px 14px;border-radius:8px;border:1px solid var(--border);font-size:13px;color:var(--text-primary)"><b class="t-brand" style="margin-right:6px">AI Report:</b>Suggested adding an index on (authorId, publishedAt) for the feed query.</div>
+              </div>
+
+              <div class="s-card" style="margin-top:0;padding:16px 20px;display:flex;flex-direction:column;gap:12px">
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+                  <div style="display:flex;align-items:center;gap:8px;font-size:12px"><span style="font-size:11px;font-weight:800;padding:3px 8px;border-radius:4px;background:var(--bg-element);color:var(--brand-primary)">ORION</span><span class="muted">•</span><span class="muted">Project: ml-notes</span></div>
+                  <div style="display:flex;align-items:center;gap:8px">
+                    <button type="button" class="btn-ghost btn-sm" style="border-color:var(--brand-primary);background:var(--accent-subtle);color:var(--brand-primary);font-weight:700"><svg class="i s"><use href="#i-rotate"/></svg>Restore message</button>
+                    <button type="button" class="btn-ghost btn-sm" style="color:var(--error);font-weight:700"><svg class="i s"><use href="#i-trash"/></svg>Delete</button>
+                  </div>
+                </div>
+                <div style="background:var(--bg-canvas);padding:12px 14px;border-radius:8px;border:1px solid var(--border);font-size:13px;color:var(--text-primary)"><b class="muted" style="margin-right:6px">User Prompt:</b>Add keyboard shortcut Cmd+K to search markdown notes.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div></div>
+
+    <ol class="notes">
+      <li><b>Sub-tabs</b> load <code>GET /api/sandbox/projects/trash</code> and <code>GET /api/ai/chats/trash</code> together via <code>Promise.allSettled</code> on mount, showing live item counts in parentheses.</li>
+      <li><b>Deleted Projects</b> restores via <code>PATCH /api/sandbox/project/:id/restore</code> (and refreshes project limits via <code>onProjectRestored</code>); <code>Delete Permanently</code> opens the <code>Confirm Permanent Delete</code> modal calling <code>DELETE /api/sandbox/project/:id/permanent</code>.</li>
+      <li><b>Deleted Chats &amp; Reports</b> mixes <code>trashSessions</code> (<code>Restore chat</code>) and <code>trashMessages</code> (<code>Restore message</code>); restoring a message also clears its parent session from the list via <code>PATCH /api/ai/chats/.../restore</code>.</li>
+    </ol>
+  </section>
+
+  <!-- States ────────────────────────────────────────────────────────────── -->
+  <section class="screen" id="settings-states">
+    <div class="screen-cap" style="flex-wrap:wrap"><span class="id">States</span><h2>Loading, empty, error and done</h2><span class="where">Settings panels, Trash &amp; Recovery, and save feedback</span></div>
+    <div class="states">
+      <div class="state">
+        <span class="state-label">Loading</span>
+        <div class="frame" style="position:relative">
+          <span class="pin" style="right:10px;top:10px">1</span>
+          <div style="padding:16px;display:flex;flex-direction:column;gap:12px">
+            <div style="font-size:13px;font-weight:700;color:var(--text-primary)">Trash &amp; Recovery</div>
+            <div style="display:flex;align-items:center;gap:12px;padding:12px;border:1px solid var(--border);border-radius:10px;background:var(--bg-surface)">
+              <span class="sk c" style="border-radius:8px;flex-shrink:0"></span>
+              <div style="flex:1;display:flex;flex-direction:column;gap:6px"><span class="sk" style="width:55%"></span><span class="sk" style="width:82%"></span></div>
+            </div>
+            <div style="display:flex;align-items:center;gap:12px;padding:12px;border:1px solid var(--border);border-radius:10px;background:var(--bg-surface)">
+              <span class="sk c" style="border-radius:8px;flex-shrink:0"></span>
+              <div style="flex:1;display:flex;flex-direction:column;gap:6px"><span class="sk" style="width:45%"></span><span class="sk" style="width:74%"></span></div>
+            </div>
+            <div style="display:flex;align-items:center;gap:12px;padding:12px;border:1px solid var(--border);border-radius:10px;background:var(--bg-surface)">
+              <span class="sk c" style="border-radius:8px;flex-shrink:0"></span>
+              <div style="flex:1;display:flex;flex-direction:column;gap:6px"><span class="sk" style="width:62%"></span><span class="sk" style="width:68%"></span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="state">
+        <span class="state-label">Empty</span>
+        <div class="frame" style="position:relative">
+          <span class="pin" style="right:10px;top:10px">2</span>
+          <div class="empty ok" style="height:100%">
+            <div class="em-ic"><svg class="i"><use href="#i-check-circle"/></svg></div>
+            <h4>No deleted projects in trash</h4>
+            <p>Projects you soft-delete will appear here for recovery.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="state">
+        <span class="state-label">Error</span>
+        <div class="frame" style="position:relative">
+          <span class="pin" style="right:10px;top:10px">3</span>
+          <div style="padding:16px;display:flex;flex-direction:column;gap:12px">
+            <div style="font-size:13px;font-weight:700;color:var(--text-primary)">Profile Account</div>
+            <div class="notice err">
+              <svg class="i s"><use href="#i-x-circle"/></svg>
+              <span><b>Auth service did not save profile.</b> Check your connection and click Save Profile Changes again.</span>
+            </div>
+            <div style="display:flex;justify-content:flex-end">
+              <button type="button" class="btn-secondary btn-sm">Retry</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="state">
+        <span class="state-label">Done</span>
+        <div class="frame" style="position:relative">
+          <span class="pin" style="right:10px;top:10px">4</span>
+          <div style="height:100%;min-height:240px;display:grid;place-items:end center;padding:20px">
+            <div class="toast"><svg class="i s t-ok"><use href="#i-check"/></svg>Saved profile changes</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <ol class="notes">
+      <li><b>Loading</b> skeleton rows match the card list layout. Today <code>SettingsTrashPage.jsx</code> renders a spinner ("Loading items from trash…") and <code>App.jsx</code> shows <code>PageSkeleton</code> while lazy-loading the settings chunk.</li>
+      <li><b>Empty</b> uses the exact shipped copy from <code>SettingsTrashPage.jsx</code> (<code>No deleted projects in trash</code>; sibling empty states read <code>No deleted chats in trash</code> and <code>No active API keys found. Generate one below to get started.</code>).</li>
+      <li><b>Error</b> shows the recommended inline <code>.notice.err</code> pattern naming the failing service and next step. Today <code>settings.api.js</code> falls back to dummy payloads and mutations use <code>window.alert()</code>.</li>
+      <li><b>Done</b> toast reuses the action verb (<code>Save Profile Changes</code> to <code>Saved profile changes</code>). Today profile and key mutations call <code>window.alert()</code> while appearance toggles save silently.</li>
+    </ol>
+  </section>
+</main>
+<script src="../../_shared/kit.js"></script>
+</body>
+</html>

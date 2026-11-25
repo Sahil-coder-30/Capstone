@@ -1,0 +1,18 @@
+# agy mistakes log
+
+Mistakes agy (Antigravity CLI, `gemini-4-hydrogen-xhigh`) made on the built-screens wireframe boards, found in review. Every agy prompt for this doc tells it to read this file first. Add a row each time a review finds a new kind of mistake; add the board to "Seen in" when an old one repeats.
+
+| # | Mistake | Seen in | Rule for next time |
+|---|---|---|---|
+| 1 | The "Done" state frame is left empty, with only a toast at the bottom | dashboard, ide, public-auth, payments-frontend | Draw a short slice of the screen the action lands on, and put the toast over its lower edge |
+| 2 | Long file paths in `.screen-cap .where`, board-head `code` or notes do not wrap, so the page scrolls sideways at 390 px | dashboard, ide, public-auth, payments | Add `.board-head code, .screen-cap .where, ol.notes code { overflow-wrap: anywhere; }` to the board's style block, then check 390 px |
+| 3 | Pins sit on top of the content they explain (badges, header icons, timestamps, logos) | ide (CI-01, CI-04, CI-08, CI-09), public-auth (CA-07), settings-redesign (SR-03, SR-04) | Put pins in free space beside the element; in toolbars use an inline `position:static` pin |
+| 4 | Behind an overlay (drawer, modal), the page underneath is left blank, so most of the frame is empty | ide (CI-08) | Draw the real screen under the scrim, or crop the frame to the overlay's width |
+| 5 | A phone frame placed outside `.frame-scroll` makes the page wider than 390 px | public-auth (CA-01) | Every frame, phone frames too, goes inside a `.frame-scroll` |
+| 6 | Full-screen loaders drawn in tall frames that are mostly empty canvas | public-auth (CA-07), settings-redesign (SR-03, SR-07, SR-08) | Make the frame only as tall as the content needs (about 300 px for a centred logo) |
+| 7 | Sample data names things the product does not use (Mistral models and provider, while the AI service only calls NVIDIA models) | payments-frontend (PF-02, PF-03, PF-04, PF-05), settings (CS-03 provider buckets, copied from the stale `CREDIT_COMPANIES` list in Auth) | Take model, provider and plan names from the code or CLAUDE.md (`nvidia/nemotron-3-ultra-550b-a55b`, `nvidia/nemotron-3.5-lightning-30b-a3b`, provider `nvidia`); only numbers, people and project names may be invented |
+| 8 | Internal field or API names shown as visible UI text inside the screen (`copilot.autoSuggest`, `notifications.emailLogins`) | settings-redesign (SR-02, SR-05) | Field names, routes and API paths go only in pin notes; the screen shows only what a user would see |
+| 9 | Theme preview thumbnails follow the page theme, so the "Dark" choice looks light in light mode | settings-redesign (SR-03) | Scope each thumbnail to its own theme (fixed token overrides on the thumbnail) so Dark always looks dark and Light always looks light |
+| 10 | Dialogs in States frames are cropped, cutting off their input and buttons | settings-redesign (States, twice: the fix pass did not catch it) | Size the frame to the whole dialog plus a strip of the screen behind it. In a .state the kit sets .frame to flex 1 1 0, which ignores an inline height, so add flex: none to that frame, then measure it in the browser |
+| 11 | Pin notes written as marketing copy ("seamlessly", "effortless", "realistic dimming") | settings-redesign (SR-09, States) | A note says what the element does, where its data comes from, and one behaviour detail, in plain words |
+| 12 | Screen copy promises behaviour the product does not have ("Quotas scale automatically with your plan") | settings-redesign (SR-06) | Only describe what the code does today; planned behaviour goes in a pin note marked as needing backend work |

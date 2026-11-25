@@ -1,0 +1,251 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Preview access and share links</title>
+<link rel="stylesheet" href="../_shared/taksha-wireframe.css">
+<style>
+  .pop { position: absolute; z-index: 15; width: 340px; padding: 14px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg-overlay); box-shadow: 0 12px 32px rgba(0,0,0,.45); display: flex; flex-direction: column; gap: 12px; font-size: 12.5px; }
+  .pop h4 { font-size: 13px; font-weight: 600; color: var(--text-primary); display: flex; align-items: center; gap: 8px; }
+  .pop p { color: var(--text-muted); line-height: 1.55; }
+  .link-line { display: flex; align-items: center; gap: 8px; height: 34px; padding: 0 6px 0 10px; border: 1px solid var(--border); border-radius: 7px; background: var(--bg-element); font-family: var(--font-mono); font-size: 11.5px; color: var(--text-primary); }
+  .link-line .u { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .facts { display: grid; grid-template-columns: 18px 1fr; gap: 6px 8px; color: var(--text-secondary); font-size: 12px; align-items: start; }
+  .facts svg { margin-top: 2px; color: var(--text-muted); }
+  .live-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-top: 1px solid var(--border); font-size: 12px; color: var(--text-secondary); }
+  .live-row .w { flex: 1; }
+  .live-row .w .d { color: var(--text-muted); font-size: 11px; }
+  .phone { width: 300px; height: 560px; margin: 20px auto; border: 1px solid var(--border-strong); border-radius: 28px; background: var(--bg-surface); padding: 12px; display: flex; flex-direction: column; }
+  .phone-h { display: flex; align-items: center; gap: 10px; padding: 6px 6px 10px; border-bottom: 1px solid var(--border); }
+  .phone-b { flex: 1; overflow: hidden; display: flex; flex-direction: column; gap: 8px; padding: 10px 4px; font-size: 12px; line-height: 1.45; }
+  .bub { max-width: 84%; padding: 7px 10px; border-radius: 10px; background: var(--bg-element); color: var(--text-secondary); white-space: pre-line; }
+  .bub.me { align-self: flex-end; background: var(--brand-subtle); color: var(--text-primary); border: 1px solid rgba(234,88,12,.3); }
+  .bub .tm { display: block; text-align: right; font-size: 9.5px; color: var(--text-disabled); margin-top: 2px; }
+  .bub a { color: var(--accent-hover); word-break: break-all; }
+  .unfurl { margin-top: 6px; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; background: var(--bg-canvas); }
+  .unfurl .img { height: 70px; background: linear-gradient(135deg, var(--bg-element), var(--bg-overlay)); display: grid; place-items: center; color: var(--text-disabled); font-size: 10.5px; }
+  .unfurl .tx { padding: 6px 8px; font-size: 11px; color: var(--text-muted); }
+  .unfurl .tx b { display: block; color: var(--text-primary); font-size: 11.5px; }
+  .browser { display: flex; flex-direction: column; height: 100%; }
+  .browser .bar { display: flex; align-items: center; gap: 6px; padding: 8px 10px; border-bottom: 1px solid var(--border); background: var(--bg-sidebar); }
+  .browser .addr { flex: 1; height: 26px; display: flex; align-items: center; gap: 6px; padding: 0 10px; border-radius: 999px; background: var(--bg-element); font-family: var(--font-mono); font-size: 10.5px; color: var(--text-muted); overflow: hidden; white-space: nowrap; }
+  .gate { flex: 1; display: grid; place-items: center; padding: 24px; background: var(--bg-canvas); }
+  .gate .gate-card { max-width: 320px; text-align: center; display: flex; flex-direction: column; gap: 10px; align-items: center; }
+  .gate .ic { width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; border: 1px solid var(--border); background: var(--bg-element); }
+  .gate h3 { font-size: 15px; color: var(--text-primary); }
+  .gate p { font-size: 12.5px; line-height: 1.55; color: var(--text-muted); }
+  .gate .brand { font-size: 11px; color: var(--text-disabled); margin-top: 6px; }
+  .app-mock { flex: 1; background: #fff; display: flex; flex-direction: column; }
+  .app-mock .nav { height: 40px; background: #111827; display: flex; align-items: center; padding: 0 12px; color: #fff; font: 600 12px var(--font-sans); gap: 8px; }
+  .app-mock .hero { padding: 18px 14px; font: 13px/1.5 var(--font-sans); color: #111; }
+  .app-mock .hero b { display: block; font-size: 17px; margin-bottom: 6px; }
+  .app-mock .row { margin: 0 14px 8px; height: 34px; border-radius: 6px; background: #f3f4f6; }
+  .app-mock .btn { margin: 6px 14px; height: 32px; border-radius: 6px; background: #2563eb; color: #fff; display: grid; place-items: center; font: 600 12px var(--font-sans); }
+</style>
+</head>
+<body>
+<main class="board">
+  <header class="board-head">
+    <div>
+      <h1>Preview access and share links</h1>
+      <p>Screens for the router's owner-only sandbox hosts (built, <code>Sandbox/router/src/sandboxEdgeAuth.js</code>) and the preview share links decided on 2026-11-25: anyone with a link can view the live preview for <b>1 hour</b>, <b>view-only</b>, no login, revocable, and it never keeps the sandbox awake. The header <b>Share</b> button is not this: it opens V2.5 Taksha Hosting and stays hidden until then. Spec: <a href="screens.md">screens.md</a>.</p>
+    </div>
+    <button class="theme-toggle" data-theme-toggle><svg class="i"><use href="#i-sun"/></svg> Light theme</button>
+  </header>
+  <nav class="board-nav">
+    <a href="#ps1">PS-1 Preview tab, owner</a><a href="#ps2">PS-2 Share this preview</a><a href="#ps3">PS-3 Link is live</a><a href="#ps4">PS-4 From WhatsApp</a><a href="#ps5">PS-5 What a viewer sees</a><a href="#ps6">PS-6 Link pages</a><a href="#ps-states">States</a>
+  </nav>
+
+  <!-- PS-1 -->
+  <section class="screen" id="ps1">
+    <div class="screen-cap"><span class="id">PS-1</span><h2>Preview tab for the owner</h2><span class="where">App.jsx Preview tab · PreviewBar, new</span></div>
+    <div class="frame-scroll"><div class="frame">
+      <div class="ide short">
+        <div class="sbx-header">
+          <div class="left"><button class="icon-btn"><svg class="i"><use href="#i-chev-l"/></svg></button><div class="toggles"><span class="icon-btn brand"><svg class="i"><use href="#i-sparkles"/></svg></span><span class="icon-btn"><svg class="i"><use href="#i-folder-tree"/></svg></span><span class="icon-btn"><svg class="i"><use href="#i-terminal"/></svg></span></div></div>
+          <h1>quiz-arena</h1>
+          <div class="right" style="position:relative"><span class="sbx-live"><span class="dot ok"></span>Sandbox Live</span><span class="pin" style="position:static">1</span><span class="icon-btn"><svg class="i"><use href="#i-plug"/></svg></span><span class="icon-btn"><svg class="i"><use href="#i-settings"/></svg></span></div>
+        </div>
+        <div class="ide-body">
+          <div class="center">
+            <div class="tab-bar"><button class="tab-btn active"><svg class="i"><use href="#i-eye"/></svg>Preview</button><button class="tab-btn"><svg class="i"><use href="#i-code"/></svg>Code</button></div>
+            <div class="pv">
+              <div class="pv-bar" style="position:relative">
+                <span class="icon-btn" title="Reload"><svg class="i s"><use href="#i-refresh"/></svg></span>
+                <div class="pv-url"><svg class="i s t-ok"><use href="#i-lock"/></svg><span class="dim">Only you</span> /leaderboard</div>
+                <span class="pin" style="position:static">2</span>
+                <button class="btn-ghost btn-sm" title="Open in a new tab"><svg class="i s"><use href="#i-external"/></svg>New tab</button>
+                <span class="pin" style="position:static">3</span>
+                <button class="btn-secondary btn-sm"><svg class="i s"><use href="#i-globe"/></svg>Share preview</button>
+              </div>
+              <div class="pv-page" style="display:flex;position:relative"><span class="pin" style="right:8px;top:48px">4</span><div class="app-mock" style="border-radius:6px;overflow:hidden"><div class="nav">QuizArena</div><div class="hero"><b>Leaderboard</b>Top players this week.</div><div class="row"></div><div class="row"></div><div class="row"></div></div></div>
+            </div>
+          </div>
+        </div>
+        <div class="status-bar"><div class="sec"><span class="status-item"><svg class="i s"><use href="#i-git-branch"/></svg>main</span><span class="status-item"><span class="dot ok"></span><span class="t-ok">Sandbox Active</span></span></div><div class="sec"><span class="status-item">Port: 5173</span><span class="status-item brand">CodeSpace IDE v1.0</span></div></div>
+      </div>
+    </div></div>
+    <ol class="notes">
+      <li>The header <b>Share</b> button is gone until V2.5 Hosting ships. It means "deploy", and a deploy is not a dev-server link.</li>
+      <li><b>New tab</b> asks the router for a 60 second, single-use ticket (<code>POST /__taksha/session?ticket</code>) and opens <code>/__taksha/session?ticket=…&amp;next=/leaderboard</code>. The new tab gets its own first-party cookie. No login screen, no token in history after the redirect.</li>
+      <li><b>Share preview</b> opens PS-2. Secondary button: sharing is optional, previewing is the main job.</li>
+      <li>The iframe loads only after <code>POST /__taksha/session</code> (owner's bearer) sets the partitioned cookie. Until then: the skeleton in States. "Only you" with a lock tells the owner the preview is private by default.</li>
+    </ol>
+  </section>
+
+  <!-- PS-2 -->
+  <section class="screen" id="ps2">
+    <div class="screen-cap"><span class="id">PS-2</span><h2>Share this preview</h2><span class="where">Popover under "Share preview"</span></div>
+    <div class="frame" style="height:520px">
+      <div class="pv" style="height:100%">
+        <div class="pv-bar"><span class="icon-btn"><svg class="i s"><use href="#i-refresh"/></svg></span><div class="pv-url"><svg class="i s t-ok"><use href="#i-lock"/></svg><span class="dim">Only you</span> /leaderboard</div><button class="btn-ghost btn-sm"><svg class="i s"><use href="#i-external"/></svg>New tab</button><button class="btn-secondary btn-sm" style="border-color:var(--brand-primary)"><svg class="i s"><use href="#i-globe"/></svg>Share preview</button></div>
+        <div class="pv-page" style="opacity:.5"></div>
+      </div>
+      <div class="pop" style="right:12px;top:44px">
+        <h4><svg class="i"><use href="#i-globe"/></svg>Share a live preview</h4>
+        <div class="facts" style="position:relative">
+          <span class="pin" style="left:-18px;top:-4px">1</span>
+          <svg class="i s"><use href="#i-eye"/></svg><span>Anyone with the link can <b>look</b> at the app. They can't submit forms or change anything.</span>
+          <svg class="i s"><use href="#i-clock"/></svg><span>The link stops working after <b>1 hour</b>.</span>
+          <svg class="i s"><use href="#i-hourglass"/></svg><span>It doesn't keep your sandbox on. When you leave, the preview goes to sleep for them too.</span>
+          <svg class="i s"><use href="#i-code"/></svg><span>Viewers can read your project's source in the browser, like any dev server.</span>
+        </div>
+        <div style="position:relative"><button class="btn-primary" style="width:100%"><svg class="i s"><use href="#i-globe"/></svg>Create link</button><span class="pin" style="right:-8px;top:-8px">2</span></div>
+        <p class="dim" style="font-size:11.5px;position:relative">Want a permanent public site? <a href="#" style="color:var(--accent-hover)">Deploy with Taksha Hosting ›</a><span class="pin" style="right:-8px;top:-4px">3</span></p>
+      </div>
+    </div>
+    <ol class="notes">
+      <li>Four plain facts, in the order a person worries about them: what others can do, how long, does it cost me (sandbox stays off), what they can see. The source line is honest: a share link opens the Vite dev server.</li>
+      <li><b>Create link</b> calls <code>POST https://&lt;id&gt;.preview…/__taksha/share</code> with the owner's bearer. No length picker: 1 hour is the product decision. The button shows a spinner in place while it runs.</li>
+      <li>Points the "I want this public" wish at V2.5 Hosting instead of at a longer link. Hidden until V2.5.</li>
+    </ol>
+  </section>
+
+  <!-- PS-3 -->
+  <section class="screen" id="ps3">
+    <div class="screen-cap"><span class="id">PS-3</span><h2>The link is live</h2><span class="where">Same popover, after Create link</span></div>
+    <div class="frame" style="height:470px">
+      <div class="pv" style="height:100%">
+        <div class="pv-bar"><span class="icon-btn"><svg class="i s"><use href="#i-refresh"/></svg></span><div class="pv-url"><svg class="i s t-warn"><use href="#i-globe"/></svg><span class="t-warn">Shared · 59 min left</span> /leaderboard</div><span class="pin" style="position:static">1</span><button class="btn-ghost btn-sm"><svg class="i s"><use href="#i-external"/></svg>New tab</button><button class="btn-secondary btn-sm" style="border-color:var(--brand-primary)"><svg class="i s"><use href="#i-globe"/></svg>Share preview</button></div>
+        <div class="pv-page" style="opacity:.5"></div>
+      </div>
+      <div class="pop" style="right:12px;top:44px">
+        <h4><svg class="i t-ok"><use href="#i-check-circle"/></svg>Anyone with this link can view</h4>
+        <div class="link-line" style="position:relative"><span class="u">https://k3x9q.preview.takshacodespace.in/__taksha/share?t=eyJ0eXAiOiJzaGFyZSIs…</span><button class="btn-solid btn-sm"><svg class="i s"><use href="#i-copy"/></svg>Copy</button><span class="pin" style="right:-8px;top:-8px">2</span></div>
+        <p style="font-size:12px">View-only. Stops working at <b style="color:var(--text-primary)">11:42 AM</b> (59 min).</p>
+        <div style="position:relative">
+          <span class="pin" style="right:-6px;top:4px">3</span>
+          <div class="live-row"><svg class="i s t-ok"><use href="#i-globe"/></svg><div class="w">Link created 10:42 AM<div class="d">From this editor</div></div><button class="btn-ghost btn-sm">Turn off</button></div>
+          <div class="live-row"><svg class="i s t-ok"><use href="#i-message"/></svg><div class="w">Link created 10:20 AM<div class="d">From WhatsApp · 37 min left</div></div><button class="btn-ghost btn-sm">Turn off</button></div>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center"><button class="btn-ghost btn-sm">Create another</button><button class="btn-danger btn-sm">Turn off all links</button></div>
+      </div>
+      <div style="position:absolute;left:16px;bottom:16px"><div class="toast"><svg class="i s t-ok"><use href="#i-check"/></svg>Link copied</div></div>
+    </div>
+    <ol class="notes">
+      <li>While any link is live the URL bar says so in amber ("waiting on others" colour), with the time left. When the last link ends it goes back to "Only you".</li>
+      <li>Copy uses the clipboard; "Link copied" toast. On a phone, <code>navigator.share</code> opens the share sheet instead.</li>
+      <li>Live links, newest first, with where they came from (editor or WhatsApp). <b>Turn off</b> calls <code>POST /__taksha/share?revoke=&lt;sid&gt;</code>; the router refuses that link on every pod at once. Listing needs a record per link: a small <code>previewShares</code> collection in the Sandbox server (sid, sandbox, created, expires, source), written when a link is made. Not built yet.</li>
+    </ol>
+  </section>
+
+  <!-- PS-4 -->
+  <section class="screen" id="ps4">
+    <div class="screen-cap"><span class="id">PS-4</span><h2>Getting a preview link from WhatsApp</h2><span class="where">K5 WhatsApp bot · Notification service</span></div>
+    <div class="row-frames">
+      <div class="frame" style="height:620px;background:var(--bg-canvas)">
+        <div class="phone">
+          <div class="phone-h"><svg class="i l"><use href="#i-bot"/></svg><div><b style="font-size:13px;color:var(--text-primary)">Taksha</b><div class="dim" style="font-size:10.5px">Business account</div></div></div>
+          <div class="phone-b">
+            <div class="bub me">preview quiz-arena<span class="tm">10:20</span></div>
+            <div class="bub" style="position:relative"><span class="pin" style="right:-8px;top:-8px">1</span>Here's a live preview of quiz-arena. Anyone with this link can view it for 1 hour. They can't change anything.
+<a href="#">https://k3x9q.preview.takshacodespace.in/__taksha/share?t=eyJ0…</a>
+<div class="unfurl"><div class="img">quiz-arena</div><div class="tx"><b>Live preview · quiz-arena</b>k3x9q.preview.takshacodespace.in</div></div><span class="tm">10:20</span></div>
+            <div class="bub" style="position:relative"><span class="pin" style="right:-8px;top:-8px">2</span>Reply <b>stop sharing</b> to turn it off.<span class="tm">10:20</span></div>
+            <div class="bub me">stop sharing<span class="tm">10:51</span></div>
+            <div class="bub" style="position:relative"><span class="pin" style="right:-8px;top:-8px">3</span>Done. That link no longer works.<span class="tm">10:51</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="frame" style="height:620px;background:var(--bg-canvas)">
+        <div class="phone">
+          <div class="phone-h"><svg class="i l"><use href="#i-bot"/></svg><div><b style="font-size:13px;color:var(--text-primary)">Taksha</b><div class="dim" style="font-size:10.5px">Business account</div></div></div>
+          <div class="phone-b">
+            <div class="bub me">preview quiz-arena<span class="tm">14:02</span></div>
+            <div class="bub" style="position:relative"><span class="pin" style="right:-8px;top:-8px">4</span>quiz-arena's sandbox is off. Start it and send the link?<span class="tm">14:02</span></div>
+            <div class="bub me">yes<span class="tm">14:03</span></div>
+            <div class="bub">Starting… this takes about 30 seconds.<span class="tm">14:03</span></div>
+            <div class="bub">Ready. Live preview for 1 hour:
+<a href="#">https://k3x9q.preview.takshacodespace.in/__taksha/share?t=eyJ0…</a><span class="tm">14:03</span></div>
+            <div class="bub" style="position:relative"><span class="pin" style="right:-8px;top:-8px">5</span>Your sandbox goes to sleep after 20 minutes with no activity from you. Send <b>keep awake</b> to reset that.<span class="tm">14:03</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <ol class="notes">
+      <li>The bot (Notification service, K5) asks the Sandbox server for a link for the linked user's project; the router signs it. Never a raw sandbox URL. The message says who can see it and for how long, in one sentence.</li>
+      <li>The link is multi-use on purpose: WhatsApp fetches it to draw the card before anyone taps it. A one-time ticket would be spent by that fetch.</li>
+      <li>"stop sharing" revokes the newest link from this chat. "stop sharing all" revokes every live link for the project.</li>
+      <li>Starting a stopped sandbox is an owner action, so the bot asks first. A share link alone never wakes a sandbox.</li>
+      <li>Honest about the idle timer: viewers don't keep it on, only the owner's activity does (including commands sent to the bot).</li>
+    </ol>
+  </section>
+
+  <!-- PS-5 -->
+  <section class="screen" id="ps5">
+    <div class="screen-cap"><span class="id">PS-5</span><h2>What a viewer sees</h2><span class="where">Any browser, no Taksha login</span></div>
+    <div class="row-frames">
+      <div class="frame" style="height:520px"><div class="browser">
+        <div class="bar"><svg class="i s"><use href="#i-lock"/></svg><div class="addr">k3x9q.preview.takshacodespace.in/leaderboard</div></div>
+        <div class="app-mock" style="position:relative"><span class="pin" style="right:8px;top:-12px;z-index:3">1</span><div class="nav">QuizArena</div><div class="hero"><b>Leaderboard</b>Top players this week.</div><div class="row"></div><div class="row"></div><div class="row"></div><div class="btn">Submit score</div></div>
+      </div></div>
+      <div class="frame" style="height:520px"><div class="browser">
+        <div class="bar"><svg class="i s"><use href="#i-lock"/></svg><div class="addr">k3x9q.preview.takshacodespace.in/leaderboard</div></div>
+        <div class="app-mock" style="position:relative"><div class="nav">QuizArena</div><div class="hero"><b>Leaderboard</b>Top players this week.</div><div class="row"></div><div class="btn" style="opacity:.6">Submit score</div>
+          <div style="margin:10px 14px;padding:10px 12px;border:1px solid #fecaca;background:#fef2f2;border-radius:6px;font:12px/1.5 var(--font-sans);color:#991b1b;position:relative"><span class="pin" style="right:-8px;top:-8px">2</span>Request failed with status 405</div>
+        </div>
+      </div></div>
+    </div>
+    <ol class="notes">
+      <li>The address bar shows the clean path: the router redirects away from <code>/__taksha/share?t=…</code> right after setting the cookie, so the token is not left in the URL or in screenshots. The page is the user's own app, untouched: Taksha injects no banner into it.</li>
+      <li>View-only: any POST, PUT, PATCH or DELETE from the viewer gets <b>405</b> from the router, so the app shows whatever its own error handling shows. This is the expected cost of "view-only" on a dev server.</li>
+    </ol>
+  </section>
+
+  <!-- PS-6 -->
+  <section class="screen" id="ps6">
+    <div class="screen-cap"><span class="id">PS-6</span><h2>Link pages served by the router</h2><span class="where">HTML for browsers, JSON for API calls</span></div>
+    <div class="row-frames" style="grid-template-columns:repeat(auto-fit,minmax(420px,1fr))">
+      <div class="frame" style="height:320px"><div class="browser"><div class="bar"><div class="addr">k3x9q.preview.takshacodespace.in/__taksha/share?t=***</div></div>
+        <div class="gate"><div class="gate-card"><div class="ic"><svg class="i t-warn"><use href="#i-clock"/></svg></div><span class="pin" style="position:static">1</span><h3>This preview link has expired</h3><p>Links work for 1 hour. Ask the person who sent it for a new one.</p><div class="brand">Taksha CodeSpace</div></div></div></div></div>
+      <div class="frame" style="height:320px"><div class="browser"><div class="bar"><div class="addr">k3x9q.preview.takshacodespace.in/</div></div>
+        <div class="gate"><div class="gate-card"><div class="ic"><svg class="i"><use href="#i-ban"/></svg></div><h3>This preview link was turned off</h3><p>The owner stopped sharing it. Ask them for a new link if you still need it.</p><div class="brand">Taksha CodeSpace</div></div></div></div></div>
+      <div class="frame" style="height:320px"><div class="browser"><div class="bar"><div class="addr">k3x9q.preview.takshacodespace.in/</div></div>
+        <div class="gate"><div class="gate-card"><div class="ic"><svg class="i"><use href="#i-moon"/></svg></div><span class="pin" style="position:static">2</span><h3>This preview is asleep</h3><p>The owner's sandbox is off. It wakes when they open the project again.</p><div class="brand">Taksha CodeSpace</div></div></div></div></div>
+      <div class="frame" style="height:320px"><div class="browser"><div class="bar"><div class="addr">k3x9q.preview.takshacodespace.in/</div></div>
+        <div class="gate"><div class="gate-card"><div class="ic"><svg class="i"><use href="#i-lock"/></svg></div><span class="pin" style="position:static">3</span><h3>This preview is private</h3><p>Only its owner can open it. If you're the owner, open it from your Taksha project.</p><button class="btn-primary btn-sm">Open Taksha</button><div class="brand">Taksha CodeSpace</div></div></div></div></div>
+    </div>
+    <ol class="notes">
+      <li>Today the router answers these with JSON (<code>{"status":"error","message":…}</code>). For a browser (<code>Accept: text/html</code>) it should answer with these small pages instead, same status codes (401 expired or turned off, 503 asleep, 401 private). Static HTML in the router, no external assets, no user data.</li>
+      <li>"Asleep" covers a stopped sandbox (proxy cannot reach the pod). A viewer cannot wake it.</li>
+      <li>"Private" is what a stranger sees with a bare preview URL. It never says whose sandbox it is.</li>
+    </ol>
+  </section>
+
+  <!-- States -->
+  <section class="screen" id="ps-states">
+    <div class="screen-cap"><span class="id">States</span><h2>Connecting, failures and confirmations</h2><span class="where">Preview tab and share popover</span></div>
+    <div class="states">
+      <div class="state"><span class="state-label">Connecting</span><div class="frame"><div class="pv" style="height:100%"><div class="pv-bar"><div class="pv-url"><svg class="i s spin t-brand"><use href="#i-refresh"/></svg><span class="dim">Opening your preview…</span></div></div><div style="padding:16px;display:flex;flex-direction:column;gap:10px"><span class="sk" style="width:60%"></span><span class="sk" style="width:85%"></span><span class="sk" style="width:40%"></span></div></div></div></div>
+      <div class="state"><span class="state-label">Session failed</span><div class="frame"><div style="padding:16px"><div class="notice err"><svg class="i s"><use href="#i-x-circle"/></svg><span><b>Couldn't open your preview.</b> Your sign-in may have expired. <a href="#">Try again</a></span></div></div></div></div>
+      <div class="state"><span class="state-label">Create failed</span><div class="frame"><div style="padding:16px"><div class="notice err"><svg class="i s"><use href="#i-x-circle"/></svg><span><b>Couldn't create a link.</b> The sandbox didn't answer. Check it's running, then <a href="#">try again</a></span></div></div></div></div>
+      <div class="state"><span class="state-label">Confirm</span><div class="frame"><div style="padding:12px;display:grid;place-items:center;min-height:220px"><div class="modal" style="max-width:250px;padding:16px"><h3>Turn off all 2 links?</h3><p>Anyone using them sees "This preview link was turned off" on their next click.</p><div class="acts"><button class="btn-secondary">Cancel</button><button class="btn-danger">Turn off 2 links</button></div></div></div></div></div>
+      <div class="state"><span class="state-label">Done</span><div class="frame"><div style="padding:20px;display:grid;place-items:center;min-height:220px"><div class="toast"><svg class="i s t-ok"><use href="#i-check"/></svg>Turned off 2 links</div></div></div></div>
+    </div>
+    <ol class="notes"><li>Every failure names what happened and the next step. No apologies.</li><li>The confirm says what viewers will see, in one sentence, and the button repeats the count.</li><li>Under <code>prefers-reduced-motion</code> the connecting spinner is still (the kit already does this).</li></ol>
+  </section>
+</main>
+<script src="../_shared/kit.js"></script>
+</body>
+</html>

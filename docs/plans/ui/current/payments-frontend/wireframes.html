@@ -1,0 +1,1634 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Billing app screens (payments_frontend)</title>
+<link rel="stylesheet" href="../../_shared/taksha-wireframe.css">
+<style>
+  .screen-cap { flex-wrap: wrap; }
+  .board-head p, .board-head code, .screen-cap .where, ol.notes code { overflow-wrap: anywhere; }
+
+  /* Billing AppShell adjustments using kit tokens only */
+  .pf-shell { position: relative; }
+  .pf-side { gap: 4px; }
+  .pf-side-nav { display: flex; flex-direction: column; gap: 2px; flex: 1; }
+  .pf-side .side-group { text-transform: uppercase; letter-spacing: 0.04em; font-size: 11px; color: var(--text-muted); margin-top: 14px; }
+  .pf-side .side-link { position: relative; width: 100%; text-align: left; height: 34px; font-weight: 500; color: var(--text-secondary); }
+  .pf-side .side-link.on { background: var(--bg-element); color: var(--text-primary); }
+  .pf-side .side-link.on::before { content: ''; position: absolute; left: -12px; top: 8px; bottom: 8px; width: 3px; border-radius: 0 3px 3px 0; background: var(--brand-primary); }
+
+  .pf-side-bottom { margin-top: auto; padding-top: 12px; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 10px; }
+  .pf-credits { display: flex; flex-direction: column; gap: 8px; padding: 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-overlay); }
+  .pf-credits-row { display: flex; justify-content: space-between; align-items: baseline; font-size: 12.5px; color: var(--text-muted); }
+  .pf-credits-row strong { font-size: 14px; font-weight: 600; color: var(--text-primary); font-variant-numeric: tabular-nums; }
+  .pf-credits-row strong span { font-size: 12px; font-weight: 400; color: var(--text-muted); }
+  .pf-credits-foot { font-size: 11.5px; color: var(--text-muted); }
+
+  .pf-theme { display: grid; grid-template-columns: 1fr 1fr; padding: 2px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-element); }
+  .pf-theme button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 28px; border-radius: 6px; font-size: 12px; font-weight: 500; color: var(--text-muted); }
+  .pf-theme button.on { background: var(--bg-surface); color: var(--text-primary); border: 1px solid var(--border); }
+
+  .pf-user-btn { display: flex; align-items: center; gap: 10px; width: 100%; padding: 6px; border-radius: 8px; text-align: left; }
+  .pf-user-btn .avatar { width: 32px; height: 32px; border-radius: 8px; background: var(--brand-subtle); border-color: transparent; color: var(--brand-primary); }
+  .pf-user-text { flex: 1; min-width: 0; line-height: 1.25; }
+  .pf-user-text strong { display: block; font-size: 13px; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .pf-user-text span { display: block; font-size: 12px; color: var(--text-muted); }
+
+  .pf-topbar-plan { display: inline-flex; align-items: center; height: 26px; padding: 0 10px; border-radius: 999px; font-size: 12px; font-weight: 500; border: 1px solid var(--border-strong); color: var(--text-secondary); }
+  .pf-topbar-plan.paid { border-color: transparent; background: var(--brand-subtle); color: var(--text-primary); }
+  .pf-topbar-ide { display: inline-flex; align-items: center; gap: 4px; height: 30px; padding: 0 10px; border-radius: 8px; font-size: 13px; font-weight: 500; color: var(--text-secondary); }
+
+  /* Billing grids & cards */
+  .pf-kpis-6 { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 12px; }
+  .pf-kpi-unit { font-size: 13.5px; font-weight: 500; color: var(--text-muted); margin-left: 4px; }
+  .pf-grid-3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+  .pf-grid-1-2 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); gap: 12px; }
+  .pf-section-t { margin-top: 8px; font-size: 15px; font-weight: 600; color: var(--text-primary); }
+  .pf-stack { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+
+  .pf-trend-stats { display: flex; gap: 32px; flex-wrap: wrap; margin-bottom: 14px; }
+  .pf-trend-stats > div { display: flex; flex-direction: column; gap: 2px; }
+  .pf-trend-stats span { font-size: 12px; color: var(--text-muted); }
+  .pf-trend-stats strong { font-size: 15px; font-weight: 600; color: var(--text-primary); font-variant-numeric: tabular-nums; }
+
+  .pf-bigstat { display: flex; align-items: baseline; gap: 8px; }
+  .pf-bigstat strong { font-size: 30px; font-weight: 600; color: var(--text-primary); font-variant-numeric: tabular-nums; line-height: 1; letter-spacing: -0.02em; }
+  .pf-bigstat span { font-size: 13px; color: var(--text-muted); }
+  .pf-note { font-size: 12px; line-height: 1.5; color: var(--text-muted); }
+
+  .pf-splitbar { display: flex; flex-direction: column; gap: 12px; }
+  .pf-splitbar-track { display: flex; gap: 2px; height: 12px; }
+  .pf-splitbar-seg1 { background: var(--brand-primary); border-radius: 4px 0 0 4px; }
+  .pf-splitbar-seg2 { background: var(--accent-primary); border-radius: 0 4px 4px 0; }
+  .pf-splitbar-leg { list-style: none; display: flex; flex-direction: column; gap: 8px; }
+  .pf-splitbar-leg li { display: grid; grid-template-columns: 10px 1fr auto 56px; align-items: center; gap: 10px; font-size: 12.5px; }
+  .pf-swatch { width: 9px; height: 9px; border-radius: 3px; background: var(--brand-primary); }
+  .pf-swatch.b { background: var(--accent-primary); }
+
+  .pf-act-list { list-style: none; display: flex; flex-direction: column; }
+  .pf-act-list li { display: flex; justify-content: space-between; gap: 12px; padding: 10px 0; border-top: 1px solid var(--border); font-size: 12.5px; }
+  .pf-act-list li:first-child { border-top: none; padding-top: 0; }
+  .pf-act-list li:last-child { padding-bottom: 0; }
+  .pf-act-main { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  .pf-act-main strong { font-weight: 500; color: var(--text-primary); }
+  .pf-act-meta { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+
+  .pf-share { display: inline-flex; align-items: center; justify-content: flex-end; gap: 8px; min-width: 72px; }
+  .pf-share-bar { display: inline-block; width: 36px; height: 6px; border-radius: 2px; background: var(--bg-element); overflow: hidden; }
+  .pf-share-bar > span { display: block; height: 100%; background: var(--brand-primary); }
+
+  /* Dense KeyValues matching KeyValues.scss */
+  .pf-kv { display: flex; flex-direction: column; }
+  .pf-kv-row { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; padding: 8px 0; font-size: 12.5px; border-top: 1px solid var(--border); }
+  .pf-kv-row:first-child { border-top: none; }
+  .pf-kv-row dt { color: var(--text-muted); flex-shrink: 0; }
+  .pf-kv-row dd { color: var(--text-primary); font-weight: 500; text-align: right; font-variant-numeric: tabular-nums; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+  .pf-kv.dense .pf-kv-row { padding: 5px 0; }
+
+  /* Plans */
+  .pf-plancard { display: flex; flex-direction: column; gap: 14px; padding: 20px; border: 1px solid var(--border); border-radius: 12px; background: var(--bg-surface); }
+  .pf-plancard.current { border-color: var(--brand-primary); box-shadow: inset 0 0 0 1px var(--brand-primary); }
+  .pf-plancard-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .pf-plancard-top h3 { font-size: 16px; font-weight: 600; color: var(--text-primary); }
+  .pf-plancard-price { display: flex; align-items: baseline; gap: 6px; }
+  .pf-plancard-price strong { font-size: 30px; font-weight: 600; letter-spacing: -0.02em; color: var(--text-primary); font-variant-numeric: tabular-nums; line-height: 1; }
+  .pf-plancard-limits { border-top: 1px solid var(--border); }
+  .pf-plancard-limits > div { display: flex; justify-content: space-between; padding: 8px 0; font-size: 12.5px; border-bottom: 1px solid var(--border); }
+  .pf-plancard-limits dt { color: var(--text-muted); }
+  .pf-plancard-limits dd { color: var(--text-primary); font-weight: 500; }
+  .pf-plancard-feat { list-style: none; display: flex; flex-direction: column; gap: 8px; font-size: 12.5px; color: var(--text-secondary); }
+  .pf-plancard-feat li { display: flex; align-items: center; gap: 8px; }
+
+  .pf-rules { list-style: none; display: grid; grid-template-columns: 1fr 1fr; gap: 16px 24px; }
+  .pf-rules li { display: flex; gap: 12px; align-items: flex-start; }
+  .pf-rule-ic { width: 32px; height: 32px; border-radius: 8px; background: var(--bg-element); color: var(--text-secondary); display: grid; place-items: center; flex-shrink: 0; }
+  .pf-rules strong { display: block; font-size: 13px; color: var(--text-primary); }
+  .pf-rules p { margin-top: 2px; font-size: 12px; color: var(--text-muted); line-height: 1.45; }
+
+  .pf-compare th.cur, .pf-compare td.cur { background: var(--brand-subtle); }
+  .pf-compare-grp th { font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted); padding-top: 14px; background: transparent; }
+  .pf-faq-item { border-top: 1px solid var(--border); }
+  .pf-faq-item:first-child { border-top: none; }
+  .pf-faq-q { display: flex; align-items: center; justify-content: space-between; padding: 12px 0; font-size: 13px; font-weight: 500; color: var(--text-primary); }
+  .pf-faq-a { padding: 0 24px 12px 0; font-size: 12.5px; line-height: 1.55; color: var(--text-secondary); }
+
+  /* Checkout */
+  .pf-steps { list-style: none; display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+  .pf-step { display: flex; align-items: center; gap: 8px; flex: 1; font-size: 12.5px; color: var(--text-muted); }
+  .pf-step:not(:last-child)::after { content: ''; flex: 1; height: 1px; margin-left: 4px; background: var(--border-strong); }
+  .pf-step.done::after { background: var(--brand-primary); }
+  .pf-step.cur { color: var(--text-primary); font-weight: 500; }
+  .pf-step.done { color: var(--text-secondary); }
+  .pf-step-dot { width: 24px; height: 24px; border-radius: 50%; border: 1px solid var(--border-strong); display: grid; place-items: center; font-size: 11.5px; font-weight: 600; flex-shrink: 0; }
+  .pf-step.cur .pf-step-dot { border-color: var(--brand-primary); color: var(--brand-primary); box-shadow: 0 0 0 3px var(--brand-subtle); }
+  .pf-step.done .pf-step-dot { border-color: var(--brand-primary); background: var(--brand-primary); color: var(--text-primary); }
+  :root.light-theme .pf-step.done .pf-step-dot { color: var(--bg-canvas); }
+
+  .pf-checkout-grid { display: grid; grid-template-columns: minmax(0, 1fr) 350px; align-items: start; gap: 16px; }
+  .pf-planopt { display: flex; align-items: center; gap: 14px; padding: 13px 16px; border: 1px solid var(--border-strong); border-radius: 8px; background: var(--bg-surface); }
+  .pf-planopt.sel { border-color: var(--brand-primary); background: var(--brand-subtle); box-shadow: inset 0 0 0 1px var(--brand-primary); }
+  .pf-radio { width: 18px; height: 18px; border-radius: 50%; border: 1.5px solid var(--border-strong); flex-shrink: 0; }
+  .pf-planopt.sel .pf-radio { border: 5px solid var(--brand-primary); }
+  .pf-methods { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; }
+  .pf-methods span { padding: 3px 8px; border: 1px solid var(--border); border-radius: 6px; font-size: 11.5px; color: var(--text-muted); }
+
+  /* Success, Intro & Auth Gate */
+  .pf-success { max-width: 520px; margin: 16px auto; padding: 32px; border: 1px solid var(--border); border-radius: 12px; background: var(--bg-surface); display: flex; flex-direction: column; align-items: center; text-align: center; gap: 14px; }
+  .pf-success-ic { width: 52px; height: 52px; border-radius: 50%; background: var(--success-glow); color: var(--success); display: grid; place-items: center; }
+  .pf-success-box { width: 100%; padding: 6px 16px; border-radius: 8px; background: var(--bg-element); text-align: left; }
+
+  .pf-auth-card { max-width: 420px; margin: 48px auto; padding: 32px; border: 1px solid var(--border); border-radius: 12px; background: var(--bg-surface); display: flex; flex-direction: column; align-items: center; text-align: center; gap: 10px; }
+  .pf-auth-ic { width: 44px; height: 44px; border-radius: 12px; background: var(--brand-subtle); color: var(--brand-primary); display: grid; place-items: center; margin-bottom: 4px; }
+
+  .pf-intro { position: relative; min-height: 360px; display: grid; place-items: center; background: var(--bg-canvas); overflow: hidden; padding: 24px; }
+  .pf-intro::before { content: ''; position: absolute; width: 640px; height: 320px; border-radius: 50%; background: radial-gradient(ellipse at center, var(--brand-subtle) 0%, var(--accent-subtle) 45%, transparent 70%); pointer-events: none; }
+  .pf-intro-stage { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; gap: 16px; text-align: center; max-width: 100%; }
+  .pf-intro-title { font-size: clamp(28px, 5vw, 52px); font-weight: 800; font-style: italic; letter-spacing: -0.025em; line-height: 1.1; background: linear-gradient(108deg, var(--text-muted) 0%, var(--text-primary) 40%, var(--brand-hover) 52%, var(--accent-hover) 60%, var(--text-primary) 75%, var(--text-muted) 100%); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .pf-intro-div { display: flex; align-items: center; gap: 10px; width: 320px; max-width: 78vw; }
+  .pf-intro-div i { flex: 1; height: 1px; background: linear-gradient(90deg, transparent, var(--brand-primary), var(--accent-primary)); }
+  .pf-intro-div i + span + i { background: linear-gradient(90deg, var(--accent-primary), var(--brand-primary), transparent); }
+  .pf-intro-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--brand-primary); flex-shrink: 0; }
+
+  /* Drawer scrim overlay */
+  .pf-drawer-scrim { position: absolute; inset: 0; z-index: 10; background: rgba(var(--color-rgb-text), 0.04); backdrop-filter: blur(1px); }
+</style>
+</head>
+<body>
+<main class="board">
+  <header class="board-head">
+    <div>
+      <h1>Billing app screens (<code>payments_frontend</code>)</h1>
+      <p>Built screens in <code>payments_frontend/src/App.jsx</code>, <code>components/layout/</code>, and <code>features/payments/components/</code> (base path <code>/payments</code>, port 5174). Every page except the intro overlay uses <code>AppShell</code> with the fixed 248 px sidebar and 56 px sticky topbar. Real plan catalogue and prices from <code>Payments/config/plans.config.js</code> and <code>utils/plans.js</code>. Spec: <a href="screens.md">screens.md</a>.</p>
+    </div>
+    <button class="theme-toggle" type="button" data-theme-toggle><svg class="i" aria-hidden="true"><use href="#i-sun"/></svg> Light theme</button>
+  </header>
+
+  <nav class="board-nav" aria-label="Screen navigation">
+    <a href="#pf01">PF-01 Intro loader</a>
+    <a href="#pf02">PF-02 Dashboard</a>
+    <a href="#pf03">PF-03 Usage analytics</a>
+    <a href="#pf04">PF-04 AI requests</a>
+    <a href="#pf05">PF-05 Request drawer</a>
+    <a href="#pf06">PF-06 Plans</a>
+    <a href="#pf07">PF-07 Checkout</a>
+    <a href="#pf08">PF-08 Payment successful</a>
+    <a href="#pf09">PF-09 Invoices</a>
+    <a href="#pf10">PF-10 Invoice drawer</a>
+    <a href="#pf11">PF-11 Sign in required</a>
+    <a href="#payments-frontend-states">States</a>
+  </nav>
+
+  <!-- PF-01 ─────────────────────────────────────────────────────────────── -->
+  <section class="screen" id="pf01">
+    <div class="screen-cap"><span class="id">PF-01</span><h2>Intro loader</h2><span class="where">payments_frontend/src/features/payments/components/intro/PaymentsIntroLoader.jsx · first visit or ?forceLoader=true</span></div>
+    <div class="frame">
+      <div class="pf-intro" role="dialog" aria-label="Taksha Payments Portal Entry">
+        <div class="pf-intro-stage">
+          <div style="position:relative">
+            <span class="pin" style="left:-24px;top:14px">1</span>
+            <h3 class="pf-intro-title">Taksha Payments</h3>
+          </div>
+          <div class="pf-intro-div" style="position:relative">
+            <span class="pin" style="left:-24px;top:-6px">2</span>
+            <i></i><span class="pf-intro-dot"></span><i></i>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;position:relative">
+            <span class="pin" style="left:-24px;top:1px">3</span>
+            <span class="muted" style="font-size:12.5px">Powered by</span>
+            <span style="display:inline-flex;align-items:center;gap:5px;color:var(--text-primary);font-weight:700;font-size:14px"><svg class="i t-accent" aria-hidden="true"><use href="#i-zap"/></svg>razorpay</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <ol class="notes">
+      <li><b>Monumental title</b> (<code>Taksha Payments</code>): GSAP lifts the italic display text and sweeps a clipped gradient across the letterforms (<code>0.15 s</code> to <code>2.1 s</code>). Renders client-side in <code>App.jsx</code> with no backend API call.</li>
+      <li><b>Laser alignment beam</b>: Expands horizontally from center (<code>scaleX: 0</code> to <code>1</code> at <code>1.65 s</code>); bypassed immediately if <code>sessionStorage</code> key <code>taksha_payments_intro_v10_clip</code> is already <code>'true'</code>, unless <code>?forceLoader=true</code> is present in the URL.</li>
+      <li><b>Razorpay row and exit trigger</b> (<code>Powered by razorpay</code>): Fades in at <code>1.9 s</code>; clicking anywhere, pressing <code>Esc</code>, <code>Enter</code>, or <code>Space</code>, or reaching the <code>4.2 s</code> fallback timer fades the dialog out and writes <code>taksha_payments_intro_v10_clip</code>.</li>
+    </ol>
+  </section>
+
+  <!-- PF-02 ─────────────────────────────────────────────────────────────── -->
+  <section class="screen" id="pf02">
+    <div class="screen-cap"><span class="id">PF-02</span><h2>Dashboard</h2><span class="where">payments_frontend/src/features/payments/components/dashboard/DashboardPage.jsx · /</span></div>
+    <div class="frame-scroll"><div class="frame">
+      <div class="shell pf-shell">
+        <aside class="side pf-side" style="position:relative">
+          <span class="pin" style="right:10px;top:16px">1</span>
+          <div class="side-brand"><div class="mark">T</div><div><b>Taksha</b><span>Billing</span></div></div>
+          <nav class="pf-side-nav" aria-label="Main navigation">
+            <button type="button" class="side-link on"><svg class="i" aria-hidden="true"><use href="#i-dashboard"/></svg>Dashboard</button>
+            <div class="side-group">Usage</div>
+            <button type="button" class="side-link"><svg class="i" aria-hidden="true"><use href="#i-chart"/></svg>Usage analytics</button>
+            <button type="button" class="side-link"><svg class="i" aria-hidden="true"><use href="#i-logs"/></svg>AI requests</button>
+            <div class="side-group">Billing</div>
+            <button type="button" class="side-link"><svg class="i" aria-hidden="true"><use href="#i-layers"/></svg>Plans &amp; checkout</button>
+            <button type="button" class="side-link"><svg class="i" aria-hidden="true"><use href="#i-file"/></svg>Invoices</button>
+          </nav>
+          <div class="pf-side-bottom">
+            <div class="pf-credits">
+              <div class="pf-credits-row"><span>AI credits</span><strong>118<span> / 150</span></strong></div>
+              <div class="meter"><span style="width:79%"></span></div>
+              <span class="pf-credits-foot">Refills 5 h after it runs low</span>
+            </div>
+            <div class="pf-theme" role="group" aria-label="Theme">
+              <button type="button"><svg class="i s" aria-hidden="true"><use href="#i-sun"/></svg>Light</button>
+              <button type="button" class="on"><svg class="i s" aria-hidden="true"><use href="#i-moon"/></svg>Dark</button>
+            </div>
+            <button type="button" class="pf-user-btn">
+              <span class="avatar">AS</span>
+              <span class="pf-user-text"><strong>Aarav Sharma</strong><span>Pro plan</span></span>
+              <svg class="i s muted" aria-hidden="true"><use href="#i-chev-d"/></svg>
+            </button>
+          </div>
+        </aside>
+        <div class="main">
+          <header class="topbar">
+            <div class="crumbs"><span>Billing</span><span>/</span><b>Dashboard</b></div>
+            <div class="r">
+              <span class="pf-topbar-plan paid">Pro plan</span>
+              <a class="pf-topbar-ide" href="#pf02">Open IDE <svg class="i s" aria-hidden="true"><use href="#i-external"/></svg></a>
+            </div>
+          </header>
+          <div class="content">
+            <div class="page-h" style="position:relative">
+              <div>
+                <h2>Good morning, Aarav</h2>
+                <p>Your plan, AI credits, usage and spending for the last 30 days.</p>
+              </div>
+              <div class="r">
+                <span class="pin" style="position:static">2</span>
+                <div class="seg" role="group" aria-label="Time range"><button type="button">7D</button><button type="button" class="on">30D</button><button type="button">90D</button></div>
+                <button type="button" class="btn-ghost"><svg class="i s" aria-hidden="true"><use href="#i-refresh"/></svg>Updated 2 min ago</button>
+                <button type="button" class="btn-solid">Upgrade <svg class="i s" aria-hidden="true"><use href="#i-external"/></svg></button>
+              </div>
+            </div>
+
+            <div class="kpis">
+              <div class="kpi"><div class="l"><svg class="i s" aria-hidden="true"><use href="#i-layers"/></svg> Current plan</div><div class="v">Pro<span class="pf-kpi-unit">₹499 / 30d</span></div><div class="d">Ends 15 Dec 2026 · 19 days left</div></div>
+              <div class="kpi"><div class="l"><svg class="i s" aria-hidden="true"><use href="#i-gauge"/></svg> AI credits available</div><div class="v">118<span class="pf-kpi-unit">/ 150</span></div><div class="meter" style="margin-top:8px"><span style="width:79%"></span></div><div class="d">Refills 5 h after it runs low</div></div>
+              <div class="kpi"><div class="l"><svg class="i s" aria-hidden="true"><use href="#i-code"/></svg> Tokens · 30 days</div><div class="v">1.8M</div><div class="d"><b style="color:var(--text-primary)">▲ 14%</b> vs previous 15 days</div></div>
+              <div class="kpi"><div class="l"><svg class="i s" aria-hidden="true"><use href="#i-activity"/></svg> AI requests · 30 days</div><div class="v">412</div><div class="d"><b style="color:var(--text-primary)">▲ 9%</b> vs previous 15 days</div></div>
+              <div class="kpi"><div class="l"><svg class="i s" aria-hidden="true"><use href="#i-coins"/></svg> Credits used · 30 days</div><div class="v">1,840</div><div class="d">61 per day on average</div></div>
+              <div class="kpi"><div class="l"><svg class="i s" aria-hidden="true"><use href="#i-activity"/></svg> Avg tokens per request</div><div class="v">4,466</div><div class="d">1.4M in · 420K out</div></div>
+              <div class="kpi"><div class="l"><svg class="i s" aria-hidden="true"><use href="#i-clock"/></svg> Active days</div><div class="v">22<span class="pf-kpi-unit">/ 30</span></div><div class="d">73% of days had AI usage</div></div>
+              <div class="kpi"><div class="l"><svg class="i s" aria-hidden="true"><use href="#i-card"/></svg> Total spent</div><div class="v">₹1,996</div><div class="d"><svg class="i s" aria-hidden="true"><use href="#i-card"/></svg> 4 paid · 1 failed</div></div>
+            </div>
+
+            <div class="grid-2-1">
+              <div class="pnl" style="position:relative">
+                <div class="pnl-h">
+                  <div><h3>Usage trend</h3><div class="sub">Daily tokens across all agents</div></div>
+                  <div style="display:flex;align-items:center;gap:8px">
+                    <span class="pin" style="position:static">3</span>
+                    <div class="seg" role="group" aria-label="Metric"><button type="button" class="on">Tokens</button><button type="button">Requests</button><button type="button">Credits</button></div>
+                  </div>
+                </div>
+                <div class="pnl-b">
+                  <div class="pf-trend-stats">
+                    <div><span>Total</span><strong>1,840,210</strong></div>
+                    <div><span>Daily average</span><strong>61,340</strong></div>
+                    <div><span>Peak day</span><strong>148,200 · 19 Nov</strong></div>
+                  </div>
+                  <div class="chart">
+                    <div class="y"><span>160K</span><span>120K</span><span>80K</span><span>40K</span><span>0</span></div>
+                    <div class="tip" style="left:60%;top:6px"><b>19 Nov</b><span>Tokens <strong>148,200</strong></span><br><span>Requests <strong>31</strong></span><br><span>Credits <strong>148</strong></span></div>
+                    <div class="bars" style="gap:4px">
+                      <span style="height:28%"></span><span style="height:35%"></span><span style="height:18%"></span><span style="height:44%"></span><span style="height:52%"></span><span style="height:40%"></span>
+                      <span style="height:12%"></span><span style="height:30%"></span><span style="height:64%"></span><span style="height:48%"></span><span style="height:56%"></span><span style="height:38%"></span>
+                      <span style="height:20%"></span><span style="height:68%"></span><span style="height:74%"></span><span style="height:60%"></span><span style="height:46%"></span><span style="height:80%"></span>
+                      <span class="hl" style="height:92%"></span><span style="height:72%"></span><span style="height:54%"></span><span style="height:32%"></span><span style="height:62%"></span><span style="height:70%"></span>
+                    </div>
+                    <div class="axis"><span>27 Oct</span><span>4 Nov</span><span>12 Nov</span><span>19 Nov</span><span>25 Nov</span></div>
+                  </div>
+                </div>
+              </div>
+              <div class="pnl">
+                <div class="pnl-h"><div><h3>AI credits</h3><div class="sub">Your balance refills 5 hours after it runs low</div></div></div>
+                <div class="pnl-b" style="display:flex;flex-direction:column;gap:14px;flex:1">
+                  <div class="pf-bigstat"><strong>118</strong><span>of 150 credits left</span></div>
+                  <div class="meter" style="height:10px"><span style="width:79%"></span></div>
+                  <dl class="pf-kv">
+                    <div class="pf-kv-row"><dt>Used</dt><dd>32 (21%)</dd></div>
+                    <div class="pf-kv-row"><dt>Status</dt><dd>Refills 5 h after it runs low</dd></div>
+                    <div class="pf-kv-row"><dt>1 credit</dt><dd>1,000 tokens</dd></div>
+                  </dl>
+                  <p class="pf-note" style="margin-top:auto">AI requests pause when fewer than 5 credits are left, and the full balance returns 5 hours later.</p>
+                </div>
+              </div>
+            </div>
+
+            <div class="pf-grid-3" style="position:relative">
+              <span class="pin" style="left:-8px;top:-8px">4</span>
+              <div class="pnl">
+                <div class="pnl-h"><h3>Subscription</h3><span class="badge ok">Active</span></div>
+                <div class="pnl-b" style="display:flex;flex-direction:column;gap:12px;flex:1">
+                  <div><strong style="font-size:17px;color:var(--text-primary);display:block">Taksha AI Pro</strong><span class="muted">₹499 <small>/ 30 days</small></span></div>
+                  <div>
+                    <div style="display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:6px"><span>Day 11 of 30</span><span>19 days left</span></div>
+                    <div class="meter"><span style="width:37%;background:var(--text-muted)"></span></div>
+                    <div style="display:flex;justify-content:space-between;font-size:11.5px;margin-top:6px" class="muted"><span>15 Nov 2026</span><span>15 Dec 2026</span></div>
+                  </div>
+                  <dl class="pf-kv">
+                    <div class="pf-kv-row"><dt>AI credit balance</dt><dd>150</dd></div>
+                    <div class="pf-kv-row"><dt>Token limit</dt><dd>5M / month</dd></div>
+                    <div class="pf-kv-row"><dt>Requests per minute</dt><dd>60</dd></div>
+                  </dl>
+                  <div style="border-top:1px solid var(--border);padding-top:10px">
+                    <div style="display:flex;align-items:center;gap:6px;font-size:12.5px;font-weight:600;color:var(--text-primary);margin-bottom:4px"><svg class="i s" aria-hidden="true"><use href="#i-clock"/></svg>Up next</div>
+                    <p class="pf-note">Nothing queued. You move to Free on 15 Dec 2026.</p>
+                  </div>
+                  <button type="button" class="btn-secondary" style="margin-top:auto;width:100%">Upgrade plan <svg class="i s" aria-hidden="true"><use href="#i-external"/></svg></button>
+                </div>
+              </div>
+
+              <div class="pnl">
+                <div class="pnl-h"><div><h3>Usage by agent</h3><div class="sub">Tokens · last 30 days</div></div></div>
+                <div class="pnl-b barlist">
+                  <div class="r" style="grid-template-columns:100px 1fr 90px"><span class="name" style="font-family:var(--font-sans)">Coding agent</span><div class="meter"><span style="width:100%"></span></div><span class="v">312 req · 1.4M</span></div>
+                  <div class="r" style="grid-template-columns:100px 1fr 90px"><span class="name" style="font-family:var(--font-sans)">Copilot</span><div class="meter"><span style="width:20%"></span></div><span class="v">64 req · 280K</span></div>
+                  <div class="r" style="grid-template-columns:100px 1fr 90px"><span class="name" style="font-family:var(--font-sans)">App agent</span><div class="meter"><span style="width:8%"></span></div><span class="v">21 req · 110K</span></div>
+                  <div class="r" style="grid-template-columns:100px 1fr 90px"><span class="name" style="font-family:var(--font-sans)">Chat titles</span><div class="meter"><span style="width:3%"></span></div><span class="v">11 req · 32K</span></div>
+                  <div class="r" style="grid-template-columns:100px 1fr 90px"><span class="name" style="font-family:var(--font-sans)">Memory agent</span><div class="meter"><span style="width:2%"></span></div><span class="v">4 req · 18K</span></div>
+                </div>
+              </div>
+
+              <div class="pnl">
+                <div class="pnl-h"><div><h3>Token mix</h3><div class="sub">Input sent vs output generated</div></div></div>
+                <div class="pnl-b" style="display:flex;flex-direction:column;gap:16px">
+                  <div class="pf-splitbar">
+                    <div class="pf-splitbar-track" role="img" aria-label="Prompt 77%, Completion 23%">
+                      <div class="pf-splitbar-seg1" style="width:77%"></div>
+                      <div class="pf-splitbar-seg2" style="width:23%"></div>
+                    </div>
+                    <ul class="pf-splitbar-leg">
+                      <li><span class="pf-swatch"></span><span>Prompt</span><strong>77%</strong><span class="muted" style="text-align:right">1.4M</span></li>
+                      <li><span class="pf-swatch b"></span><span>Completion</span><strong>23%</strong><span class="muted" style="text-align:right">420K</span></li>
+                    </ul>
+                  </div>
+                  <dl class="pf-kv">
+                    <div class="pf-kv-row"><dt>Requests</dt><dd>412</dd></div>
+                    <div class="pf-kv-row"><dt>Credits used</dt><dd>1,840</dd></div>
+                    <div class="pf-kv-row"><dt>Providers</dt><dd>Nvidia</dd></div>
+                  </dl>
+                </div>
+              </div>
+            </div>
+
+            <h3 class="pf-section-t">Patterns</h3>
+            <div class="pf-grid-3">
+              <div class="pnl">
+                <div class="pnl-h"><div><h3>Spending by month</h3><div class="sub">Paid amount, last 6 months</div></div></div>
+                <div class="pnl-b">
+                  <div class="chart">
+                    <div class="y" style="height:110px"><span>₹1K</span><span>₹500</span><span>₹0</span></div>
+                    <div class="bars" style="height:110px"><span style="height:2%"></span><span style="height:2%"></span><span style="height:50%"></span><span style="height:50%"></span><span style="height:50%"></span><span style="height:50%"></span></div>
+                    <div class="axis"><span>Jun</span><span>Jul</span><span>Aug</span><span>Sep</span><span>Oct</span><span>Nov</span></div>
+                  </div>
+                </div>
+              </div>
+              <div class="pnl">
+                <div class="pnl-h"><div><h3>Activity by hour</h3><div class="sub">Requests by local hour · last 100 requests</div></div></div>
+                <div class="pnl-b">
+                  <div class="chart">
+                    <div class="y" style="height:110px"><span>16</span><span>8</span><span>0</span></div>
+                    <div class="bars" style="height:110px;gap:3px">
+                      <span style="height:10%"></span><span style="height:4%"></span><span style="height:2%"></span><span style="height:2%"></span><span style="height:2%"></span><span style="height:4%"></span>
+                      <span style="height:12%"></span><span style="height:25%"></span><span style="height:40%"></span><span style="height:55%"></span><span style="height:78%"></span><span style="height:86%"></span>
+                      <span style="height:64%"></span><span style="height:50%"></span><span style="height:70%"></span><span style="height:88%"></span><span style="height:94%"></span><span style="height:76%"></span>
+                      <span style="height:68%"></span><span style="height:52%"></span><span style="height:44%"></span><span style="height:36%"></span><span style="height:24%"></span><span style="height:16%"></span>
+                    </div>
+                    <div class="axis"><span>00h</span><span>06h</span><span>12h</span><span>18h</span></div>
+                  </div>
+                </div>
+              </div>
+              <div class="pnl">
+                <div class="pnl-h"><div><h3>Activity by weekday</h3><div class="sub">Requests · last 30 days</div></div></div>
+                <div class="pnl-b">
+                  <div class="chart">
+                    <div class="y" style="height:110px"><span>80</span><span>40</span><span>0</span></div>
+                    <div class="bars" style="height:110px"><span style="height:78%"></span><span style="height:90%"></span><span style="height:72%"></span><span style="height:84%"></span><span style="height:68%"></span><span style="height:38%"></span><span style="height:32%"></span></div>
+                    <div class="axis"><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="pf-grid-3">
+              <div class="pnl">
+                <div class="pnl-h"><div><h3>Top models</h3><div class="sub">Tokens · last 100 requests</div></div></div>
+                <div class="pnl-b barlist">
+                  <div class="r" style="grid-template-columns:155px 1fr 78px"><span class="name">nemotron-3-ultra-550b-a55b</span><div class="meter"><span style="width:100%"></span></div><span class="v">76 req · 423K</span></div>
+                  <div class="r" style="grid-template-columns:155px 1fr 78px"><span class="name">nemotron-3.5-lightning-30b-a3b</span><div class="meter"><span style="width:20%"></span></div><span class="v">24 req · 85K</span></div>
+                </div>
+              </div>
+              <div class="pnl">
+                <div class="pnl-h"><div><h3>Top projects</h3><div class="sub">Tokens · last 100 requests</div></div></div>
+                <div class="pnl-b barlist">
+                  <div class="r" style="grid-template-columns:115px 1fr 78px"><span class="name">Project 5c0e8f21</span><div class="meter"><span style="width:100%"></span></div><span class="v">46 req · 260K</span></div>
+                  <div class="r" style="grid-template-columns:115px 1fr 78px"><span class="name">Project 2c119e4a</span><div class="meter"><span style="width:52%"></span></div><span class="v">29 req · 135K</span></div>
+                  <div class="r" style="grid-template-columns:115px 1fr 78px"><span class="name">Project 6c3a910d</span><div class="meter"><span style="width:28%"></span></div><span class="v">14 req · 72K</span></div>
+                  <div class="r" style="grid-template-columns:115px 1fr 78px"><span class="name">No project</span><div class="meter"><span style="width:14%"></span></div><span class="v">11 req · 41K</span></div>
+                </div>
+              </div>
+              <div class="pnl">
+                <div class="pnl-h"><div><h3>Account totals</h3><div class="sub">Since you joined</div></div></div>
+                <div class="pnl-b">
+                  <dl class="pf-kv dense">
+                    <div class="pf-kv-row"><dt>Lifetime tokens</dt><dd>4,920,400</dd></div>
+                    <div class="pf-kv-row"><dt>Lifetime AI requests</dt><dd>1,148</dd></div>
+                    <div class="pf-kv-row"><dt>Lifetime spend</dt><dd>₹1,996</dd></div>
+                    <div class="pf-kv-row"><dt>Payment success rate</dt><dd>80%</dd></div>
+                    <div class="pf-kv-row"><dt>Average payment</dt><dd>₹499</dd></div>
+                    <div class="pf-kv-row"><dt>First payment</dt><dd>12 Aug 2026</dd></div>
+                    <div class="pf-kv-row"><dt>Last payment</dt><dd>15 Nov 2026</dd></div>
+                  </dl>
+                </div>
+              </div>
+            </div>
+
+            <div class="grid-2-1">
+              <div class="pnl">
+                <div class="pnl-h"><h3>Recent payments</h3><button type="button" class="btn-ghost btn-sm">All invoices <svg class="i s" aria-hidden="true"><use href="#i-chev-r"/></svg></button></div>
+                <table class="tbl">
+                  <thead><tr><th>Date</th><th>Description</th><th>Invoice</th><th>Status</th><th class="num">Amount</th></tr></thead>
+                  <tbody>
+                    <tr><td class="muted">15 Nov 2026</td><td><b>Taksha AI Pro</b><div class="mono">pay_P9xR2mK8qL04nZ</div></td><td class="mono">INV-2026-1182</td><td><span class="badge ok"><svg class="i s" aria-hidden="true"><use href="#i-check-circle"/></svg>Paid</span></td><td class="num">₹499</td></tr>
+                    <tr><td class="muted">16 Oct 2026</td><td><b>Taksha AI Pro</b><div class="mono">pay_P7mK1nQ4vR92aB</div></td><td class="mono">INV-2026-0984</td><td><span class="badge ok"><svg class="i s" aria-hidden="true"><use href="#i-check-circle"/></svg>Paid</span></td><td class="num">₹499</td></tr>
+                    <tr><td class="muted">14 Sep 2026</td><td><b>Taksha AI Pro</b><div class="mono">order_P5cD8wE2hJ10kL</div></td><td class="dim">-</td><td><span class="badge err"><svg class="i s" aria-hidden="true"><use href="#i-x-circle"/></svg>Failed</span></td><td class="num">₹499</td></tr>
+                    <tr><td class="muted">13 Sep 2026</td><td><b>Taksha AI Pro</b><div class="mono">pay_P5bA3yT9uN44pM</div></td><td class="mono">INV-2026-0791</td><td><span class="badge ok"><svg class="i s" aria-hidden="true"><use href="#i-check-circle"/></svg>Paid</span></td><td class="num">₹499</td></tr>
+                    <tr><td class="muted">12 Aug 2026</td><td><b>Taksha AI Pro</b><div class="mono">pay_P3zX7cV2mB68qW</div></td><td class="mono">INV-2026-0610</td><td><span class="badge ok"><svg class="i s" aria-hidden="true"><use href="#i-check-circle"/></svg>Paid</span></td><td class="num">₹499</td></tr>
+                  </tbody>
+                </table>
+              </div>
+              <div class="pnl">
+                <div class="pnl-h"><h3>Recent AI activity</h3><button type="button" class="btn-ghost btn-sm">All requests <svg class="i s" aria-hidden="true"><use href="#i-chev-r"/></svg></button></div>
+                <div class="pnl-b">
+                  <ul class="pf-act-list">
+                    <li><div class="pf-act-main"><strong>Coding agent</strong><span class="mono muted">nemotron-3-ultra-550b-a55b</span></div><div class="pf-act-meta"><span>14,280 tokens</span><span class="muted">6 min ago</span></div></li>
+                    <li><div class="pf-act-main"><strong>Copilot</strong><span class="mono muted">nemotron-3.5-lightning-30b-a3b</span></div><div class="pf-act-meta"><span>1,940 tokens</span><span class="muted">18 min ago</span></div></li>
+                    <li><div class="pf-act-main"><strong>Memory agent</strong><span class="mono muted">nemotron-3.5-lightning-30b-a3b</span></div><div class="pf-act-meta"><span>4,120 tokens</span><span class="muted">42 min ago</span></div></li>
+                    <li><div class="pf-act-main"><strong>App agent</strong><span class="mono muted">nemotron-3-ultra-550b-a55b</span></div><div class="pf-act-meta"><span>8,650 tokens</span><span class="muted">1 h ago</span></div></li>
+                    <li><div class="pf-act-main"><strong>Coding agent</strong><span class="mono muted">nemotron-3-ultra-550b-a55b</span></div><div class="pf-act-meta"><span>19,310 tokens</span><span class="muted">3 h ago</span></div></li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div></div>
+    <ol class="notes">
+      <li><b>Billing sidebar &amp; topbar</b> (<code>Sidebar.jsx</code>, <code>Topbar.jsx</code>): Shared across all routed pages, loading <code>GET /api/payments/credit</code> and <code>GET /api/payments/subscription</code> on mount to render the <code>AI credits</code> meter, topbar plan pill, and theme toggle.</li>
+      <li><b>Range switcher &amp; 8 KPIs</b> (<code>DashboardKpis.jsx</code>): <code>7D</code>, <code>30D</code>, and <code>90D</code> load <code>GET /api/payments/usage-events/analytics?days=&lt;range&gt;</code> (<code>30D</code> is pre-filled by <code>GET /api/payments/dashboard/overview</code>); <code>useLastValue</code> keeps current numbers on screen while a new range loads.</li>
+      <li><b>Usage trend &amp; AI credits</b> (<code>UsageTrendPanel.jsx</code>, <code>CreditWindowCard.jsx</code>): Daily <code>BarChart</code> switches <code>Tokens</code>, <code>Requests</code>, and <code>Credits</code> client-side over <code>fillTimeline()</code>; <code>AI credits</code> displays window usage and countdown if credits fall below <code>lowerLimit</code> (<code>5</code>).</li>
+      <li><b>Breakdowns, Patterns &amp; Activity</b>: Combines <code>analytics</code> (<code>Usage by agent</code>, <code>Token mix</code>, <code>Activity by weekday</code>), <code>GET /api/payments/transactions</code> (<code>Spending by month</code>, <code>Recent payments</code>), <code>GET /api/payments/usage-events?limit=100</code> (<code>Activity by hour</code>, <code>Top models</code>, <code>Top projects</code>), and <code>GET /api/payments/credit/transactions/summary</code> (<code>Account totals</code>).</li>
+    </ol>
+  </section>
+
+  <!-- PF-03 ─────────────────────────────────────────────────────────────── -->
+  <section class="screen" id="pf03">
+    <div class="screen-cap"><span class="id">PF-03</span><h2>Usage analytics</h2><span class="where">payments_frontend/src/features/payments/components/usage/UsagePage.jsx · /usage</span></div>
+    <div class="frame-scroll"><div class="frame">
+      <div class="shell pf-shell">
+        <aside class="side pf-side">
+          <div class="side-brand"><div class="mark">T</div><div><b>Taksha</b><span>Billing</span></div></div>
+          <nav class="pf-side-nav" aria-label="Main navigation">
+            <button type="button" class="side-link"><svg class="i" aria-hidden="true"><use href="#i-dashboard"/></svg>Dashboard</button>
+            <div class="side-group">Usage</div>
+            <button type="button" class="side-link on"><svg class="i" aria-hidden="true"><use href="#i-chart"/></svg>Usage analytics</button>
+            <button type="button" class="side-link"><svg class="i" aria-hidden="true"><use href="#i-logs"/></svg>AI requests</button>
+            <div class="side-group">Billing</div>
+            <button type="button" class="side-link"><svg class="i" aria-hidden="true"><use href="#i-layers"/></svg>Plans &amp; checkout</button>
+            <button type="button" class="side-link"><svg class="i" aria-hidden="true"><use href="#i-file"/></svg>Invoices</button>
+          </nav>
+          <div class="pf-side-bottom">
+            <div class="pf-credits">
+              <div class="pf-credits-row"><span>AI credits</span><strong>118<span> / 150</span></strong></div>
+              <div class="meter"><span style="width:79%"></span></div>
+              <span class="pf-credits-foot">Refills 5 h after it runs low</span>
+            </div>
+            <div class="pf-theme" role="group" aria-label="Theme">
+              <button type="button"><svg class="i s" aria-hidden="true"><use href="#i-sun"/></svg>Light</button>
+              <button type="button" class="on"><svg class="i s" aria-hidden="true"><use href="#i-moon"/></svg>Dark</button>
+            </div>
+            <button type="button" class="pf-user-btn">
+              <span class="avatar">AS</span>
+              <span class="pf-user-text"><strong>Aarav Sharma</strong><span>Pro plan</span></span>
+              <svg class="i s muted" aria-hidden="true"><use href="#i-chev-d"/></svg>
+            </button>
+          </div>
+        </aside>
+        <div class="main">
+          <header class="topbar">
+            <div class="crumbs"><span>Billing</span><span>/</span><b>Usage analytics</b></div>
+            <div class="r">
+              <span class="pf-topbar-plan paid">Pro plan</span>
+              <a class="pf-topbar-ide" href="#pf03">Open IDE <svg class="i s" aria-hidden="true"><use href="#i-external"/></svg></a>
+            </div>
+          </header>
+          <div class="content">
+            <div class="page-h" style="position:relative">
+              <div>
+                <h2>Usage analytics</h2>
+                <p>How much AI you used, when, and through which agents and models.</p>
+              </div>
+              <div class="r">
+                <span class="pin" style="position:static">1</span>
+                <div class="seg" role="group" aria-label="Time range"><button type="button">7 days</button><button type="button" class="on">30 days</button><button type="button">90 days</button></div>
+                <button type="button" class="icon-btn" aria-label="Refresh"><svg class="i" aria-hidden="true"><use href="#i-refresh"/></svg></button>
+              </div>
+            </div>
+
+            <div class="pf-kpis-6">
+              <div class="kpi"><div class="l"><svg class="i s" aria-hidden="true"><use href="#i-code"/></svg> Tokens</div><div class="v">1.8M</div><div class="d"><b style="color:var(--text-primary)">▲ 14%</b> vs first half</div></div>
+              <div class="kpi"><div class="l"><svg class="i s" aria-hidden="true"><use href="#i-activity"/></svg> Requests</div><div class="v">412</div><div class="d"><b style="color:var(--text-primary)">▲ 9%</b> vs first half</div></div>
+              <div class="kpi"><div class="l"><svg class="i s" aria-hidden="true"><use href="#i-coins"/></svg> Credits used</div><div class="v">1,840</div><div class="d">Platform discount −28</div></div>
+              <div class="kpi"><div class="l"><svg class="i s" aria-hidden="true"><use href="#i-gauge"/></svg> Tokens per day</div><div class="v">61.3K</div><div class="d">Daily average</div></div>
+              <div class="kpi"><div class="l"><svg class="i s" aria-hidden="true"><use href="#i-arrow-up"/></svg> Peak day</div><div class="v">148.2K</div><div class="d">19 Nov 2026</div></div>
+              <div class="kpi"><div class="l"><svg class="i s" aria-hidden="true"><use href="#i-clock"/></svg> Active days</div><div class="v">22<span class="pf-kpi-unit">/ 30</span></div><div class="d">73% of days</div></div>
+            </div>
+
+            <div class="grid-2-1" style="position:relative">
+              <span class="pin" style="left:-8px;top:-8px">2</span>
+              <div class="pnl">
+                <div class="pnl-h">
+                  <div><h3>Tokens per day</h3><div class="sub">Prompt (input) and completion (output) tokens</div></div>
+                  <div class="legend"><span><i></i>Prompt</span><span><i class="b"></i>Completion</span></div>
+                </div>
+                <div class="pnl-b">
+                  <div class="chart">
+                    <div class="y"><span>160K</span><span>120K</span><span>80K</span><span>40K</span><span>0</span></div>
+                    <div class="tip" style="left:60%;top:6px"><b>19 Nov</b><span><i></i>Prompt <strong>114,800</strong></span><br><span><i class="b"></i>Completion <strong>33,400</strong></span><br><span>Requests <strong>31</strong></span></div>
+                    <div class="bars stack" style="gap:4px">
+                      <span><i style="height:22%"></i><i style="height:6%"></i></span><span><i style="height:27%"></i><i style="height:8%"></i></span><span><i style="height:14%"></i><i style="height:4%"></i></span><span><i style="height:34%"></i><i style="height:10%"></i></span>
+                      <span><i style="height:40%"></i><i style="height:12%"></i></span><span><i style="height:31%"></i><i style="height:9%"></i></span><span><i style="height:9%"></i><i style="height:3%"></i></span><span><i style="height:23%"></i><i style="height:7%"></i></span>
+                      <span><i style="height:50%"></i><i style="height:14%"></i></span><span><i style="height:37%"></i><i style="height:11%"></i></span><span><i style="height:43%"></i><i style="height:13%"></i></span><span><i style="height:29%"></i><i style="height:9%"></i></span>
+                      <span><i style="height:15%"></i><i style="height:5%"></i></span><span><i style="height:52%"></i><i style="height:16%"></i></span><span><i style="height:57%"></i><i style="height:17%"></i></span><span><i style="height:46%"></i><i style="height:14%"></i></span>
+                      <span><i style="height:35%"></i><i style="height:11%"></i></span><span><i style="height:62%"></i><i style="height:18%"></i></span><span class="hl"><i style="height:71%"></i><i style="height:21%"></i></span><span><i style="height:56%"></i><i style="height:16%"></i></span>
+                      <span><i style="height:42%"></i><i style="height:12%"></i></span><span><i style="height:24%"></i><i style="height:8%"></i></span><span><i style="height:48%"></i><i style="height:14%"></i></span><span><i style="height:54%"></i><i style="height:16%"></i></span>
+                    </div>
+                    <div class="axis"><span>27 Oct</span><span>4 Nov</span><span>12 Nov</span><span>19 Nov</span><span>25 Nov</span></div>
+                  </div>
+                </div>
+              </div>
+              <div class="pnl">
+                <div class="pnl-h"><div><h3>Token limit</h3><div class="sub">Pro plan</div></div></div>
+                <div class="pnl-b" style="display:flex;flex-direction:column;gap:14px">
+                  <div class="pf-bigstat"><strong>37%</strong><span>1.8M of 5M</span></div>
+                  <div class="meter" style="height:10px"><span style="width:37%"></span></div>
+                  <dl class="pf-kv">
+                    <div class="pf-kv-row"><dt>Used in the last 30 days</dt><dd>1,840,210</dd></div>
+                    <div class="pf-kv-row"><dt>Left</dt><dd>3,159,790</dd></div>
+                    <div class="pf-kv-row"><dt>Limit</dt><dd>5,000,000 / month</dd></div>
+                  </dl>
+                </div>
+              </div>
+            </div>
+
+            <div class="grid2" style="position:relative">
+              <span class="pin" style="left:-8px;top:-8px">3</span>
+              <div class="pnl">
+                <div class="pnl-h"><div><h3>By agent</h3><div class="sub">Last 30 days</div></div></div>
+                <table class="tbl">
+                  <thead><tr><th>Agent</th><th class="num">Requests</th><th class="num">Tokens</th><th class="num">Avg / request</th><th class="num">Share</th></tr></thead>
+                  <tbody>
+                    <tr><td>Coding agent</td><td class="num">312</td><td class="num">1.4M</td><td class="num">4,487</td><td class="num"><span class="pf-share"><span class="pf-share-bar"><span style="width:76%"></span></span>76%</span></td></tr>
+                    <tr><td>Copilot</td><td class="num">64</td><td class="num">280K</td><td class="num">4,375</td><td class="num"><span class="pf-share"><span class="pf-share-bar"><span style="width:15%"></span></span>15%</span></td></tr>
+                    <tr><td>App agent</td><td class="num">21</td><td class="num">110K</td><td class="num">5,238</td><td class="num"><span class="pf-share"><span class="pf-share-bar"><span style="width:6%"></span></span>6%</span></td></tr>
+                    <tr><td>Chat titles</td><td class="num">11</td><td class="num">32K</td><td class="num">2,909</td><td class="num"><span class="pf-share"><span class="pf-share-bar"><span style="width:2%"></span></span>2%</span></td></tr>
+                    <tr><td>Memory agent</td><td class="num">4</td><td class="num">18K</td><td class="num">4,500</td><td class="num"><span class="pf-share"><span class="pf-share-bar"><span style="width:1%"></span></span>1%</span></td></tr>
+                  </tbody>
+                </table>
+              </div>
+              <div class="pnl">
+                <div class="pnl-h"><div><h3>By model</h3><div class="sub">Last 100 requests</div></div></div>
+                <table class="tbl">
+                  <thead><tr><th>Model</th><th class="num">Requests</th><th class="num">Tokens</th><th class="num">Avg / request</th><th class="num">Share</th></tr></thead>
+                  <tbody>
+                    <tr><td class="mono" style="color:var(--text-primary)">nemotron-3-ultra-550b-a55b</td><td class="num">76</td><td class="num">423K</td><td class="num">5,566</td><td class="num"><span class="pf-share"><span class="pf-share-bar"><span style="width:83%"></span></span>83%</span></td></tr>
+                    <tr><td class="mono" style="color:var(--text-primary)">nemotron-3.5-lightning-30b-a3b</td><td class="num">24</td><td class="num">85K</td><td class="num">3,542</td><td class="num"><span class="pf-share"><span class="pf-share-bar"><span style="width:17%"></span></span>17%</span></td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div class="grid-2-1" style="position:relative">
+              <span class="pin" style="left:-8px;top:-8px">4</span>
+              <div class="pnl">
+                <div class="pnl-h"><div><h3>Daily breakdown</h3><div class="sub">Days with AI usage, newest first</div></div></div>
+                <table class="tbl">
+                  <thead><tr><th>Date</th><th class="num">Requests</th><th class="num">Prompt</th><th class="num">Completion</th><th class="num">Total tokens</th><th class="num">Credits</th></tr></thead>
+                  <tbody>
+                    <tr><td class="muted">25 Nov 2026</td><td class="num">24</td><td class="num">82,410</td><td class="num">24,180</td><td class="num">106,590</td><td class="num">107</td></tr>
+                    <tr><td class="muted">24 Nov 2026</td><td class="num">28</td><td class="num">96,120</td><td class="num">27,450</td><td class="num">123,570</td><td class="num">124</td></tr>
+                    <tr><td class="muted">23 Nov 2026</td><td class="num">14</td><td class="num">46,800</td><td class="num">13,420</td><td class="num">60,220</td><td class="num">60</td></tr>
+                    <tr><td class="muted">22 Nov 2026</td><td class="num">19</td><td class="num">68,900</td><td class="num">19,340</td><td class="num">88,240</td><td class="num">88</td></tr>
+                    <tr><td class="muted">21 Nov 2026</td><td class="num">22</td><td class="num">79,540</td><td class="num">22,190</td><td class="num">101,730</td><td class="num">102</td></tr>
+                    <tr><td class="muted">20 Nov 2026</td><td class="num">26</td><td class="num">89,210</td><td class="num">25,700</td><td class="num">114,910</td><td class="num">115</td></tr>
+                    <tr><td class="muted">19 Nov 2026</td><td class="num">31</td><td class="num">114,800</td><td class="num">33,400</td><td class="num">148,200</td><td class="num">148</td></tr>
+                    <tr><td class="muted">18 Nov 2026</td><td class="num">17</td><td class="num">55,400</td><td class="num">16,890</td><td class="num">72,290</td><td class="num">72</td></tr>
+                  </tbody>
+                </table>
+                <div class="tbl-foot"><span>1–8 of 22</span><div class="pg"><span>&lsaquo;</span><span style="border:none">Page 1 of 3</span><span>&rsaquo;</span></div></div>
+              </div>
+              <div class="pf-stack">
+                <div class="pnl">
+                  <div class="pnl-h"><div><h3>By provider</h3><div class="sub">Last 30 days</div></div></div>
+                  <table class="tbl">
+                    <thead><tr><th>Provider</th><th class="num">Requests</th><th class="num">Tokens</th><th class="num">Share</th></tr></thead>
+                    <tbody>
+                      <tr><td>Nvidia</td><td class="num">412</td><td class="num">1.8M</td><td class="num">100%</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+                <div class="pnl">
+                  <div class="pnl-h"><div><h3>Request size</h3><div class="sub">Tokens per request · last 100 requests</div></div></div>
+                  <div class="pnl-b">
+                    <dl class="pf-kv dense">
+                      <div class="pf-kv-row"><dt>Median request</dt><dd>3,840</dd></div>
+                      <div class="pf-kv-row"><dt>Average prompt</dt><dd>3,420</dd></div>
+                      <div class="pf-kv-row"><dt>Average completion</dt><dd>1,046</dd></div>
+                      <div class="pf-kv-row"><dt>Largest request</dt><dd>28,910</dd></div>
+                      <div class="pf-kv-row"><dt>Smallest request</dt><dd>412</dd></div>
+                      <div class="pf-kv-row"><dt>Average credits</dt><dd>4</dd></div>
+                    </dl>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div></div>
+    <ol class="notes">
+      <li><b>Range selector &amp; 6 KPIs</b>: <code>7 days</code>, <code>30 days</code>, and <code>90 days</code> call <code>GET /api/payments/usage-events/analytics?days=&lt;range&gt;</code>, reset pagination to page 1, and highlight platform discounts when <code>totalCreditsDiscounted &gt; 0</code>.</li>
+      <li><b>Tokens per day &amp; Token limit</b> (<code>BarChart</code>, <code>TokenLimitPanel.jsx</code>): Stacked ember/indigo bars show daily prompt and completion split; <code>Token limit</code> compares usage against <code>dailyTokenCap</code> (Free), <code>monthlyTokenCap</code> (Pro), or shows <code>No cap</code> (Max).</li>
+      <li><b>By agent, By model &amp; By provider</b> (<code>BreakdownTable.jsx</code>): Agent and provider tables read aggregated arrays from <code>analytics</code>, while <code>By model</code> groups the latest 100 events from <code>GET /api/payments/usage-events?page=1&amp;limit=100</code>.</li>
+      <li><b>Daily breakdown &amp; Request size</b> (<code>RequestSizePanel.jsx</code>): Filters days with nonzero usage newest first at 10 rows per page locally; <code>Request size</code> computes median, average prompt/completion, min/max, and average credits over the 100-event sample.</li>
+    </ol>
+  </section>
+
+  <!-- PF-04 ─────────────────────────────────────────────────────────────── -->
+  <section class="screen" id="pf04">
+    <div class="screen-cap"><span class="id">PF-04</span><h2>AI requests</h2><span class="where">payments_frontend/src/features/payments/components/requests/RequestsPage.jsx · /requests</span></div>
+    <div class="frame-scroll"><div class="frame">
+      <div class="shell pf-shell">
+        <aside class="side pf-side">
+          <div class="side-brand"><div class="mark">T</div><div><b>Taksha</b><span>Billing</span></div></div>
+          <nav class="pf-side-nav" aria-label="Main navigation">
+            <button type="button" class="side-link"><svg class="i" aria-hidden="true"><use href="#i-dashboard"/></svg>Dashboard</button>
+            <div class="side-group">Usage</div>
+            <button type="button" class="side-link"><svg class="i" aria-hidden="true"><use href="#i-chart"/></svg>Usage analytics</button>
+            <button type="button" class="side-link on"><svg class="i" aria-hidden="true"><use href="#i-logs"/></svg>AI requests</button>
+            <div class="side-group">Billing</div>
+            <button type="button" class="side-link"><svg class="i" aria-hidden="true"><use href="#i-layers"/></svg>Plans &amp; checkout</button>
+            <button type="button" class="side-link"><svg class="i" aria-hidden="true"><use href="#i-file"/></svg>Invoices</button>
+          </nav>
+          <div class="pf-side-bottom">
+            <div class="pf-credits">
+              <div class="pf-credits-row"><span>AI credits</span><strong>118<span> / 150</span></strong></div>
+              <div class="meter"><span style="width:79%"></span></div>
+              <span class="pf-credits-foot">Refills 5 h after it runs low</span>
+            </div>
+            <div class="pf-theme" role="group" aria-label="Theme">
+              <button type="button"><svg class="i s" aria-hidden="true"><use href="#i-sun"/></svg>Light</button>
+              <button type="button" class="on"><svg class="i s" aria-hidden="true"><use href="#i-moon"/></svg>Dark</button>
+            </div>
+            <button type="button" class="pf-user-btn">
+              <span class="avatar">AS</span>
+              <span class="pf-user-text"><strong>Aarav Sharma</strong><span>Pro plan</span></span>
+              <svg class="i s muted" aria-hidden="true"><use href="#i-chev-d"/></svg>
+            </button>
+          </div>
+        </aside>
+        <div class="main">
+          <header class="topbar">
+            <div class="crumbs"><span>Billing</span><span>/</span><b>AI requests</b></div>
+            <div class="r">
+              <span class="pf-topbar-plan paid">Pro plan</span>
+              <a class="pf-topbar-ide" href="#pf04">Open IDE <svg class="i s" aria-hidden="true"><use href="#i-external"/></svg></a>
+            </div>
+          </header>
+          <div class="content">
+            <div class="page-h">
+              <div>
+                <h2>AI requests</h2>
+                <p>Every AI call made from your workspace, with tokens and credits charged.</p>
+              </div>
+              <div class="r"><button type="button" class="btn-ghost"><svg class="i s" aria-hidden="true"><use href="#i-refresh"/></svg>Refresh</button></div>
+            </div>
+
+            <div style="position:relative">
+              <div class="pnl">
+                <div class="pnl-h">
+                  <h3>412 requests</h3>
+                  <div class="filters" style="position:relative">
+                    <span class="pin" style="left:-24px;top:6px">1</span>
+                    <div class="search" style="min-width:210px"><svg class="i s" aria-hidden="true"><use href="#i-search"/></svg>Search request ID or model</div>
+                    <button type="button" class="chip">All agents <svg class="i s" aria-hidden="true"><use href="#i-chev-d"/></svg></button>
+                    <button type="button" class="chip">All time <svg class="i s" aria-hidden="true"><use href="#i-chev-d"/></svg></button>
+                  </div>
+                </div>
+                <table class="tbl">
+                  <thead><tr><th>Time</th><th>Agent</th><th>Model</th><th class="num">Prompt</th><th class="num">Completion</th><th class="num">Tokens</th><th class="num">Credits</th></tr></thead>
+                  <tbody>
+                    <tr><td class="muted">25 Nov, 10:58</td><td><b>Coding agent</b></td><td class="mono">nemotron-3-ultra-550b-a55b</td><td class="num">11,480</td><td class="num">2,800</td><td class="num">14,280</td><td class="num">14</td></tr>
+                    <tr><td class="muted">25 Nov, 10:41</td><td><b>Copilot</b></td><td class="mono">nemotron-3.5-lightning-30b-a3b</td><td class="num">1,510</td><td class="num">430</td><td class="num">1,940</td><td class="num">2</td></tr>
+                    <tr><td class="muted">25 Nov, 10:15</td><td><b>Memory agent</b></td><td class="mono">nemotron-3.5-lightning-30b-a3b</td><td class="num">3,610</td><td class="num">510</td><td class="num">4,120</td><td class="num">0<div class="muted" style="font-size:11px">−4 platform discount</div></td></tr>
+                    <tr><td class="muted">25 Nov, 09:52</td><td><b>App agent</b></td><td class="mono">nemotron-3-ultra-550b-a55b</td><td class="num">6,420</td><td class="num">2,230</td><td class="num">8,650</td><td class="num">9</td></tr>
+                    <tr><td class="muted">24 Nov, 18:40</td><td><b>Coding agent</b></td><td class="mono">nemotron-3-ultra-550b-a55b</td><td class="num">15,200</td><td class="num">4,110</td><td class="num">19,310</td><td class="num">19</td></tr>
+                    <tr><td class="muted">24 Nov, 18:22</td><td><b>Chat titles</b></td><td class="mono">nemotron-3.5-lightning-30b-a3b</td><td class="num">1,120</td><td class="num">90</td><td class="num">1,210</td><td class="num">1</td></tr>
+                    <tr><td class="muted">24 Nov, 17:49</td><td><b>Coding agent</b></td><td class="mono">nemotron-3-ultra-550b-a55b</td><td class="num">8,900</td><td class="num">1,840</td><td class="num">10,740</td><td class="num">11</td></tr>
+                    <tr><td class="muted">24 Nov, 17:10</td><td><b>Copilot</b></td><td class="mono">nemotron-3.5-lightning-30b-a3b</td><td class="num">1,840</td><td class="num">390</td><td class="num">2,230</td><td class="num">2</td></tr>
+                    <tr><td class="muted">24 Nov, 16:35</td><td><b>Coding agent</b></td><td class="mono">nemotron-3-ultra-550b-a55b</td><td class="num">12,040</td><td class="num">3,080</td><td class="num">15,120</td><td class="num">15</td></tr>
+                  </tbody>
+                </table>
+                <div class="tbl-foot">
+                  <span>1–20 of 412</span>
+                  <div class="pg"><span>&lsaquo;</span><span style="border:none">Page 1 of 21</span><span>&rsaquo;</span></div>
+                </div>
+              </div>
+              <span class="pin" style="left:-8px;top:114px">2</span>
+              <span class="pin" style="left:-8px;bottom:10px">3</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div></div>
+    <ol class="notes">
+      <li><b>Search, Agent &amp; Period filters</b>: Search debounces by 350 ms; switching <code>Agent</code> or <code>Period</code> (<code>All time</code>, <code>Last 24 hours</code>, <code>Last 7 days</code>, <code>Last 30 days</code>) resets <code>page</code> to 1 and queries <code>GET /api/payments/usage-events</code>.</li>
+      <li><b>Requests table</b>: Displays 20 rows per page from <code>eventsKey</code> (up to 8 cached filter/page entries kept in Redux <code>MAX_EVENT_PAGES</code>); discounted <code>Memory agent</code> rows show <code>−&lt;n&gt; platform discount</code> beneath credits.</li>
+      <li><b>Row open &amp; Pagination</b>: Clicking any row or pressing <code>Enter</code> opens <code>RequestDrawer</code> (PF-05) with the row payload; pagination requests the matching server page.</li>
+    </ol>
+  </section>
+
+  <!-- PF-05 ─────────────────────────────────────────────────────────────── -->
+  <section class="screen" id="pf05">
+    <div class="screen-cap"><span class="id">PF-05</span><h2>Request drawer</h2><span class="where">payments_frontend/src/features/payments/components/requests/RequestDrawer.jsx · row click on PF-04</span></div>
+    <div class="frame-scroll"><div class="frame">
+      <div class="shell pf-shell">
+        <aside class="side pf-side">
+          <div class="side-brand"><div class="mark">T</div><div><b>Taksha</b><span>Billing</span></div></div>
+          <nav class="pf-side-nav" aria-label="Main navigation">
+            <button type="button" class="side-link"><svg class="i" aria-hidden="true"><use href="#i-dashboard"/></svg>Dashboard</button>
+            <div class="side-group">Usage</div>
+            <button type="button" class="side-link"><svg class="i" aria-hidden="true"><use href="#i-chart"/></svg>Usage analytics</button>
+            <button type="button" class="side-link on"><svg class="i" aria-hidden="true"><use href="#i-logs"/></svg>AI requests</button>
+            <div class="side-group">Billing</div>
+            <button type="button" class="side-link"><svg class="i" aria-hidden="true"><use href="#i-layers"/></svg>Plans &amp; checkout</button>
+            <button type="button" class="side-link"><svg class="i" aria-hidden="true"><use href="#i-file"/></svg>Invoices</button>
+          </nav>
+          <div class="pf-side-bottom">
+            <div class="pf-credits">
+              <div class="pf-credits-row"><span>AI credits</span><strong>118<span> / 150</span></strong></div>
+              <div class="meter"><span style="width:79%"></span></div>
+              <span class="pf-credits-foot">Refills 5 h after it runs low</span>
+            </div>
+            <div class="pf-theme" role="group" aria-label="Theme">
+              <button type="button"><svg class="i s" aria-hidden="true"><use href="#i-sun"/></svg>Light</button>
+              <button type="button" class="on"><svg class="i s" aria-hidden="true"><use href="#i-moon"/></svg>Dark</button>
+            </div>
+            <button type="button" class="pf-user-btn">
+              <span class="avatar">AS</span>
+              <span class="pf-user-text"><strong>Aarav Sharma</strong><span>Pro plan</span></span>
+              <svg class="i s muted" aria-hidden="true"><use href="#i-chev-d"/></svg>
+            </button>
+          </div>
+        </aside>
+        <div class="main" style="position:relative">
+          <header class="topbar">
+            <div class="crumbs"><span>Billing</span><span>/</span><b>AI requests</b></div>
+            <div class="r">
+              <span class="pf-topbar-plan paid">Pro plan</span>
+              <a class="pf-topbar-ide" href="#pf05">Open IDE <svg class="i s" aria-hidden="true"><use href="#i-external"/></svg></a>
+            </div>
+          </header>
+          <div class="content">
+            <div class="page-h"><div><h2>AI requests</h2><p>Every AI call made from your workspace, with tokens and credits charged.</p></div></div>
+            <div class="pnl">
+              <div class="pnl-h"><h3>412 requests</h3><div class="filters"><div class="search"><svg class="i s" aria-hidden="true"><use href="#i-search"/></svg>Search request ID or model</div></div></div>
+              <table class="tbl">
+                <thead><tr><th>Time</th><th>Agent</th><th>Model</th><th class="num">Prompt</th><th class="num">Tokens</th><th class="num">Credits</th></tr></thead>
+                <tbody>
+                  <tr><td class="muted">25 Nov, 10:58</td><td><b>Coding agent</b></td><td class="mono">nemotron-3-ultra-550b-a55b</td><td class="num">11,480</td><td class="num">14,280</td><td class="num">14</td></tr>
+                  <tr><td class="muted">25 Nov, 10:41</td><td><b>Copilot</b></td><td class="mono">nemotron-3.5-lightning-30b-a3b</td><td class="num">1,510</td><td class="num">1,940</td><td class="num">2</td></tr>
+                  <tr class="sel"><td class="muted">25 Nov, 10:15</td><td><b>Memory agent</b></td><td class="mono">nemotron-3.5-lightning-30b-a3b</td><td class="num">3,610</td><td class="num">4,120</td><td class="num">0<div class="muted" style="font-size:11px">−4 platform discount</div></td></tr>
+                  <tr><td class="muted">25 Nov, 09:52</td><td><b>App agent</b></td><td class="mono">nemotron-3-ultra-550b-a55b</td><td class="num">6,420</td><td class="num">8,650</td><td class="num">9</td></tr>
+                  <tr><td class="muted">24 Nov, 18:40</td><td><b>Coding agent</b></td><td class="mono">nemotron-3-ultra-550b-a55b</td><td class="num">15,200</td><td class="num">19,310</td><td class="num">19</td></tr>
+                  <tr><td class="muted">24 Nov, 18:22</td><td><b>Chat titles</b></td><td class="mono">nemotron-3.5-lightning-30b-a3b</td><td class="num">1,120</td><td class="num">1,210</td><td class="num">1</td></tr>
+                  <tr><td class="muted">24 Nov, 17:49</td><td><b>Coding agent</b></td><td class="mono">nemotron-3-ultra-550b-a55b</td><td class="num">8,900</td><td class="num">10,740</td><td class="num">11</td></tr>
+                  <tr><td class="muted">24 Nov, 17:10</td><td><b>Copilot</b></td><td class="mono">nemotron-3.5-lightning-30b-a3b</td><td class="num">1,840</td><td class="num">2,230</td><td class="num">2</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <div class="pf-drawer-scrim" aria-hidden="true"></div>
+          <div class="drawer" role="dialog" aria-modal="true" aria-label="AI request">
+            <div class="drawer-h" style="position:relative">
+              <div><h3>AI request</h3><div class="muted" style="font-size:12px">25 Nov, 10:15</div></div>
+              <div style="display:flex;align-items:center;gap:8px">
+                <span class="pin" style="position:static">1</span>
+                <button type="button" class="icon-btn" aria-label="Close"><svg class="i" aria-hidden="true"><use href="#i-x"/></svg></button>
+              </div>
+            </div>
+            <div class="drawer-b">
+              <div style="position:relative;display:flex;flex-direction:column;gap:12px">
+                <span class="pin" style="right:0;top:4px">2</span>
+                <div class="pf-bigstat"><strong>4,120</strong><span>tokens · 0 credits</span></div>
+                <p style="font-size:12.5px;color:var(--text-secondary);line-height:1.5">4 credits · Platform discount −4 · Charged 0. Taksha pays for chat memory upkeep.</p>
+                <div class="pf-splitbar">
+                  <div class="pf-splitbar-track" role="img" aria-label="Prompt 88%, Completion 12%">
+                    <div class="pf-splitbar-seg1" style="width:88%"></div>
+                    <div class="pf-splitbar-seg2" style="width:12%"></div>
+                  </div>
+                  <ul class="pf-splitbar-leg">
+                    <li><span class="pf-swatch"></span><span>Prompt</span><strong>88%</strong><span class="muted" style="text-align:right">3.6K</span></li>
+                    <li><span class="pf-swatch b"></span><span>Completion</span><strong>12%</strong><span class="muted" style="text-align:right">510</span></li>
+                  </ul>
+                </div>
+              </div>
+              <div style="position:relative">
+                <span class="pin" style="right:0;top:2px">3</span>
+                <h4 style="font-size:11.5px;text-transform:uppercase;letter-spacing:0.04em;color:var(--text-muted);margin-bottom:4px">Details</h4>
+                <dl class="pf-kv">
+                  <div class="pf-kv-row"><dt>Agent</dt><dd>Memory agent</dd></div>
+                  <div class="pf-kv-row"><dt>Model</dt><dd class="mono">nvidia/nemotron-3.5-lightning-30b-a3b</dd></div>
+                  <div class="pf-kv-row"><dt>Provider</dt><dd>Nvidia</dd></div>
+                  <div class="pf-kv-row"><dt>Plan at the time</dt><dd>Pro</dd></div>
+                  <div class="pf-kv-row"><dt>Time</dt><dd>25 Nov, 10:15</dd></div>
+                </dl>
+              </div>
+              <div>
+                <h4 style="font-size:11.5px;text-transform:uppercase;letter-spacing:0.04em;color:var(--text-muted);margin-bottom:4px">References</h4>
+                <dl class="pf-kv">
+                  <div class="pf-kv-row"><dt>Request ID</dt><dd class="mono">req_81b4c09e2a4f</dd></div>
+                  <div class="pf-kv-row"><dt>Project ID</dt><dd class="mono">5c0e8f214a2b49c091a39b7e</dd></div>
+                  <div class="pf-kv-row"><dt>Chat ID</dt><dd class="mono">chat_8f21a309c112</dd></div>
+                </dl>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div></div>
+    <ol class="notes">
+      <li><b>Drawer header</b> (<code>Drawer.jsx</code>): Portals to <code>document.body</code> with focus management and closes on <code>Escape</code>, scrim click, or the close button.</li>
+      <li><b>Token total, discount &amp; SplitBar</b>: Displays <code>totalTokens</code>, <code>creditsDeducted</code>, the platform discount sentence whenever <code>creditsDiscounted &gt; 0</code>, and the prompt/completion <code>SplitBar</code>.</li>
+      <li><b>Details &amp; References</b>: Populated directly from the selected row returned by <code>GET /api/payments/usage-events</code> (no extra detail request); <code>Chat ID</code> renders only when <code>event.chatId</code> is present.</li>
+    </ol>
+  </section>
+
+  <!-- PF-06 ─────────────────────────────────────────────────────────────── -->
+  <section class="screen" id="pf06">
+    <div class="screen-cap"><span class="id">PF-06</span><h2>Plans</h2><span class="where">payments_frontend/src/features/payments/components/plans/PlansPage.jsx · /plans</span></div>
+    <div class="frame-scroll"><div class="frame">
+      <div class="shell pf-shell">
+        <aside class="side pf-side">
+          <div class="side-brand"><div class="mark">T</div><div><b>Taksha</b><span>Billing</span></div></div>
+          <nav class="pf-side-nav" aria-label="Main navigation">
+            <button type="button" class="side-link"><svg class="i" aria-hidden="true"><use href="#i-dashboard"/></svg>Dashboard</button>
+            <div class="side-group">Usage</div>
+            <button type="button" class="side-link"><svg class="i" aria-hidden="true"><use href="#i-chart"/></svg>Usage analytics</button>
+            <button type="button" class="side-link"><svg class="i" aria-hidden="true"><use href="#i-logs"/></svg>AI requests</button>
+            <div class="side-group">Billing</div>
+            <button type="button" class="side-link on"><svg class="i" aria-hidden="true"><use href="#i-layers"/></svg>Plans &amp; checkout</button>
+            <button type="button" class="side-link"><svg class="i" aria-hidden="true"><use href="#i-file"/></svg>Invoices</button>
+          </nav>
+          <div class="pf-side-bottom">
+            <div class="pf-credits">
+              <div class="pf-credits-row"><span>AI credits</span><strong>17<span> / 20</span></strong></div>
+              <div class="meter"><span style="width:85%"></span></div>
+              <span class="pf-credits-foot">Refills 5 h after it runs low</span>
+            </div>
+            <div class="pf-theme" role="group" aria-label="Theme">
+              <button type="button"><svg class="i s" aria-hidden="true"><use href="#i-sun"/></svg>Light</button>
+              <button type="button" class="on"><svg class="i s" aria-hidden="true"><use href="#i-moon"/></svg>Dark</button>
+            </div>
+            <button type="button" class="pf-user-btn">
+              <span class="avatar">AS</span>
+              <span class="pf-user-text"><strong>Aarav Sharma</strong><span>Free plan</span></span>
+              <svg class="i s muted" aria-hidden="true"><use href="#i-chev-d"/></svg>
+            </button>
+          </div>
+        </aside>
+        <div class="main">
+          <header class="topbar">
+            <div class="crumbs"><span>Billing</span><span>/</span><b>Plans</b></div>
+            <div class="r">
+              <span class="pf-topbar-plan">Free plan</span>
+              <a class="pf-topbar-ide" href="#pf06">Open IDE <svg class="i s" aria-hidden="true"><use href="#i-external"/></svg></a>
+            </div>
+          </header>
+          <div class="content">
+            <div class="page-h">
+              <div>
+                <h2>Plans</h2>
+                <p>Pick the plan that fits how much you build. Every paid plan runs for 30 days and never renews on its own.</p>
+              </div>
+            </div>
+
+            <div class="pf-grid-3" style="position:relative">
+              <span class="pin" style="left:-8px;top:-8px">1</span>
+              <article class="pf-plancard current">
+                <div class="pf-plancard-top"><h3>Free</h3><span class="badge brand">Current plan</span></div>
+                <p class="muted" style="font-size:12.5px">For trying the coding agent.</p>
+                <div class="pf-plancard-price"><strong>₹0</strong><span class="muted">forever</span></div>
+                <button type="button" class="btn-secondary" disabled style="width:100%">Current plan</button>
+                <dl class="pf-plancard-limits">
+                  <div><dt>AI credit balance</dt><dd>20 credits</dd></div>
+                  <div><dt>Token limit</dt><dd>50,000 per day</dd></div>
+                  <div><dt>Requests</dt><dd>10 per minute</dd></div>
+                  <div><dt>Sandbox</dt><dd>0.5 vCPU, 512 MB</dd></div>
+                </dl>
+                <ul class="pf-plancard-feat">
+                  <li><svg class="i s t-ok" aria-hidden="true"><use href="#i-check"/></svg>Coding agent and Copilot</li>
+                  <li><svg class="i s t-ok" aria-hidden="true"><use href="#i-check"/></svg>Community support</li>
+                </ul>
+              </article>
+
+              <article class="pf-plancard">
+                <div class="pf-plancard-top"><h3>Pro</h3><span class="badge">Most chosen</span></div>
+                <p class="muted" style="font-size:12.5px">For developers who build every day.</p>
+                <div class="pf-plancard-price"><strong>₹499</strong><span class="muted">/ 30 days</span></div>
+                <button type="button" class="btn-solid" style="width:100%">Get Pro</button>
+                <dl class="pf-plancard-limits">
+                  <div><dt>AI credit balance</dt><dd>150 credits</dd></div>
+                  <div><dt>Token limit</dt><dd>5M per month</dd></div>
+                  <div><dt>Requests</dt><dd>60 per minute</dd></div>
+                  <div><dt>Sandbox</dt><dd>2 vCPU, 2 GB</dd></div>
+                </dl>
+                <ul class="pf-plancard-feat">
+                  <li><svg class="i s t-ok" aria-hidden="true"><use href="#i-check"/></svg>All coding and app agents</li>
+                  <li><svg class="i s t-ok" aria-hidden="true"><use href="#i-check"/></svg>Advanced models</li>
+                  <li><svg class="i s t-ok" aria-hidden="true"><use href="#i-check"/></svg>Priority email support</li>
+                </ul>
+              </article>
+
+              <article class="pf-plancard">
+                <div class="pf-plancard-top"><h3>Max</h3></div>
+                <p class="muted" style="font-size:12.5px">For heavy use with no token cap.</p>
+                <div class="pf-plancard-price"><strong>₹999</strong><span class="muted">/ 30 days</span></div>
+                <button type="button" class="btn-secondary" style="width:100%">Get Max</button>
+                <dl class="pf-plancard-limits">
+                  <div><dt>AI credit balance</dt><dd>200 credits</dd></div>
+                  <div><dt>Token limit</dt><dd>No cap</dd></div>
+                  <div><dt>Requests</dt><dd>120 per minute</dd></div>
+                  <div><dt>Sandbox</dt><dd>4 vCPU, 4 GB</dd></div>
+                </dl>
+                <ul class="pf-plancard-feat">
+                  <li><svg class="i s t-ok" aria-hidden="true"><use href="#i-check"/></svg>Everything in Pro</li>
+                  <li><svg class="i s t-ok" aria-hidden="true"><use href="#i-check"/></svg>Priority queue</li>
+                  <li><svg class="i s t-ok" aria-hidden="true"><use href="#i-check"/></svg>Dedicated support</li>
+                </ul>
+              </article>
+            </div>
+
+            <div class="pf-grid-1-2" style="position:relative">
+              <span class="pin" style="left:-8px;top:-8px">2</span>
+              <div class="pnl">
+                <div class="pnl-h"><h3>Subscription</h3><span class="badge">Free</span></div>
+                <div class="pnl-b" style="display:flex;flex-direction:column;gap:12px">
+                  <div><strong style="font-size:16px;color:var(--text-primary);display:block">Taksha AI Free</strong><span class="muted">No charge</span></div>
+                  <dl class="pf-kv">
+                    <div class="pf-kv-row"><dt>AI credit balance</dt><dd>20</dd></div>
+                    <div class="pf-kv-row"><dt>Token limit</dt><dd>50K / day</dd></div>
+                    <div class="pf-kv-row"><dt>Requests per minute</dt><dd>10</dd></div>
+                  </dl>
+                  <div style="border-top:1px solid var(--border);padding-top:10px">
+                    <div style="display:flex;align-items:center;gap:6px;font-size:12.5px;font-weight:600;color:var(--text-primary);margin-bottom:4px"><svg class="i s" aria-hidden="true"><use href="#i-clock"/></svg>Up next</div>
+                    <p class="pf-note">No paid plan queued.</p>
+                  </div>
+                </div>
+              </div>
+
+              <div class="pnl">
+                <div class="pnl-h"><div><h3>How buying a plan works</h3><div class="sub">Nothing you paid for is ever lost</div></div></div>
+                <div class="pnl-b">
+                  <ul class="pf-rules">
+                    <li><span class="pf-rule-ic"><svg class="i" aria-hidden="true"><use href="#i-zap"/></svg></span><div><strong>No paid plan yet</strong><p>Your plan starts the moment the payment goes through.</p></div></li>
+                    <li><span class="pf-rule-ic"><svg class="i" aria-hidden="true"><use href="#i-plus"/></svg></span><div><strong>Same plan again</strong><p>30 more days are added to the end of your current plan.</p></div></li>
+                    <li><span class="pf-rule-ic"><svg class="i" aria-hidden="true"><use href="#i-arrow-up"/></svg></span><div><strong>Higher plan</strong><p>Starts right away. Days left on your old plan wait in the queue.</p></div></li>
+                    <li><span class="pf-rule-ic"><svg class="i" aria-hidden="true"><use href="#i-list"/></svg></span><div><strong>Lower plan</strong><p>Waits in the queue and starts when your current plan ends.</p></div></li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+
+            <div style="display:flex;align-items:center;gap:8px;margin-top:8px"><h3 class="pf-section-t" style="margin-top:0">Compare plans</h3><span class="pin" style="position:static">3</span></div>
+            <div class="pnl pf-compare">
+              <table class="tbl">
+                <thead><tr><th>Feature</th><th class="cur">Free<div class="muted" style="font-size:11px;font-weight:500">Your plan</div></th><th>Pro</th><th>Max</th></tr></thead>
+                <tbody>
+                  <tr class="pf-compare-grp"><th colspan="4">AI usage</th></tr>
+                  <tr><td>AI credit balance</td><td class="cur">20</td><td>150</td><td>200</td></tr>
+                  <tr><td>Token limit</td><td class="cur">50,000 / day</td><td>5M / month</td><td>No cap</td></tr>
+                  <tr><td>Requests per minute</td><td class="cur">10</td><td>60</td><td>120</td></tr>
+                  <tr><td>Priority queue</td><td class="cur"><svg class="i s muted" aria-label="Not included"><use href="#i-minus"/></svg></td><td><svg class="i s muted" aria-label="Not included"><use href="#i-minus"/></svg></td><td><svg class="i s t-ok" aria-label="Included"><use href="#i-check"/></svg></td></tr>
+                  <tr class="pf-compare-grp"><th colspan="4">Agents and models</th></tr>
+                  <tr><td>Coding agent (Orion)</td><td class="cur"><svg class="i s t-ok" aria-label="Included"><use href="#i-check"/></svg></td><td><svg class="i s t-ok" aria-label="Included"><use href="#i-check"/></svg></td><td><svg class="i s t-ok" aria-label="Included"><use href="#i-check"/></svg></td></tr>
+                  <tr><td>Copilot (Clio)</td><td class="cur"><svg class="i s t-ok" aria-label="Included"><use href="#i-check"/></svg></td><td><svg class="i s t-ok" aria-label="Included"><use href="#i-check"/></svg></td><td><svg class="i s t-ok" aria-label="Included"><use href="#i-check"/></svg></td></tr>
+                  <tr><td>App agent</td><td class="cur"><svg class="i s muted" aria-label="Not included"><use href="#i-minus"/></svg></td><td><svg class="i s t-ok" aria-label="Included"><use href="#i-check"/></svg></td><td><svg class="i s t-ok" aria-label="Included"><use href="#i-check"/></svg></td></tr>
+                  <tr><td>Advanced models</td><td class="cur"><svg class="i s muted" aria-label="Not included"><use href="#i-minus"/></svg></td><td><svg class="i s t-ok" aria-label="Included"><use href="#i-check"/></svg></td><td><svg class="i s t-ok" aria-label="Included"><use href="#i-check"/></svg></td></tr>
+                  <tr class="pf-compare-grp"><th colspan="4">Sandbox</th></tr>
+                  <tr><td>CPU</td><td class="cur">0.5 vCPU</td><td>2 vCPU</td><td>4 vCPU</td></tr>
+                  <tr><td>Memory</td><td class="cur">512 MB</td><td>2 GB</td><td>4 GB</td></tr>
+                  <tr class="pf-compare-grp"><th colspan="4">Support</th></tr>
+                  <tr><td>Community support</td><td class="cur"><svg class="i s t-ok" aria-label="Included"><use href="#i-check"/></svg></td><td><svg class="i s t-ok" aria-label="Included"><use href="#i-check"/></svg></td><td><svg class="i s t-ok" aria-label="Included"><use href="#i-check"/></svg></td></tr>
+                  <tr><td>Priority email support</td><td class="cur"><svg class="i s muted" aria-label="Not included"><use href="#i-minus"/></svg></td><td><svg class="i s t-ok" aria-label="Included"><use href="#i-check"/></svg></td><td><svg class="i s t-ok" aria-label="Included"><use href="#i-check"/></svg></td></tr>
+                  <tr><td>Dedicated support</td><td class="cur"><svg class="i s muted" aria-label="Not included"><use href="#i-minus"/></svg></td><td><svg class="i s muted" aria-label="Not included"><use href="#i-minus"/></svg></td><td><svg class="i s t-ok" aria-label="Included"><use href="#i-check"/></svg></td></tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div style="display:flex;align-items:center;gap:8px;margin-top:8px"><h3 class="pf-section-t" style="margin-top:0">Questions</h3><span class="pin" style="position:static">4</span></div>
+            <div class="pnl">
+              <div class="pnl-b" style="padding-top:4px;padding-bottom:4px">
+                <div class="pf-faq-item"><div class="pf-faq-q"><span>When does a new plan start?</span><svg class="i s" style="transform:rotate(180deg)" aria-hidden="true"><use href="#i-chev-d"/></svg></div><p class="pf-faq-a">With no paid plan, it starts right away. Buying the same plan adds 30 days to it. A higher plan starts right away and the days left on your old plan wait in the queue. A lower plan waits in the queue until your current plan ends.</p></div>
+                <div class="pf-faq-item"><div class="pf-faq-q"><span>Do plans renew on their own?</span><svg class="i s" aria-hidden="true"><use href="#i-chev-d"/></svg></div></div>
+                <div class="pf-faq-item"><div class="pf-faq-q"><span>How do AI credits work?</span><svg class="i s" aria-hidden="true"><use href="#i-chev-d"/></svg></div></div>
+                <div class="pf-faq-item"><div class="pf-faq-q"><span>Which payment methods can I use?</span><svg class="i s" aria-hidden="true"><use href="#i-chev-d"/></svg></div></div>
+                <div class="pf-faq-item"><div class="pf-faq-q"><span>Where do I find my invoices?</span><svg class="i s" aria-hidden="true"><use href="#i-chev-d"/></svg></div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div></div>
+    <ol class="notes">
+      <li><b>Plan cards</b> (<code>PlanCard.jsx</code>): Reads <code>PLANS</code> from <code>utils/plans.js</code> (mirroring <code>Payments/config/plans.config.js</code>) and active tier from <code>GET /api/payments/subscription</code> and <code>/credit</code>; marks current plan with <code>Current plan</code>, marks Pro <code>Most chosen</code>, and routes paid CTAs (<code>Get Pro</code>, <code>Extend by 30 days</code>, <code>Queue Pro</code>) to <code>/checkout/:planId</code>.</li>
+      <li><b>Subscription &amp; queueing rules</b> (<code>SubscriptionCard.jsx</code>, <code>PlansPage.jsx</code>): Renders <code>Subscription</code> only when signed in (<code>/plans</code> itself is public without <code>RequireAuth</code>), alongside the 4 rules matching <code>subscription.service.js</code>.</li>
+      <li><b>Compare plans</b> (<code>CompareTable.jsx</code>): Renders <code>FEATURE_MATRIX</code> across 4 groups and highlights the signed-in user's column with <code>Your plan</code>.</li>
+      <li><b>Questions</b> (<code>Faq.jsx</code>): Native <code>&lt;details&gt;</code> accordion of 5 static FAQ items (no React state or API calls).</li>
+    </ol>
+  </section>
+
+  <!-- PF-07 ─────────────────────────────────────────────────────────────── -->
+  <section class="screen" id="pf07">
+    <div class="screen-cap"><span class="id">PF-07</span><h2>Checkout</h2><span class="where">payments_frontend/src/features/payments/components/checkout/CheckoutPage.jsx · /checkout/:planId</span></div>
+    <div class="frame-scroll"><div class="frame">
+      <div class="shell pf-shell">
+        <aside class="side pf-side">
+          <div class="side-brand"><div class="mark">T</div><div><b>Taksha</b><span>Billing</span></div></div>
+          <nav class="pf-side-nav" aria-label="Main navigation">
+            <button type="button" class="side-link"><svg class="i" aria-hidden="true"><use href="#i-dashboard"/></svg>Dashboard</button>
+            <div class="side-group">Usage</div>
+            <button type="button" class="side-link"><svg class="i" aria-hidden="true"><use href="#i-chart"/></svg>Usage analytics</button>
+            <button type="button" class="side-link"><svg class="i" aria-hidden="true"><use href="#i-logs"/></svg>AI requests</button>
+            <div class="side-group">Billing</div>
+            <button type="button" class="side-link on"><svg class="i" aria-hidden="true"><use href="#i-layers"/></svg>Plans &amp; checkout</button>
+            <button type="button" class="side-link"><svg class="i" aria-hidden="true"><use href="#i-file"/></svg>Invoices</button>
+          </nav>
+          <div class="pf-side-bottom">
+            <div class="pf-credits">
+              <div class="pf-credits-row"><span>AI credits</span><strong>17<span> / 20</span></strong></div>
+              <div class="meter"><span style="width:85%"></span></div>
+              <span class="pf-credits-foot">Refills 5 h after it runs low</span>
+            </div>
+            <div class="pf-theme" role="group" aria-label="Theme">
+              <button type="button"><svg class="i s" aria-hidden="true"><use href="#i-sun"/></svg>Light</button>
+              <button type="button" class="on"><svg class="i s" aria-hidden="true"><use href="#i-moon"/></svg>Dark</button>
+            </div>
+            <button type="button" class="pf-user-btn">
+              <span class="avatar">AS</span>
+              <span class="pf-user-text"><strong>Aarav Sharma</strong><span>Free plan</span></span>
+              <svg class="i s muted" aria-hidden="true"><use href="#i-chev-d"/></svg>
+            </button>
+          </div>
+        </aside>
+        <div class="main">
+          <header class="topbar">
+            <div class="crumbs"><span>Billing</span><span>/</span><b>Checkout</b></div>
+            <div class="r">
+              <span class="pf-topbar-plan">Free plan</span>
+              <a class="pf-topbar-ide" href="#pf07">Open IDE <svg class="i s" aria-hidden="true"><use href="#i-external"/></svg></a>
+            </div>
+          </header>
+          <div class="content">
+            <div><button type="button" class="btn-ghost btn-sm"><svg class="i s" aria-hidden="true"><use href="#i-chev-l"/></svg>All plans</button></div>
+            <div class="page-h"><div><h2>Checkout</h2><p>Review your plan and pay securely with Razorpay.</p></div></div>
+
+            <div style="display:flex;align-items:center;gap:10px">
+              <span class="pin" style="position:static">1</span>
+              <ol class="pf-steps" style="flex:1;margin-bottom:0" aria-label="Checkout progress">
+                <li class="pf-step done"><span class="pf-step-dot"><svg class="i s" aria-hidden="true"><use href="#i-check"/></svg></span><span>Choose plan</span></li>
+                <li class="pf-step cur"><span class="pf-step-dot">2</span><span>Review</span></li>
+                <li class="pf-step"><span class="pf-step-dot">3</span><span>Pay</span></li>
+                <li class="pf-step"><span class="pf-step-dot">4</span><span>Done</span></li>
+              </ol>
+            </div>
+
+            <div class="pf-checkout-grid">
+              <div class="pf-stack">
+                <div class="pnl" style="position:relative">
+                  <span class="pin" style="right:12px;top:12px">2</span>
+                  <div class="pnl-h"><div><h3>Plan</h3><div class="sub">You can switch before paying</div></div></div>
+                  <div class="pnl-b" style="display:flex;flex-direction:column;gap:10px">
+                    <div class="pf-planopt sel">
+                      <span class="pf-radio"></span>
+                      <div style="flex:1;min-width:0"><strong style="font-size:13.5px;color:var(--text-primary);display:block">Taksha AI Pro</strong><span class="muted" style="font-size:12px">150 credits · 5M per month</span></div>
+                      <span style="font-size:14.5px;font-weight:600;color:var(--text-primary)">₹499 <small class="muted" style="font-weight:400">/ 30 days</small></span>
+                    </div>
+                    <div class="pf-planopt">
+                      <span class="pf-radio"></span>
+                      <div style="flex:1;min-width:0"><strong style="font-size:13.5px;color:var(--text-primary);display:block">Taksha AI Max</strong><span class="muted" style="font-size:12px">200 credits · No cap</span></div>
+                      <span style="font-size:14.5px;font-weight:600;color:var(--text-primary)">₹999 <small class="muted" style="font-weight:400">/ 30 days</small></span>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="pnl">
+                  <div class="pnl-h"><h3>What happens after you pay</h3></div>
+                  <div class="pnl-b" style="display:flex;flex-direction:column;gap:10px">
+                    <div style="display:flex;gap:12px;align-items:flex-start">
+                      <span style="width:36px;height:36px;border-radius:8px;background:var(--brand-subtle);color:var(--brand-primary);display:grid;place-items:center;flex-shrink:0"><svg class="i" aria-hidden="true"><use href="#i-zap"/></svg></span>
+                      <div><strong style="font-size:13.5px;color:var(--text-primary);display:block">Starts right away</strong><p class="pf-note" style="margin-top:2px">You have no paid plan, so this one begins as soon as the payment goes through.</p></div>
+                    </div>
+                    <dl class="pf-kv">
+                      <div class="pf-kv-row"><dt>New plan starts</dt><dd>25 Nov 2026</dd></div>
+                      <div class="pf-kv-row"><dt>New plan ends</dt><dd>25 Dec 2026</dd></div>
+                      <div class="pf-kv-row"><dt>Renews automatically</dt><dd>No</dd></div>
+                    </dl>
+                  </div>
+                </div>
+
+                <div class="pnl" style="position:relative">
+                  <span class="pin" style="right:12px;top:12px">3</span>
+                  <div class="pnl-h"><div><h3>Billing details</h3><div class="sub">Your receipt and invoice go to this account</div></div></div>
+                  <div class="pnl-b">
+                    <dl class="pf-kv">
+                      <div class="pf-kv-row"><dt>Name</dt><dd>Aarav Sharma</dd></div>
+                      <div class="pf-kv-row"><dt>Email</dt><dd>aarav.sharma@taksha.dev</dd></div>
+                      <div class="pf-kv-row"><dt>Currency</dt><dd>Indian rupee (INR)</dd></div>
+                    </dl>
+                    <p class="pf-note" style="display:flex;align-items:center;gap:6px;margin-top:10px"><svg class="i s" aria-hidden="true"><use href="#i-clock"/></svg>Every paid plan gives you 30 days from its start date.</p>
+                  </div>
+                </div>
+              </div>
+
+              <aside class="pnl" style="position:relative">
+                <span class="pin" style="right:12px;top:12px">4</span>
+                <div class="pnl-h"><h3>Order summary</h3></div>
+                <div class="pnl-b" style="display:flex;flex-direction:column;gap:14px">
+                  <div style="display:flex;justify-content:space-between;gap:12px;padding-bottom:14px;border-bottom:1px solid var(--border)">
+                    <div><strong style="font-size:13.5px;color:var(--text-primary);display:block">Taksha AI Pro</strong><span class="muted" style="font-size:12px">30 days · 25 Nov 2026 – 25 Dec 2026</span></div>
+                    <span style="font-weight:500;color:var(--text-primary)">₹499</span>
+                  </div>
+                  <dl class="pf-kv">
+                    <div class="pf-kv-row"><dt>Subtotal</dt><dd>₹499</dd></div>
+                    <div class="pf-kv-row"><dt>Taxes</dt><dd>Included</dd></div>
+                    <div class="pf-kv-row" style="font-size:14.5px;padding-top:10px"><dt style="color:var(--text-primary);font-weight:600">Total due today</dt><dd style="font-size:19px">₹499</dd></div>
+                  </dl>
+                  <button type="button" class="btn-solid" style="height:40px;width:100%;font-size:13.5px;font-weight:600"><svg class="i s" aria-hidden="true"><use href="#i-lock"/></svg>Pay ₹499</button>
+                  <div class="pf-methods" aria-label="Accepted payment methods"><span>UPI</span><span>Cards</span><span>Net banking</span><span>Wallets</span></div>
+                  <p class="pf-note" style="display:flex;gap:8px;align-items:flex-start"><svg class="i s t-ok" style="margin-top:2px" aria-hidden="true"><use href="#i-shield-check"/></svg><span>Payments are processed securely by Razorpay. Taksha never sees your card or bank details.</span></p>
+                </div>
+              </aside>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div></div>
+    <ol class="notes">
+      <li><b>Steps</b> (<code>Steps.jsx</code>): Four-stage bar (<code>Choose plan</code>, <code>Review</code>, <code>Pay</code>, <code>Done</code>); advances to <code>Pay</code> while <code>useRazorpayCheckout().status</code> is <code>creating</code>, <code>open</code>, or <code>verifying</code>, and switches to PF-08 on <code>success</code>.</li>
+      <li><b>Plan picker &amp; effect card</b> (<code>PlanPicker.jsx</code>, <code>previewPurchase</code>): Choosing Pro or Max navigates to <code>/checkout/:planId</code>, resets prior errors, and computes start/end dates against <code>GET /api/payments/subscription</code>.</li>
+      <li><b>Billing details</b>: Reads <code>name</code> and <code>email</code> from <code>GET /api/auth/getMe</code> outlet context and forwards them as Razorpay checkout prefill.</li>
+      <li><b>Order summary &amp; Pay button</b> (<code>OrderSummary.jsx</code>): Clicking <code>Pay ₹499</code> loads <code>checkout.razorpay.com/v1/checkout.js</code>, creates an order via <code>POST /api/payments/create/order</code>, opens the Razorpay modal, and confirms with <code>POST /api/payments/verify</code>.</li>
+    </ol>
+  </section>
+
+  <!-- PF-08 ─────────────────────────────────────────────────────────────── -->
+  <section class="screen" id="pf08">
+    <div class="screen-cap"><span class="id">PF-08</span><h2>Payment successful</h2><span class="where">payments_frontend/src/features/payments/components/checkout/CheckoutSuccess.jsx · checkout.status === 'success'</span></div>
+    <div class="frame-scroll"><div class="frame">
+      <div class="shell short pf-shell">
+        <aside class="side pf-side">
+          <div class="side-brand"><div class="mark">T</div><div><b>Taksha</b><span>Billing</span></div></div>
+          <nav class="pf-side-nav" aria-label="Main navigation">
+            <button type="button" class="side-link"><svg class="i" aria-hidden="true"><use href="#i-dashboard"/></svg>Dashboard</button>
+            <div class="side-group">Usage</div>
+            <button type="button" class="side-link"><svg class="i" aria-hidden="true"><use href="#i-chart"/></svg>Usage analytics</button>
+            <button type="button" class="side-link"><svg class="i" aria-hidden="true"><use href="#i-logs"/></svg>AI requests</button>
+            <div class="side-group">Billing</div>
+            <button type="button" class="side-link on"><svg class="i" aria-hidden="true"><use href="#i-layers"/></svg>Plans &amp; checkout</button>
+            <button type="button" class="side-link"><svg class="i" aria-hidden="true"><use href="#i-file"/></svg>Invoices</button>
+          </nav>
+          <div class="pf-side-bottom">
+            <div class="pf-credits">
+              <div class="pf-credits-row"><span>AI credits</span><strong>150<span> / 150</span></strong></div>
+              <div class="meter"><span style="width:100%"></span></div>
+              <span class="pf-credits-foot">Full balance</span>
+            </div>
+            <div class="pf-theme" role="group" aria-label="Theme">
+              <button type="button"><svg class="i s" aria-hidden="true"><use href="#i-sun"/></svg>Light</button>
+              <button type="button" class="on"><svg class="i s" aria-hidden="true"><use href="#i-moon"/></svg>Dark</button>
+            </div>
+            <button type="button" class="pf-user-btn">
+              <span class="avatar">AS</span>
+              <span class="pf-user-text"><strong>Aarav Sharma</strong><span>Pro plan</span></span>
+              <svg class="i s muted" aria-hidden="true"><use href="#i-chev-d"/></svg>
+            </button>
+          </div>
+        </aside>
+        <div class="main">
+          <header class="topbar">
+            <div class="crumbs"><span>Billing</span><span>/</span><b>Checkout</b></div>
+            <div class="r">
+              <span class="pf-topbar-plan paid">Pro plan</span>
+              <a class="pf-topbar-ide" href="#pf08">Open IDE <svg class="i s" aria-hidden="true"><use href="#i-external"/></svg></a>
+            </div>
+          </header>
+          <div class="content">
+            <div class="pf-success" style="position:relative">
+              <span class="pin" style="right:14px;top:14px">1</span>
+              <div class="pf-success-ic"><svg class="i l" aria-hidden="true"><use href="#i-check-circle"/></svg></div>
+              <h3 style="font-size:20px;color:var(--text-primary)">Payment successful</h3>
+              <p class="muted" style="font-size:13px;line-height:1.5">Taksha AI Pro is on your account. A receipt has been sent to your email.</p>
+
+              <div class="pf-success-box" style="position:relative">
+                <span class="pin" style="left:-24px;top:14px">2</span>
+                <dl class="pf-kv">
+                  <div class="pf-kv-row"><dt>Plan bought</dt><dd>Taksha AI Pro · 30 days</dd></div>
+                  <div class="pf-kv-row"><dt>Amount paid</dt><dd>₹499</dd></div>
+                  <div class="pf-kv-row"><dt>Active plan now</dt><dd>Pro</dd></div>
+                  <div class="pf-kv-row"><dt>Active until</dt><dd>25 Dec 2026</dd></div>
+                  <div class="pf-kv-row"><dt>Payment ID</dt><dd class="mono">pay_P9xR2mK8qL04nZ</dd></div>
+                  <div class="pf-kv-row"><dt>Order ID</dt><dd class="mono">order_P9xQ9tV1bW72cY</dd></div>
+                </dl>
+                <div style="padding:6px 0 8px"><span class="badge warn">Test mode payment</span></div>
+              </div>
+
+              <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;position:relative">
+                <span class="pin" style="left:-24px;top:8px">3</span>
+                <button type="button" class="btn-solid"><svg class="i s" aria-hidden="true"><use href="#i-dashboard"/></svg>Go to dashboard</button>
+                <button type="button" class="btn-secondary"><svg class="i s" aria-hidden="true"><use href="#i-file"/></svg>View invoice</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div></div>
+    <ol class="notes">
+      <li><b>Success confirmation</b>: Shown by <code>CheckoutPage</code> once <code>POST /api/payments/verify</code> confirms the Razorpay signature and <code>refreshAfterPayment()</code> reloads <code>overview</code>, <code>history</code>, and <code>summary</code>.</li>
+      <li><b>Receipt breakdown</b>: Displays the Razorpay payment and order IDs alongside updated <code>useAccount()</code> state (<code>Active plan now</code>, <code>Active until</code>); shows <code>Test mode payment</code> whenever <code>order.keyId</code> starts with <code>rzp_test</code>.</li>
+      <li><b>Next actions</b>: <code>Go to dashboard</code> routes to <code>/</code> and <code>View invoice</code> routes to <code>/invoices</code> where the verified payment is already cached.</li>
+    </ol>
+  </section>
+
+  <!-- PF-09 ─────────────────────────────────────────────────────────────── -->
+  <section class="screen" id="pf09">
+    <div class="screen-cap"><span class="id">PF-09</span><h2>Invoices</h2><span class="where">payments_frontend/src/features/payments/components/invoices/InvoicesPage.jsx · /invoices</span></div>
+    <div class="frame-scroll"><div class="frame">
+      <div class="shell pf-shell">
+        <aside class="side pf-side">
+          <div class="side-brand"><div class="mark">T</div><div><b>Taksha</b><span>Billing</span></div></div>
+          <nav class="pf-side-nav" aria-label="Main navigation">
+            <button type="button" class="side-link"><svg class="i" aria-hidden="true"><use href="#i-dashboard"/></svg>Dashboard</button>
+            <div class="side-group">Usage</div>
+            <button type="button" class="side-link"><svg class="i" aria-hidden="true"><use href="#i-chart"/></svg>Usage analytics</button>
+            <button type="button" class="side-link"><svg class="i" aria-hidden="true"><use href="#i-logs"/></svg>AI requests</button>
+            <div class="side-group">Billing</div>
+            <button type="button" class="side-link"><svg class="i" aria-hidden="true"><use href="#i-layers"/></svg>Plans &amp; checkout</button>
+            <button type="button" class="side-link on"><svg class="i" aria-hidden="true"><use href="#i-file"/></svg>Invoices</button>
+          </nav>
+          <div class="pf-side-bottom">
+            <div class="pf-credits">
+              <div class="pf-credits-row"><span>AI credits</span><strong>118<span> / 150</span></strong></div>
+              <div class="meter"><span style="width:79%"></span></div>
+              <span class="pf-credits-foot">Refills 5 h after it runs low</span>
+            </div>
+            <div class="pf-theme" role="group" aria-label="Theme">
+              <button type="button"><svg class="i s" aria-hidden="true"><use href="#i-sun"/></svg>Light</button>
+              <button type="button" class="on"><svg class="i s" aria-hidden="true"><use href="#i-moon"/></svg>Dark</button>
+            </div>
+            <button type="button" class="pf-user-btn">
+              <span class="avatar">AS</span>
+              <span class="pf-user-text"><strong>Aarav Sharma</strong><span>Pro plan</span></span>
+              <svg class="i s muted" aria-hidden="true"><use href="#i-chev-d"/></svg>
+            </button>
+          </div>
+        </aside>
+        <div class="main">
+          <header class="topbar">
+            <div class="crumbs"><span>Billing</span><span>/</span><b>Invoices</b></div>
+            <div class="r">
+              <span class="pf-topbar-plan paid">Pro plan</span>
+              <a class="pf-topbar-ide" href="#pf09">Open IDE <svg class="i s" aria-hidden="true"><use href="#i-external"/></svg></a>
+            </div>
+          </header>
+          <div class="content">
+            <div class="page-h" style="position:relative">
+              <div>
+                <h2>Invoices</h2>
+                <p>Every payment you made, with invoices you can print or save as PDF.</p>
+              </div>
+              <div class="r">
+                <span class="pin" style="position:static">1</span>
+                <button type="button" class="icon-btn" aria-label="Refresh"><svg class="i" aria-hidden="true"><use href="#i-refresh"/></svg></button>
+                <button type="button" class="btn-secondary"><svg class="i s" aria-hidden="true"><use href="#i-download"/></svg>Export CSV</button>
+              </div>
+            </div>
+
+            <div class="kpis">
+              <div class="kpi"><div class="l"><svg class="i s" aria-hidden="true"><use href="#i-card"/></svg> Total paid</div><div class="v">₹2,995</div><div class="d">Average ₹599 per payment</div></div>
+              <div class="kpi"><div class="l"><svg class="i s" aria-hidden="true"><use href="#i-file"/></svg> Invoices</div><div class="v">5</div><div class="d">7 payment attempts</div></div>
+              <div class="kpi"><div class="l"><svg class="i s" aria-hidden="true"><use href="#i-x-circle"/></svg> Failed payments</div><div class="v">1</div><div class="d">You are never charged for these</div></div>
+              <div class="kpi"><div class="l"><svg class="i s" aria-hidden="true"><use href="#i-check-circle"/></svg> Last payment</div><div class="v">₹499</div><div class="d">15 Nov 2026</div></div>
+            </div>
+
+            <div style="position:relative">
+              <div class="pnl">
+                <div class="pnl-h">
+                  <h3>Payment history</h3>
+                  <div class="filters" style="position:relative">
+                    <span class="pin" style="left:-24px;top:6px">2</span>
+                    <div class="search" style="min-width:210px"><svg class="i s" aria-hidden="true"><use href="#i-search"/></svg>Invoice, plan or payment ID</div>
+                    <button type="button" class="chip">All statuses <svg class="i s" aria-hidden="true"><use href="#i-chev-d"/></svg></button>
+                  </div>
+                </div>
+                <table class="tbl">
+                  <thead><tr><th>Date</th><th>Description</th><th>Invoice</th><th>Status</th><th class="num">Amount</th><th class="num"></th></tr></thead>
+                  <tbody>
+                    <tr><td class="muted">15 Nov 2026</td><td><b>Taksha AI Pro</b><div class="mono">pay_P9xR2mK8qL04nZ</div></td><td class="mono">INV-2026-1182</td><td><span class="badge ok"><svg class="i s" aria-hidden="true"><use href="#i-check-circle"/></svg>Paid</span></td><td class="num">₹499</td><td class="num"><button type="button" class="icon-btn" aria-label="Download receipt INV-2026-1182"><svg class="i s" aria-hidden="true"><use href="#i-download"/></svg></button></td></tr>
+                    <tr><td class="muted">10 Nov 2026</td><td><b>Taksha AI Max</b><div class="mono">order_P8kL4nP1vB33wZ</div></td><td class="dim">-</td><td><span class="badge warn"><svg class="i s" aria-hidden="true"><use href="#i-clock"/></svg>Pending</span></td><td class="num">₹999</td><td class="num"></td></tr>
+                    <tr><td class="muted">16 Oct 2026</td><td><b>Taksha AI Pro</b><div class="mono">pay_P7mK1nQ4vR92aB</div></td><td class="mono">INV-2026-0984</td><td><span class="badge ok"><svg class="i s" aria-hidden="true"><use href="#i-check-circle"/></svg>Paid</span></td><td class="num">₹499</td><td class="num"><button type="button" class="icon-btn" aria-label="Download receipt INV-2026-0984"><svg class="i s" aria-hidden="true"><use href="#i-download"/></svg></button></td></tr>
+                    <tr><td class="muted">14 Sep 2026</td><td><b>Taksha AI Pro</b><div class="mono">order_P5cD8wE2hJ10kL</div></td><td class="dim">-</td><td><span class="badge err"><svg class="i s" aria-hidden="true"><use href="#i-x-circle"/></svg>Failed</span></td><td class="num">₹499</td><td class="num"></td></tr>
+                    <tr><td class="muted">13 Sep 2026</td><td><b>Taksha AI Pro</b><div class="mono">pay_P5bA3yT9uN44pM</div></td><td class="mono">INV-2026-0791</td><td><span class="badge ok"><svg class="i s" aria-hidden="true"><use href="#i-check-circle"/></svg>Paid</span></td><td class="num">₹499</td><td class="num"><button type="button" class="icon-btn" aria-label="Download receipt INV-2026-0791"><svg class="i s" aria-hidden="true"><use href="#i-download"/></svg></button></td></tr>
+                    <tr><td class="muted">12 Aug 2026</td><td><b>Taksha AI Max</b><div class="mono">pay_P4yW8rT3xQ71kN</div></td><td class="mono">INV-2026-0614</td><td><span class="badge ok"><svg class="i s" aria-hidden="true"><use href="#i-check-circle"/></svg>Paid</span></td><td class="num">₹999</td><td class="num"><button type="button" class="icon-btn" aria-label="Download receipt INV-2026-0614"><svg class="i s" aria-hidden="true"><use href="#i-download"/></svg></button></td></tr>
+                    <tr><td class="muted">12 Jul 2026</td><td><b>Taksha AI Pro</b><div class="mono">pay_P2qM9dF5jK20sL</div></td><td class="mono">INV-2026-0428</td><td><span class="badge ok"><svg class="i s" aria-hidden="true"><use href="#i-check-circle"/></svg>Paid</span></td><td class="num">₹499</td><td class="num"><button type="button" class="icon-btn" aria-label="Download receipt INV-2026-0428"><svg class="i s" aria-hidden="true"><use href="#i-download"/></svg></button></td></tr>
+                  </tbody>
+                </table>
+                <div class="tbl-foot">
+                  <span>1–7 of 7</span>
+                  <div class="pg"><span>&lsaquo;</span><span style="border:none">Page 1 of 1</span><span>&rsaquo;</span></div>
+                </div>
+              </div>
+              <span class="pin" style="left:-8px;top:114px">3</span>
+              <span class="pin" style="left:-8px;bottom:10px">4</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div></div>
+    <ol class="notes">
+      <li><b>Refresh, Export CSV &amp; KPIs</b>: Loads the latest 100 transactions from <code>GET /api/payments/transactions?page=1&amp;limit=100</code>; <code>Export CSV</code> builds <code>taksha-payments.csv</code> client-side via <code>exportCsv()</code> (disabled when 0 rows match).</li>
+      <li><b>Search &amp; Status filter</b>: Filters locally in memory across <code>invoiceNumber</code>, description, <code>razorpay.paymentId</code>, <code>razorpay.orderId</code>, and status (<code>All statuses</code>, <code>Paid</code>, <code>Failed</code>, <code>Pending</code>).</li>
+      <li><b>Payments table</b> (<code>PaymentsTable.jsx</code>): Clicking a row opens <code>InvoiceDrawer</code> (PF-10); only <code>Paid</code> rows show the per-row download icon button calling <code>printInvoice(t, user)</code> with <code>stopPropagation()</code>.</li>
+      <li><b>Pagination</b>: Slices filtered rows at 10 per page locally.</li>
+    </ol>
+  </section>
+
+  <!-- PF-10 ─────────────────────────────────────────────────────────────── -->
+  <section class="screen" id="pf10">
+    <div class="screen-cap"><span class="id">PF-10</span><h2>Invoice drawer</h2><span class="where">payments_frontend/src/features/payments/components/invoices/InvoiceDrawer.jsx · row click on PF-09</span></div>
+    <div class="frame-scroll"><div class="frame">
+      <div class="shell pf-shell">
+        <aside class="side pf-side">
+          <div class="side-brand"><div class="mark">T</div><div><b>Taksha</b><span>Billing</span></div></div>
+          <nav class="pf-side-nav" aria-label="Main navigation">
+            <button type="button" class="side-link"><svg class="i" aria-hidden="true"><use href="#i-dashboard"/></svg>Dashboard</button>
+            <div class="side-group">Usage</div>
+            <button type="button" class="side-link"><svg class="i" aria-hidden="true"><use href="#i-chart"/></svg>Usage analytics</button>
+            <button type="button" class="side-link"><svg class="i" aria-hidden="true"><use href="#i-logs"/></svg>AI requests</button>
+            <div class="side-group">Billing</div>
+            <button type="button" class="side-link"><svg class="i" aria-hidden="true"><use href="#i-layers"/></svg>Plans &amp; checkout</button>
+            <button type="button" class="side-link on"><svg class="i" aria-hidden="true"><use href="#i-file"/></svg>Invoices</button>
+          </nav>
+          <div class="pf-side-bottom">
+            <div class="pf-credits">
+              <div class="pf-credits-row"><span>AI credits</span><strong>118<span> / 150</span></strong></div>
+              <div class="meter"><span style="width:79%"></span></div>
+              <span class="pf-credits-foot">Refills 5 h after it runs low</span>
+            </div>
+            <div class="pf-theme" role="group" aria-label="Theme">
+              <button type="button"><svg class="i s" aria-hidden="true"><use href="#i-sun"/></svg>Light</button>
+              <button type="button" class="on"><svg class="i s" aria-hidden="true"><use href="#i-moon"/></svg>Dark</button>
+            </div>
+            <button type="button" class="pf-user-btn">
+              <span class="avatar">AS</span>
+              <span class="pf-user-text"><strong>Aarav Sharma</strong><span>Pro plan</span></span>
+              <svg class="i s muted" aria-hidden="true"><use href="#i-chev-d"/></svg>
+            </button>
+          </div>
+        </aside>
+        <div class="main" style="position:relative">
+          <header class="topbar">
+            <div class="crumbs"><span>Billing</span><span>/</span><b>Invoices</b></div>
+            <div class="r">
+              <span class="pf-topbar-plan paid">Pro plan</span>
+              <a class="pf-topbar-ide" href="#pf10">Open IDE <svg class="i s" aria-hidden="true"><use href="#i-external"/></svg></a>
+            </div>
+          </header>
+          <div class="content">
+            <div class="page-h"><div><h2>Invoices</h2><p>Every payment you made, with invoices you can print or save as PDF.</p></div></div>
+            <div class="pnl">
+              <div class="pnl-h"><h3>Payment history</h3></div>
+              <table class="tbl">
+                <thead><tr><th>Date</th><th>Description</th><th>Invoice</th><th>Status</th><th class="num">Amount</th></tr></thead>
+                <tbody>
+                  <tr class="sel"><td class="muted">15 Nov 2026</td><td><b>Taksha AI Pro</b><div class="mono">pay_P9xR2mK8qL04nZ</div></td><td class="mono">INV-2026-1182</td><td><span class="badge ok"><svg class="i s" aria-hidden="true"><use href="#i-check-circle"/></svg>Paid</span></td><td class="num">₹499</td></tr>
+                  <tr><td class="muted">10 Nov 2026</td><td><b>Taksha AI Max</b><div class="mono">order_P8kL4nP1vB33wZ</div></td><td class="dim">-</td><td><span class="badge warn"><svg class="i s" aria-hidden="true"><use href="#i-clock"/></svg>Pending</span></td><td class="num">₹999</td></tr>
+                  <tr><td class="muted">16 Oct 2026</td><td><b>Taksha AI Pro</b><div class="mono">pay_P7mK1nQ4vR92aB</div></td><td class="mono">INV-2026-0984</td><td><span class="badge ok"><svg class="i s" aria-hidden="true"><use href="#i-check-circle"/></svg>Paid</span></td><td class="num">₹499</td></tr>
+                  <tr><td class="muted">14 Sep 2026</td><td><b>Taksha AI Pro</b><div class="mono">order_P5cD8wE2hJ10kL</div></td><td class="dim">-</td><td><span class="badge err"><svg class="i s" aria-hidden="true"><use href="#i-x-circle"/></svg>Failed</span></td><td class="num">₹499</td></tr>
+                  <tr><td class="muted">13 Sep 2026</td><td><b>Taksha AI Pro</b><div class="mono">pay_P5bA3yT9uN44pM</div></td><td class="mono">INV-2026-0791</td><td><span class="badge ok"><svg class="i s" aria-hidden="true"><use href="#i-check-circle"/></svg>Paid</span></td><td class="num">₹499</td></tr>
+                  <tr><td class="muted">12 Aug 2026</td><td><b>Taksha AI Max</b><div class="mono">pay_P4yW8rT3xQ71kN</div></td><td class="mono">INV-2026-0614</td><td><span class="badge ok"><svg class="i s" aria-hidden="true"><use href="#i-check-circle"/></svg>Paid</span></td><td class="num">₹999</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <div class="pf-drawer-scrim" aria-hidden="true"></div>
+          <div class="drawer" role="dialog" aria-modal="true" aria-label="Invoice INV-2026-1182">
+            <div class="drawer-h" style="position:relative">
+              <div><h3>Invoice INV-2026-1182</h3><div class="muted" style="font-size:12px">15 Nov 2026</div></div>
+              <div style="display:flex;align-items:center;gap:8px">
+                <span class="pin" style="position:static">1</span>
+                <button type="button" class="icon-btn" aria-label="Close"><svg class="i" aria-hidden="true"><use href="#i-x"/></svg></button>
+              </div>
+            </div>
+            <div class="drawer-b">
+              <div style="display:flex;align-items:flex-end;justify-content:space-between;padding-bottom:14px;border-bottom:1px solid var(--border)">
+                <div><span style="font-size:11px;text-transform:uppercase;letter-spacing:0.04em;color:var(--text-muted);display:block">Amount</span><strong style="font-size:28px;color:var(--text-primary);font-variant-numeric:tabular-nums">₹499</strong></div>
+                <span class="badge ok"><svg class="i s" aria-hidden="true"><use href="#i-check-circle"/></svg>Paid</span>
+              </div>
+
+              <div style="position:relative">
+                <span class="pin" style="right:0;top:2px">2</span>
+                <h4 style="font-size:11px;text-transform:uppercase;letter-spacing:0.04em;color:var(--text-muted);margin-bottom:6px">Item</h4>
+                <div style="display:flex;justify-content:space-between;gap:12px;padding:10px 12px;border-radius:8px;background:var(--bg-element);margin-bottom:6px;font-size:13px">
+                  <div><strong style="color:var(--text-primary);display:block">Taksha AI Pro</strong><span class="muted" style="font-size:12px">15 Nov 2026 – 15 Dec 2026</span></div>
+                  <strong style="color:var(--text-primary)">₹499</strong>
+                </div>
+                <dl class="pf-kv dense">
+                  <div class="pf-kv-row"><dt>Taxes</dt><dd>Included</dd></div>
+                  <div class="pf-kv-row"><dt>Total</dt><dd>₹499</dd></div>
+                </dl>
+              </div>
+
+              <div>
+                <h4 style="font-size:11px;text-transform:uppercase;letter-spacing:0.04em;color:var(--text-muted);margin-bottom:4px">Billed to</h4>
+                <dl class="pf-kv dense">
+                  <div class="pf-kv-row"><dt>Name</dt><dd>Aarav Sharma</dd></div>
+                  <div class="pf-kv-row"><dt>Email</dt><dd>aarav.sharma@taksha.dev</dd></div>
+                </dl>
+              </div>
+
+              <div>
+                <h4 style="font-size:11px;text-transform:uppercase;letter-spacing:0.04em;color:var(--text-muted);margin-bottom:4px">Payment</h4>
+                <dl class="pf-kv dense">
+                  <div class="pf-kv-row"><dt>Invoice number</dt><dd class="mono">INV-2026-1182</dd></div>
+                  <div class="pf-kv-row"><dt>Payment ID</dt><dd class="mono">pay_P9xR2mK8qL04nZ</dd></div>
+                  <div class="pf-kv-row"><dt>Order ID</dt><dd class="mono">order_P9xQ9tV1bW72cY</dd></div>
+                  <div class="pf-kv-row"><dt>Processed by</dt><dd>Razorpay</dd></div>
+                </dl>
+              </div>
+            </div>
+            <div class="drawer-f" style="position:relative">
+              <span class="pin" style="left:16px;top:18px">3</span>
+              <button type="button" class="btn-solid"><svg class="i s" aria-hidden="true"><use href="#i-file"/></svg>Print or save PDF</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div></div>
+    <ol class="notes">
+      <li><b>Invoice header &amp; status</b>: Uses title <code>Invoice &lt;number&gt;</code> for paid records or <code>Payment attempt</code> for failed/pending attempts; failed rows hide the footer and show an inline note confirming no charge was made.</li>
+      <li><b>Item, Billed to &amp; Payment</b>: Assembled by <code>invoiceFields(tx, user)</code> combining the cached transaction from <code>GET /api/payments/transactions</code> with <code>user</code> from <code>GET /api/auth/getMe</code>.</li>
+      <li><b>Print or save PDF</b>: Appears only when <code>status === 'paid'</code>; invokes <code>printInvoice(tx, user)</code> (<code>utils/invoice.js</code>) to open a printable HTML popup and call <code>window.print()</code>.</li>
+    </ol>
+  </section>
+
+  <!-- PF-11 ─────────────────────────────────────────────────────────────── -->
+  <section class="screen" id="pf11">
+    <div class="screen-cap"><span class="id">PF-11</span><h2>Sign in required</h2><span class="where">payments_frontend/src/components/layout/RequireAuth.jsx · guarded routes when user === null</span></div>
+    <div class="frame-scroll"><div class="frame">
+      <div class="shell short pf-shell">
+        <aside class="side pf-side" style="position:relative">
+          <span class="pin" style="right:10px;bottom:108px">1</span>
+          <div class="side-brand"><div class="mark">T</div><div><b>Taksha</b><span>Billing</span></div></div>
+          <nav class="pf-side-nav" aria-label="Main navigation">
+            <button type="button" class="side-link on"><svg class="i" aria-hidden="true"><use href="#i-dashboard"/></svg>Dashboard</button>
+            <div class="side-group">Usage</div>
+            <button type="button" class="side-link"><svg class="i" aria-hidden="true"><use href="#i-chart"/></svg>Usage analytics</button>
+            <button type="button" class="side-link"><svg class="i" aria-hidden="true"><use href="#i-logs"/></svg>AI requests</button>
+            <div class="side-group">Billing</div>
+            <button type="button" class="side-link"><svg class="i" aria-hidden="true"><use href="#i-layers"/></svg>Plans &amp; checkout</button>
+            <button type="button" class="side-link"><svg class="i" aria-hidden="true"><use href="#i-file"/></svg>Invoices</button>
+          </nav>
+          <div class="pf-side-bottom">
+            <div class="pf-theme" role="group" aria-label="Theme">
+              <button type="button"><svg class="i s" aria-hidden="true"><use href="#i-sun"/></svg>Light</button>
+              <button type="button" class="on"><svg class="i s" aria-hidden="true"><use href="#i-moon"/></svg>Dark</button>
+            </div>
+            <a class="btn-solid" style="width:100%;text-decoration:none" href="#pf11">Sign in</a>
+          </div>
+        </aside>
+        <div class="main">
+          <header class="topbar">
+            <div class="crumbs"><span>Billing</span><span>/</span><b>Dashboard</b></div>
+            <div class="r">
+              <a class="pf-topbar-ide" href="#pf11">Open IDE <svg class="i s" aria-hidden="true"><use href="#i-external"/></svg></a>
+            </div>
+          </header>
+          <div class="content">
+            <div class="pf-auth-card" style="position:relative">
+              <span class="pin" style="right:14px;top:14px">2</span>
+              <div class="pf-auth-ic"><svg class="i l" aria-hidden="true"><use href="#i-lock"/></svg></div>
+              <h3 style="font-size:18px;color:var(--text-primary)">Sign in to see your billing</h3>
+              <p class="muted" style="font-size:13px;line-height:1.55">Your plan, AI credits, usage and invoices show up here once you are signed in to Taksha CodeSpace.</p>
+              <div style="display:flex;gap:8px;margin-top:8px;position:relative">
+                <span class="pin" style="left:-24px;top:8px">3</span>
+                <a class="btn-solid" style="text-decoration:none" href="#pf11">Sign in</a>
+                <button type="button" class="btn-secondary">See plans</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div></div>
+    <ol class="notes">
+      <li><b>Signed-out shell</b> (<code>Sidebar.jsx</code>, <code>Topbar.jsx</code>): When <code>GET /api/auth/getMe</code> returns no user, the <code>AI credits</code> card, user profile menu, and topbar plan pill are omitted and replaced by a <code>Sign in</code> link to <code>VITE_MAIN_APP_URL</code> (<code>http://localhost:5173</code>).</li>
+      <li><b>Auth gate card</b>: Shown on every guarded route (<code>/</code>, <code>/usage</code>, <code>/requests</code>, <code>/checkout/:planId</code>, <code>/invoices</code>) once <code>authChecked</code> is <code>true</code>; while checking session, <code>RequireAuth</code> renders <code>KpiSkeleton</code> and <code>PanelSkeleton</code> instead.</li>
+      <li><b>Actions</b>: <code>Sign in</code> navigates out to the main IDE login flow, while <code>See plans</code> routes internally to the unguarded <code>/plans</code> catalogue.</li>
+    </ol>
+  </section>
+
+  <!-- States ────────────────────────────────────────────────────────────── -->
+  <section class="screen" id="payments-frontend-states">
+    <div class="screen-cap"><span class="id">States</span><h2>Loading, empty, filtered, error and done</h2><span class="where">Shared states across DashboardPage, UsagePage, RequestsPage, OrderSummary and InvoicesPage</span></div>
+    <div class="states">
+      <div class="state">
+        <span class="state-label">Loading</span>
+        <div class="frame">
+          <div class="pnl" style="border:none;border-radius:0;height:100%">
+            <div class="pnl-h"><h3>Payment history</h3></div>
+            <div style="display:flex;gap:14px;padding:12px 16px;border-bottom:1px solid var(--border)"><span class="sk" style="width:22%"></span><span class="sk" style="width:36%"></span><span class="sk" style="width:20%"></span><span class="sk" style="width:16%"></span></div>
+            <div style="display:flex;gap:14px;padding:12px 16px;border-bottom:1px solid var(--border)"><span class="sk" style="width:20%"></span><span class="sk" style="width:40%"></span><span class="sk" style="width:18%"></span><span class="sk" style="width:16%"></span></div>
+            <div style="display:flex;gap:14px;padding:12px 16px;border-bottom:1px solid var(--border)"><span class="sk" style="width:24%"></span><span class="sk" style="width:34%"></span><span class="sk" style="width:22%"></span><span class="sk" style="width:14%"></span></div>
+            <div style="display:flex;gap:14px;padding:12px 16px;border-bottom:1px solid var(--border)"><span class="sk" style="width:19%"></span><span class="sk" style="width:38%"></span><span class="sk" style="width:19%"></span><span class="sk" style="width:18%"></span></div>
+            <div style="display:flex;gap:14px;padding:12px 16px"><span class="sk" style="width:23%"></span><span class="sk" style="width:35%"></span><span class="sk" style="width:21%"></span><span class="sk" style="width:15%"></span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="state">
+        <span class="state-label">Empty</span>
+        <div class="frame">
+          <div class="empty">
+            <div class="em-ic"><svg class="i" aria-hidden="true"><use href="#i-file"/></svg></div>
+            <h4>No payments yet</h4>
+            <p>Invoices appear here after your first purchase.</p>
+            <div style="margin-top:4px"><button type="button" class="btn-solid btn-sm">See plans</button></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="state">
+        <span class="state-label">Filtered empty</span>
+        <div class="frame">
+          <div class="empty">
+            <div class="em-ic"><svg class="i" aria-hidden="true"><use href="#i-logs"/></svg></div>
+            <h4>No requests match these filters</h4>
+            <p>Try a wider period or another agent.</p>
+            <div style="margin-top:4px"><button type="button" class="btn-secondary btn-sm">Clear filters</button></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="state">
+        <span class="state-label">Error</span>
+        <div class="frame" style="padding:16px;display:flex;flex-direction:column;gap:10px">
+          <div class="notice err"><svg class="i s" aria-hidden="true"><use href="#i-x-circle"/></svg><span><b>We could not load your billing data.</b> The payments service did not respond. Your plan and credits are safe. <a href="#payments-frontend-states">Try again</a></span></div>
+          <div class="notice warn"><svg class="i s" aria-hidden="true"><use href="#i-alert"/></svg><span><b>Could not load your latest data.</b> The numbers below may be out of date. <a href="#payments-frontend-states">Try again</a></span></div>
+          <div class="notice err"><svg class="i s" aria-hidden="true"><use href="#i-x-circle"/></svg><span><b>Payment not completed.</b> Could not start the payment.</span></div>
+        </div>
+      </div>
+
+      <div class="state">
+        <span class="state-label">Done</span>
+        <div class="frame" style="position:relative">
+          <div class="pnl" style="border:none;border-radius:0;height:100%">
+            <div class="pnl-h"><h3>412 requests</h3></div>
+            <table class="tbl">
+              <thead><tr><th>Time</th><th>Agent</th><th class="num">Tokens</th><th class="num">Credits</th></tr></thead>
+              <tbody>
+                <tr><td class="muted">25 Nov, 10:58</td><td><b>Coding agent</b></td><td class="num">14,280</td><td class="num">14</td></tr>
+                <tr><td class="muted">25 Nov, 10:41</td><td><b>Copilot</b></td><td class="num">1,940</td><td class="num">2</td></tr>
+                <tr><td class="muted">25 Nov, 10:15</td><td><b>Memory agent</b></td><td class="num">4,120</td><td class="num">0</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="toast" style="position:absolute;left:50%;bottom:12px;transform:translateX(-50%);white-space:nowrap;z-index:4"><svg class="i s t-ok" aria-hidden="true"><use href="#i-check"/></svg>Refreshed AI requests</div>
+        </div>
+      </div>
+    </div>
+    <ol class="notes">
+      <li><b>Loading</b> (<code>Skeleton.jsx</code>): Pages render <code>KpiSkeleton</code>, <code>PanelSkeleton</code>, and <code>TableSkeleton</code> matching the layout while <code>useQueries</code> awaits initial data; cached reloads keep stale data visible.</li>
+      <li><b>Empty &amp; Filtered empty</b> (<code>EmptyState.jsx</code>): Exact copy from <code>InvoicesPage.jsx</code> (<code>No payments yet</code>) and <code>RequestsPage.jsx</code> (<code>No requests match these filters</code>).</li>
+      <li><b>Error</b> (<code>DashboardPage.jsx</code>, <code>OrderSummary.jsx</code>): Cold errors name the payments service with <code>Try again</code>; cached failures show the amber stale warning; checkout failures show <code>Payment not completed</code>.</li>
+      <li><b>Done</b>: Reuses the action verb from <code>Refresh</code> on AI requests (<code>Refreshed AI requests</code>); note that shipped <code>payments_frontend</code> does not mount a toast component yet and instead updates the Dashboard refresh label or transitions checkout to <code>CheckoutSuccess</code> (PF-08).</li>
+    </ol>
+  </section>
+</main>
+<script src="../../_shared/kit.js"></script>
+</body>
+</html>

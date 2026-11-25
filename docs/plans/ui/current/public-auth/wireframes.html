@@ -1,0 +1,830 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Public and sign-in screens</title>
+<link rel="stylesheet" href="../../_shared/taksha-wireframe.css">
+<style>
+  .screen-cap { flex-wrap: wrap; }
+  .screen-cap .where { overflow-wrap: anywhere; min-width: 0; }
+  .board-head > div { min-width: 0; }
+  .board-head code, ol.notes li, ol.notes code { min-width: 0; overflow-wrap: anywhere; }
+
+  /* Brand lockup replicating BrandLogo.jsx without inline SVG paths */
+  .t-logo { display: inline-flex; align-items: center; gap: 9px; text-decoration: none; flex-shrink: 0; }
+  .t-logo .mark { width: 24px; height: 24px; border-radius: 6px; background: linear-gradient(135deg, var(--brand-primary), var(--brand-hover)); color: var(--bg-canvas); display: grid; place-items: center; font-weight: 800; font-size: 13px; letter-spacing: -0.02em; }
+  .t-logo .word { display: flex; flex-direction: column; line-height: 1; }
+  .t-logo .word b { font-size: 12.5px; font-weight: 700; letter-spacing: -0.02em; color: var(--text-primary); }
+  .t-logo .word span { font-size: 7.5px; font-weight: 600; letter-spacing: 0.2em; color: var(--text-muted); margin-top: 2px; }
+  .t-logo.lg .mark { width: 36px; height: 36px; border-radius: 9px; font-size: 19px; }
+  .t-logo.lg .word b { font-size: 18px; }
+  .t-logo.lg .word span { font-size: 9.5px; margin-top: 3px; }
+  .t-logo.xl { gap: 13px; }
+  .t-logo.xl .mark { width: 50px; height: 50px; border-radius: 12px; font-size: 27px; }
+  .t-logo.xl .word b { font-size: 25px; letter-spacing: -0.025em; }
+  .t-logo.xl .word span { font-size: 12px; letter-spacing: 0.22em; margin-top: 4px; }
+
+  /* CA-01 desktop + phone side by side */
+  .ca01-row { grid-template-columns: minmax(0, 1fr) 390px; align-items: start; }
+  @media (max-width: 1060px) { .ca01-row { grid-template-columns: minmax(0, 1fr) !important; } }
+
+  /* Done state mini Dashboard landing slice */
+  .done-slice { position: relative; display: grid; grid-template-columns: 88px minmax(0, 1fr); height: 100%; min-height: 240px; background: var(--bg-canvas); overflow: hidden; }
+  .done-side { background: var(--bg-surface); border-right: 1px solid var(--border); padding: 10px 6px; display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+  .done-nav { display: flex; align-items: center; gap: 5px; padding: 4px 6px; border-radius: 5px; font-size: 10.5px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .done-nav.on { background: var(--brand-subtle); color: var(--brand-hover); font-weight: 600; }
+  :root.light-theme .done-nav.on { color: var(--brand-primary); }
+  .done-main { padding: 14px 12px 54px; display: flex; flex-direction: column; justify-content: center; gap: 8px; min-width: 0; }
+  .done-title { display: flex; align-items: flex-start; gap: 5px; font-size: 11.5px; font-weight: 700; line-height: 1.25; color: var(--text-primary); }
+  .done-prompt { border: 1px solid var(--border-strong); border-radius: 8px; background: var(--bg-overlay); padding: 8px; display: flex; flex-direction: column; gap: 6px; }
+  .done-prompt p { font-size: 10px; line-height: 1.35; color: var(--text-disabled); }
+  .done-toast-wrap { position: absolute; left: 10px; right: 10px; bottom: 12px; display: flex; justify-content: center; z-index: 4; pointer-events: none; }
+  .done-toast-wrap .toast { max-width: 100%; }
+
+  /* Landing shared shell inside wireframe frames */
+  .lp-frame { position: relative; background: var(--bg-canvas); color: var(--text-primary); overflow: hidden; }
+  .lp-prog { height: 2px; width: 28%; background: linear-gradient(90deg, var(--brand-primary), var(--accent-primary)); }
+  .lp-grid-bg {
+    background-image:
+      radial-gradient(ellipse 52% 60% at 50% -4%, var(--brand-subtle), transparent 72%),
+      radial-gradient(ellipse 32% 44% at 86% 18%, var(--accent-subtle), transparent 70%),
+      linear-gradient(rgba(var(--color-rgb-text), 0.045) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(var(--color-rgb-text), 0.045) 1px, transparent 1px);
+    background-size: auto, auto, 56px 56px, 56px 56px;
+  }
+  .lp-nav-bar {
+    width: min(1040px, calc(100% - 32px));
+    margin: 14px auto 0;
+    height: 54px;
+    padding: 0 10px 0 14px;
+    border-radius: 14px;
+    border: 1px solid var(--border);
+    background: var(--bg-surface);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+  }
+  .lp-nav-links { display: flex; align-items: center; gap: 4px; }
+  .lp-nav-links span { padding: 6px 10px; border-radius: 8px; font-size: 13px; font-weight: 500; color: var(--text-muted); white-space: nowrap; }
+  .lp-nav-cta { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+  .lp-icon { width: 34px; height: 34px; display: grid; place-items: center; border-radius: 9px; border: 1px solid var(--border); color: var(--text-muted); }
+
+  .lp-hero-body { padding: 48px 24px 36px; display: flex; flex-direction: column; align-items: center; text-align: center; }
+  .lp-hero-h1 { font-size: 46px; font-weight: 700; line-height: 1.05; letter-spacing: -0.035em; color: var(--text-primary); }
+  .lp-hero-h1 .acc { display: block; color: var(--brand-hover); }
+  :root.light-theme .lp-hero-h1 .acc { color: var(--brand-primary); }
+  .lp-hero-sub { max-width: 560px; margin: 18px 0 24px; font-size: 15.5px; line-height: 1.6; color: var(--text-secondary); }
+  .lp-hero-acts { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
+  .lp-btn-lg { padding: 11px 22px; border-radius: 11px; font-size: 13.5px; }
+  .lp-hero-note { margin-top: 12px; font-size: 12.5px; color: var(--text-muted); }
+  .lp-hero-foot { margin-top: 22px; display: flex; align-items: center; gap: 16px; }
+  .lp-watch-pill { display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; border-radius: 999px; border: 1px solid var(--border-strong); background: var(--bg-surface); font-size: 12px; font-weight: 600; color: var(--text-primary); }
+  .lp-cue { width: 2px; height: 26px; background: var(--border); overflow: hidden; }
+  .lp-cue span { display: block; height: 50%; background: var(--brand-primary); }
+
+  /* Phone hero adjustments (<= 420px rules in LandingPage.scss) */
+  .lp-phone-head { margin: 8px 12px 0; padding: 0 8px 0 12px; height: 48px; width: auto; }
+  .lp-phone-hero { padding: 32px 16px 24px; }
+  .lp-phone-hero .lp-hero-h1 { font-size: 31px; }
+  .lp-phone-hero .lp-hero-sub { font-size: 14px; margin: 14px 0 20px; }
+  .lp-phone-hero .lp-hero-acts { width: 100%; flex-direction: column; }
+  .lp-phone-hero .lp-hero-acts button { width: 100%; }
+
+  /* Shared section header copy */
+  .lp-sec { padding: 36px 32px; }
+  .lp-head { max-width: 660px; margin-bottom: 24px; }
+  .lp-head.center { margin-left: auto; margin-right: auto; text-align: center; }
+  .lp-eyebrow { font-family: var(--font-mono); font-size: 12px; font-weight: 600; color: var(--brand-hover); margin-bottom: 6px; }
+  :root.light-theme .lp-eyebrow { color: var(--brand-primary); }
+  .lp-head h2 { font-size: 28px; font-weight: 700; line-height: 1.1; letter-spacing: -0.025em; color: var(--text-primary); margin-bottom: 8px; }
+  .lp-head p:not(.lp-eyebrow) { font-size: 14px; line-height: 1.55; color: var(--text-muted); }
+
+  /* CA-02 workspace video frame + facts + statement */
+  .lp-ws-stage { position: relative; border: 1px solid var(--border); border-radius: 14px; background: var(--bg-surface); overflow: hidden; box-shadow: var(--shadow-pop); }
+  .lp-ws-badge { position: absolute; right: 12px; bottom: 34px; z-index: 3; display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; border: 1px solid var(--border-strong); background: var(--bg-overlay); font-family: var(--font-mono); font-size: 10.5px; color: var(--text-secondary); }
+  .lp-facts { display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px; margin-top: 24px; }
+  .lp-fact { display: flex; align-items: flex-start; gap: 10px; }
+  .lp-fact-ic { width: 32px; height: 32px; flex-shrink: 0; border-radius: 9px; background: var(--brand-subtle); color: var(--brand-primary); display: grid; place-items: center; }
+  .lp-fact strong { display: block; font-size: 13.5px; font-weight: 600; color: var(--text-primary); margin-bottom: 2px; }
+  .lp-fact span { display: block; font-size: 12.5px; line-height: 1.4; color: var(--text-muted); }
+  .lp-statement { padding: 28px 32px 34px; border-top: 1px solid var(--border); background: var(--bg-canvas); }
+  .lp-statement p { font-size: 28px; font-weight: 700; line-height: 1.18; letter-spacing: -0.025em; color: var(--text-primary); max-width: 960px; }
+  .lp-statement .fade-w { opacity: 0.28; }
+
+  /* CA-03 forge + 3D placeholder + marquee */
+  .lp-forge-wrap {
+    padding: 34px 32px;
+    background:
+      radial-gradient(ellipse 42% 58% at 50% 48%, var(--brand-subtle), transparent 72%),
+      radial-gradient(ellipse 34% 44% at 74% 30%, var(--accent-subtle), transparent 72%);
+    display: grid;
+    grid-template-columns: 1.05fr 1fr;
+    gap: 28px;
+    align-items: center;
+  }
+  .lp-forge-copy h2 { font-size: 28px; font-weight: 700; line-height: 1.12; letter-spacing: -0.025em; color: var(--text-primary); margin-bottom: 10px; }
+  .lp-forge-copy > p:not(.lp-eyebrow) { font-size: 14px; line-height: 1.6; color: var(--text-muted); margin-bottom: 18px; }
+  .lp-stage-list { list-style: none; display: flex; flex-direction: column; gap: 6px; border-top: 1px solid var(--border); padding-top: 12px; }
+  .lp-stage-row { display: grid; grid-template-columns: 96px 1fr; gap: 10px; align-items: baseline; padding: 6px 10px; border-radius: 8px; border: 1px solid transparent; font-size: 12px; }
+  .lp-stage-row.on { background: var(--bg-surface); border-color: var(--border-strong); }
+  .lp-stage-row .tag { font-family: var(--font-mono); font-size: 11px; font-weight: 600; color: var(--brand-hover); }
+  :root.light-theme .lp-stage-row .tag { color: var(--brand-primary); }
+  .lp-stage-row .txt { color: var(--text-secondary); }
+  .lp-webgl-box {
+    min-height: 310px;
+    border: 1px dashed var(--border-strong);
+    border-radius: 14px;
+    background: var(--bg-surface);
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-between;
+    text-align: center;
+    gap: 14px;
+  }
+  .lp-forge-orbit { position: relative; width: 154px; height: 112px; border: 1px solid var(--border-strong); border-radius: 50%; display: grid; place-items: center; }
+  .lp-forge-orbit .chisel { width: 42px; height: 42px; border-radius: 10px; background: linear-gradient(135deg, var(--brand-primary), var(--brand-hover)); color: var(--bg-canvas); font-size: 22px; font-weight: 800; display: grid; place-items: center; }
+  .lp-node-row { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; }
+  .lp-marquee { border-top: 1px solid var(--border); padding: 16px 32px; display: flex; align-items: center; justify-content: space-between; gap: 16px; overflow: hidden; background: var(--bg-canvas); }
+  .lp-marquee span { font-family: var(--font-mono); font-size: 13px; font-weight: 500; color: var(--text-muted); white-space: nowrap; }
+
+  /* CA-04 bento & pricing */
+  .bento-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px; }
+  .bento-cell { grid-column: span 2; display: flex; flex-direction: column; padding: 18px; border-radius: 14px; border: 1px solid var(--border); background: var(--bg-surface); }
+  .bento-cell.wide { grid-column: span 4; }
+  .bento-cell h3 { font-size: 16px; font-weight: 600; color: var(--text-primary); margin-bottom: 4px; }
+  .bento-cell > p { font-size: 13px; line-height: 1.5; color: var(--text-muted); margin-bottom: 14px; }
+  .viz-box { margin-top: auto; border: 1px solid var(--border); border-radius: 10px; background: var(--bg-canvas); overflow: hidden; }
+  .viz-pod-h { display: flex; align-items: center; gap: 7px; padding: 8px 12px; border-bottom: 1px solid var(--border); font-size: 12px; font-weight: 600; color: var(--text-primary); }
+  .viz-pod-h span { margin-left: auto; font-size: 11px; color: var(--success); }
+  .viz-pod-r { display: grid; grid-template-columns: 8px 100px 1fr auto; align-items: center; gap: 10px; padding: 7px 12px; border-top: 1px solid var(--border); font-size: 12px; color: var(--text-muted); }
+  .viz-pod-r:first-of-type { border-top: none; }
+  .viz-pod-r code { color: var(--text-primary); }
+  .viz-rev { padding: 12px; font-size: 12.5px; color: var(--text-muted); }
+  .viz-rev-acts { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
+  .viz-term { padding: 12px; font-family: var(--font-mono); font-size: 12px; line-height: 1.7; color: var(--text-primary); }
+  .viz-chat { display: flex; flex-direction: column; gap: 6px; margin-top: auto; font-size: 12px; }
+  .viz-chat .me { align-self: flex-end; padding: 7px 10px; border-radius: 10px 10px 4px 10px; background: var(--brand-subtle); color: var(--text-primary); }
+  .viz-chat .bot { align-self: flex-start; padding: 7px 10px; border-radius: 10px 10px 10px 4px; border: 1px solid var(--border); background: var(--bg-canvas); color: var(--text-muted); }
+  .viz-sync { padding: 10px 12px; font-family: var(--font-mono); font-size: 12px; line-height: 1.65; color: var(--text-muted); display: flex; flex-direction: column; }
+  .viz-sync em { font-style: normal; font-family: var(--font-sans); font-weight: 600; color: var(--success); display: inline-flex; align-items: center; gap: 5px; margin-top: 4px; }
+
+  .plans-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+  .plan-card { display: flex; flex-direction: column; padding: 20px; border-radius: 16px; border: 1px solid var(--border); background: var(--bg-surface); }
+  .plan-card.pop { border: 2px solid var(--brand-primary); box-shadow: 0 0 0 3px var(--brand-subtle); }
+  .plan-top { display: flex; align-items: center; justify-content: space-between; min-height: 24px; }
+  .plan-top h3 { font-size: 17px; font-weight: 700; color: var(--text-primary); }
+  .plan-desc { margin: 6px 0 12px; font-size: 13px; line-height: 1.45; color: var(--text-muted); min-height: 38px; }
+  .plan-price { margin-bottom: 14px; font-size: 12.5px; color: var(--text-muted); }
+  .plan-price strong { font-size: 32px; font-weight: 700; color: var(--text-primary); font-variant-numeric: tabular-nums; margin-right: 4px; }
+  .plan-list { list-style: none; display: flex; flex-direction: column; gap: 8px; margin-top: 16px; font-size: 12.5px; color: var(--text-secondary); }
+  .plan-list li { display: flex; align-items: flex-start; gap: 8px; line-height: 1.4; }
+
+  /* CA-05 FAQ & footer */
+  .faq-grid { display: grid; grid-template-columns: 280px 1fr; gap: 36px; align-items: start; }
+  .faq-list { border-top: 1px solid var(--border); }
+  .faq-item { border-bottom: 1px solid var(--border); padding: 12px 0; }
+  .faq-q { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 12px; text-align: left; font-size: 14px; font-weight: 600; color: var(--text-primary); }
+  .faq-a { margin-top: 8px; font-size: 13px; line-height: 1.6; color: var(--text-muted); }
+  .lp-footer-box {
+    padding: 36px 32px 20px;
+    border-top: 1px solid var(--border);
+    background:
+      radial-gradient(ellipse 58% 70% at 50% 100%, var(--brand-subtle), transparent 72%),
+      radial-gradient(ellipse 28% 46% at 12% 100%, var(--accent-subtle), transparent 72%);
+  }
+  .lp-footer-top { display: grid; grid-template-columns: 1fr 130px 130px; gap: 28px; align-items: start; }
+  .lp-footer-h2 { font-size: 40px; font-weight: 700; line-height: 1.06; letter-spacing: -0.03em; color: var(--text-primary); margin-bottom: 18px; }
+  .lp-footer-h2 .acc { color: var(--brand-hover); }
+  :root.light-theme .lp-footer-h2 .acc { color: var(--brand-primary); }
+  .lp-caret { display: inline-block; width: 3px; height: 32px; vertical-align: -4px; margin-left: 4px; border-radius: 2px; background: var(--brand-primary); }
+  .lp-footer-col { display: flex; flex-direction: column; gap: 8px; padding-top: 4px; font-size: 13.5px; color: var(--text-muted); }
+  .lp-footer-col span { display: inline-flex; align-items: center; gap: 7px; }
+  .lp-forged-word {
+    margin: 26px 0 8px;
+    text-align: center;
+    font-size: 112px;
+    font-weight: 800;
+    line-height: 0.86;
+    letter-spacing: -0.045em;
+    color: transparent;
+    background: linear-gradient(180deg, var(--text-primary) 0%, var(--text-muted) 58%, var(--border-strong) 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    user-select: none;
+  }
+  .lp-footer-bar { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px 24px; padding-top: 12px; border-top: 1px solid var(--border); font-size: 12px; color: var(--text-muted); }
+
+  /* CA-06 Login */
+  .login-bar { position: absolute; top: 14px; left: 16px; right: 16px; z-index: 2; display: flex; align-items: center; justify-content: space-between; }
+  .login-btn-top { display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 0 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg-surface); font-size: 13px; font-weight: 500; color: var(--text-muted); }
+  .login-google-btn {
+    width: 100%;
+    min-height: 44px;
+    padding: 0 16px;
+    border-radius: 11px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    background: var(--text-primary);
+    color: var(--bg-canvas);
+    font-size: 14px;
+    font-weight: 600;
+  }
+  .login-google-btn[disabled] { opacity: 0.72; cursor: progress; }
+  .login-g-mark { width: 18px; height: 18px; border-radius: 50%; border: 1.5px solid currentColor; display: grid; place-items: center; font-size: 11px; font-weight: 700; }
+  .login-facts { list-style: none; display: flex; flex-direction: column; gap: 10px; padding-top: 14px; border-top: 1px solid var(--border); font-size: 13px; color: var(--text-muted); }
+  .login-facts li { display: flex; align-items: flex-start; gap: 9px; line-height: 1.4; }
+  .login-foot { position: absolute; bottom: 14px; left: 0; right: 0; z-index: 2; text-align: center; font-size: 12px; color: var(--text-muted); }
+
+  /* CA-07 Auth loader and EntryLoader */
+  .loader-grid {
+    background-image:
+      linear-gradient(rgba(var(--color-rgb-text), 0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(var(--color-rgb-text), 0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+  }
+  .entry-top { position: absolute; top: 18px; left: 20px; right: 20px; z-index: 2; display: flex; align-items: center; justify-content: space-between; }
+  .entry-badge { display: inline-flex; align-items: center; gap: 8px; padding: 5px 12px; border-radius: 999px; border: 1px solid color-mix(in srgb, var(--brand-primary) 30%, transparent); background: var(--bg-surface); font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.1em; color: var(--brand-hover); }
+  :root.light-theme .entry-badge { color: var(--brand-primary); }
+  .entry-skip { display: inline-flex; align-items: center; gap: 6px; padding: 5px 11px; border-radius: 6px; border: 1px solid var(--border-strong); background: var(--bg-surface); font-family: var(--font-mono); font-size: 10.5px; color: var(--text-muted); }
+  .entry-bits { position: absolute; inset: 0; z-index: 0; display: grid; grid-template-columns: repeat(8, 1fr); padding: 48px 24px; font-family: var(--font-mono); font-size: 10px; color: var(--brand-primary); opacity: 0.14; pointer-events: none; }
+</style>
+</head>
+<body>
+<main class="board">
+  <header class="board-head">
+    <div>
+      <h1>Public and sign-in screens</h1>
+      <p>Built screens in <code>Frontend/src/App.jsx</code> (<code>loading</code> and signed-out branches), <code>LandingPage.jsx</code>, <code>LandingWorkspace.jsx</code>, <code>LandingForge3D.jsx</code>, <code>Login.jsx</code>, <code>EntryLoader.jsx</code>, <code>BrandLogo.jsx</code>, and <code>LazyFallback.jsx</code>. Spec: <a href="screens.md">screens.md</a>.</p>
+    </div>
+    <button class="theme-toggle" type="button" data-theme-toggle><svg class="i"><use href="#i-sun"/></svg> Light theme</button>
+  </header>
+
+  <nav class="board-nav">
+    <a href="#ca01">CA-01 Nav and hero</a>
+    <a href="#ca02">CA-02 Workspace and statement</a>
+    <a href="#ca03">CA-03 Forge and marquee</a>
+    <a href="#ca04">CA-04 Features and pricing</a>
+    <a href="#ca05">CA-05 FAQ and footer</a>
+    <a href="#ca06">CA-06 Sign in</a>
+    <a href="#ca07">CA-07 Session check and intro</a>
+    <a href="#public-auth-states">States</a>
+  </nav>
+
+  <!-- CA-01 ──────────────────────────────────────────────────────────── -->
+  <section class="screen" id="ca01">
+    <div class="screen-cap"><span class="id">CA-01</span><h2>Landing: nav and hero</h2><span class="where">Frontend/src/features/auth/components/LandingPage.jsx (lp__header, lp-hero)</span></div>
+    <div class="row-frames ca01-row">
+      <div class="frame-scroll"><div class="frame">
+        <div class="lp-frame lp-grid-bg" style="min-height:530px;display:flex;flex-direction:column;position:relative">
+          <div class="lp-prog" aria-hidden="true"></div>
+          <header class="lp-nav-bar" style="position:relative">
+            <span class="pin" style="left:-8px;top:-8px">1</span>
+            <div class="t-logo"><div class="mark">T</div><div class="word"><b>TAKSHA</b><span>CODESPACE</span></div></div>
+            <nav class="lp-nav-links" aria-label="Main">
+              <span>Product</span><span>How it works</span><span>Features</span><span>Pricing</span><span>FAQ</span>
+            </nav>
+            <div class="lp-nav-cta">
+              <button type="button" class="lp-icon" aria-label="Switch to light mode"><svg class="i"><use href="#i-sun"/></svg></button>
+              <button type="button" class="btn-ghost">Sign in</button>
+              <button type="button" class="btn-solid">Start free</button>
+            </div>
+          </header>
+          <div class="lp-hero-body" style="flex:1;justify-content:center;position:relative">
+            <span class="pin" style="left:60px;top:76px">2</span>
+            <h1 class="lp-hero-h1">Describe your app.<span class="acc">Taksha builds, tests &amp; heals it.</span></h1>
+            <p class="lp-hero-sub">Write one prompt and approve the plan. Agents write the code, run it in your own cloud sandbox, and fix their own errors until the app is live.</p>
+            <div class="lp-hero-acts">
+              <button type="button" class="btn-solid lp-btn-lg">Start building free <svg class="i s"><use href="#i-chev-r"/></svg></button>
+              <button type="button" class="btn-ghost lp-btn-lg"><svg class="i s"><use href="#i-play"/></svg> Watch the film</button>
+            </div>
+            <p class="lp-hero-note">Free plan. No credit card required.</p>
+            <div class="lp-hero-foot" style="position:relative">
+              <span class="pin" style="left:-24px;top:6px">3</span>
+              <button type="button" class="lp-watch-pill"><svg class="i s"><use href="#i-megaphone"/></svg> Turn sound on</button>
+              <div class="lp-cue" aria-hidden="true"><span></span></div>
+            </div>
+          </div>
+        </div>
+      </div></div>
+
+      <div class="frame-scroll"><div class="phone" style="position:relative">
+        <span class="pin" style="right:14px;top:40px">4</span>
+        <div class="ph-bar"><span>9:41</span><span>5G · 100%</span></div>
+        <div class="lp-frame lp-grid-bg" style="display:flex;flex-direction:column;min-height:496px">
+          <header class="lp-nav-bar lp-phone-head">
+            <div class="t-logo"><div class="mark">T</div><div class="word"><b>TAKSHA</b><span>CODESPACE</span></div></div>
+            <div class="lp-nav-cta">
+              <button type="button" class="lp-icon" aria-label="Switch to light mode"><svg class="i"><use href="#i-sun"/></svg></button>
+              <button type="button" class="lp-icon" aria-label="Open navigation menu"><svg class="i"><use href="#i-list"/></svg></button>
+            </div>
+          </header>
+          <div class="lp-hero-body lp-phone-hero" style="flex:1;justify-content:center">
+            <h1 class="lp-hero-h1">Describe your app.<span class="acc">Taksha builds, tests &amp; heals it.</span></h1>
+            <p class="lp-hero-sub">Write one prompt and approve the plan. Agents write the code, run it in your own cloud sandbox, and fix their own errors until the app is live.</p>
+            <div class="lp-hero-acts">
+              <button type="button" class="btn-solid lp-btn-lg">Start building free <svg class="i s"><use href="#i-chev-r"/></svg></button>
+              <button type="button" class="btn-ghost lp-btn-lg"><svg class="i s"><use href="#i-play"/></svg> Watch the film</button>
+            </div>
+            <p class="lp-hero-note">Free plan. No credit card required.</p>
+            <div class="lp-hero-foot"><div class="lp-cue" aria-hidden="true"><span></span></div></div>
+          </div>
+        </div>
+      </div></div>
+    </div>
+    <ol class="notes">
+      <li><b>Floating header (<code>lp__header</code>)</b>: nav links smooth-scroll via Lenis in <code>useLandingMotion</code>; theme button toggles <code>.light-theme</code> in <code>localStorage.theme</code>; <code>Sign in</code> and <code>Start free</code> call <code>onNavigateToLogin</code> in <code>App.jsx</code>. Hides on downward scroll past <code>20 vh</code>.</li>
+      <li><b>Hero copy and CTAs (<code>lp-hero__copy</code>)</b>: <code>SplitChars</code> animates character entrance after <code>EntryLoader</code> exits. <code>Start building free</code> opens <code>Login.jsx</code>; <code>Watch the film</code> unmutes the hero video and scrolls to <code>FILM_WATCH_POINT</code> (<code>0.2</code>).</li>
+      <li><b>Film layer and scroll cue (<code>lp-hero__media</code>)</b>: scrolling the <code>270 vh</code> <code>lp-hero-track</code> fades copy out between <code>0.05</code> and <code>0.86</code> and plays <code>/video/taksha-film.mp4</code> with the <code>Turn sound on</code> / <code>Mute</code> toggle pill.</li>
+      <li><b>Phone viewport (<code>390 px</code>)</b>: below <code>900 px</code> nav links and <code>Sign in</code> move into the hamburger drawer (<code>lp__mobile-menu</code>); below <code>420 px</code> <code>Start free</code> also hides from the header and hero CTAs stack at full width.</li>
+    </ol>
+  </section>
+
+  <!-- CA-02 ──────────────────────────────────────────────────────────── -->
+  <section class="screen" id="ca02">
+    <div class="screen-cap"><span class="id">CA-02</span><h2>Landing: product workspace and statement</h2><span class="where">LandingPage.jsx (#product, lp-statement) · LandingWorkspace.jsx</span></div>
+    <div class="frame-scroll"><div class="frame">
+      <div class="lp-frame">
+        <section class="lp-sec">
+          <header class="lp-head center">
+            <p class="lp-eyebrow">The real workspace</p>
+            <h2>This is where the work happens.</h2>
+          </header>
+          <div class="lp-ws-stage" style="position:relative;overflow:visible">
+            <span class="pin" style="left:-24px;top:14px">1</span>
+            <div class="sbx-header">
+              <div class="left"><button type="button" class="btn-secondary btn-sm">← Back to start</button><div class="toggles"><span class="icon-btn brand"><svg class="i"><use href="#i-sparkles"/></svg></span><span class="icon-btn"><svg class="i"><use href="#i-folder-tree"/></svg></span><span class="icon-btn brand"><svg class="i"><use href="#i-terminal"/></svg></span></div></div>
+              <h1>quiz-arena</h1>
+              <div class="right"><span class="sbx-live"><span class="dot ok"></span>Sandbox Live</span><button type="button" class="btn-solid btn-sm">Publish</button></div>
+            </div>
+            <div class="ide-body" style="height:256px">
+              <div class="panel chat-panel" style="width:320px">
+                <div class="orion-header"><h1><span class="brand">Orion</span><span class="chat">Build a quiz arena</span></h1><span class="orion-state"><span class="dot ok"></span>Ready</span></div>
+                <div class="chat-scroll">
+                  <div class="u-msg">Build a live quiz arena with countdown timer and top-10 leaderboard.</div>
+                  <div class="a-turn">
+                    <ul class="steps">
+                      <li class="step"><svg class="i s t-ok"><use href="#i-check"/></svg><span class="verb">Created</span><span class="target">src/components/QuizTimer.jsx</span></li>
+                      <li class="step"><svg class="i s t-ok"><use href="#i-check"/></svg><span class="verb">Edited</span><span class="target">src/pages/Leaderboard.jsx</span></li>
+                    </ul>
+                    <p>Dev server is clean on port 5173 with zero runtime errors.</p>
+                  </div>
+                </div>
+              </div>
+              <div class="center">
+                <div class="tab-bar"><button type="button" class="tab-btn active"><svg class="i"><use href="#i-eye"/></svg>Preview</button><button type="button" class="tab-btn"><svg class="i"><use href="#i-code"/></svg>Code</button></div>
+                <div class="pv">
+                  <div class="pv-bar"><span class="dot ok"></span><div class="pv-url">http://sbx-5c0e-q1.preview.localhost</div></div>
+                  <div style="flex:1;margin:10px;border:1px solid var(--border);border-radius:8px;background:var(--bg-surface);padding:16px;display:flex;flex-direction:column;justify-content:center;gap:8px">
+                    <div style="display:flex;justify-content:space-between;align-items:center"><b style="color:var(--text-primary);font-size:13px">Quiz Arena</b><span class="pill brand">00:48</span></div>
+                    <div style="font-size:14px;font-weight:600;color:var(--text-primary)">Which consensus protocol guarantees total log order?</div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:12px">
+                      <div style="padding:7px 10px;border:1px solid var(--border);border-radius:6px;background:var(--bg-element)">A. Gossip broadcast</div>
+                      <div style="padding:7px 10px;border:1px solid var(--brand-primary);border-radius:6px;background:var(--brand-subtle);color:var(--text-primary);font-weight:600">B. Raft consensus</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="status-bar"><div class="sec"><span class="status-item"><svg class="i s"><use href="#i-git-branch"/></svg>main*</span><span class="status-item"><span class="dot ok"></span><span class="t-ok">Sandbox Active</span></span></div><div class="sec"><span class="status-item">Port: 5173</span><span class="status-item brand">CodeSpace IDE v1.0</span></div></div>
+            <span class="lp-ws-badge"><svg class="i s t-brand"><use href="#i-play"/></svg>Video clip · /video/taksha-workspace-dark.mp4</span>
+          </div>
+
+          <div class="lp-facts" style="position:relative">
+            <span class="pin" style="left:-24px;top:8px">2</span>
+            <div class="lp-fact"><span class="lp-fact-ic"><svg class="i"><use href="#i-shield-check"/></svg></span><div><strong>You review the plan</strong><span>Approve or reject before code starts</span></div></div>
+            <div class="lp-fact"><span class="lp-fact-ic"><svg class="i"><use href="#i-server"/></svg></span><div><strong>Your own sandbox</strong><span>One Kubernetes pod per project</span></div></div>
+            <div class="lp-fact"><span class="lp-fact-ic"><svg class="i"><use href="#i-upload"/></svg></span><div><strong>Files stay saved</strong><span>Workspace syncs to cloud storage</span></div></div>
+            <div class="lp-fact"><span class="lp-fact-ic"><svg class="i"><use href="#i-check"/></svg></span><div><strong>Free to start</strong><span>No credit card required</span></div></div>
+          </div>
+        </section>
+
+        <section class="lp-statement" style="position:relative">
+          <span class="pin" style="left:8px;top:34px">3</span>
+          <p>Most AI tools hand you code and wish you luck. Taksha hands you a running app, <span class="fade-w">with the errors already fixed.</span></p>
+        </section>
+      </div>
+    </div></div>
+    <ol class="notes">
+      <li><b>Workspace video (<code>LandingWorkspace.jsx</code>)</b>: plays <code>/video/taksha-workspace-dark.mp4</code> or <code>-light.mp4</code> based on <code>isLight</code> via <code>IntersectionObserver</code> (<code>threshold: 0.2</code>), with native controls under <code>prefers-reduced-motion</code>. Scrubs from <code>rotationX: 30</code> to flat on scroll.</li>
+      <li><b>Four fact tiles (<code>lp-facts</code>)</b>: static 4-column grid (<code>FACTS</code> in <code>LandingPage.jsx</code>) collapsing to 2 columns below <code>960 px</code> and 1 column below <code>520 px</code>.</li>
+      <li><b>Kinetic statement (<code>lp-statement</code>)</b>: splits <code>STATEMENT</code> into word spans whose opacity scrubs from <code>0.14</code> to <code>1</code> across <code>top 78%</code> to <code>bottom 52%</code>.</li>
+    </ol>
+  </section>
+
+  <!-- CA-03 ──────────────────────────────────────────────────────────── -->
+  <section class="screen" id="ca03">
+    <div class="screen-cap"><span class="id">CA-03</span><h2>Landing: forge stages and "Built on" marquee</h2><span class="where">LandingPage.jsx (lp-forge, lp-marquee) · LandingForge3D.jsx</span></div>
+    <div class="frame-scroll"><div class="frame">
+      <div class="lp-frame">
+        <section class="lp-forge-wrap">
+          <div class="lp-forge-copy" style="position:relative">
+            <span class="pin" style="left:-24px;top:2px">1</span>
+            <p class="lp-eyebrow">01 / Planner</p>
+            <h2>Splits your prompt into steps. You approve first.</h2>
+            <p>The Planner pauses before any code is written. Approve the plan, or reject it and say what to change.</p>
+            <ol class="lp-stage-list" aria-label="Scroll-scrubbed forge stages">
+              <li class="lp-stage-row on"><span class="tag">01 / Planner</span><span class="txt">Splits your prompt into steps. You approve first.</span></li>
+              <li class="lp-stage-row"><span class="tag">02 / Coder</span><span class="txt">Writes every file inside your sandbox.</span></li>
+              <li class="lp-stage-row"><span class="tag">03 / Tester</span><span class="txt">Runs the app and reads the real errors.</span></li>
+              <li class="lp-stage-row"><span class="tag">04 / Debugger</span><span class="txt">Patches what broke and tries again.</span></li>
+            </ol>
+          </div>
+
+          <div class="lp-webgl-box" style="position:relative">
+            <span class="pin" style="right:14px;top:14px">2</span>
+            <span class="pill accent">WebGL canvas placeholder · LandingForge3D.jsx</span>
+            <div class="lp-forge-orbit" aria-label="3D forge chisel and orbital stage nodes placeholder">
+              <div class="chisel">T</div>
+            </div>
+            <div style="font-size:12px;color:var(--text-muted);max-width:44ch;line-height:1.5">
+              Three.js scene with extruded chisel T, RoomEnvironment reflections, two orbital rings, spark points, and 4 stage nodes. Falls back to <code>&lt;TakshaIcon size={200} /&gt;</code> if WebGL is unsupported.
+            </div>
+            <div class="lp-node-row">
+              <span class="pill brand"><span class="dot brand"></span>01 Plan</span>
+              <span class="pill accent"><span class="dot" style="background:var(--accent-primary)"></span>02 Build</span>
+              <span class="pill warn"><span class="dot warn"></span>03 Test</span>
+              <span class="pill ok"><span class="dot ok"></span>04 Fix</span>
+            </div>
+          </div>
+        </section>
+
+        <section class="lp-marquee" aria-label="Built on" style="position:relative">
+          <span class="pin" style="left:8px;top:15px">3</span>
+          <span>Kubernetes</span><span>LangGraph</span><span>NVIDIA Nemotron</span><span>React</span><span>Vite</span><span>Monaco Editor</span><span>xterm.js</span><span>MongoDB</span><span>Redis</span>
+        </section>
+      </div>
+    </div></div>
+    <ol class="notes">
+      <li><b>Forge stage copy (<code>lp-forge__copy</code>)</b>: on desktop, <code>useLandingMotion</code> scrubs the <code>440 vh</code> track and swaps the active stage (<code>01 / Planner</code> through <code>04 / Debugger</code>); below <code>900 px</code> or under reduced motion, <code>lp-forge__list</code> displays all 4 stages vertically.</li>
+      <li><b>3D WebGL scene (<code>LandingForge3D.jsx</code>)</b>: rendered as a framed placeholder here. In the live app, scroll progress drives forge rotation and camera depth while pointer movement tilts the mark and highlights the active stage node; disposes geometries and renderer on unmount.</li>
+      <li><b>Built on marquee (<code>lp-marquee</code>)</b>: continuous CSS marquee duplicating the 9-item <code>STACK</code> list with a <code>ScrollTrigger</code> velocity skew clamped to <code>[-7, 7]</code> degrees.</li>
+    </ol>
+  </section>
+
+  <!-- CA-04 ──────────────────────────────────────────────────────────── -->
+  <section class="screen" id="ca04">
+    <div class="screen-cap"><span class="id">CA-04</span><h2>Landing: features and pricing</h2><span class="where">Frontend/src/features/auth/components/LandingPage.jsx (#features, #pricing)</span></div>
+    <div class="frame-scroll"><div class="frame">
+      <div class="lp-frame">
+        <section class="lp-sec" style="padding-bottom:24px">
+          <header class="lp-head">
+            <p class="lp-eyebrow">Features</p>
+            <h2>A full IDE, not a chat box</h2>
+            <p>The agent does the heavy work. You keep the editor, the terminal, and the final say.</p>
+          </header>
+          <div class="bento-grid" style="position:relative">
+            <span class="pin" style="left:-24px;top:8px">1</span>
+            <article class="bento-cell wide">
+              <h3>A real sandbox for every project</h3>
+              <p>Your app runs in its own Kubernetes pod with a live Vite server, so the preview is the real thing.</p>
+              <div class="viz-box" style="position:relative">
+                <span class="pin" style="right:68px;top:8px">2</span>
+                <div class="viz-pod-h"><svg class="i s"><use href="#i-server"/></svg>sandbox-pod<span>Running</span></div>
+                <div class="viz-pod-r"><span class="dot ok"></span><code>template</code><span>Vite dev server</span><span class="mono dim">:5173</span></div>
+                <div class="viz-pod-r"><span class="dot ok"></span><code>agent</code><span>Agent sidecar</span><span class="mono dim">:3000</span></div>
+                <div class="viz-pod-r"><span class="dot ok"></span><code>sync-agent</code><span>Cloud file sync</span><span class="mono dim">syncing</span></div>
+              </div>
+            </article>
+            <article class="bento-cell">
+              <h3>You stay in control</h3>
+              <p>Approve or reject the plan, and stop a run at any time.</p>
+              <div class="viz-box viz-rev">
+                <span>Plan ready. 3 steps.</span>
+                <div class="viz-rev-acts">
+                  <button type="button" class="btn-solid btn-sm"><svg class="i s"><use href="#i-check"/></svg>Approve</button>
+                  <button type="button" class="btn-ghost btn-sm"><svg class="i s"><use href="#i-x"/></svg>Reject</button>
+                </div>
+              </div>
+            </article>
+            <article class="bento-cell">
+              <h3>Editor and terminal</h3>
+              <p>Monaco and a full terminal sit right next to the agent.</p>
+              <div class="viz-box viz-term">
+                <div><span class="t-brand">$</span> npm i recharts</div>
+                <div class="muted">added 37 packages</div>
+                <div><span class="t-brand">$</span> npm run dev</div>
+              </div>
+            </article>
+            <article class="bento-cell">
+              <h3>A copilot at your side</h3>
+              <p>Ask Clio quick questions while you work on your project.</p>
+              <div class="viz-chat">
+                <div class="me">Why is this card overflowing?</div>
+                <div class="bot">The grid has no min-width. Want me to fix it?</div>
+              </div>
+            </article>
+            <article class="bento-cell">
+              <h3>Your files stay safe</h3>
+              <p>Files sync to cloud storage and return when you restart.</p>
+              <div class="viz-box viz-sync">
+                <span>src/App.jsx</span>
+                <span>src/TaskItem.jsx</span>
+                <span>src/app.scss</span>
+                <em><svg class="i s"><use href="#i-upload"/></svg>Saved</em>
+              </div>
+            </article>
+          </div>
+        </section>
+
+        <section class="lp-sec" style="border-top:1px solid var(--border);padding-top:28px">
+          <header class="lp-head center">
+            <p class="lp-eyebrow">Pricing</p>
+            <h2>Start free. Upgrade when you ship.</h2>
+            <p>Every plan includes the coding agent, your own workspace, and a live preview.</p>
+          </header>
+          <div class="plans-grid" style="position:relative">
+            <span class="pin" style="left:-24px;top:12px">3</span>
+            <article class="plan-card">
+              <div class="plan-top"><h3>Free</h3></div>
+              <p class="plan-desc">Start building with AI. No credit card required.</p>
+              <p class="plan-price"><strong>₹0</strong>per month</p>
+              <button type="button" class="btn-ghost" style="width:100%">Start free <svg class="i s"><use href="#i-chev-r"/></svg></button>
+              <ul class="plan-list">
+                <li><svg class="i s t-brand"><use href="#i-check"/></svg>20 AI credits per provider</li>
+                <li><svg class="i s t-brand"><use href="#i-check"/></svg>Coding agent + Copilot</li>
+                <li><svg class="i s t-brand"><use href="#i-check"/></svg>50,000 tokens per day</li>
+                <li><svg class="i s t-brand"><use href="#i-check"/></svg>0.5 vCPU + 512MB sandbox</li>
+                <li><svg class="i s t-brand"><use href="#i-check"/></svg>Community support</li>
+              </ul>
+            </article>
+            <article class="plan-card pop">
+              <div class="plan-top"><h3>Pro</h3><span class="pill brand">Most popular</span></div>
+              <p class="plan-desc">Full AI power for active developers.</p>
+              <p class="plan-price"><strong>₹499</strong>per month</p>
+              <button type="button" class="btn-solid" style="width:100%">Get Pro <svg class="i s"><use href="#i-chev-r"/></svg></button>
+              <ul class="plan-list">
+                <li><svg class="i s t-brand"><use href="#i-check"/></svg>4x higher AI usage limits</li>
+                <li><svg class="i s t-brand"><use href="#i-check"/></svg>5,000,000 tokens per month</li>
+                <li><svg class="i s t-brand"><use href="#i-check"/></svg>2.0 vCPU + 2GB sandbox</li>
+                <li><svg class="i s t-brand"><use href="#i-check"/></svg>All coding and app agents</li>
+                <li><svg class="i s t-brand"><use href="#i-check"/></svg>Priority email support</li>
+              </ul>
+            </article>
+            <article class="plan-card">
+              <div class="plan-top"><h3>Max</h3></div>
+              <p class="plan-desc">Maximum AI power with flagship models.</p>
+              <p class="plan-price"><strong>₹999</strong>per month</p>
+              <button type="button" class="btn-ghost" style="width:100%">Get Max <svg class="i s"><use href="#i-chev-r"/></svg></button>
+              <ul class="plan-list">
+                <li><svg class="i s t-brand"><use href="#i-check"/></svg>Unlimited AI tokens</li>
+                <li><svg class="i s t-brand"><use href="#i-check"/></svg>Priority queue processing</li>
+                <li><svg class="i s t-brand"><use href="#i-check"/></svg>4.0 vCPU + 4GB sandbox</li>
+                <li><svg class="i s t-brand"><use href="#i-check"/></svg>All flagship AI models</li>
+                <li><svg class="i s t-brand"><use href="#i-check"/></svg>Dedicated 24/7 support</li>
+              </ul>
+            </article>
+          </div>
+        </section>
+      </div>
+    </div></div>
+    <ol class="notes">
+      <li><b>Bento feature grid (<code>#features</code>)</b>: 6-column CSS grid where cell 1 spans 4 columns and cells 2 to 5 span 2 columns; <code>bindPointerEffects</code> tilts <code>.tilt</code> cards on fine pointers and moves a radial glow to <code>--mx</code> / <code>--my</code>.</li>
+      <li><b>Inline product previews (<code>SandboxViz</code> to <code>SyncViz</code>)</b>: non-interactive illustrations (<code>aria-hidden="true"</code>) matching the IDE pod, plan review, terminal, Clio chat, and cloud sync states.</li>
+      <li><b>Pricing tiers (<code>#pricing</code>)</b>: reads the hardcoded <code>PLANS</code> array in <code>LandingPage.jsx</code> (<code>₹0</code>, <code>₹499</code>, <code>₹999</code>) rather than fetching <code>/api/payments/credit/packages</code>; every CTA routes to <code>Login.jsx</code> via <code>onNavigateToLogin</code>.</li>
+    </ol>
+  </section>
+
+  <!-- CA-05 ──────────────────────────────────────────────────────────── -->
+  <section class="screen" id="ca05">
+    <div class="screen-cap"><span class="id">CA-05</span><h2>Landing: FAQ, closing call to action and footer</h2><span class="where">LandingPage.jsx (#faq, lp-kinetic, lp-footer) · Hooks/landing.footer.js</span></div>
+    <div class="frame-scroll"><div class="frame">
+      <div class="lp-frame">
+        <section class="lp-sec faq-grid" style="position:relative">
+          <span class="pin" style="left:12px;top:38px">1</span>
+          <header class="lp-head" style="margin-bottom:0">
+            <p class="lp-eyebrow">FAQ</p>
+            <h2>Common questions</h2>
+          </header>
+          <div class="faq-list">
+            <div class="faq-item">
+              <button type="button" class="faq-q" aria-expanded="true">What can Taksha build? <svg class="i s" style="transform:rotate(180deg)"><use href="#i-chev-d"/></svg></button>
+              <p class="faq-a">React apps on Vite. Your workspace is a real Node.js environment, so you can open the terminal and install any npm package you need.</p>
+            </div>
+            <div class="faq-item"><button type="button" class="faq-q" aria-expanded="false">Do I see the plan before code is written? <svg class="i s"><use href="#i-chev-d"/></svg></button></div>
+            <div class="faq-item"><button type="button" class="faq-q" aria-expanded="false">Where does my project run? <svg class="i s"><use href="#i-chev-d"/></svg></button></div>
+            <div class="faq-item"><button type="button" class="faq-q" aria-expanded="false">Can I code by hand too? <svg class="i s"><use href="#i-chev-d"/></svg></button></div>
+            <div class="faq-item"><button type="button" class="faq-q" aria-expanded="false">How does usage work? <svg class="i s"><use href="#i-chev-d"/></svg></button></div>
+          </div>
+        </section>
+
+        <footer class="lp-footer-box">
+          <div class="lp-footer-top">
+            <div style="position:relative">
+              <span class="pin" style="left:-20px;top:6px">2</span>
+              <h2 class="lp-footer-h2">Your next app is <span class="acc">one prompt</span> away.<span class="lp-caret" aria-hidden="true"></span></h2>
+              <button type="button" class="btn-solid lp-btn-lg">Start building free <svg class="i s"><use href="#i-chev-r"/></svg></button>
+            </div>
+            <nav class="lp-footer-col" aria-label="Footer">
+              <span>Product</span><span>How it works</span><span>Features</span><span>Pricing</span><span>FAQ</span>
+            </nav>
+            <div class="lp-footer-col">
+              <span><svg class="i s"><use href="#i-external"/></svg>LinkedIn</span>
+              <span><svg class="i s"><use href="#i-github"/></svg>GitHub</span>
+            </div>
+          </div>
+          <div style="position:relative">
+            <span class="pin" style="right:14px;top:10px">3</span>
+            <div class="lp-forged-word" aria-hidden="true">TAKSHA</div>
+          </div>
+          <div class="lp-footer-bar">
+            <span>© 2026 Taksha CodeSpace Studio</span>
+            <span>Built by Sahil Sharma</span>
+          </div>
+        </footer>
+      </div>
+    </div></div>
+    <ol class="notes">
+      <li><b>FAQ accordion (<code>#faq</code>)</b>: <code>openFaq</code> defaults to index <code>0</code> (<code>What can Taksha build?</code>); clicking any row updates <code>aria-expanded</code> and toggles <code>grid-template-rows: 1fr</code> without network calls.</li>
+      <li><b>Kinetic CTA and links (<code>lp-kinetic</code>)</b>: <code>buildFooter</code> animates headline characters on scroll and pulls them toward fine pointers; <code>Start building free</code> routes to <code>Login.jsx</code> while footer links smooth-scroll or open external profiles.</li>
+      <li><b>Forged wordmark and spark canvas (<code>lp-footer__word</code>)</b>: <code>buildArrival</code> scrubs each <code>TAKSHA</code> letter upward on scroll and emits canvas sparks; <code>buildHeatWave</code> and <code>bindWordForge</code> add idle thermal glow and click-strike sparks.</li>
+    </ol>
+  </section>
+
+  <!-- CA-06 ──────────────────────────────────────────────────────────── -->
+  <section class="screen" id="ca06">
+    <div class="screen-cap"><span class="id">CA-06</span><h2>Sign in</h2><span class="where">Frontend/src/features/auth/components/Login.jsx</span></div>
+    <div class="row-frames">
+      <div class="frame"><div class="auth lp-grid-bg" style="height:560px">
+        <header class="login-bar">
+          <div style="display:flex;align-items:center;gap:8px">
+            <button type="button" class="login-btn-top"><svg class="i s"><use href="#i-chev-l"/></svg>Back to home</button>
+            <span class="pin" style="position:static">1</span>
+          </div>
+          <button type="button" class="login-btn-top" style="width:36px;padding:0;justify-content:center" aria-label="Switch to light mode"><svg class="i s"><use href="#i-sun"/></svg></button>
+        </header>
+        <section class="auth-card" style="gap:20px;border-radius:18px;position:relative">
+          <div class="t-logo lg"><div class="mark">T</div><div class="word"><b>TAKSHA</b><span>CODESPACE</span></div></div>
+          <div>
+            <h3>Welcome to Taksha</h3>
+            <p style="margin-top:6px">Sign in to open your projects, or start your first one.</p>
+          </div>
+          <div style="position:relative">
+            <span class="pin" style="left:-24px;top:13px">2</span>
+            <button type="button" class="login-google-btn"><span class="login-g-mark" aria-hidden="true">G</span>Continue with Google</button>
+          </div>
+          <ul class="login-facts" style="position:relative">
+            <span class="pin" style="right:-6px;top:14px">3</span>
+            <li><svg class="i s t-brand" style="margin-top:2px"><use href="#i-shield-check"/></svg><span>You approve the plan before code starts</span></li>
+            <li><svg class="i s t-brand" style="margin-top:2px"><use href="#i-server"/></svg><span>Every project runs in its own sandbox</span></li>
+            <li><svg class="i s t-brand" style="margin-top:2px"><use href="#i-check"/></svg><span>Free to start, no credit card required</span></li>
+          </ul>
+        </section>
+        <footer class="login-foot">© 2026 Taksha CodeSpace Studio</footer>
+      </div></div>
+
+      <div class="frame"><div class="auth lp-grid-bg" style="height:560px">
+        <header class="login-bar">
+          <button type="button" class="login-btn-top"><svg class="i s"><use href="#i-chev-l"/></svg>Back to home</button>
+          <button type="button" class="login-btn-top" style="width:36px;padding:0;justify-content:center" aria-label="Switch to light mode"><svg class="i s"><use href="#i-sun"/></svg></button>
+        </header>
+        <section class="auth-card" style="gap:20px;border-radius:18px">
+          <div class="t-logo lg"><div class="mark">T</div><div class="word"><b>TAKSHA</b><span>CODESPACE</span></div></div>
+          <div>
+            <h3>Welcome to Taksha</h3>
+            <p style="margin-top:6px">Sign in to open your projects, or start your first one.</p>
+          </div>
+          <button type="button" class="login-google-btn" disabled aria-busy="true"><svg class="i s spin"><use href="#i-refresh"/></svg>Redirecting to Google...</button>
+          <ul class="login-facts">
+            <li><svg class="i s t-brand" style="margin-top:2px"><use href="#i-shield-check"/></svg><span>You approve the plan before code starts</span></li>
+            <li><svg class="i s t-brand" style="margin-top:2px"><use href="#i-server"/></svg><span>Every project runs in its own sandbox</span></li>
+            <li><svg class="i s t-brand" style="margin-top:2px"><use href="#i-check"/></svg><span>Free to start, no credit card required</span></li>
+          </ul>
+        </section>
+        <footer class="login-foot">© 2026 Taksha CodeSpace Studio</footer>
+      </div></div>
+    </div>
+    <ol class="notes">
+      <li><b>Top bar (<code>login__bar</code>)</b>: <code>Back to home</code> calls <code>onBackToHome</code> (<code>setCurrentRoute('landing')</code> in <code>App.jsx</code>); theme toggle updates <code>.light-theme</code> on <code>documentElement</code> and persists <code>localStorage.theme</code>.</li>
+      <li><b>Google OAuth button (<code>login__google</code>)</b>: sets <code>redirecting = true</code> and redirects to <code>/api/auth/google</code>; live code uses Google's four-colour SVG mark. A <code>pageshow</code> listener resets <code>redirecting</code> on browser back-forward cache restore.</li>
+      <li><b>Facts list (<code>login__facts</code>)</b>: static 3-item summary rendered below the single sign-in button; no password fields or OAuth error banner exist in <code>Login.jsx</code>.</li>
+    </ol>
+  </section>
+
+  <!-- CA-07 ──────────────────────────────────────────────────────────── -->
+  <section class="screen" id="ca07">
+    <div class="screen-cap"><span class="id">CA-07</span><h2>Session check and intro</h2><span class="where">Frontend/src/App.jsx (auth-loader) · Frontend/src/components/EntryLoader.jsx</span></div>
+    <div class="row-frames">
+      <div class="frame"><div class="auth loader-grid" style="height:300px">
+        <div style="position:relative;z-index:2;display:flex;flex-direction:column;align-items:center;gap:22px;text-align:center">
+          <div style="display:flex;flex-direction:column;align-items:center;gap:10px;position:relative">
+            <span class="pin" style="right:-32px;top:16px">2</span>
+            <div class="t-logo xl"><div class="mark">T</div><div class="word"><b>TAKSHA</b><span>CODESPACE</span></div></div>
+            <div style="width:170px;height:2px;background:linear-gradient(90deg, transparent, var(--brand-primary), var(--accent-primary), transparent)"></div>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <span class="pin" style="position:static">1</span>
+            <span class="dot ok"></span>
+            <span class="mono muted" style="font-size:10px;letter-spacing:0.08em">AUTHENTICATING SESSION…</span>
+          </div>
+        </div>
+      </div></div>
+
+      <div class="frame"><div class="auth" style="height:300px">
+        <div class="entry-bits" aria-hidden="true">
+          <span>0</span><span>1</span><span>0</span><span>1</span><span>1</span><span>0</span><span>1</span><span>0</span>
+          <span>1</span><span>0</span><span>1</span><span>0</span><span>0</span><span>1</span><span>0</span><span>1</span>
+          <span>0</span><span>1</span><span>1</span><span>0</span><span>1</span><span>0</span><span>1</span><span>1</span>
+        </div>
+        <div class="entry-top">
+          <div class="entry-badge"><span class="dot brand"></span><span>TAKSHA CODESPACE</span></div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <span class="pin" style="position:static">3</span>
+            <button type="button" class="entry-skip"><svg class="i s"><use href="#i-chev-r"/></svg>SKIP<span class="kbd-k">ESC</span></button>
+          </div>
+        </div>
+        <div style="position:relative;z-index:2;display:flex;flex-direction:column;align-items:center;gap:10px;text-align:center;margin-top:24px">
+          <div class="t-logo xl"><div class="mark">T</div><div class="word"><b>TAKSHA</b><span>CODESPACE</span></div></div>
+          <span class="muted" style="font-size:11.5px">Animated logo morph: Studio to TAKSHA (3.5 s)</span>
+        </div>
+      </div></div>
+    </div>
+    <ol class="notes">
+      <li><b>Session check (<code>auth-loader</code> in <code>App.jsx</code>)</b>: displayed while <code>state.auth.loading</code> is <code>true</code>. <code>useAuth().verifySession</code> calls <code>GET /api/auth/getMe</code> (and <code>POST /api/auth/refresh</code> on 401), then renders <code>LandingPage</code> or <code>Dashboard</code>.</li>
+      <li><b>Animated logo (<code>TakshaLogoAnimation.jsx</code>)</b>: strikes the chisel mark, reveals <code>Studio</code>, sweeps a scan beam to scramble letters into <code>TAKSHA</code>, and fades in <code>CODESPACE</code>. Snaps straight to settled state under <code>prefers-reduced-motion</code>.</li>
+      <li><b>Intro loader and skip (<code>EntryLoader.jsx</code>)</b>: reveals <code>SKIP ESC</code> after <code>300 ms</code>, skips on click or <code>Escape</code>/<code>Enter</code>, auto-exits by <code>4800 ms</code>, and sets <code>sessionStorage.taksha_session_loader_v1</code> so it plays once per session.</li>
+    </ol>
+  </section>
+
+  <!-- States ─────────────────────────────────────────────────────────── -->
+  <section class="screen" id="public-auth-states">
+    <div class="screen-cap"><span class="id">States</span><h2>Loading, empty, error and done</h2><span class="where">LazyFallback.jsx · LandingForge3D.jsx · auth.hooks.js · Login.jsx</span></div>
+    <div class="states">
+      <div class="state">
+        <span class="state-label">Loading (layout skeleton)</span>
+        <div class="frame" style="padding:18px;display:flex;flex-direction:column;gap:12px">
+          <div style="display:flex;align-items:center;gap:10px"><span class="sk c"></span><span class="sk" style="width:110px"></span></div>
+          <span class="sk h" style="width:68%"></span>
+          <span class="sk" style="width:90%"></span>
+          <span class="sk h" style="width:100%;height:38px"></span>
+          <span class="sk" style="width:78%"></span>
+          <span class="sk" style="width:64%"></span>
+        </div>
+      </div>
+      <div class="state">
+        <span class="state-label">PageSkeleton (actual)</span>
+        <div class="frame" style="display:grid;place-items:center;padding:20px">
+          <div style="display:flex;flex-direction:column;align-items:center;gap:12px;text-align:center">
+            <svg class="i l spin t-brand"><use href="#i-refresh"/></svg>
+            <span class="mono muted" style="font-size:11.5px">Taksha Codespace • Cloud IDE</span>
+          </div>
+        </div>
+      </div>
+      <div class="state">
+        <span class="state-label">Empty</span>
+        <div class="frame">
+          <div class="empty">
+            <div class="em-ic"><svg class="i"><use href="#i-user"/></svg></div>
+            <h4>No active session</h4>
+            <p>Sign in with Google to open your saved projects, or start a free workspace from the landing page.</p>
+            <button type="button" class="btn-solid btn-sm">Continue with Google</button>
+          </div>
+        </div>
+      </div>
+      <div class="state">
+        <span class="state-label">Error</span>
+        <div class="frame" style="padding:16px;display:flex;flex-direction:column;gap:10px">
+          <div class="notice err"><svg class="i s"><use href="#i-x-circle"/></svg><span><b>Auth service could not verify your session.</b> Check your connection or sign in with Google again.</span></div>
+          <div class="notice err"><svg class="i s"><use href="#i-alert"/></svg><span><b>Google sign in did not finish.</b> Return to Sign in and retry <code>Continue with Google</code>.</span></div>
+        </div>
+      </div>
+      <div class="state">
+        <span class="state-label">Done</span>
+        <div class="frame">
+          <div class="done-slice">
+            <aside class="done-side">
+              <div class="done-nav on"><svg class="i s"><use href="#i-terminal"/></svg>Playground</div>
+              <div class="done-nav"><svg class="i s"><use href="#i-plus"/></svg>New App</div>
+              <div class="done-nav"><svg class="i s"><use href="#i-clock"/></svg>Recents</div>
+              <div class="done-nav"><svg class="i s"><use href="#i-layers"/></svg>My Apps</div>
+            </aside>
+            <div class="done-main">
+              <div class="done-title"><svg class="i s t-brand" style="margin-top:2px"><use href="#i-sparkles"/></svg><span>Build your ideas with CodeSpace</span></div>
+              <div class="done-prompt">
+                <p>Describe an app and let CodeSpace do the rest...</p>
+                <div style="display:flex;justify-content:flex-end"><button type="button" class="btn-solid btn-sm" style="padding:2px 8px;font-size:10px">Create App</button></div>
+              </div>
+            </div>
+            <div class="done-toast-wrap">
+              <div class="toast"><svg class="i s t-ok"><use href="#i-check"/></svg>Signed in to Taksha</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <ol class="notes">
+      <li><b>Loading and PageSkeleton</b>: <code>App.jsx</code> mounts <code>PageSkeleton</code> (<code>"Taksha Codespace • Cloud IDE"</code> / <code>"Taksha Codespace • Authentication"</code>) as a spinner while lazy chunks load; the skeleton card shows the kit pattern matching <code>Login</code>.</li>
+      <li><b>Empty</b>: signed-out visitors with <code>No active session</code> (<code>auth.hooks.js</code>) route directly to <code>LandingPage</code> or <code>Login</code>; in <code>LandingForge3D.jsx</code>, missing WebGL falls back to <code>&lt;TakshaIcon size={200} /&gt;</code>.</li>
+      <li><b>Error</b>: <code>verifySession</code> writes failures to <code>state.auth.error</code> silently and <code>Login.jsx</code> shows no OAuth error banner today; the notices show the kit pattern naming the Auth service and recovery step.</li>
+      <li><b>Done</b>: successful Google OAuth sets cookies and redirects straight into <code>Dashboard</code> (sliced behind the toast); the toast illustrates the kit convention reusing the <code>Sign in</code> verb.</li>
+    </ol>
+  </section>
+</main>
+<script src="../../_shared/kit.js"></script>
+</body>
+</html>
