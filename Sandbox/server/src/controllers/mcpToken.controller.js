@@ -101,3 +101,24 @@ export const wakeSandboxController = async (req, res, next) => {
         next(err);
     }
 };
+
+/**
+ * GET /internal/sandboxes/:sandboxId/owner, for the router's owner-only check
+ * on the *.agent and *.preview hosts. 404 for unknown, trashed or deleted
+ * projects, so the router serves nothing for them.
+ */
+export const sandboxOwnerController = async (req, res, next) => {
+    try {
+        const { sandboxId } = req.params;
+        if (!SANDBOX_ID_PATTERN.test(sandboxId)) {
+            return res.status(400).json({ status: "error", message: "Invalid sandbox id" });
+        }
+        const project = await Project.findOne({ sandboxId }).lean();
+        if (!project || !isActiveProject(project)) {
+            return res.status(404).json({ status: "error", message: "No active project for this sandbox" });
+        }
+        res.status(200).json({ status: "success", ownerId: String(project.user) });
+    } catch (err) {
+        next(err);
+    }
+};

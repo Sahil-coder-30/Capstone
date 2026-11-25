@@ -49,6 +49,19 @@ spec:
                 name: internal-service
                 key: INTERNAL_SERVICE_TOKEN
                 optional: true
+          # Owner-only access to *.agent and *.preview, plus preview share links.
+          - name: AUTH_JWKS_URI
+            value: "http://auth-service/.well-known/jwks.json"
+          # Editor origins allowed to call /__taksha/session with credentials.
+          - name: CLIENT_URL
+            value: "http://localhost:5173"
+          # HMAC key for the sandbox session cookie, the new-tab ticket and
+          # preview share links. Without it the edge fails closed (503).
+          - name: SANDBOX_SESSION_SECRET
+            valueFrom:
+              secretKeyRef:
+                name: router-session
+                key: SANDBOX_SESSION_SECRET
           - name: REDIS_URI
             valueFrom:
               secretKeyRef:

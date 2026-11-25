@@ -57,7 +57,7 @@ Object.assign(Project, {
 });
 
 const service = await import("../src/services/mcpTokens.service.js");
-const { wakeSandboxController } = await import("../src/controllers/mcpToken.controller.js");
+const { wakeSandboxController, sandboxOwnerController } = await import("../src/controllers/mcpToken.controller.js");
 
 const project = { _id: new mongoose.Types.ObjectId(), user: "owner-1", sandboxId: "sbx-tok", status: "down", deletionStatus: "active" };
 projects.push(project);
@@ -136,6 +136,22 @@ test("wake: live sandboxes are left alone, unknown or trashed ones refused", asy
   project.status = "building";
   assert.equal((await call("sbx-tok")).statusCode, 202);
 
+  assert.equal((await call("sbx-unknown")).statusCode, 404);
+  assert.equal((await call("Bad@Id")).statusCode, 400);
+  project.deletionStatus = "trash";
+  assert.equal((await call("sbx-tok")).statusCode, 404);
+  project.deletionStatus = "active";
+});
+
+test("owner lookup for the router: owner of an active project, 404 for unknown or trashed, 400 for a bad id", async () => {
+  const call = async (sandboxId) => {
+    const res = { statusCode: 0, body: null, status(c) { this.statusCode = c; return this; }, json(d) { this.body = d; return this; } };
+    await sandboxOwnerController({ params: { sandboxId } }, res, (err) => { throw err; });
+    return res;
+  };
+  const ok = await call("sbx-tok");
+  assert.equal(ok.statusCode, 200);
+  assert.equal(ok.body.ownerId, String(project.user));
   assert.equal((await call("sbx-unknown")).statusCode, 404);
   assert.equal((await call("Bad@Id")).statusCode, 400);
   project.deletionStatus = "trash";

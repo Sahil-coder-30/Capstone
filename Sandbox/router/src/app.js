@@ -5,8 +5,19 @@ import { createProxyMiddleware } from 'http-proxy-middleware';
 import { redis, refreshTTL } from './config/redis.js';
 import { createMcpGateway } from './mcpGateway.js';
 import { createInternalMcpProxy } from './internalMcpProxy.js';
+import {
+    SESSION_PATH,
+    SHARE_PATH,
+    SHARE_MAX_TTL_SECONDS,
+    createAccessTokenVerifier,
+    createOwnerLookup,
+    createSandboxEdgeAuth,
+} from './sandboxEdgeAuth.js';
 
 const app = express();
+// Never log the single-use preview ticket (/__taksha/session?ticket=...) or a
+// share-link token (/__taksha/share?t=...): either one opens the sandbox.
+morgan.token('url', (req) => String(req.originalUrl || req.url).replace(/([?&](?:ticket|t)=)[^&]*/g, '$1***'));
 app.use(morgan('combined'));
 
 app.get("/api/router/health", (req, res) => {
@@ -31,6 +42,29 @@ app.all("/api/mcp/:sandboxId", createMcpGateway({ redis, refreshTTL }));
 // Refreshes the sandbox idle TTL on every agent tool call. Not in the ingress
 // paths; needs INTERNAL_SERVICE_TOKEN and refuses sandbox hosts.
 app.all("/internal/sandboxes/:sandboxId/mcp", createInternalMcpProxy({ refreshTTL }));
+
+// Owner-only access to *.agent and *.preview (see sandboxEdgeAuth.js). Every
+// request and WebSocket upgrade is checked before it is proxied or refreshes
+// the sandbox idle TTL.
+const edgeAuth = createSandboxEdgeAuth({
+    verifyAccessToken: createAccessTokenVerifier({
+        jwksUri: process.env.AUTH_JWKS_URI || 'http://auth-service/.well-known/jwks.json',
+    }),
+    ownerOf: createOwnerLookup({
+        sandboxApiUrl: process.env.SANDBOX_SERVICE_URL || 'http://sandbox-service',
+        internalToken: process.env.INTERNAL_SERVICE_TOKEN || '',
+    }),
+    secret: process.env.SANDBOX_SESSION_SECRET || '',
+    allowedOrigins: (process.env.CLIENT_URL || 'http://localhost:5173').split(',').map((o) => o.trim()).filter(Boolean),
+    claimTicket: async (jti) => (await redis.set(`sbx-ticket:${jti}`, '1', 'EX', 120, 'NX')) === 'OK',
+    // A revoked share link stays revoked for longer than any link can live.
+    shareRevoked: async (sid) => (await redis.exists(`sbx-share-rev:${sid}`)) === 1,
+    revokeShare: async (sid) => { await redis.set(`sbx-share-rev:${sid}`, '1', 'EX', SHARE_MAX_TTL_SECONDS + 3600); },
+});
+
+// Only the preview app's own Vite proxy (inside the pod, localhost:3000) may
+// post browser errors; the public agent host never serves this route.
+const POD_ONLY_AGENT_PATHS = new Set(['/api/agent/report-error']);
 
 // The sandbox id is taken from the Host header and becomes part of the proxy
 // target hostname. Restrict it to a single DNS label so values such as
@@ -137,8 +171,40 @@ app.use(async (req, res, next) => {
         return next();
     }
     const { sandboxId, targetHost } = parsed;
+    const proxyFor = targetHost === 'agent' ? getHttpAgentProxy : getHttpProxy;
 
-    await refreshTTL(sandboxId);
+    if (req.path === SESSION_PATH) {
+        return edgeAuth.sessionRoute(req, res, sandboxId);
+    }
+    // Share links open the preview app only; on the agent host this door does
+    // not exist.
+    if (req.path === SHARE_PATH) {
+        if (targetHost !== 'preview') {
+            return res.status(404).json({ status: 'error', message: 'Not found' });
+        }
+        return edgeAuth.shareRoute(req, res, sandboxId);
+    }
+    // CORS preflights carry no credentials; the sidecar answers them. They do
+    // not keep the sandbox alive.
+    if (req.method === 'OPTIONS') {
+        return proxyFor(sandboxId)(req, res, next);
+    }
+    if (targetHost === 'agent' && POD_ONLY_AGENT_PATHS.has(req.path)) {
+        return res.status(404).json({ status: 'error', message: 'Not found' });
+    }
+
+    let auth;
+    try {
+        auth = await edgeAuth.authenticate(req, sandboxId, { allowShare: targetHost === 'preview' });
+    } catch (err) {
+        return edgeAuth.deny(res, err);
+    }
+
+    // A share-link viewer must not be able to hold somebody's sandbox open:
+    // only the owner's own traffic refreshes the idle TTL.
+    if (auth.via !== 'share') {
+        await refreshTTL(sandboxId);
+    }
 
     if (targetHost === 'agent') {
         return getHttpAgentProxy(sandboxId)(req, res, next);
@@ -169,7 +235,17 @@ server.on('upgrade', async (req, socket, head) => {
         return;
     }
     const { sandboxId, targetHost } = parsed;
-    await refreshTTL(sandboxId);
+    let auth;
+    try {
+        // The preview app's HMR socket also runs for a share-link viewer.
+        auth = await edgeAuth.authenticate(req, sandboxId, { allowShare: targetHost === 'preview' });
+    } catch (err) {
+        console.log(`[Router Upgrade] Denied ${sandboxId}: ${err.status || 503} ${err.message}`);
+        return edgeAuth.denyUpgrade(socket, err);
+    }
+    if (auth.via !== 'share') {
+        await refreshTTL(sandboxId);
+    }
     console.log(`[Router Upgrade] sandboxId: ${sandboxId}, targetHost: ${targetHost}`);
 
     let proxy;
