@@ -13,7 +13,7 @@ Read in this order. Each file ends with a "Revise in 60 seconds" list for quick 
 | 2 | [01-sandbox/02-sidecar-auth-and-mcp.md](01-sandbox/02-sidecar-auth-and-mcp.md) | Owner auth in the sidecar, sandbox tokens, the 9-tool MCP server and client | Nov 5–16 |
 | 3 | [01-sandbox/03-router-and-edge-access.md](01-sandbox/03-router-and-edge-access.md) | Router as the single door: external agents, internal MCP path, owner-only edge, share links | Oct 30–Nov 25 |
 | 4 | [02-auth/01-login-and-tokens.md](02-auth/01-login-and-tokens.md) | Google login, RS256 + JWKS, refresh rotation, logout, service tokens | Jun 29, Nov |
-| 5 | [03-ai/01-orion-agent.md](03-ai/01-orion-agent.md) | LangGraph graph, own tool loop, plan review, SSE streaming, models, tests | Oct 30, Nov 3 |
+| 5 | [03-ai/01-orion-agent.md](03-ai/01-orion-agent.md) | LangGraph graph, own tool loop, plan review, SSE streaming, models, tests, fail-closed security gates | Oct 30, Nov 3, Nov 26 |
 | 6 | [03-ai/02-chat-sessions-and-memory.md](03-ai/02-chat-sessions-and-memory.md) | Chat sessions, context window, background memory agent | Nov 12 |
 | 7 | [04-payments/01-billing-model.md](04-payments/01-billing-model.md) | Postgres, Razorpay checkout, subscription slots, 5-hour credit window | Jul 24, Nov 3 |
 | 8 | [04-payments/02-money-safety-tests.md](04-payments/02-money-safety-tests.md) | 58 adversarial tests and the 14 money bugs they found | Nov 9 |

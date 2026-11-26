@@ -13,7 +13,7 @@
  */
 
 import axios from "axios";
-import { InsufficientCreditsError, UnauthorizedError, logger } from "faultkit";
+import { InsufficientCreditsError, ServiceUnavailableError, UnauthorizedError, logger } from "faultkit";
 
 import { PAYMENTS_SERVICE_URL } from "../services/credit.service.js";
 
@@ -55,21 +55,16 @@ export const creditLedger = async (req, res, next) => {
         );
       }
 
-      // If Payments service is temporarily down, log warning and fail-open with fallback flag
-      logger.warn(
-        { err: apiErr, userId },
-        `[creditLedger] Payments service unreachable (${apiErr.message}). Failing open with fallback credit allowance.`
+      // Fail closed: without a balance from Payments we must not start a paid model run.
+      logger.warn({ err: apiErr, userId }, `[creditLedger] Payments credit check failed: ${apiErr.message}`);
+      throw new ServiceUnavailableError(
+        "Could not check your AI credits right now. Please try again in a moment.",
+        { code: "CREDIT_CHECK_UNAVAILABLE" },
       );
-
-      creditData = {
-        canQuery: true,
-        hasCredit: true,
-        fallback: true,
-        subscription,
-      };
     }
 
-    const hasCredit = creditData.canQuery ?? creditData.hasCredit ?? true;
+    // Only an explicit yes from Payments lets a run start.
+    const hasCredit = (creditData?.canQuery ?? creditData?.hasCredit) === true;
 
     if (!hasCredit) {
       throw new InsufficientCreditsError(
@@ -91,7 +86,6 @@ export const creditLedger = async (req, res, next) => {
       windowCreditsTotal: creditData.windowCreditsTotal,
       subscription: creditData.subscription || subscription,
       timeUntilRefillMs: creditData.timeUntilRefillMs,
-      fallback: Boolean(creditData.fallback),
     };
 
     next();

@@ -73,7 +73,7 @@ Both frontends proxy `/api` to `http://localhost` (the ingress) in dev. `Fronten
 |---|---|---|
 | Auth | `Auth/certs/public.pem` | yes |
 | Payments | JWKS, keyed by `kid`, cached 24h | yes |
-| AI | JWKS, plus HS256 `JWT_ACCESS_SECRET` fallback for local tests | no |
+| AI | JWKS only (HS256 fallback removed 2026-11-26) | yes |
 | Sandbox server | JWKS | no |
 | Sandbox sidecar | JWKS (`AUTH_JWKS_URI`); owner only: `sub == OWNER_USER_ID`; also accepts a sandbox token (`aud: taksha-sandbox`, `sbx == SANDBOX_ID`) | no |
 
@@ -103,9 +103,9 @@ Both frontends proxy `/api` to `http://localhost` (the ingress) in dev. `Fronten
 
 | Middleware | On failure |
 |---|---|
-| `requireOwnedSandbox` (asks Sandbox `/api/sandbox/projects` with the caller's token, 60s cache) | fails closed (503 / 403); 409 when the sandbox is not `live` (checked again without the cache first) |
-| `aiRateLimiter` (Redis Lua token bucket) | fails open |
-| `creditLedger` (asks Payments `/api/payments/credit/check`) | fails open, except a real 402 |
+| `requireOwnedSandbox` (asks Sandbox `/api/sandbox/projects` with the caller's token, 60s cache) | fails closed (503 / 403, 400 when neither `projectId` nor `sandboxId` is sent); 409 when the sandbox is not `live` (checked again without the cache first) |
+| `aiRateLimiter` (Redis Lua token bucket) | fails closed (503 `RATE_LIMIT_UNAVAILABLE`) |
+| `creditLedger` (asks Payments `/api/payments/credit/check`) | fails closed (503 `CREDIT_CHECK_UNAVAILABLE`); 402 unless Payments says `canQuery: true` |
 
 - Agent code lives in `src/agent/` (`llm/`, `tools/`, `core/`, `nodes/`, `graph/`). The rest of the service imports only `src/agent/index.js`.
 - Orion graph (`graph/orion.graph.js`): router, general, planner, critic, plan_review (`interrupt()` pause), coder, tester, reviewer, debugger, finalizer. Clio (`graph/clio.graph.js`) is a one-node copilot graph without a checkpointer.

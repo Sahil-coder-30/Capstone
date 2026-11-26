@@ -102,20 +102,6 @@ export const decodeAndVerifyToken = async (token) => {
       throw err;
     }
 
-    // Fallback to shared secret if configured (e.g. during local tests)
-    if (process.env.JWT_ACCESS_SECRET) {
-      try {
-        const decoded = jwt.verify(token, process.env.JWT_ACCESS_SECRET);
-        const userId = decoded.sub || decoded.id;
-        return {
-          ...decoded,
-          id: userId,
-          role: decoded.role || "user",
-          subscription: decoded.subscription || "free",
-        };
-      } catch (_) {}
-    }
-
     if (err.name === "TokenExpiredError") {
       throw new TokenExpiredError("Unauthorized: Access token expired. Please refresh.");
     }

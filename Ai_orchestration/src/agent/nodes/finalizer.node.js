@@ -29,7 +29,9 @@ export const computeOutcome = (state) => {
   const steps = state.plan?.steps || [];
   const done = steps.filter((s) => s.status === "done").length;
   if (state.planError || done === 0 || state.filesTouched.length === 0) return "failed";
-  const verified = state.testResults?.pass === true && state.review?.pass !== false;
+  // A skipped review is never approval on its own: it counts only when a real build or test passed.
+  const reviewOk = state.review?.skipped ? state.testResults?.stage !== "skipped" : state.review?.pass !== false;
+  const verified = state.testResults?.pass === true && reviewOk;
   return done === steps.length && verified && !state.escalated ? "complete" : "partial";
 };
 

@@ -11,6 +11,19 @@ Recommended order: P0-1 → P0-2 → P0-3 → P0-4 → P1s → P2s → Docs.
 
 ## P0: Security
 
+**Status 2026-11-26: all P0 items closed.** Tests: `tests/securityGates.test.js` (fail on the old code, pass now) and `tests/chatSessions.test.js`.
+
+| Item | Status |
+|---|---|
+| P0-1 | Already fixed before this pass: no `fs` read left in `src`; Clio uses `activeFileContent` and sandbox MCP tools. |
+| P0-2 | Controller already required both ids. Now `requireOwnedSandbox` also returns 400 when neither `projectId` nor `sandboxId` is sent. |
+| P0-3 | Already fixed: `restoreMessage` / `deleteMessageForever` in `chatSession.service.js` filter by `userId` and 404 otherwise. |
+| P0-4 | Already fixed differently: rows without `userId` are claimed only after Sandbox confirms ownership (`migrateLegacyMessages`); every query filters by `userId`. |
+| P0-5 | Fixed: HS256 `JWT_ACCESS_SECRET` fallback deleted. |
+| P0-6 | Fixed: credit check returns 503 `CREDIT_CHECK_UNAVAILABLE` when Payments fails and 402 unless `canQuery === true`; rate limiter returns 503 `RATE_LIMIT_UNAVAILABLE` on Redis error (fail closed instead of an in-process bucket, since the auth blacklist check already needs Redis); a skipped review with a skipped build gives outcome `partial`, never `complete`. |
+
+The notes below are the original report, kept for history.
+
 ### P0-1. Clio can read any file inside the AI pod ✅
 - **Where:** `src/controllers/ai.controller.js` lines ~111-123 (`appAgentInvoke`).
 - **What happens:** `workspacePath` and `activeFile` come from the request body. The code resolves the path and checks only that it starts with the caller's own `workspacePath`. Sending `workspacePath: "/"` and `activeFile: "proc/self/environ"` reads the AI pod's environment (Mistral key, Mongo URI, Redis URI). The contents are sent to the LLM and stored in chat history.

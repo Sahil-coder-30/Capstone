@@ -1,5 +1,5 @@
 import axios from "axios";
-import { ConflictError, ForbiddenError, ServiceUnavailableError } from "faultkit";
+import { ConflictError, ForbiddenError, ServiceUnavailableError, ValidationError } from "faultkit";
 
 // The Sandbox service owns the Project → sandboxId mapping, so ownership is
 // checked there with the caller's own token: it only ever returns the
@@ -62,6 +62,8 @@ export async function resolveOwnedSandbox({ authToken, userId, projectId, sandbo
 export const requireOwnedSandbox = async (req, _res, next) => {
   try {
     const { projectId, sandboxId } = req.body || {};
+    // Fail closed: a run with no named sandbox must never fall back to another id.
+    if (!projectId && !sandboxId) throw new ValidationError("projectId or sandboxId is required");
     const ask = { authToken: req.authToken, userId: req.user?.id || req.user?.sub, projectId, sandboxId };
     let owned = await resolveOwnedSandbox(ask);
     // The cached list may predate a sandbox start, so check again before refusing.

@@ -2,7 +2,7 @@
  * Rate Limiter Middleware — AI Orchestration Service
  *
  * Implements an atomic Redis Token Bucket algorithm supporting continuous refill,
- * tier-based capacities, and a graceful fail-open resilience strategy.
+ * tier-based capacities. Fails closed (503) when Redis cannot answer.
  *
  * End-to-end FaultKit integration:
  * Throws RateLimitError (HTTP 429) and logs via FaultKit structured logger.
@@ -14,7 +14,7 @@
  */
 
 import redis from "../config/redis.js";
-import { RateLimitError, logger } from "faultkit";
+import { RateLimitError, ServiceUnavailableError, logger } from "faultkit";
 
 const TOKEN_BUCKET_LUA = `
 local key = KEYS[1]
@@ -118,9 +118,9 @@ export const aiRateLimiter = async (req, res, next) => {
 
     next();
   } catch (err) {
-    // Fail-Open Policy: If Redis connectivity degrades, log warning and let request proceed
-    logger.warn({ err }, `[aiRateLimiter] Redis rate limiter check failed, failing open: ${err.message}`);
-    next();
+    // Fail closed: with no limit check, one client could flood the paid model.
+    logger.warn({ err }, `[aiRateLimiter] Redis rate limiter check failed: ${err.message}`);
+    next(new ServiceUnavailableError("Rate limit check is unavailable. Please try again in a moment.", { code: "RATE_LIMIT_UNAVAILABLE" }));
   }
 };
 

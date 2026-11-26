@@ -49,7 +49,7 @@ A user signs in with Google, creates a project, and presses Start. Taksha create
 |---|---|
 | **Router is the only door into a sandbox pod** | AI tool calls (`7ea4116`), external agents (`04131db`), edge auth (`d7d12e0`), NetworkPolicy only allows the router in |
 | **User id only from the verified token** | Payments rejects a body `userId`; AI chat queries start with `userId` |
-| **Fail closed on security, fail open on availability-only checks** | Ownership check fails closed; rate limiter and credit check fail open (except a real 402) |
+| **Fail closed when a failure could cost security or money** | Ownership, rate limiter and credit check all fail closed (rate limiter and credit check failed open until commit "fix(ai): close the P0 security gates", 2026-11-26). Payments still records usage when the blacklist read fails, so usage is not lost |
 | **Each service owns its data** | Every service has its own database; others go through its API (for example the AI service asks Sandbox for ownership, Payments for credits) |
 | **Idempotency on anything with money** | Payment id is a primary key; `usage_events` unique on `(user_id, request_id)` |
 | **Defence in depth** | Sidecar checks the token even though the router already did |
@@ -69,6 +69,7 @@ A user signs in with Google, creates a project, and presses Start. Taksha create
 | 12 Nov | Chat sessions, memory agent, platform-paid usage |
 | 13 to 17 Nov | MCP-only tools, call logging, secret masking, 409 on stopped sandbox |
 | 25 Nov | AI tool calls through the router; owner-only edge auth + share links |
+| 26 Nov | AI security gates fail closed: credit check, rate limiter, ownership with no ids; HS256 fallback removed (commit "fix(ai): close the P0 security gates") |
 
 ## 5. Known limits of the whole system (be honest in interviews)
 
@@ -93,7 +94,7 @@ A: One door means one place for auth, for the idle TTL refresh and for rate limi
 A: The AI service is single replica because run state and LangGraph checkpoints are in memory. With two replicas a plan-review resume could land on the wrong pod. The fix is a durable checkpointer in Mongo, a Redis lease per run so one replica owns it, and Redis streams so any replica can serve the SSE stream. It is planned as Foundation F1.
 
 **Q5. How do you decide fail open vs fail closed?**
-A: If a failure could let someone do something they should not (ownership, auth, edge access, logout blacklist writes), it fails closed. If the check only protects capacity and a short outage would block every paying user (rate limiter, credit pre-check), it fails open, and the real charge still happens after the run with idempotency.
+A: If a failure could let someone do something they should not (ownership, auth, edge access, logout blacklist writes), it fails closed. I first let the AI rate limiter and credit pre-check fail open, so an outage would not block users. That leaked: a wrong Payments URL made every run free and nobody noticed. Since 2026-11-26 both fail closed with a clear 503, because each AI run spends paid model tokens that cannot be taken back. Fail open stays only where failing closed loses data, like recording usage after a run.
 
 ## 7. Revise in 60 seconds
 

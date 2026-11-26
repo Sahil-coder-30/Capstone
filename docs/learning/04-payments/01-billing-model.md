@@ -70,7 +70,7 @@ A: Settling a payment writes the payment, invoice, transaction, subscription slo
 A: Both call the same function inside a transaction that locks the account row and inserts into `payments` with the Razorpay payment id as primary key. The second insert conflicts and does nothing. Tests fire verify and webhook together, and 10 parallel verifies, and check exactly 30 days.
 
 **Q3. Design a usage-based credit system.**
-A: Record each request as a usage event with a unique `(user_id, request_id)`, deduct in the same transaction with a floor at zero, refill lazily by comparing `now` with the stored refill time on read. Check before the request (cheap, can fail open) and charge after with the idempotency key.
+A: Record each request as a usage event with a unique `(user_id, request_id)`, deduct in the same transaction with a floor at zero, refill lazily by comparing `now` with the stored refill time on read. Check before the request and charge after with the idempotency key. The pre-check must fail closed: when I let it fail open, a wrong URL made every AI run free (fixed in commit "fix(ai): close the P0 security gates").
 
 **Q4. A user on Pro with 15 days left buys Max. What happens?**
 A: Max becomes active for 30 days. Pro goes to the queue with 15 days stored as `remaining_ms`. When Max ends, Pro is promoted with its 15 days, lazily on the next read or by the nightly sweep.

@@ -65,7 +65,7 @@ Known limits:
 ## 4. Interview questions
 
 **Q1. Why RS256 over HS256 in microservices?**
-A: Asymmetric keys separate who can sign from who can verify. Only Auth holds the private key; every other service gets the public key from JWKS. If Payments is compromised, the attacker can read tokens but cannot mint them. With HS256 every verifier is also a signer.
+A: Asymmetric keys separate who can sign from who can verify. Only Auth holds the private key; every other service gets the public key from JWKS. If Payments is compromised, the attacker can read tokens but cannot mint them. With HS256 every verifier is also a signer. The AI service kept an HS256 "test only" fallback until 2026-11-26 with no algorithm, issuer or audience check; one env var would have let forged tokens in, so it was deleted (commit "fix(ai): close the P0 security gates").
 
 **Q2. JWTs are stateless. How do you log someone out?**
 A: Two parts. The refresh token family is deleted in Mongo, so no new access tokens. The current access token goes on a Redis blacklist with a TTL equal to its remaining life, so the list never grows. Services that check the blacklist reject it at once; others accept it for at most 15 minutes, which is the trade-off of short-lived JWTs.
