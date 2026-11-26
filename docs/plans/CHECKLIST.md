@@ -14,6 +14,7 @@ Written 2026-11-24 from `docs/plans/` and checked against the code that day. Upd
 | 0.5 Foundations F3, F2, F1 | [platform-foundations-plan.md](platform-foundations-plan.md) | Not started |
 | 1. Tool call analytics | [taksha-tool-call-analytics-plan.md](taksha-tool-call-analytics-plan.md) | Not started |
 | 2. Agent tools P0 to P2 | [taksha-agent-tools-build-plan.md](taksha-agent-tools-build-plan.md) | Not started |
+| 2.5 Universal sandbox runtime R0 to R3 (proposed slot: right after agent tools P1; R4, R5 with agent tools P3) | [universal-sandbox-runtime-plan.md](universal-sandbox-runtime-plan.md) | Not started. Plan written 2026-11-26, order not confirmed yet |
 | 3. Admin platform P0 to P4, with the admin app Phase 1 (web + PWA, W0 to W3) | [admin-platform-hld.md](admin-platform-hld.md), `Admin/PLAN.md`, [admin-native-app-plan.md](admin-native-app-plan.md) | Not started. Client: web + PWA first, Tauri v2 second (decision 2026-11-25) |
 | 4. Kafka K0 to K4 | [kafka-whatsapp-architecture.md](kafka-whatsapp-architecture.md) | K0 lessons 1 and 2 taught |
 | 5. The rest: agent tools P3 to P5, admin P5 to P8, Kafka K5 to K8, GitHub source control G0 to G7 | same plans, [github-source-control-plan.md](github-source-control-plan.md) | Not started (G6d keep-alive part built in `3f800a6`) |

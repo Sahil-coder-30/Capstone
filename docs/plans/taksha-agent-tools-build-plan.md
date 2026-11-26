@@ -269,6 +269,8 @@ Phase 2 makes edits safe and cheap: small reads, many edits in one call, a diff 
 
 ## 10. Phase 3: Run and see (weeks 6 to 8)
 
+> **2026-11-26:** [universal-sandbox-runtime-plan.md](universal-sandbox-runtime-plan.md) changes this phase: the dev server is any framework run by `taksha-run`, so `restart_dev_server` writes `/sandbox-run/control.json` instead of touching `vite.config.js`, logs move to `/sandbox-run/dev.log`, and Chromium opens the preview gateway `http://localhost:39080` instead of `:5173`. The P1 telemetry script is injected by the gateway, not by a Vite plugin. Read that plan before building P1 or P3.
+
 Phase 3 lets the agent run long commands and look at the app itself, with no user tab open.
 
 **Run:**

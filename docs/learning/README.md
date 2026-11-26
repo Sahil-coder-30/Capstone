@@ -22,6 +22,15 @@ Read in this order. Each file ends with a "Revise in 60 seconds" list for quick 
 
 Short on time? Read 0, 3, 4, 5 and 8. They carry the questions interviewers ask most: system design, auth, agents, and money correctness.
 
+## Fundamentals track (8 weeks)
+
+Not about one feature: the Node, OS, database and network fundamentals under all of Taksha, each tied to real Taksha code. 45 minutes a day, taught from the **Node Deep Dive** slide deck (https://claude.ai/artifact/75UtA614z479Vv2Xhf1nBv).
+
+| File | What |
+|---|---|
+| [06-fundamentals/00-roadmap.md](06-fundamentals/00-roadmap.md) | The 8 weeks, the daily routine, the no-AI rule, the DSA list, Week 8 project |
+| [06-fundamentals/CHECKLIST.md](06-fundamentals/CHECKLIST.md) | Each day's topics in study order, then the exercises; ticked after each session |
+
 ## Adding a note when a feature ships
 
 1. Find the area folder. **Add to an existing file** if the feature extends something already covered (a new section, new rows in the decision table, new questions). Create a new file only for a new area, numbered in reading order.
